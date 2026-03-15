@@ -1,0 +1,39 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.python-version
+*.egg-info/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Experiment outputs (generated at runtime, never commit) ───────────────────
+results/*
+!results/.gitkeep
+logs/*
+!logs/.gitkeep
+graphs/*
+!graphs/.gitkeep
+
+# swebench per-run prediction files (written next to workspace root)
+preds_*/
+preds_*.json
+Qwen2.5-Coder-7B-Instruct.*.json
+gold.validate-*.json
+
+# ── Editor / OS ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ── Claude Code local settings ────────────────────────────────────────────────
+.claude/
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.log
