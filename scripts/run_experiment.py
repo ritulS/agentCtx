@@ -36,7 +36,7 @@ from pathlib import Path
 
 WORKSPACE_ROOT = Path(__file__).parent.parent
 MINI_SWE_AGENT = WORKSPACE_ROOT / "mini-swe-agent"
-AGENT_CONFIG    = MINI_SWE_AGENT / "config-qwen-vllm.yaml"
+AGENT_CONFIG    = WORKSPACE_ROOT / "config-qwen-vllm.yaml"
 TASKS_FILE      = WORKSPACE_ROOT / "selected_tasks.json"
 RESULTS_DIR     = WORKSPACE_ROOT / "results"
 
@@ -131,6 +131,10 @@ def run_agent(instance_id: str, primitive: str, budget: int, run_num: int) -> di
     env["MSWEA_TOKEN_BUDGET"]   = "999999" if budget == 0 else str(budget)
     env["MSWEA_TOKEN_LOG_PATH"] = str(token_log_file)
     env["DOCKER_HOST"]          = DOCKER_HOST
+    # memory.py lives in the repo root; add it to PYTHONPATH so default.py can
+    # do `import memory` regardless of the cwd the subprocess starts in.
+    existing_pypath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(WORKSPACE_ROOT) + (":" + existing_pypath if existing_pypath else "")
 
     cmd = [
         "python", "-m", "minisweagent.run.benchmarks.swebench_single",
