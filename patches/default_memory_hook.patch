@@ -1,0 +1,104 @@
+diff --git a/src/minisweagent/agents/default.py b/src/minisweagent/agents/default.py
+index da54249a..5bbd1660 100644
+--- a/src/minisweagent/agents/default.py
++++ b/src/minisweagent/agents/default.py
+@@ -4,6 +4,8 @@ or https://minimal-agent.com for a tutorial on the basic building principles.
+ 
+ import json
+ import logging
++import os
++import time
+ import traceback
+ from pathlib import Path
+ 
+@@ -42,6 +44,15 @@ class DefaultAgent:
+         self.cost = 0.0
+         self.n_calls = 0
+ 
++        # ── Memory primitive accumulators (written to MSWEA_TOKEN_LOG_PATH) ──
++        self._mem_prompt_tokens      = 0
++        self._mem_completion_tokens  = 0
++        self._mem_total_latency      = 0.0
++        self._mem_call_latencies: list[float] = []
++        self._mem_compression_events = 0
++        self._mem_tokens_saved       = 0
++        self._mem_compression_ratios: list[float] = []
++
+     def get_template_vars(self, **kwargs) -> dict:
+         return recursive_merge(
+             self.config.model_dump(),
+@@ -101,7 +112,21 @@ class DefaultAgent:
+         return self.execute_actions(self.query())
+ 
+     def query(self) -> dict:
+-        """Query the model and return model messages. Override to add hooks."""
++        """Query the model and return model messages.
++
++        Memory primitive hook
++        ---------------------
++        Reads two environment variables before every LLM call:
++          MSWEA_PRIMITIVE    : "truncation" | "summarization"
++          MSWEA_TOKEN_BUDGET : int  — fires when estimated prompt tokens exceed this
++
++        When the budget is hit, the chosen primitive compresses self.messages down
++        to budget * 0.5 tokens (compression ratio r = 0.5), keeping the system
++        prompt and first user message (task statement) protected.
++
++        Token usage and compression stats are accumulated on self._mem_* and written
++        to MSWEA_TOKEN_LOG_PATH (if set) after every call.
++        """
+         if 0 < self.config.step_limit <= self.n_calls or 0 < self.config.cost_limit <= self.cost:
+             raise LimitsExceeded(
+                 {
+@@ -110,10 +135,50 @@ class DefaultAgent:
+                     "extra": {"exit_status": "LimitsExceeded", "submission": ""},
+                 }
+             )
++
++        # ── Memory primitive hook ────────────────────────────────────────────
++        _primitive = os.environ.get("MSWEA_PRIMITIVE", "")
++        _budget    = int(os.environ.get("MSWEA_TOKEN_BUDGET", "0") or "0")
++        if _primitive and _budget > 0:
++            import memory as _mem   # agentCtx root must be on PYTHONPATH
++            _current = _mem.count_tokens(self.messages)
++            if _current > _budget:
++                _target = max(1, int(_budget * _mem.COMPRESSION_RATIO))
++                if _primitive == "summarization":
++                    self.messages, _saved, _pt, _ct = _mem.summarize(
++                        self.messages, self.model, _target
++                    )
++                    self._mem_prompt_tokens     += _pt
++                    self._mem_completion_tokens += _ct
++                else:  # truncation (default)
++                    self.messages, _saved = _mem.truncate(self.messages, _target)
++                self._mem_compression_events += 1
++                self._mem_tokens_saved       += _saved
++                _after = _mem.count_tokens(self.messages)
++                if _current > 0:
++                    self._mem_compression_ratios.append(_after / _current)
++        # ────────────────────────────────────────────────────────────────────
++
+         self.n_calls += 1
+-        message = self.model.query(self.messages)
++        _t0      = time.time()
++        message  = self.model.query(self.messages)
++        _latency = time.time() - _t0
++
+         self.cost += message.get("extra", {}).get("cost", 0.0)
+         self.add_messages(message)
++
++        # ── Accumulate token usage and write log ─────────────────────────────
++        _extra = message.get("extra", {})
++        _resp  = _extra.get("response", {})
++        _usage = _resp.get("usage", {}) if isinstance(_resp, dict) else {}
++        self._mem_prompt_tokens     += _usage.get("prompt_tokens", 0) or 0
++        self._mem_completion_tokens += _usage.get("completion_tokens", 0) or 0
++        self._mem_total_latency     += _latency
++        self._mem_call_latencies.append(_latency)
++        if _primitive and _budget > 0:
++            _mem.write_token_log(self)
++        # ────────────────────────────────────────────────────────────────────
++
+         return message
+ 
+     def execute_actions(self, message: dict) -> list[dict]:
