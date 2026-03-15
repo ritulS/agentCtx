@@ -172,8 +172,129 @@ python -m swebench.harness.run_evaluation \
 
 | Path | Description |
 |---|---|
-| `results/experiment_results.json` | All run records (budget_pct, patch_generated, resolved, n_calls, …) |
-| `results/experiment_results.csv`  | Same as CSV |
-| `logs/<run_key>/token_log.json`   | Per-run token accounting from memory hook |
+| `results/experiment_results.json` | Primary results file — one record per agent run (see schema below) |
+| `results/experiment_results.csv`  | Same records as CSV |
+| `results/<iid>/<primitive>/<pct>/run_<n>/trajectory.json` | Full mini-swe-agent trajectory |
+| `results/<iid>/<primitive>/<pct>/run_<n>/token_log.json`  | Per-run token accounting (see schema below) |
+| `results/<iid>/<primitive>/<pct>/run_<n>/agent.log`       | Raw stdout/stderr from the agent subprocess |
 | `figures/e1/fig1_metric_divergence.png` | Figure 1: dual-axis resolve rate + WAF vs budget |
 | `figures/e1/fig2_success_vs_calls.png`  | Figure 2: per-task success/calls scatter at 100% and 40% |
+
+---
+
+## Log schemas and metrics
+
+### Run record (`results/experiment_results.json`)
+
+The results file is a JSON array — one object per agent run.  Fields are grouped
+below by concern.
+
+**Identity**
+
+| Field | Type | Description |
+|---|---|---|
+| `key` | string | Unique run ID, e.g. `pallets__flask-4045__truncation__p040__r2` |
+| `instance_id` | string | SWE-bench Lite instance, e.g. `pallets__flask-4045` |
+| `primitive` | string | Memory primitive used: `truncation` or `summarization` |
+| `budget_pct` | float | Budget as a fraction of the task's full-context token count (primary budget field). `1.0` = unconstrained baseline |
+| `budget_abs` | int | Absolute token threshold passed to the agent. Equal to `mean_baseline_tokens × budget_pct`. Sentinel value `999999` for baseline runs |
+| `is_baseline` | bool | `true` when `budget_pct == 1.00` |
+| `run_num` | int | Repetition index, 1–3 |
+| `timestamp` | string | ISO-8601 datetime when the run completed |
+
+**Process**
+
+| Field | Type | Description |
+|---|---|---|
+| `returncode` | int | Subprocess exit code. `0` = clean exit, `-1` = timeout killed |
+| `e2e_latency_s` | float | Wall-clock seconds from subprocess launch to completion |
+
+**Agent metrics** *(parsed from `trajectory.json → info`)*
+
+| Field | Type | Description |
+|---|---|---|
+| `n_calls` | int | Total LLM API calls the agent made |
+| `exit_status` | string | mini-swe-agent exit reason, e.g. `submit`, `step_limit` |
+| `patch_generated` | bool | `true` if the agent produced a non-empty diff |
+| `submission` | string | Raw unified diff string (empty if no patch) |
+
+**Evaluation** *(populated by Phase 3 — SWE-bench harness)*
+
+| Field | Type | Description |
+|---|---|---|
+| `resolved` | bool \| null | `true` = tests pass, `false` = tests fail, `null` = not yet evaluated |
+
+**Token accounting** *(merged from `token_log.json`, written by `memory.py`)*
+
+| Field | Type | Description |
+|---|---|---|
+| `total_prompt_tokens` | int | Sum of prompt tokens across every agent LLM call. For summarization runs this includes tokens used by the summarization call itself |
+| `total_completion_tokens` | int | Sum of completion tokens across every agent LLM call |
+| `total_tokens` | int | `total_prompt_tokens + total_completion_tokens` |
+| `llm_latency_s` | float | Total wall-clock seconds spent waiting for LLM responses |
+| `mean_latency_s` | float | `llm_latency_s / n_calls` |
+
+**Compression metrics** *(zero for baseline runs)*
+
+| Field | Type | Description |
+|---|---|---|
+| `compression_events` | int | Number of times the primitive fired (budget threshold crossed) |
+| `total_tokens_saved` | int | Estimated tokens removed across all compression events, sum of `(tokens_before − tokens_after)` per event |
+| `mean_compression_ratio` | float | Mean of `tokens_after / tokens_before` per event. Values below 1.0 mean the context shrank; `1.0` if no compression occurred |
+
+**Derived metrics used in analysis**
+
+| Metric | How it is computed |
+|---|---|
+| Resolve Rate (RR) | `mean(resolved == True)` over all runs in a `(primitive, budget_pct)` cell |
+| WAF (Work Amplification Factor) | `mean_calls(budget_pct) / mean_calls(budget_pct=1.0)` — computed per task, then averaged. WAF > 1 means the agent needed more steps under compression |
+| CIR onset | The lowest `budget_pct` at which RR drops more than 5% below the baseline RR for any primitive |
+
+---
+
+### Token log (`token_log.json`)
+
+Sits alongside `trajectory.json` and `agent.log` inside each run directory.
+Written and overwritten after every agent step by `memory.write_token_log(agent)`,
+so the on-disk file always reflects the complete run when the agent exits.
+
+| Field | Description |
+|---|---|
+| `total_prompt_tokens` | Cumulative prompt tokens (all agent LLM calls, including any summarization calls) |
+| `total_completion_tokens` | Cumulative completion tokens |
+| `total_tokens` | Sum of the two above |
+| `total_latency_s` | Wall-clock seconds waiting for LLM responses |
+| `mean_latency_s` | `total_latency_s / number_of_calls` |
+| `compression_events` | Times the memory primitive fired |
+| `total_tokens_saved` | Cumulative tokens removed by compression |
+| `mean_compression_ratio` | Mean `tokens_after / tokens_before` per compression event; `1.0` if none |
+
+---
+
+### Trajectory (`trajectory.json`)
+
+Standard mini-swe-agent output file.  The harness reads only three fields:
+
+| Path in JSON | Maps to |
+|---|---|
+| `info.model_stats.api_calls` | `n_calls` |
+| `info.exit_status` | `exit_status` |
+| `info.submission` | `submission` / `patch_generated` |
+
+The rest of the file contains the full message history and step-by-step
+action/observation pairs — useful for manual inspection but not consumed by
+the analysis scripts.
+
+---
+
+## Environment variables (memory hook)
+
+Set by `run_experiment.py` for each agent subprocess:
+
+| Variable | Example value | Purpose |
+|---|---|---|
+| `MSWEA_PRIMITIVE` | `truncation` | Which primitive fires when the budget is exceeded |
+| `MSWEA_TOKEN_BUDGET` | `12480` | Absolute token threshold. `999999` = baseline (no compression) |
+| `MSWEA_TOKEN_LOG_PATH` | `results/.../token_log.json` | Where `memory.write_token_log()` writes |
+| `PYTHONPATH` | `/home/.../agentCtx:…` | Prepended so `import memory` resolves from the repo root |
+| `DOCKER_HOST` | `unix:///run/user/…/podman.sock` | Podman socket for SWE-bench container runtime |
