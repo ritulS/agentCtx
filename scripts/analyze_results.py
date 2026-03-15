@@ -33,8 +33,9 @@ from pathlib import Path
 WORKSPACE_ROOT = Path(__file__).parent.parent
 RESULTS_DIR    = WORKSPACE_ROOT / "results"
 
-PRIMITIVES    = ["truncation", "summarization"]
-TOKEN_BUDGETS = [0, 1_000, 1_500, 2_500, 4_000]
+PRIMITIVES         = ["truncation", "summarization"]
+# Canonical budget levels as fractions (mirrors run_experiment.py)
+BUDGET_PERCENTAGES = [1.00, 0.90, 0.75, 0.60, 0.50, 0.40, 0.30, 0.25]
 
 
 # ─── Loading ──────────────────────────────────────────────────────────────────
@@ -54,32 +55,35 @@ def load_results(path: Path | None) -> list[dict]:
 
 def add_budget_pct(results: list[dict]) -> list[dict]:
     """
-    Attach budget_pct to every record.
+    Ensure every record has a float budget_pct field.
 
-    budget_pct = budget / baseline_total_prompt_tokens
-                 where the baseline is the is_baseline==True (budget==0) run
-                 for the same (instance_id, primitive).
+    New-format results (from the redesigned run_experiment.py) already carry
+    budget_pct as a primary field — this function is a no-op for those.
 
-    Records whose baseline is missing get budget_pct = None.
-    The baseline record itself gets budget_pct = 0.0.
+    Old-format records that only have an integer 'budget' field are handled by
+    back-deriving budget_pct from the baseline prompt-token count.
     """
-    baseline_tokens: dict[tuple, int] = {}
     for r in results:
-        if r.get("is_baseline") or r.get("budget") == 0:
-            key = (r["instance_id"], r["primitive"])
-            t = r.get("total_prompt_tokens", 0)
-            if t > 0:
-                baseline_tokens[key] = t
+        if r.get("budget_pct") is not None:
+            continue   # already set by new harness
 
-    for r in results:
-        key = (r["instance_id"], r["primitive"])
-        bt  = baseline_tokens.get(key)
+        # ── Legacy path: derive from absolute budget + baseline token count ──
         if r.get("is_baseline") or r.get("budget") == 0:
-            r["budget_pct"] = 0.0
-        elif bt and bt > 0:
-            r["budget_pct"] = round(r["budget"] / bt, 4)
-        else:
-            r["budget_pct"] = None
+            r["budget_pct"] = 1.0
+            continue
+
+        # Find mean baseline tokens for this (instance_id, primitive)
+        iid, prim = r["instance_id"], r["primitive"]
+        bt = _mean([
+            b["total_prompt_tokens"]
+            for b in results
+            if (b.get("is_baseline") or b.get("budget") == 0)
+            and b["instance_id"] == iid
+            and b["primitive"]   == prim
+            and b.get("total_prompt_tokens", 0) > 0
+        ])
+        abs_budget = r.get("budget", 0)
+        r["budget_pct"] = round(abs_budget / bt, 4) if bt > 0 else None
 
     return results
 
@@ -88,49 +92,52 @@ def add_budget_pct(results: list[dict]) -> list[dict]:
 
 def compute_waf(results: list[dict]) -> dict[tuple, float]:
     """
-    Returns dict mapping (primitive, budget) -> aggregate WAF over all tasks.
+    Returns dict mapping (primitive, budget_pct) -> aggregate WAF over all tasks.
 
     Algorithm
     ---------
-    1. For each (task, primitive, budget) compute mean n_calls over runs.
-    2. For each task, find the reference: min mean_calls over all configs.
+    1. For each (task, primitive, budget_pct) compute mean n_calls over runs.
+    2. For each task, find the reference: mean_calls at budget_pct=1.0 (baseline).
+       Falls back to min mean_calls if no baseline exists.
     3. WAF_i(c) = mean_calls_c(i) / ref_i     (if ref_i > 0 else 1.0)
     4. WAF(c) = mean over tasks of WAF_i(c)
     """
-    # Group: (instance_id, primitive, budget) -> [n_calls]
     cell: dict[tuple, list[int]] = defaultdict(list)
     for r in results:
-        cell[(r["instance_id"], r["primitive"], r["budget"])].append(r["n_calls"])
+        pct = r.get("budget_pct")
+        if pct is None:
+            continue
+        cell[(r["instance_id"], r["primitive"], pct)].append(r["n_calls"])
 
     tasks = list({r["instance_id"] for r in results})
-
-    # Mean calls per (task, config)
     mean_calls: dict[tuple, float] = {
         k: statistics.mean(v) for k, v in cell.items()
     }
 
-    # Reference per task = min mean_calls across all configs for that task
+    # Reference: baseline (pct=1.0) for each task; fall back to min
     ref: dict[str, float] = {}
     for task in tasks:
-        vals = [
-            mean_calls[k]
-            for k in mean_calls
-            if k[0] == task and mean_calls[k] > 0
+        baseline_vals = [
+            mean_calls[k] for k in mean_calls
+            if k[0] == task and k[2] == 1.0 and mean_calls[k] > 0
         ]
-        ref[task] = min(vals) if vals else 1.0
+        if baseline_vals:
+            ref[task] = statistics.mean(baseline_vals)
+        else:
+            all_vals = [mean_calls[k] for k in mean_calls
+                        if k[0] == task and mean_calls[k] > 0]
+            ref[task] = min(all_vals) if all_vals else 1.0
 
-    # WAF per (config, task)
     waf_by_config: dict[tuple, list[float]] = defaultdict(list)
     for task in tasks:
         for primitive in PRIMITIVES:
-            for budget in TOKEN_BUDGETS:
-                key = (task, primitive, budget)
+            for pct in BUDGET_PERCENTAGES:
+                key = (task, primitive, pct)
                 mc  = mean_calls.get(key, 0.0)
                 r   = ref.get(task, 1.0)
                 waf = mc / r if r > 0 and mc > 0 else 1.0
-                waf_by_config[(primitive, budget)].append(waf)
+                waf_by_config[(primitive, pct)].append(waf)
 
-    # Aggregate WAF per config
     return {
         cfg: statistics.mean(waf_vals)
         for cfg, waf_vals in waf_by_config.items()
@@ -148,8 +155,9 @@ def _rate(lst: list) -> float:
 
 
 def config_stats(results: list[dict], primitive: str, budget: int) -> dict:
-    """Aggregate metrics for one (primitive, budget) configuration."""
-    rows = [r for r in results if r["primitive"] == primitive and r["budget"] == budget]
+    """Aggregate metrics for one (primitive, budget_pct) configuration."""
+    rows = [r for r in results
+            if r["primitive"] == primitive and r.get("budget_pct") == budget]
     if not rows:
         return {}
     return {
@@ -170,20 +178,18 @@ def config_stats(results: list[dict], primitive: str, budget: int) -> dict:
 
 def print_aggregate_table(results: list[dict], waf: dict[tuple, float]) -> None:
     primitives = [p for p in PRIMITIVES if any(r["primitive"] == p for r in results)]
-    budgets    = sorted({r["budget"] for r in results})
+    budgets    = sorted({r.get("budget_pct") for r in results if r.get("budget_pct") is not None})
 
-    # ── WAF x budget heatmap ──────────────────────────────────────────────────
     print("WAF  (Work Amplification Factor)  — lower is better")
-    print("  WAF_i(c) = mean_calls_c(i) / min_calls(i),  aggregated over tasks\n")
+    print("  WAF_i(c) = mean_calls_c(i) / baseline_calls_i,  aggregated over tasks\n")
 
     bw = 8
     hdr = f"{'Primitive':<16}"
     sep = f"{'─'*16}"
     for b in budgets:
-        hdr += f"{'b='+str(b):>{bw}}"
+        hdr += f"{str(int(b*100))+'%':>{bw}}"
         sep += f"{'─'*bw}"
-    print(hdr)
-    print(sep)
+    print(hdr); print(sep)
     for p in primitives:
         row = f"{p:<16}"
         for b in budgets:
@@ -193,7 +199,6 @@ def print_aggregate_table(results: list[dict], waf: dict[tuple, float]) -> None:
         print(row)
     print()
 
-    # ── Full aggregate table ──────────────────────────────────────────────────
     print("─" * 110)
     print(f"{'Config':<28} {'WAF':>6} {'Calls':>6} {'e2e(s)':>7} {'Tokens':>8} "
           f"{'Comp/run':>9} {'Saved':>8} {'Patch%':>7} {'Resolve%':>9}")
@@ -202,7 +207,7 @@ def print_aggregate_table(results: list[dict], waf: dict[tuple, float]) -> None:
     for p in primitives:
         for b in budgets:
             s   = config_stats(results, p, b)
-            cfg = f"{p}/{b}"
+            cfg = f"{p}/{int(b*100)}%"
             if not s:
                 print(f"{cfg:<28}  (no data)")
                 continue
@@ -219,7 +224,6 @@ def print_aggregate_table(results: list[dict], waf: dict[tuple, float]) -> None:
                 f"{100*s['resolve_rate']:>8.1f}%"
             )
         print()
-
     print("─" * 110)
 
 
@@ -228,39 +232,43 @@ def print_per_task_waf(results: list[dict]) -> None:
     tasks = sorted({r["instance_id"] for r in results})
     cell: dict[tuple, list[int]] = defaultdict(list)
     for r in results:
-        cell[(r["instance_id"], r["primitive"], r["budget"])].append(r["n_calls"])
+        pct = r.get("budget_pct")
+        if pct is not None:
+            cell[(r["instance_id"], r["primitive"], pct)].append(r["n_calls"])
 
     mean_calls = {k: _mean(v) for k, v in cell.items()}
     ref = {}
     for t in tasks:
-        vals = [mean_calls[k] for k in mean_calls if k[0] == t and mean_calls[k] > 0]
-        ref[t] = min(vals) if vals else 1.0
+        base = [mean_calls[k] for k in mean_calls
+                if k[0] == t and k[2] == 1.0 and mean_calls[k] > 0]
+        ref[t] = statistics.mean(base) if base else (
+            min(mean_calls[k] for k in mean_calls if k[0] == t and mean_calls[k] > 0)
+            if any(k[0] == t for k in mean_calls) else 1.0
+        )
 
     primitives = [p for p in PRIMITIVES if any(r["primitive"] == p for r in results)]
-    budgets    = sorted({r["budget"] for r in results})
+    budgets    = sorted({r.get("budget_pct") for r in results if r.get("budget_pct") is not None})
 
     print("Per-task WAF breakdown")
     print("─" * 90)
     short_tasks = [t.split("__")[-1][:14] for t in tasks]
     header = f"{'Config':<28}" + "".join(f" {s:>14}" for s in short_tasks) + f" {'mean':>8}"
-    print(header)
-    print("─" * 90)
+    print(header); print("─" * 90)
 
     for p in primitives:
         for b in budgets:
-            cfg  = f"{p}/{b}"
+            cfg  = f"{p}/{int(b*100)}%"
             row  = f"{cfg:<28}"
             wafs = []
             for t in tasks:
                 mc = mean_calls.get((t, p, b), 0.0)
-                r  = ref.get(t, 1.0)
-                if r > 0 and mc > 0:
-                    w = mc / r
-                    wafs.append(w)
+                rv = ref.get(t, 1.0)
+                if rv > 0 and mc > 0:
+                    w = mc / rv; wafs.append(w)
                     row += f" {w:>14.3f}"
                 else:
                     row += f" {'—':>14}"
-            mean_w = _mean(wafs) if wafs else float("nan")
+            mean_w = _mean(wafs)
             row += f" {mean_w:>8.3f}" if wafs else f" {'—':>8}"
             print(row)
         print()
@@ -268,57 +276,49 @@ def print_per_task_waf(results: list[dict]) -> None:
 
 
 def print_primitive_summary(results: list[dict]) -> None:
-    """Aggregate over budgets: show each primitive's mean metrics."""
-    waf_all = compute_waf(results)
-    budgets = sorted({r["budget"] for r in results})
+    waf_all    = compute_waf(results)
+    budgets    = sorted({r.get("budget_pct") for r in results if r.get("budget_pct") is not None})
     primitives = [p for p in PRIMITIVES if any(r["primitive"] == p for r in results)]
 
     print("Per-primitive summary  (aggregated over all budgets and tasks)\n")
     print(f"{'Primitive':<16} {'WAF':>6} {'Calls':>6} {'e2e(s)':>7} {'Tokens':>8} "
           f"{'Patch%':>7} {'Resolve%':>9}")
     print("─" * 68)
-
     for p in primitives:
         rows = [r for r in results if r["primitive"] == p]
-        if not rows:
-            continue
+        if not rows: continue
         w = _mean([waf_all.get((p, b), 1.0) for b in budgets])
         print(
-            f"{p:<16} "
-            f"{w:>6.3f} "
-            f"{_mean([r['n_calls']           for r in rows]):>6.1f} "
-            f"{_mean([r['e2e_latency_s']     for r in rows]):>7.1f} "
-            f"{_mean([r['total_tokens']      for r in rows]):>8.0f} "
-            f"{100*_rate([r['patch_generated']       for r in rows]):>6.1f}% "
-            f"{100*_rate([r.get('resolved') is True  for r in rows]):>8.1f}%"
+            f"{p:<16} {w:>6.3f} "
+            f"{_mean([r['n_calls']          for r in rows]):>6.1f} "
+            f"{_mean([r['e2e_latency_s']    for r in rows]):>7.1f} "
+            f"{_mean([r['total_tokens']     for r in rows]):>8.0f} "
+            f"{100*_rate([r['patch_generated']      for r in rows]):>6.1f}% "
+            f"{100*_rate([r.get('resolved') is True for r in rows]):>8.1f}%"
         )
     print()
 
 
 def print_budget_summary(results: list[dict]) -> None:
-    """Aggregate over primitives: show each budget's mean metrics."""
     waf_all    = compute_waf(results)
-    budgets    = sorted({r["budget"] for r in results})
+    budgets    = sorted({r.get("budget_pct") for r in results if r.get("budget_pct") is not None})
     primitives = [p for p in PRIMITIVES if any(r["primitive"] == p for r in results)]
 
     print("Per-budget summary  (aggregated over all primitives and tasks)\n")
     print(f"{'Budget':>8} {'WAF':>6} {'Calls':>6} {'e2e(s)':>7} {'Tokens':>8} "
           f"{'Comp/run':>9} {'Saved':>8} {'Patch%':>7} {'Resolve%':>9}")
     print("─" * 80)
-
     for b in budgets:
-        rows = [r for r in results if r["budget"] == b]
-        if not rows:
-            continue
+        rows = [r for r in results if r.get("budget_pct") == b]
+        if not rows: continue
         w = _mean([waf_all.get((p, b), 1.0) for p in primitives])
         print(
-            f"{b:>8} "
-            f"{w:>6.3f} "
-            f"{_mean([r['n_calls']            for r in rows]):>6.1f} "
-            f"{_mean([r['e2e_latency_s']      for r in rows]):>7.1f} "
-            f"{_mean([r['total_tokens']       for r in rows]):>8.0f} "
-            f"{_mean([r['compression_events'] for r in rows]):>9.1f} "
-            f"{_mean([r['total_tokens_saved'] for r in rows]):>8.0f} "
+            f"{int(b*100):>7}% {w:>6.3f} "
+            f"{_mean([r['n_calls']             for r in rows]):>6.1f} "
+            f"{_mean([r['e2e_latency_s']       for r in rows]):>7.1f} "
+            f"{_mean([r['total_tokens']        for r in rows]):>8.0f} "
+            f"{_mean([r['compression_events']  for r in rows]):>9.1f} "
+            f"{_mean([r['total_tokens_saved']  for r in rows]):>8.0f} "
             f"{100*_rate([r['patch_generated']       for r in rows]):>6.1f}% "
             f"{100*_rate([r.get('resolved') is True  for r in rows]):>8.1f}%"
         )
@@ -326,10 +326,11 @@ def print_budget_summary(results: list[dict]) -> None:
 
 
 def print_run_consistency(results: list[dict]) -> None:
-    """Show variance across the 3 runs per config to assess stability."""
     cell: dict[tuple, list[int]] = defaultdict(list)
     for r in results:
-        cell[(r["instance_id"], r["primitive"], r["budget"])].append(r["n_calls"])
+        pct = r.get("budget_pct")
+        if pct is not None:
+            cell[(r["instance_id"], r["primitive"], pct)].append(r["n_calls"])
 
     stddevs = [statistics.stdev(v) for v in cell.values() if len(v) > 1]
 
@@ -348,8 +349,9 @@ def print_run_consistency(results: list[dict]) -> None:
 def export_csv(results: list[dict], waf_map: dict[tuple, float]) -> None:
     csv_path = RESULTS_DIR / "experiment_results.csv"
     fieldnames = [
-        "key", "instance_id", "primitive", "budget", "is_baseline", "budget_type",
-        "budget_pct", "run_num",
+        "key", "instance_id", "primitive",
+        "budget_pct", "budget_abs", "is_baseline",
+        "run_num",
         "n_calls", "e2e_latency_s", "llm_latency_s",
         "total_prompt_tokens", "total_completion_tokens", "total_tokens",
         "compression_events", "total_tokens_saved", "mean_compression_ratio",
@@ -361,8 +363,9 @@ def export_csv(results: list[dict], waf_map: dict[tuple, float]) -> None:
         w.writeheader()
         for r in results:
             row = dict(r)
-            row.pop("submission", None)   # omit the raw patch text
-            row["waf_config_aggregate"] = waf_map.get((r["primitive"], r["budget"]), "")
+            row.pop("submission", None)
+            pct = r.get("budget_pct")
+            row["waf_config_aggregate"] = waf_map.get((r["primitive"], pct), "")
             w.writerow(row)
     print(f"CSV exported -> {csv_path}")
 

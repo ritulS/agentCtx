@@ -56,7 +56,7 @@ environment:
     TQDM_DISABLE: '1'
 
 model:
-  model_name: "hosted_vllm/Qwen/Qwen2.5-Coder-7B-Instruct"
+  model_name: "hosted_vllm/Qwen/Qwen2.5-Coder-72B-Instruct"
   model_kwargs:
     api_base: "http://localhost:8000/v1"
     drop_params: true

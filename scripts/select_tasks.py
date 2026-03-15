@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """
-Select 3 tasks per repo (Flask, Django, SymPy) based on problem complexity.
-Uses problem description word count as a proxy for complexity.
-Selects: low, medium, and high complexity tasks from each repo.
+Select 10 tasks per repo (Flask, Django, SymPy) for the E1 experiment.
+
+Selection strategy: sort all tasks in a repo by problem-statement word count
+(complexity proxy) and pick 10 evenly-spaced tasks across the full complexity
+spectrum.  This gives balanced coverage across easy, medium, and hard tasks.
+
+Usage:
+    source venv/bin/activate
+    python scripts/select_tasks.py
 """
 
 import json
@@ -11,108 +17,81 @@ from pathlib import Path
 try:
     from datasets import load_dataset
 except ImportError:
-    print("Error: datasets library not found. Install with: pip install datasets")
-    exit(1)
+    print("Error: datasets library not found.  pip install datasets")
+    raise SystemExit(1)
 
-OUTPUT_FILE = Path(__file__).parent.parent / "selected_tasks.json"
+OUTPUT_FILE      = Path(__file__).parent.parent / "selected_tasks.json"
+N_PER_REPO       = 10
+DATASET_NAME     = "princeton-nlp/SWE-Bench_Lite"
+DATASET_SPLIT    = "test"
 
 REPOS = {
-    "pallets/flask": "flask",
-    "django/django": "django",
-    "sympy/sympy": "sympy"
+    "pallets/flask":  "flask",
+    "django/django":  "django",
+    "sympy/sympy":    "sympy",
 }
 
 
-def count_words(text):
-    """Count words in a text string."""
-    return len(text.split())
+def select_evenly(repo_tasks: list[dict], n: int) -> list[tuple[dict, int]]:
+    """Pick n tasks evenly spaced across the word-count-sorted list."""
+    tasks_wc = sorted(
+        [(t, len(t["problem_statement"].split())) for t in repo_tasks],
+        key=lambda x: x[1],
+    )
+    total = len(tasks_wc)
+    if total <= n:
+        print(f"  Warning: only {total} tasks available, returning all.")
+        return tasks_wc
+
+    # Evenly spaced indices: 0-based, distributed across [0, total-1]
+    step = (total - 1) / (n - 1)
+    indices = [round(i * step) for i in range(n)]
+    return [tasks_wc[i] for i in indices]
 
 
-def select_tasks_by_complexity(repo_tasks):
-    """
-    Select 3 tasks from a repo: low, medium, and high complexity.
-    Complexity is based on problem description word count.
-    """
-    # Calculate word count for each task
-    tasks_with_words = []
-    for task in repo_tasks:
-        word_count = count_words(task["problem_statement"])
-        tasks_with_words.append((task, word_count))
-    
-    # Sort by word count
-    tasks_with_words.sort(key=lambda x: x[1])
-    
-    if len(tasks_with_words) < 3:
-        print(f"  Warning: Only {len(tasks_with_words)} tasks available")
-        return tasks_with_words
-    
-    # Select low (first tercile), medium (second tercile), high (third tercile)
-    n = len(tasks_with_words)
-    if n == 3:
-        # If exactly 3, just use them as low, med, high
-        selected = tasks_with_words
-    else:
-        low_idx = n // 6  # Middle of first tercile
-        med_idx = n // 2  # Middle of second tercile
-        high_idx = n - n // 6 - 1  # Middle of third tercile (fixed off-by-one)
-        
-        selected = [
-            tasks_with_words[low_idx],
-            tasks_with_words[med_idx],
-            tasks_with_words[high_idx]
-        ]
-    
-    return selected
+def main() -> None:
+    print(f"Loading {DATASET_NAME} ({DATASET_SPLIT})...")
+    dataset = load_dataset(DATASET_NAME, split=DATASET_SPLIT)
+    print(f"Total instances in dataset: {len(dataset)}")
 
+    all_selected: list[dict] = []
 
-def main():
-    print("Loading SWE-Bench_Lite dataset...")
-    dataset = load_dataset("princeton-nlp/SWE-Bench_Lite", split="test")
-    
-    all_selected = []
-    
     for repo, label in REPOS.items():
-        print(f"\nProcessing {label} ({repo})...")
-        
-        # Filter tasks from this repo
+        print(f"\n[{label}] repo={repo}")
         repo_tasks = [t for t in dataset if t["repo"] == repo]
-        print(f"  Found {len(repo_tasks)} total tasks")
-        
-        # Select 3 tasks by complexity
-        selected = select_tasks_by_complexity(repo_tasks)
-        
-        for task, word_count in selected:
-            complexity = "low" if word_count == selected[0][1] else \
-                        "medium" if word_count == selected[1][1] else "high"
-            
-            task_info = {
-                "instance_id": task["instance_id"],
-                "repo": task["repo"],
-                "problem_statement": task["problem_statement"],
-                "FAIL_TO_PASS": task["FAIL_TO_PASS"],
-                "PASS_TO_PASS": task["PASS_TO_PASS"],
-                "word_count": word_count,
-                "complexity": complexity
-            }
-            
-            all_selected.append(task_info)
-            print(f"  [{complexity:6}] {task['instance_id']:30} | {word_count:4} words")
-    
-    # Save to file
-    with open(OUTPUT_FILE, 'w') as f:
-        json.dump(all_selected, f, indent=2)
-    
-    print(f"\n✓ Selected {len(all_selected)} tasks saved to {OUTPUT_FILE}")
-    print(f"  Breakdown: {sum(1 for t in all_selected if 'flask' in t['repo'])} Flask + "
-          f"{sum(1 for t in all_selected if 'django' in t['repo'])} Django + "
-          f"{sum(1 for t in all_selected if 'sympy' in t['repo'])} SymPy")
-    
-    # Print summary statistics
-    word_counts = [t["word_count"] for t in all_selected]
-    print(f"\nWord count range: {min(word_counts)} - {max(word_counts)}")
-    print(f"  Low complexity: {[t['word_count'] for t in all_selected if t['complexity'] == 'low']}")
-    print(f"  Medium complexity: {[t['word_count'] for t in all_selected if t['complexity'] == 'medium']}")
-    print(f"  High complexity: {[t['word_count'] for t in all_selected if t['complexity'] == 'high']}")
+        print(f"  Available: {len(repo_tasks)} tasks")
+
+        selected = select_evenly(repo_tasks, N_PER_REPO)
+        word_counts = [wc for _, wc in selected]
+
+        for rank, (task, wc) in enumerate(selected):
+            # Assign coarse complexity label based on position in selection
+            if rank < N_PER_REPO // 3:
+                complexity = "low"
+            elif rank < 2 * N_PER_REPO // 3:
+                complexity = "medium"
+            else:
+                complexity = "high"
+
+            all_selected.append({
+                "instance_id":        task["instance_id"],
+                "repo":               task["repo"],
+                "problem_statement":  task["problem_statement"],
+                "FAIL_TO_PASS":       task["FAIL_TO_PASS"],
+                "PASS_TO_PASS":       task["PASS_TO_PASS"],
+                "word_count":         wc,
+                "complexity":         complexity,
+            })
+            print(f"  [{rank+1:2d}/{N_PER_REPO}] {complexity:<6} "
+                  f"{task['instance_id']:<40} {wc:4d} words")
+
+        print(f"  Word-count range: {min(word_counts)} – {max(word_counts)}")
+
+    OUTPUT_FILE.write_text(json.dumps(all_selected, indent=2))
+    print(f"\n✓ {len(all_selected)} tasks written to {OUTPUT_FILE}")
+    for repo, label in REPOS.items():
+        n = sum(1 for t in all_selected if t["repo"] == repo)
+        print(f"  {label}: {n}")
 
 
 if __name__ == "__main__":
