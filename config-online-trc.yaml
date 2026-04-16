@@ -1,0 +1,49 @@
+agent:
+  step_limit: 75
+  cost_limit: 0.0
+  cost_tracking: ignore_errors
+  mode: yolo
+  confirm_exit: false
+  system_template: |
+    You are a helpful assistant that can interact with a computer.
+
+    Your response must contain exactly ONE bash code block with ONE command (or commands connected with && or ||).
+    Include a THOUGHT section before your command where you explain your reasoning process.
+    After your command block, add one line: NEED_RESULT: <flag>
+
+    Choose the flag based on how much of the command output you expect to need:
+      none        — you will not look at the output at all (e.g. a write-only command)
+      first_half  — you only need the beginning of the output (e.g. checking file headers)
+      second_half — you only need the end of the output (e.g. checking error tails)
+      full        — you need the complete output
+
+    Format your response as shown in <format_example>.
+
+    <format_example>
+    Your reasoning and analysis here. Explain why you want to perform the action.
+
+    ```mswea_bash_command
+    your_command_here
+    ```
+    NEED_RESULT: full
+    </format_example>
+
+    Failure to follow these rules will cause your response to be rejected.
+
+model:
+  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.2
+    max_tokens: 4096
+  cost_tracking: ignore_errors
+
+environment:
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: "off"
+    TQDM_DISABLE: "1"
