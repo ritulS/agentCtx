@@ -1,4 +1,4 @@
-# Machine A — execution plan (post-P100)
+# Dobby — execution plan (post-P100)
 
 Owner: ritul@utexas.edu. Created 2026-05-03.
 Workspace: `/home/rs67788/projects/agentCtx`.
@@ -8,7 +8,7 @@ Model: Qwen3.5-35B-A3B (continuous serving — no swaps in this queue).
 
 ## Queue
 
-After P100 finishes (Phase 2 in progress; ~30h remaining as of 2026-05-03), Machine A runs three experiments **in this exact order**:
+After P100 finishes (Phase 2 in progress; ~30h remaining as of 2026-05-03), Dobby runs three experiments **in this exact order**:
 
 1. **Staggered pilot** (24 runs + ~half-day implementation gated on design approval)
 2. **Depth ablation 0.3 + 0.7** (Scope B: 8 primitives × 30 tasks × 2 runs × 2 depths = 960 runs, ~16h)
@@ -310,7 +310,7 @@ venv/bin/python3 scripts/run_experiment.py \
     --eval-only \
     2>&1 | tee -a "$LOG"
 
-echo "[$(date)] === 5k budget done — Machine A queue complete ===" | tee -a "$LOG"
+echo "[$(date)] === 5k budget done — Dobby queue complete ===" | tee -a "$LOG"
 ```
 
 ### 3.3 Run + monitor
@@ -337,10 +337,10 @@ If 5k cells show >50% silent_crash, the budget is below the working floor — re
 
 ## 4. Final Active_runs.md update
 
-When the chain finishes (look for `=== 5k budget done — Machine A queue complete ===`):
+When the chain finishes (look for `=== 5k budget done — Dobby queue complete ===`):
 
 - Move all three "Currently Running" entries to "Recently Completed"
-- Set Machine A queue status to "idle, awaiting next assignment"
+- Set Dobby queue status to "idle, awaiting next assignment"
 
 ---
 
@@ -357,14 +357,14 @@ When the chain finishes (look for `=== 5k budget done — Machine A queue comple
 After staggered pilot is confirmed-working manually, chain depth → 5k as a single PID:
 
 ```bash
-# scripts/run_machine_a_tail.sh
+# scripts/run_dobby_tail.sh
 exec scripts/run_depth_30_70.sh   # which execs run_5k_budget.sh
 ```
 
 ```bash
-nohup scripts/run_machine_a_tail.sh > logs/machine_a_tail.out 2>&1 &
-echo $! > logs/machine_a_tail.pid
+nohup scripts/run_dobby_tail.sh > logs/dobby_tail.out 2>&1 &
+echo $! > logs/dobby_tail.pid
 disown
 ```
 
-This way Machine A's tail (~27h) is one process, one log to monitor.
+This way Dobby's tail (~27h) is one process, one log to monitor.

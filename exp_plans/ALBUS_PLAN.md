@@ -1,14 +1,14 @@
-# Machine B — execution plan
+# Albus — execution plan
 
 Owner: ritul@utexas.edu. Created 2026-05-03.
 Hardware: 6× NVIDIA A6000 (288 GB total VRAM).
-Workspace: TBD on Machine B (suggested: `~/projects/agentCtx-mB` or rsync mirror of Machine A).
+Workspace: TBD on Albus (suggested: `~/projects/agentCtx-mB` or rsync mirror of Dobby).
 
 ---
 
 ## Queue
 
-Machine B runs three experiments sequentially (each requires a different vLLM model serving — model swaps are unavoidable, plan for ~2h serving overhead per swap):
+Albus runs three experiments sequentially (each requires a different vLLM model serving — model swaps are unavoidable, plan for ~2h serving overhead per swap):
 
 1. **Qwen2.5-7B-Instruct replication** (35 cells × 30 tasks × 2 runs = 2 100 runs, ~26h incl. setup)
 2. **Llama 3.3 70B Instruct replication** (35 cells × 30 tasks × 2 runs = 2 100 runs, ~72h incl. setup; could be 53-88h depending on TP-6 throughput)
@@ -22,17 +22,17 @@ Machine B runs three experiments sequentially (each requires a different vLLM mo
 
 ### 0.1 Workspace
 
-Suggested: keep code in sync with Machine A via rsync or git. The simplest pattern:
+Suggested: keep code in sync with Dobby via rsync or git. The simplest pattern:
 
 ```bash
-# On Machine B
+# On Albus
 mkdir -p ~/projects/agentCtx-mB
 cd ~/projects/agentCtx-mB
 
-# Pull from Machine A (assumes git remote is set up; if not, rsync)
+# Pull from Dobby (assumes git remote is set up; if not, rsync)
 git clone <repo-url> .
 # Or: rsync -avz --exclude=results --exclude=logs --exclude=__pycache__ \
-#       rs67788@machineA:/home/rs67788/projects/agentCtx/ .
+#       rs67788@dobby:/home/rs67788/projects/agentCtx/ .
 
 # Set up venv
 python3 -m venv venv
@@ -52,22 +52,22 @@ ls results/ablations/tasks.json  # the 30-task list for ablations
 
 ```bash
 cp results/ablations/tasks.json task_lists/ablation_30tasks.json
-# (Machine B will use this as the input task list for all three phases)
+# (Albus will use this as the input task list for all three phases)
 ```
 
 ### 0.4 Active_runs.md update
 
-On Machine A, add to Active_runs.md:
+On Dobby, add to Active_runs.md:
 
 ```markdown
-### Machine B: model expansion + quantization sweep
-- **Status:** RUNNING (Machine B)
+### Albus: model expansion + quantization sweep
+- **Status:** RUNNING (Albus)
 - **Started:** YYYY-MM-DD HH:MM CDT
-- **Hardware:** 6× A6000 on <machine_b_hostname>
+- **Hardware:** 6× A6000 on <albus_hostname>
 - **Phases:** 1 (Qwen2.5-7B) → 2 (Llama 3.3 70B) → 3 (Qwen3.5-35B quantization)
 - **ETA:** ~5 days
-- **Logs:** Machine B `logs/machine_b_phase{1,2,3}.log`
-- **Result transfer:** post-completion rsync to Machine A `results/ablations/`
+- **Logs:** Albus `logs/albus_phase{1,2,3}.log`
+- **Result transfer:** post-completion rsync to Dobby `results/ablations/`
 ```
 
 ---
@@ -380,7 +380,7 @@ EOF
         2>&1 | tee -a "$LOG"
 done
 
-echo "[$(date)] === Quantization sweep complete — Machine B queue done ===" | tee -a "$LOG"
+echo "[$(date)] === Quantization sweep complete — Albus queue done ===" | tee -a "$LOG"
 ```
 
 ### 3.3 Risks specific to quantization
@@ -391,28 +391,28 @@ echo "[$(date)] === Quantization sweep complete — Machine B queue done ===" | 
 
 ---
 
-## 4. Result transfer back to Machine A
+## 4. Result transfer back to Dobby
 
 After each phase finishes:
 
 ```bash
-# On Machine B
+# On Albus
 rsync -avz \
     results/qwen25-7b/ \
-    rs67788@machineA:/home/rs67788/projects/agentCtx/results/qwen25-7b/
+    rs67788@dobby:/home/rs67788/projects/agentCtx/results/qwen25-7b/
 
 rsync -avz \
     results/ablations/qwen25-7b-* \
-    rs67788@machineA:/home/rs67788/projects/agentCtx/results/ablations/
+    rs67788@dobby:/home/rs67788/projects/agentCtx/results/ablations/
 
 # After all 3 phases:
 rsync -avz \
     results/ablations/llama33-70b-* \
     results/ablations/quant-* \
-    rs67788@machineA:/home/rs67788/projects/agentCtx/results/ablations/
+    rs67788@dobby:/home/rs67788/projects/agentCtx/results/ablations/
 ```
 
-On Machine A, after results land:
+On Dobby, after results land:
 
 ```bash
 # Add new model results to Review1.csv via build_review1.py
@@ -435,10 +435,10 @@ venv/bin/python3 Review1/plot_cross_model.py
 
 ## 5. Failure recovery
 
-- **vLLM OOMs at TP-6 for Llama 70B**: try TP-8 if Machine B has 8 GPUs, or drop max-num-seqs from 32 to 16. Re-run.
+- **vLLM OOMs at TP-6 for Llama 70B**: try TP-8 if Albus has 8 GPUs, or drop max-num-seqs from 32 to 16. Re-run.
 - **Phase 2 latency much higher than estimated**: pause; either extend the ETA or cut Llama scope to headline cells (FC + TRC+SS @ 20k only, ~120 runs, ~2 days).
 - **Quantized model unavailable for Qwen3.5-35B-A3B**: substitute with quantized Qwen3.5-7B or skip that quant level.
-- **rsync to Machine A fails**: results stay on Machine B; rsync can be retried later. Don't block on transfer.
+- **rsync to Dobby fails**: results stay on Albus; rsync can be retried later. Don't block on transfer.
 
 ---
 
@@ -451,8 +451,8 @@ run_qwen25_7b.sh → exec run_llama33_70b.sh → exec run_quantization_sweep.sh
 ```
 
 ```bash
-nohup scripts/run_qwen25_7b.sh > logs/machine_b_chain.out 2>&1 &
-echo $! > logs/machine_b_chain.pid
+nohup scripts/run_qwen25_7b.sh > logs/albus_chain.out 2>&1 &
+echo $! > logs/albus_chain.pid
 disown
 ```
 
