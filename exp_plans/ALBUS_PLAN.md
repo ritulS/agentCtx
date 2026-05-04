@@ -44,16 +44,14 @@ venv/bin/pip install -r requirements.txt   # (or whatever the install pattern is
 ```bash
 nvidia-smi                       # confirm 8 A6000s visible
 venv/bin/python3 -c "import vllm, pandas, numpy; print('ok')"
-ls task_lists/                   # selected_tasks.json should be present
-ls results/ablations/tasks.json  # the 30-task list for ablations
+ls task_lists/ablation_30tasks.json   # the 30-task list for ablations
+ls task_lists/selected_tasks.json     # the 100-task list (used by Dobby's P100 runs, not Albus)
 ```
 
-### 0.3 Pull existing 30-task ablation set
+### 0.3 30-task ablation set is committed
 
-```bash
-cp results/ablations/tasks.json task_lists/ablation_30tasks.json
-# (Albus will use this as the input task list for all three phases)
-```
+Available at `task_lists/ablation_30tasks.json` (committed in d78d6bb so all
+machines can pull it). No copy step needed.
 
 ### 0.4 Active_runs.md update
 
