@@ -1,24 +1,16 @@
-#!/usr/bin/env python3
 """
-E1 Experiment — Generate publication figures.
+E1 Experiment — Publication figures (redesigned for paper first page).
 
-Figure 1: Metric Divergence Plot
-  Dual-axis chart showing how resolve rate and WAF diverge from baseline
-  as the token budget shrinks, with bootstrap 95% CI bands.
+  fig1_paradox.png       — Scatter: tokens saved vs resolve rate (the hook)
+  fig2_aggregate_gap.png — 1×2 bars: aggregate resolve rate + tool calls
+  fig3_smoking_gun.png   — Resolve rate by compression event count (clean bars)
 
-Figure 2: Success vs Tool Calls Scatter
-  Two subplots (100% budget / 40% budget) showing per-task resolve status
-  vs tool-call count, sorted by full-context tool-call count.
-
-Usage:
-    python scripts/plot_e1.py                   # reads results/experiment_results.json
-    python scripts/plot_e1.py --results PATH    # custom results file
-    python scripts/plot_e1.py --show            # also display interactively
+Run from repo root:
+    python3 scripts/plot_e1.py
 """
 
-import argparse
 import json
-import random
+import math
 from collections import defaultdict
 from pathlib import Path
 
@@ -28,319 +20,348 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 
-# ── paths ──────────────────────────────────────────────────────────────────────
-REPO_ROOT    = Path(__file__).parent.parent
-FIGURES_DIR  = REPO_ROOT / "figures" / "e1"
-RESULTS_FILE = REPO_ROOT / "results" / "experiment_results.json"
+# ── Paths ───────────────────────────────────────────────────────────────────────
+ROOT    = Path(__file__).parent.parent
+DATA    = ROOT / "results" / "experiment_results.json"
+OUT_DIR = ROOT / "results" / "figures"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── constants matching run_experiment.py ───────────────────────────────────────
-BUDGET_PERCENTAGES = [1.00, 0.90, 0.75, 0.60, 0.50, 0.40, 0.30, 0.25]
-PRIMITIVES         = ["truncation", "summarization"]
-RUNS_PER_TASK      = 3
-N_BOOTSTRAP        = 2_000
-RANDOM_SEED        = 42
+# ── Style ───────────────────────────────────────────────────────────────────────
+COLOR_BASE = "#555555"   # grey  — baseline / no compression
+COLOR_T    = "#2166ac"   # blue  — truncation
+COLOR_S    = "#d6604d"   # red   — summarization
 
-# ── colour palette ─────────────────────────────────────────────────────────────
-COLOURS = {
-    "truncation":    "#2196F3",   # blue
-    "summarization": "#FF9800",   # orange
-}
+plt.rcParams.update({
+    "font.family":       "sans-serif",
+    "font.size":         11,
+    "axes.spines.top":   False,
+    "axes.spines.right": False,
+    "axes.grid":         False,
+    "figure.dpi":        150,
+})
 
-# ── helpers ────────────────────────────────────────────────────────────────────
+BUDGETS_COMPRESSED = [0.90, 0.80, 0.70, 0.60]
 
-def load_results(path: Path) -> list[dict]:
-    return json.loads(path.read_text())
+# ── Statistics helpers ──────────────────────────────────────────────────────────
+
+def wilson_ci(k, n, z=1.96):
+    if n == 0:
+        return 0.0, 0.0
+    p = k / n
+    center = (p + z**2 / (2*n)) / (1 + z**2 / n)
+    margin = z * math.sqrt(p*(1-p)/n + z**2/(4*n**2)) / (1 + z**2/n)
+    return max(0.0, center - margin), min(1.0, center + margin)
 
 
-def group_by(results: list[dict], *keys) -> dict:
-    """Return a defaultdict(list) keyed by tuple of field values."""
-    d: dict = defaultdict(list)
+def mean_ci(values, z=1.96):
+    n = len(values)
+    if n == 0:
+        return 0.0, 0.0, 0.0
+    mu = sum(values) / n
+    if n == 1:
+        return mu, mu, mu
+    std = math.sqrt(sum((x - mu)**2 for x in values) / (n - 1))
+    margin = z * std / math.sqrt(n)
+    return mu, mu - margin, mu + margin
+
+# ── Data loading ────────────────────────────────────────────────────────────────
+
+def load_data():
+    return json.loads(DATA.read_text())
+
+
+def build_cells(results):
+    cells = defaultdict(lambda: {"n": 0, "resolved": 0, "patches": 0,
+                                  "calls": [], "tok_saved": []})
     for r in results:
-        key = tuple(r.get(k) for k in keys)
-        d[key].append(r)
-    return d
+        pct  = r.get("budget_pct", 1.0)
+        prim = r.get("primitive", "truncation")
+        c = cells[(pct, prim)]
+        c["n"]        += 1
+        c["resolved"] += 1 if r.get("resolved") else 0
+        c["patches"]  += 1 if r.get("patch_generated") else 0
+        c["calls"].append(r.get("n_calls", 0))
+        c["tok_saved"].append(r.get("total_tokens_saved", 0))
+    return cells
 
 
-def resolve_rate(runs: list[dict]) -> float:
-    evaled = [r for r in runs if r.get("resolved") is not None]
-    if not evaled:
-        return float("nan")
-    return sum(1 for r in evaled if r["resolved"] is True) / len(evaled)
-
-
-def mean_calls(runs: list[dict]) -> float:
-    calls = [r["n_calls"] for r in runs if r.get("n_calls", 0) > 0]
-    return sum(calls) / len(calls) if calls else float("nan")
-
-
-def bootstrap_ci(values: list[float], n: int = N_BOOTSTRAP, seed: int = RANDOM_SEED,
-                 alpha: float = 0.05) -> tuple[float, float]:
-    """Return (lower, upper) bootstrap percentile CI for the mean."""
-    if not values or all(np.isnan(values)):
-        return float("nan"), float("nan")
-    rng    = random.Random(seed)
-    arr    = [v for v in values if not np.isnan(v)]
-    if not arr:
-        return float("nan"), float("nan")
-    means  = [sum(rng.choices(arr, k=len(arr))) / len(arr) for _ in range(n)]
-    lo     = np.percentile(means, 100 * alpha / 2)
-    hi     = np.percentile(means, 100 * (1 - alpha / 2))
-    return float(lo), float(hi)
-
-
-# ── Figure 1 ───────────────────────────────────────────────────────────────────
-
-def compute_divergence(results: list[dict]) -> dict:
-    """
-    Returns dict keyed by primitive with lists aligned to BUDGET_PERCENTAGES:
-      rr_mean, rr_lo, rr_hi : resolve-rate (fraction)
-      waf_mean, waf_lo, waf_hi : WAF values
-    """
-    by_prim_pct_task: dict = defaultdict(lambda: defaultdict(list))
+def build_event_buckets(results):
+    buckets = defaultdict(lambda: {"n": 0, "resolved": 0, "calls": []})
     for r in results:
-        prim = r.get("primitive")
-        pct  = r.get("budget_pct")
-        iid  = r.get("instance_id")
-        if prim and pct is not None and iid:
-            by_prim_pct_task[(prim, pct)][iid].append(r)
+        if r.get("budget_pct", 1.0) == 1.0:
+            continue
+        ev   = min(r.get("compression_events", 0), 2)
+        prim = r.get("primitive", "truncation")
+        b = buckets[(ev, prim)]
+        b["n"]        += 1
+        b["resolved"] += 1 if r.get("resolved") else 0
+        b["calls"].append(r.get("n_calls", 0))
+    return buckets
 
-    # Baseline WAF denominator: mean calls per task at pct=1.0
-    baseline_calls: dict[tuple, float] = {}  # (prim, iid) -> float
-    for prim in PRIMITIVES:
-        for iid, runs in by_prim_pct_task[(prim, 1.0)].items():
-            mc = mean_calls(runs)
-            if not np.isnan(mc):
-                baseline_calls[(prim, iid)] = mc
+# ── Figure 1 — Token Savings Paradox (the hook) ─────────────────────────────────
 
-    out: dict = {}
-    for prim in PRIMITIVES:
-        rr_means, rr_los, rr_his = [], [], []
-        waf_means, waf_los, waf_his = [], [], []
+def fig1_paradox(cells):
+    fig, ax = plt.subplots(figsize=(6.5, 5.2))
 
-        for pct in BUDGET_PERCENTAGES:
-            task_dict = by_prim_pct_task[(prim, pct)]
+    for prim, color, label, marker in [
+        ("truncation",    COLOR_T, "Truncation",    "o"),
+        ("summarization", COLOR_S, "Summarization", "s"),
+    ]:
+        xs, ys = [], []
+        for pct in BUDGETS_COMPRESSED:
+            c = cells[(pct, prim)]
+            avg_tok = sum(c["tok_saved"]) / len(c["tok_saved"]) / 1000
+            res_rate = c["resolved"] / c["n"] * 100
+            xs.append(avg_tok)
+            ys.append(res_rate)
 
-            # per-task resolve rates and WAF values
-            rr_vals:  list[float] = []
-            waf_vals: list[float] = []
-            for iid, runs in task_dict.items():
-                rr = resolve_rate(runs)
-                rr_vals.append(rr)
+        ax.plot(xs, ys, color=color, marker=marker, linewidth=2,
+                markersize=9, label=label, zorder=4)
 
-                mc  = mean_calls(runs)
-                denom = baseline_calls.get((prim, iid), float("nan"))
-                if not (np.isnan(mc) or np.isnan(denom) or denom == 0):
-                    waf_vals.append(mc / denom)
+        # Label each point with budget %
+        budgets_pct = [90, 80, 70, 60]
+        for i, (xi, yi, bp) in enumerate(zip(xs, ys, budgets_pct)):
+            # Offset labels to avoid overlap
+            if prim == "truncation":
+                dx, dy = -0.3, 0.6
+                ha = "right"
+            else:
+                dx, dy = 0.3, -0.9
+                ha = "left"
+            ax.annotate(f"{bp}%", (xi, yi),
+                        xytext=(xi + dx, yi + dy),
+                        fontsize=8.5, color=color, ha=ha,
+                        arrowprops=dict(arrowstyle="-", color=color,
+                                        lw=0.6, shrinkA=5, shrinkB=2))
 
-            # aggregate
-            valid_rr  = [v for v in rr_vals  if not np.isnan(v)]
-            valid_waf = [v for v in waf_vals  if not np.isnan(v)]
+    # Direction arrow along x-axis bottom
+    ax.annotate("", xy=(15, 0.6), xytext=(4.5, 0.6),
+                arrowprops=dict(arrowstyle="-|>", color="#aaa", lw=1.2))
+    ax.text(9.75, 0.0, "budget tightens → compression fires more → more tokens saved",
+            ha="center", fontsize=8, color="#999", fontstyle="italic")
 
-            rr_mean = sum(valid_rr)  / len(valid_rr)  if valid_rr  else float("nan")
-            waf_mean = sum(valid_waf) / len(valid_waf) if valid_waf else float("nan")
+    ax.set_xlabel("Avg tokens saved per run  (K tokens)", labelpad=8)
+    ax.set_ylabel("Resolve rate  (%)", labelpad=8)
+    ax.set_xlim(0, 17)
+    ax.set_ylim(-0.5, 18)
+    ax.set_title("Saving More Context ≠ Solving More Tasks",
+                 fontweight="bold", pad=12)
 
-            rr_lo,  rr_hi  = bootstrap_ci(valid_rr)
-            waf_lo, waf_hi = bootstrap_ci(valid_waf)
+    leg = ax.legend(fontsize=10, frameon=False, loc="upper right")
 
-            rr_means.append(rr_mean);  rr_los.append(rr_lo);  rr_his.append(rr_hi)
-            waf_means.append(waf_mean); waf_los.append(waf_lo); waf_his.append(waf_hi)
-
-        out[prim] = dict(
-            rr_mean=rr_means,  rr_lo=rr_los,   rr_hi=rr_his,
-            waf_mean=waf_means, waf_lo=waf_los, waf_hi=waf_his,
-        )
-    return out
-
-
-def plot_figure1(results: list[dict], save_path: Path) -> None:
-    """Dual-axis Metric Divergence Plot."""
-    div = compute_divergence(results)
-    xs  = [int(p * 100) for p in BUDGET_PERCENTAGES]  # e.g. [100, 90, 75, …]
-
-    fig, ax1 = plt.subplots(figsize=(8, 4.5))
-    ax2 = ax1.twinx()
-
-    # CIR onset annotation (first budget where any primitive RR drops below baseline)
-    cir_onset: int | None = None
-    baseline_rr = {prim: div[prim]["rr_mean"][0] for prim in PRIMITIVES
-                   if not np.isnan(div[prim]["rr_mean"][0])}
-    for i, (pct, x) in enumerate(zip(BUDGET_PERCENTAGES[1:], xs[1:]), start=1):
-        for prim in PRIMITIVES:
-            rr_b = baseline_rr.get(prim, float("nan"))
-            rr_c = div[prim]["rr_mean"][i]
-            if not (np.isnan(rr_b) or np.isnan(rr_c)):
-                if rr_c < rr_b * 0.95:
-                    if cir_onset is None:
-                        cir_onset = x
-                    break
-        if cir_onset is not None:
-            break
-
-    for prim in PRIMITIVES:
-        c   = COLOURS[prim]
-        d   = div[prim]
-        x_a = np.array(xs, dtype=float)
-
-        # Resolve rate on ax1 (left)
-        rr  = np.array(d["rr_mean"], dtype=float)
-        rlo = np.array(d["rr_lo"],   dtype=float)
-        rhi = np.array(d["rr_hi"],   dtype=float)
-        mask = ~np.isnan(rr)
-        if mask.any():
-            ax1.plot(x_a[mask], rr[mask],  color=c, linewidth=2,
-                     label=f"{prim} RR", zorder=3)
-            ax1.fill_between(x_a[mask], rlo[mask], rhi[mask],
-                             color=c, alpha=0.15, zorder=2)
-
-        # WAF on ax2 (right)
-        waf = np.array(d["waf_mean"], dtype=float)
-        wlo = np.array(d["waf_lo"],   dtype=float)
-        whi = np.array(d["waf_hi"],   dtype=float)
-        mask2 = ~np.isnan(waf)
-        if mask2.any():
-            ax2.plot(x_a[mask2], waf[mask2], color=c, linewidth=2,
-                     linestyle="--", label=f"{prim} WAF", zorder=3)
-            ax2.fill_between(x_a[mask2], wlo[mask2], whi[mask2],
-                             color=c, alpha=0.10, zorder=2)
-
-    # CIR onset vertical line
-    if cir_onset is not None:
-        ax1.axvline(cir_onset, color="gray", linestyle=":", linewidth=1.5, zorder=1)
-        ax1.text(cir_onset + 0.5, ax1.get_ylim()[1] * 0.97,
-                 f"CIR onset\n({cir_onset}%)",
-                 fontsize=8, va="top", color="gray")
-
-    ax1.set_xlabel("Token Budget  (% of full context)", fontsize=11)
-    ax1.set_ylabel("Resolve Rate", fontsize=11, color="black")
-    ax2.set_ylabel("WAF  (relative to baseline)", fontsize=11, color="dimgray")
-    ax1.set_title("E1 — Metric Divergence as Token Budget Shrinks", fontsize=12, fontweight="bold")
-
-    ax1.set_xlim(max(xs) + 2, min(xs) - 2)   # right→left (full budget on left)
-    ax1.set_xticks(xs)
-    ax1.tick_params(axis="x", labelsize=9)
-    ax2.axhline(1.0, color="gray", linestyle=":", linewidth=0.8, alpha=0.5)
-
-    # Combined legend
-    handles1, labels1 = ax1.get_legend_handles_labels()
-    handles2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(handles1 + handles2, labels1 + labels2,
-               loc="upper right", fontsize=8, framealpha=0.85)
-
-    plt.tight_layout()
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    fig.tight_layout()
+    out = OUT_DIR / "fig1_paradox.png"
+    fig.savefig(out, bbox_inches="tight", dpi=200)
     plt.close(fig)
-    print(f"  Saved Figure 1 → {save_path}")
+    print(f"Saved {out}")
 
+# ── Figure 2 — Aggregate Performance Gap (1×2 bars) ────────────────────────────
 
-# ── Figure 2 ───────────────────────────────────────────────────────────────────
+def fig2_aggregate_gap(cells, results):
+    # Aggregate compressed runs per primitive
+    def agg(prim):
+        all_n = all_k = all_patches = 0
+        all_calls = []
+        for pct in BUDGETS_COMPRESSED:
+            c = cells[(pct, prim)]
+            all_n       += c["n"]
+            all_k       += c["resolved"]
+            all_patches += c["patches"]
+            all_calls   += c["calls"]
+        return all_n, all_k, all_patches, all_calls
 
-def plot_figure2(results: list[dict], save_path: Path) -> None:
-    """Success vs Tool Calls scatter, sorted by baseline calls."""
-    FOCUS_BUDGETS = [1.00, 0.40]
-    SUBPLOT_TITLES = {1.00: "100% Budget (Baseline)", 0.40: "40% Budget"}
+    base = cells[(1.0, "truncation")]
+    t_n, t_k, t_patches, t_calls = agg("truncation")
+    s_n, s_k, s_patches, s_calls = agg("summarization")
 
-    # Gather per (primitive, pct, task) stats
-    by_ppt: dict = defaultdict(list)  # (prim, pct, iid) -> runs
-    for r in results:
-        prim = r.get("primitive")
-        pct  = r.get("budget_pct")
-        iid  = r.get("instance_id")
-        if prim and pct is not None and iid:
-            by_ppt[(prim, pct, iid)].append(r)
+    # Resolve rates
+    base_res  = base["resolved"] / base["n"] * 100
+    t_res     = t_k / t_n * 100
+    s_res     = s_k / s_n * 100
+    base_lo, base_hi = wilson_ci(base["resolved"], base["n"])
+    t_lo, t_hi       = wilson_ci(t_k, t_n)
+    s_lo, s_hi       = wilson_ci(s_k, s_n)
 
-    # Sort tasks by mean baseline calls (truncation baseline used as canonical sort)
-    tasks_sorted = sorted(
-        {r["instance_id"] for r in results},
-        key=lambda iid: (
-            mean_calls(by_ppt.get(("truncation", 1.0, iid), [])) or 0
-        )
-    )
-    task_idx = {iid: i for i, iid in enumerate(tasks_sorted)}
-    short_labels = [iid.split("__")[-1][:14] for iid in tasks_sorted]
+    # Tool calls
+    base_calls_mu, base_calls_lo, base_calls_hi = mean_ci(base["calls"])
+    t_calls_mu, t_calls_lo, t_calls_hi = mean_ci(t_calls)
+    s_calls_mu, s_calls_lo, s_calls_hi = mean_ci(s_calls)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=False)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    fig.subplots_adjust(wspace=0.38)
 
-    for ax, pct in zip(axes, FOCUS_BUDGETS):
-        for prim in PRIMITIVES:
-            c = COLOURS[prim]
-            xs_res, ys_res = [], []
-            xs_fail, ys_fail = [], []
+    x      = np.array([0, 1, 2])
+    colors = [COLOR_BASE, COLOR_T, COLOR_S]
+    labels = ["No compression\n(baseline)", "Truncation\n(compressed)", "Summarization\n(compressed)"]
 
-            for iid in tasks_sorted:
-                runs = by_ppt.get((prim, pct, iid), [])
-                if not runs:
-                    continue
-                xi = task_idx[iid]
-                mc = mean_calls(runs)
-                rr = resolve_rate(runs)
-                if np.isnan(mc):
-                    continue
-                if not np.isnan(rr) and rr > 0.5:
-                    xs_res.append(xi); ys_res.append(mc)
-                else:
-                    xs_fail.append(xi); ys_fail.append(mc)
+    # ── Left: resolve rate ──────────────────────────────────────────────────────
+    ax = axes[0]
+    res_vals = [base_res, t_res, s_res]
+    res_elo  = [base_res - base_lo*100, t_res - t_lo*100, s_res - s_lo*100]
+    res_ehi  = [base_hi*100 - base_res, t_hi*100 - t_res, s_hi*100 - s_res]
 
-            # Resolved (filled circle), failed (open circle)
-            ax.scatter(xs_res,  ys_res,  c=c, s=55, zorder=3,
-                       label=f"{prim} resolved")
-            ax.scatter(xs_fail, ys_fail, c="none", edgecolors=c, s=55,
-                       linewidths=1.4, zorder=3,
-                       label=f"{prim} failed")
+    bars = ax.bar(x, res_vals, color=colors, alpha=0.85, width=0.55,
+                  yerr=[res_elo, res_ehi], capsize=5,
+                  error_kw={"linewidth": 1.5, "ecolor": "#444"}, zorder=3)
 
-        ax.set_title(SUBPLOT_TITLES[pct], fontsize=11, fontweight="bold")
-        ax.set_xlabel("Task (sorted by baseline calls)", fontsize=10)
-        ax.set_ylabel("Mean Tool Calls", fontsize=10)
-        ax.set_xticks(range(len(tasks_sorted)))
-        ax.set_xticklabels(short_labels, rotation=45, ha="right", fontsize=7)
-        ax.legend(fontsize=8, loc="upper left", framealpha=0.85)
-        ax.grid(axis="y", alpha=0.3)
+    # Baseline reference line
+    ax.axhline(base_res, color=COLOR_BASE, linewidth=1, linestyle="--",
+               alpha=0.5, zorder=2)
 
-    fig.suptitle("E1 — Success vs Tool Calls per Task", fontsize=12, fontweight="bold")
-    plt.tight_layout()
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    # Value labels above bars
+    for bar, val, lo, hi in zip(bars, res_vals, res_elo, res_ehi):
+        ax.text(bar.get_x() + bar.get_width()/2, val + hi + 0.5,
+                f"{val:.1f}%", ha="center", va="bottom",
+                fontsize=10, fontweight="bold",
+                color=bar.get_facecolor())
+
+    # Annotate T vs S gap
+    ax.annotate("",
+                xy=(2, s_res), xytext=(2, t_res),
+                arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2))
+    ax.text(2.32, (t_res + s_res)/2,
+            f"−{(t_res - s_res)/t_res*100:.0f}%\nrelative",
+            va="center", fontsize=8.5, color="#333")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9.5)
+    ax.set_ylabel("Resolve rate  (%)")
+    ax.set_ylim(0, 20)
+    ax.set_title("(A)  Task resolve rate", fontweight="bold", loc="left")
+
+    # ── Right: tool calls ───────────────────────────────────────────────────────
+    ax = axes[1]
+    call_vals = [base_calls_mu, t_calls_mu, s_calls_mu]
+    call_elo  = [base_calls_mu - base_calls_lo,
+                 t_calls_mu - t_calls_lo,
+                 s_calls_mu - s_calls_lo]
+    call_ehi  = [base_calls_hi - base_calls_mu,
+                 t_calls_hi - t_calls_mu,
+                 s_calls_hi - s_calls_mu]
+
+    bars2 = ax.bar(x, call_vals, color=colors, alpha=0.85, width=0.55,
+                   yerr=[call_elo, call_ehi], capsize=5,
+                   error_kw={"linewidth": 1.5, "ecolor": "#444"}, zorder=3)
+
+    for bar, val in zip(bars2, call_vals):
+        ax.text(bar.get_x() + bar.get_width()/2, val + 1.5,
+                f"{val:.1f}", ha="center", va="bottom",
+                fontsize=10, fontweight="bold",
+                color=bar.get_facecolor())
+
+    # Highlight T vs S are essentially the same
+    delta = abs(t_calls_mu - s_calls_mu)
+    ax.text(1.5, max(call_vals) * 0.6,
+            f"T vs S: Δ = {delta:.1f} calls\n(indistinguishable)",
+            ha="center", fontsize=9, color="#666", fontstyle="italic",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="#f5f5f5",
+                      edgecolor="#ccc", linewidth=0.8))
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9.5)
+    ax.set_ylabel("Avg tool calls per run")
+    ax.set_ylim(0, 75)
+    ax.set_title("(B)  Tool calls — no signal", fontweight="bold", loc="left")
+
+    fig.suptitle("Standard Monitoring Cannot Detect the Performance Gap",
+                 fontweight="bold", fontsize=13, y=1.02)
+
+    fig.tight_layout()
+    out = OUT_DIR / "fig2_aggregate_gap.png"
+    fig.savefig(out, bbox_inches="tight", dpi=200)
     plt.close(fig)
-    print(f"  Saved Figure 2 → {save_path}")
+    print(f"Saved {out}")
 
+# ── Figure 3 — Compression Events × Outcome (clean bars) ────────────────────────
 
-# ── main ───────────────────────────────────────────────────────────────────────
+def fig3_smoking_gun(buckets):
+    events       = [0, 1, 2]
+    event_labels = ["0\ncompressions", "1\ncompression", "2\ncompressions"]
+    x  = np.arange(len(events))
+    bw = 0.35
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate E1 figures.")
-    parser.add_argument("--results", default=str(RESULTS_FILE),
-                        help="Path to experiment_results.json")
-    parser.add_argument("--out", default=str(FIGURES_DIR),
-                        help="Output directory for figures")
-    parser.add_argument("--show", action="store_true",
-                        help="Display figures interactively after saving")
-    args = parser.parse_args()
+    fig, ax = plt.subplots(figsize=(7, 5.2))
 
-    results_path = Path(args.results)
-    out_dir      = Path(args.out)
+    for j, (prim, color, label) in enumerate([
+        ("truncation",    COLOR_T, "Truncation"),
+        ("summarization", COLOR_S, "Summarization"),
+    ]):
+        vals, elo, ehi, ns, ks = [], [], [], [], []
+        for ev in events:
+            b = buckets[(ev, prim)]
+            n, k = b["n"], b["resolved"]
+            ns.append(n); ks.append(k)
+            res = k / n if n else 0
+            lo, hi = wilson_ci(k, n)
+            vals.append(res * 100)
+            elo.append((res - lo) * 100)
+            ehi.append((hi - res) * 100)
 
-    if not results_path.exists():
-        print(f"Results file not found: {results_path}")
-        print("Run: python scripts/run_experiment.py")
-        return
+        offset = (j - 0.5) * bw
+        bars = ax.bar(x + offset, vals, width=bw, color=color, alpha=0.82,
+                      label=label, yerr=[elo, ehi], capsize=5,
+                      error_kw={"linewidth": 1.4}, zorder=3)
 
-    print(f"Loading results from {results_path} …")
-    results = load_results(results_path)
-    print(f"  {len(results)} run records loaded.")
+        # n= labels at bar base (white text)
+        for bar, n, k in zip(bars, ns, ks):
+            h = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2,
+                    0.35,
+                    f"n={n}", ha="center", va="bottom",
+                    fontsize=7, color="white", fontweight="bold")
 
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # Annotate S=0 at ev=2
+    s2_center = x[2] + 0.5 * bw
+    ax.annotate("0 / 28\nresolved\n(0.0%)",
+                xy=(s2_center, 0.25),
+                xytext=(s2_center + 0.65, 7.5),
+                fontsize=9, color=COLOR_S, fontweight="bold", ha="left",
+                arrowprops=dict(arrowstyle="->", color=COLOR_S, lw=1.3))
 
-    print("\nGenerating Figure 1 (Metric Divergence) …")
-    plot_figure1(results, out_dir / "fig1_metric_divergence.png")
+    # Tool calls text box for ev=2 group
+    b_t2 = buckets[(2, "truncation")]
+    b_s2 = buckets[(2, "summarization")]
+    tc_t = sum(b_t2["calls"]) / len(b_t2["calls"])
+    tc_s = sum(b_s2["calls"]) / len(b_s2["calls"])
+    ax.text(2.0, 15,
+            f"Tool calls  (ev = 2 group)\nTruncation: {tc_t:.0f}   Summarization: {tc_s:.0f}",
+            ha="center", fontsize=8.5, color="#444",
+            bbox=dict(boxstyle="round,pad=0.4", facecolor="#fff9e6",
+                      edgecolor="#ddd", linewidth=0.9))
 
-    print("Generating Figure 2 (Success vs Tool Calls) …")
-    plot_figure2(results, out_dir / "fig2_success_vs_calls.png")
+    ax.set_xticks(x)
+    ax.set_xticklabels(event_labels, fontsize=11)
+    ax.set_xlabel("Number of compression events fired per run")
+    ax.set_ylabel("Resolve rate  (%)")
+    ax.set_ylim(0, 22)
+    ax.set_title("Catastrophic Failure Leaves No Trace in Tool-Call Counts",
+                 fontweight="bold", pad=12)
+    ax.legend(fontsize=10, frameon=False, loc="upper right")
 
-    if args.show:
-        plt.show()
+    fig.tight_layout()
+    out = OUT_DIR / "fig3_smoking_gun.png"
+    fig.savefig(out, bbox_inches="tight", dpi=200)
+    plt.close(fig)
+    print(f"Saved {out}")
 
-    print("\nDone.")
-
+# ── Main ────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    results = load_data()
+    cells   = build_cells(results)
+    buckets = build_event_buckets(results)
+
+    fig1_paradox(cells)
+    fig2_aggregate_gap(cells, results)
+    fig3_smoking_gun(buckets)
+
+    # Remove old figure files if they exist
+    for old in ["fig1_calls_by_budget.png", "fig2_precision_by_budget.png",
+                "fig1_metric_blindness.png", "fig2_compression_events.png",
+                "fig3_token_paradox.png"]:
+        p = OUT_DIR / old
+        if p.exists():
+            p.unlink()
+            print(f"Removed old {p.name}")
+
+    print(f"\nAll figures saved to {OUT_DIR}/")

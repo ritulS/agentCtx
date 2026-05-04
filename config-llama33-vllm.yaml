@@ -1,15 +1,15 @@
 agent:
-  step_limit: 125
+  step_limit: 75
   cost_limit: 0.0
   cost_tracking: ignore_errors
   mode: yolo
   confirm_exit: false
 
 model:
-  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
+  model_name: "hosted_vllm/meta-llama/Llama-3.3-70B-Instruct"
   model_class: "litellm_textbased"
   model_kwargs:
-    api_base: "http://localhost:8000/v1"
+    api_base: "http://localhost:8001/v1"
     drop_params: true
     temperature: 0.2
     max_tokens: 4096

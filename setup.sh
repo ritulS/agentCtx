@@ -52,10 +52,10 @@ info "Creating venv at $VENV_DIR ..."
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 
-info "Installing mini-swe-agent (editable) + litellm ..."
+info "Installing mini-swe-agent (editable) + litellm + tiktoken ..."
 pip install --quiet --upgrade pip
 pip install --quiet -e "$SUBMODULE"
-pip install --quiet litellm
+pip install --quiet litellm tiktoken
 
 info "Setup complete."
 echo ""

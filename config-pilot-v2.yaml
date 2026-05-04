@@ -1,5 +1,5 @@
 agent:
-  step_limit: 125
+  step_limit: 75
   cost_limit: 0.0
   cost_tracking: ignore_errors
   mode: yolo
@@ -10,9 +10,10 @@ model:
   model_class: "litellm_textbased"
   model_kwargs:
     api_base: "http://localhost:8000/v1"
-    drop_params: true
     temperature: 0.2
     max_tokens: 4096
+    logprobs: true
+    top_logprobs: 20
   cost_tracking: ignore_errors
 
 environment:

@@ -43,7 +43,7 @@ from pathlib import Path
 
 import tiktoken
 
-COMPRESSION_RATIO = 0.5
+COMPRESSION_RATIO = float(os.environ.get("MSWEA_COMPRESSION_RATIO", "0.5"))
 N_PROTECTED       = 2   # system + first-user (task) messages are never compressed
 KEEP_RECENT       = 3   # TRC: preserve the last N tool-result turns (mirrors Anthropic's default)
 
@@ -295,18 +295,142 @@ def structured_summarize(
     return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
 
 
+def _fit_tail(messages: list[dict], tail_budget: int) -> int:
+    """Find the largest k such that count_tokens(messages[k:]) <= tail_budget.
+
+    Walks backward from the end accumulating message tokens until adding the
+    next-oldest would exceed tail_budget. Always returns k <= len(messages),
+    and never goes below N_PROTECTED.
+
+    Returns k — messages[N_PROTECTED:k] is the head (to compress);
+                messages[k:] is the budget-fitting tail (kept verbatim).
+    """
+    if tail_budget <= 0:
+        return len(messages)
+    k = len(messages)
+    tail_tokens = 0
+    while k > N_PROTECTED:
+        msg_tokens = count_tokens([messages[k - 1]])
+        if tail_tokens + msg_tokens > tail_budget:
+            break
+        tail_tokens += msg_tokens
+        k -= 1
+    return k
+
+
+def summarize_partial(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+) -> tuple[list[dict], int, int, int, float]:
+    """SU-partial: summarize only the older head, keep the budget-fitting tail verbatim.
+
+    Splits the available compression budget 50/50 between the summary and the tail:
+      tail_budget    = (target_tokens - protected_tokens) // 2
+      summary_target = (target_tokens - protected_tokens) - tail_budget
+
+    1. Find largest k such that messages[k:] fits in tail_budget (tail kept).
+    2. Summarize messages[N_PROTECTED:k] via the existing summarize() LLM call.
+    3. Combine: protected + [summary_msg] + messages[k:].
+
+    If the head ends up empty (k <= N_PROTECTED) — i.e. the tail alone already
+    exceeds the budget — fall back to truncate to enforce target_tokens.
+
+    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
+    """
+    if len(messages) <= N_PROTECTED:
+        return messages, 0, 0, 0, 0.0
+
+    tokens_before = count_tokens(messages)
+    if tokens_before <= target_tokens:
+        return messages, 0, 0, 0, 0.0
+
+    protected        = messages[:N_PROTECTED]
+    protected_tokens = count_tokens(protected)
+    available        = max(0, target_tokens - protected_tokens)
+    tail_budget      = available // 2
+    summary_target   = available - tail_budget
+
+    k = _fit_tail(messages, tail_budget)
+
+    # No room for any head to summarize → fall back to truncate
+    if k <= N_PROTECTED:
+        new_messages, _ = truncate(messages, target_tokens)
+        return new_messages, max(0, tokens_before - count_tokens(new_messages)), 0, 0, 0.0
+
+    # Summarize the head: build (protected + head_window) then call summarize()
+    head_window = list(messages[N_PROTECTED:k])
+    head_input  = protected + head_window
+    head_summarized, _, pt, ct, lat = summarize(
+        head_input, model, protected_tokens + summary_target
+    )
+    # head_summarized = protected + [summary_msg]; append the tail
+    new_messages = list(head_summarized) + list(messages[k:])
+
+    # Safety net: if summary over-generated and we're still over target, truncate
+    if count_tokens(new_messages) > target_tokens:
+        new_messages, _ = truncate(new_messages, target_tokens)
+
+    tokens_after = count_tokens(new_messages)
+    return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
+
+
+def structured_summarize_partial(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+) -> tuple[list[dict], int, int, int, float]:
+    """SS-partial: structured-summarize the older head, keep the budget-fitting tail verbatim.
+
+    Same algorithm as summarize_partial(), but uses structured_summarize() for the head.
+    """
+    if len(messages) <= N_PROTECTED:
+        return messages, 0, 0, 0, 0.0
+
+    tokens_before = count_tokens(messages)
+    if tokens_before <= target_tokens:
+        return messages, 0, 0, 0, 0.0
+
+    protected        = messages[:N_PROTECTED]
+    protected_tokens = count_tokens(protected)
+    available        = max(0, target_tokens - protected_tokens)
+    tail_budget      = available // 2
+    summary_target   = available - tail_budget
+
+    k = _fit_tail(messages, tail_budget)
+
+    if k <= N_PROTECTED:
+        new_messages, _ = truncate(messages, target_tokens)
+        return new_messages, max(0, tokens_before - count_tokens(new_messages)), 0, 0, 0.0
+
+    head_input = protected + list(messages[N_PROTECTED:k])
+    head_summarized, _, pt, ct, lat = structured_summarize(
+        head_input, model, protected_tokens + summary_target
+    )
+    new_messages = list(head_summarized) + list(messages[k:])
+
+    if count_tokens(new_messages) > target_tokens:
+        new_messages, _ = truncate(new_messages, target_tokens)
+
+    tokens_after = count_tokens(new_messages)
+    return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
+
+
 def tool_result_clear(
     messages: list[dict],
     target_tokens: int,
+    fallback_truncate: bool = True,
 ) -> tuple[list[dict], int]:
     """Clear bash tool output bodies from old user turns to reduce context size.
 
     Works front-to-back (oldest first) through compressible user-role messages,
     replacing verbose output with a stub. Preserves the last KEEP_RECENT tool
     results (the agent is actively working with these). If clearing all eligible
-    tool outputs is still insufficient, falls back to truncate().
+    tool outputs is still insufficient and fallback_truncate=True, falls back to
+    truncate(). Set fallback_truncate=False when a caller will apply a second
+    primitive (e.g. summarization) after TRC.
 
-    Returns (new_message_list, tokens_saved).
+    Returns (new_message_list, tokens_saved, used_fallback).
     """
     if len(messages) <= N_PROTECTED:
         return messages, 0
@@ -354,7 +478,7 @@ def tool_result_clear(
 
     # Fallback: if still above target after clearing all eligible outputs
     used_fallback = False
-    if count_tokens(new_messages) > target_tokens:
+    if fallback_truncate and count_tokens(new_messages) > target_tokens:
         new_messages, extra_saved = truncate(new_messages, target_tokens)
         tokens_saved  += extra_saved
         used_fallback  = True
@@ -575,13 +699,7 @@ def write_token_log(agent) -> None:
         # ── Online TRC ───────────────────────────────────────────────────────
         "online_trc_flags":              agent._mem_online_trc_flags,
         "online_trc_total_tokens_saved": agent._mem_online_trc_tokens_saved,
-        "online_trc_flag_counts": {
-            "none":       sum(1 for e in agent._mem_online_trc_flags if e["flag"] == "none"),
-            "first_half": sum(1 for e in agent._mem_online_trc_flags if e["flag"] == "first_half"),
-            "second_half":sum(1 for e in agent._mem_online_trc_flags if e["flag"] == "second_half"),
-            "full":       sum(1 for e in agent._mem_online_trc_flags if e["flag"] == "full"),
-            "missing":    sum(1 for e in agent._mem_online_trc_flags if not e["flag_found"]),
-        },
+        "online_trc_clears":             len(agent._mem_online_trc_flags),
     }
     Path(log_path).parent.mkdir(parents=True, exist_ok=True)
     Path(log_path).write_text(json.dumps(data, indent=2))

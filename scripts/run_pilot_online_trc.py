@@ -35,8 +35,9 @@ PILOT_TASKS = [
 ]
 
 CONDITIONS = [
-    {"condition": "full-context", "primitive": "truncation",  "budget": 999_999_999, "config": BASELINE_CONFIG},
-    {"condition": "online-trc",   "primitive": "online_trc",  "budget": 0,           "config": ONLINE_TRC_CONFIG},
+    {"condition": "full-context",    "primitive": "truncation", "budget": 999_999_999, "config": BASELINE_CONFIG},
+    {"condition": "online-trc",      "primitive": "online_trc", "budget": 999_999_999, "config": ONLINE_TRC_CONFIG},
+    {"condition": "online-trc-20k",  "primitive": "online_trc", "budget": 20_000,      "config": ONLINE_TRC_CONFIG},
 ]
 
 STEP_LIMIT    = 75
@@ -126,10 +127,11 @@ def run_agent(instance_id: str, cond: dict) -> dict:
 
     icon = "P" if patch_generated else "x"
     print(
-        f"  [{icon}] {instance_id:30s} {condition:12s}  "
+        f"  [{icon}] {instance_id:30s} {condition:15s}  "
         f"calls={n_calls:3d}  e2e={e2e:.0f}s  "
-        f"tokens_saved={tok.get('online_trc_total_tokens_saved', 0):5d}  "
-        f"flags={tok.get('online_trc_flag_counts', {})}"
+        f"tok_saved={tok.get('online_trc_total_tokens_saved', 0):5d}  "
+        f"clears={tok.get('online_trc_clears', 0)}  "
+        f"compress={tok.get('compression_events', 0)}"
     )
 
     return {
@@ -143,18 +145,14 @@ def run_agent(instance_id: str, cond: dict) -> dict:
         "exit_status":     exit_status,
         "patch_generated": patch_generated,
         "resolved":        None,
-        # token totals
-        "total_prompt_tokens":     tok.get("total_prompt_tokens", 0),
-        "total_completion_tokens": tok.get("total_completion_tokens", 0),
-        "total_tokens":            tok.get("total_tokens", 0),
-        "step_prompt_tokens":      tok.get("step_prompt_tokens", []),
-        # online TRC
-        "online_trc_flags":               tok.get("online_trc_flags", []),
+        "total_prompt_tokens":            tok.get("total_prompt_tokens", 0),
+        "total_completion_tokens":        tok.get("total_completion_tokens", 0),
+        "total_tokens":                   tok.get("total_tokens", 0),
+        "step_prompt_tokens":             tok.get("step_prompt_tokens", []),
         "online_trc_total_tokens_saved":  tok.get("online_trc_total_tokens_saved", 0),
-        "online_trc_flag_counts":         tok.get("online_trc_flag_counts", {}),
-        # compression (baseline will have none; kept for schema consistency)
-        "compression_events":    tok.get("compression_events", 0),
-        "total_tokens_saved":    tok.get("total_tokens_saved", 0),
+        "online_trc_clears":              tok.get("online_trc_clears", 0),
+        "compression_events":             tok.get("compression_events", 0),
+        "total_tokens_saved":             tok.get("total_tokens_saved", 0),
     }
 
 
@@ -163,34 +161,21 @@ def print_summary(results: list[dict]) -> None:
     print("PILOT SUMMARY")
     print("=" * 70)
 
-    baseline  = [r for r in results if r["condition"] == "full-context"]
-    online    = [r for r in results if r["condition"] == "online-trc"]
-
+    def avg(rs, key): return sum(r[key] for r in rs) / max(len(rs), 1)
     def patch_rate(rs): return sum(1 for r in rs if r["patch_generated"]) / max(len(rs), 1)
 
-    print(f"\n  Patch rate  — full-context: {patch_rate(baseline):.0%}   online-trc: {patch_rate(online):.0%}")
-    print(f"  Avg calls   — full-context: {sum(r['n_calls'] for r in baseline)/max(len(baseline),1):.1f}"
-          f"  online-trc: {sum(r['n_calls'] for r in online)/max(len(online),1):.1f}")
-    print(f"  Avg total tokens (prompt+completion):")
-    print(f"    full-context: {sum(r['total_tokens'] for r in baseline)/max(len(baseline),1):,.0f}")
-    print(f"    online-trc:   {sum(r['total_tokens'] for r in online)/max(len(online),1):,.0f}")
+    conds = ["full-context", "online-trc", "online-trc-20k"]
+    groups = {c: [r for r in results if r["condition"] == c] for c in conds}
 
-    if online:
-        all_flags = []
-        for r in online:
-            all_flags.extend(e["flag"] for e in r.get("online_trc_flags", []))
-        counts = Counter(all_flags)
-        total  = max(sum(counts.values()), 1)
-        print(f"\n  Online TRC flag distribution ({total} total clearing events):")
-        for flag in ("none", "first_half", "second_half", "full"):
-            n = counts.get(flag, 0)
-            print(f"    {flag:12s}: {n:4d}  ({100*n/total:.1f}%)")
-        missing = sum(1 for r in online for e in r.get("online_trc_flags", []) if not e.get("flag_found"))
-        print(f"    missing     : {missing:4d}  ({100*missing/total:.1f}%)")
-        total_saved = sum(r.get("online_trc_total_tokens_saved", 0) for r in online)
-        print(f"\n  Total tokens cleared by online TRC: {total_saved:,}")
-        avg_saved = total_saved / max(len(online), 1)
-        print(f"  Avg per task: {avg_saved:,.0f}")
+    print(f"\n  {'Condition':<20} {'Patch%':>7} {'AvgCalls':>9} {'AvgTokens':>11} {'TokSaved':>9} {'Compress':>9}")
+    print(f"  {'-'*20} {'-'*7} {'-'*9} {'-'*11} {'-'*9} {'-'*9}")
+    for c in conds:
+        rs = groups[c]
+        if not rs: continue
+        print(f"  {c:<20} {patch_rate(rs):>7.0%} {avg(rs,'n_calls'):>9.1f} "
+              f"{avg(rs,'total_tokens'):>11,.0f} "
+              f"{avg(rs,'online_trc_total_tokens_saved'):>9,.0f} "
+              f"{avg(rs,'compression_events'):>9.1f}")
 
     print("=" * 70 + "\n")
 
