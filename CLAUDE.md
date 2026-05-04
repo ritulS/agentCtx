@@ -23,7 +23,7 @@ This project is worked on across two machines:
 
 - **Dobby** (primary): development, P100 expansion runs, depth/budget
   ablations, the staggered pilot. Serves Qwen3.5-35B-A3B continuously.
-- **Albus** (6× A6000): hosts model-expansion runs (Qwen2.5-7B, Llama 3.3 70B)
+- **Albus** (8× A6000): hosts model-expansion runs (Qwen2.5-7B, Llama 3.3 70B)
   and the quantization sweep. Different model serving per phase.
 
 **Sync discipline**: at task boundaries — finishing one experiment phase or

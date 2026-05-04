@@ -1,7 +1,7 @@
 # Albus — execution plan
 
-Owner: ritul@utexas.edu. Created 2026-05-03.
-Hardware: 6× NVIDIA A6000 (288 GB total VRAM).
+Owner: ritul@utexas.edu. Created 2026-05-03 (updated 2026-05-04: 8 GPUs, was 6).
+Hardware: 8× NVIDIA A6000 (384 GB total VRAM).
 Workspace: TBD on Albus (suggested: `~/projects/agentCtx-mB` or rsync mirror of Dobby).
 
 ---
@@ -11,10 +11,10 @@ Workspace: TBD on Albus (suggested: `~/projects/agentCtx-mB` or rsync mirror of 
 Albus runs three experiments sequentially (each requires a different vLLM model serving — model swaps are unavoidable, plan for ~2h serving overhead per swap):
 
 1. **Qwen2.5-7B-Instruct replication** (35 cells × 30 tasks × 2 runs = 2 100 runs, ~26h incl. setup)
-2. **Llama 3.3 70B Instruct replication** (35 cells × 30 tasks × 2 runs = 2 100 runs, ~72h incl. setup; could be 53-88h depending on TP-6 throughput)
+2. **Llama 3.3 70B Instruct replication** (35 cells × 30 tasks × 2 runs = 2 100 runs, ~58h incl. setup; could be 45-72h depending on TP-8 throughput)
 3. **Quantization sweep on Qwen3.5-35B-A3B** (TR + SU-full + FC + TRC+SS @ 20k × 4 quant levels × 30 tasks × 2 runs = 960 runs, ~21h incl. 4× model swaps)
 
-**Wall-clock total**: ~119h ≈ **5 days**.
+**Wall-clock total**: ~105h ≈ **4.4 days** (with TP-8 on Llama 70B).
 
 ---
 
@@ -42,7 +42,7 @@ venv/bin/pip install -r requirements.txt   # (or whatever the install pattern is
 ### 0.2 Verify minimum environment
 
 ```bash
-nvidia-smi                       # confirm 6 A6000s visible
+nvidia-smi                       # confirm 8 A6000s visible
 venv/bin/python3 -c "import vllm, pandas, numpy; print('ok')"
 ls task_lists/                   # selected_tasks.json should be present
 ls results/ablations/tasks.json  # the 30-task list for ablations
@@ -63,9 +63,9 @@ On Dobby, add to Active_runs.md:
 ### Albus: model expansion + quantization sweep
 - **Status:** RUNNING (Albus)
 - **Started:** YYYY-MM-DD HH:MM CDT
-- **Hardware:** 6× A6000 on <albus_hostname>
+- **Hardware:** 8× A6000 on <albus_hostname>
 - **Phases:** 1 (Qwen2.5-7B) → 2 (Llama 3.3 70B) → 3 (Qwen3.5-35B quantization)
-- **ETA:** ~5 days
+- **ETA:** ~4.4 days (with TP-8 on Llama 70B; range 4.0-5.4d depending on Llama throughput)
 - **Logs:** Albus `logs/albus_phase{1,2,3}.log`
 - **Result transfer:** post-completion rsync to Dobby `results/ablations/`
 ```
@@ -76,7 +76,7 @@ On Dobby, add to Active_runs.md:
 
 ### 1.1 Serving setup (~30 min)
 
-Start vLLM with Qwen2.5-7B. Fits comfortably in 1 A6000 (~14 GB FP16); use 6 A6000s for high concurrency via TP=2 and 3 instances, OR a single TP=2 instance with high batch size. Simpler is the latter.
+Start vLLM with Qwen2.5-7B. Fits comfortably in 1 A6000 (~14 GB FP16). With 8 A6000s, simplest is a single TP=2 instance with high `--max-num-seqs` (other 6 GPUs idle, fine for a 7B model). If throughput is the bottleneck, switch to TP=1 with 4 instances behind a load balancer.
 
 ```bash
 # scripts/start_vllm_qwen25_7b.sh
@@ -219,20 +219,22 @@ Check the median per-run latency. If it's much higher than 400s, adjust the ETA 
 
 ---
 
-## 2. Phase 2: Llama 3.3 70B Instruct replication (~72h, range 53-88h)
+## 2. Phase 2: Llama 3.3 70B Instruct replication (~58h, range 45-72h)
 
 ### 2.1 Serving setup (~1h, model weights are ~140GB so initial download is the slow part)
 
+With 8 A6000s, use TP=8 — cleanest for a 70B model and gives the most headroom for KV cache (which lets us push `--max-num-seqs` higher → more concurrency → faster sweep).
+
 ```bash
 # scripts/start_vllm_llama33_70b.sh
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
   venv/bin/python3 -m vllm.entrypoints.openai.api_server \
   --model meta-llama/Llama-3.3-70B-Instruct \
   --port 8000 \
   --dtype auto \
-  --tensor-parallel-size 6 \
+  --tensor-parallel-size 8 \
   --max-model-len 32768 \
-  --max-num-seqs 32 \
+  --max-num-seqs 64 \
   --enable-auto-tool-choice \
   --tool-call-parser llama3_json \
   > logs/vllm_llama33_70b.log 2>&1 &
@@ -256,7 +258,7 @@ tail -100 logs/llama33_70b_replication.log | grep -E '\[ +[0-9]+/'
 # If the per-run latency is >1500s, post a warning to Active_runs.md and consider reducing scope
 ```
 
-If latency >1500s/run sustained, the 5-day estimate slips. Decide at that point: continue full sweep (8+ days) or reduce to headline cells (FC + TRC+SS @ 20k only, ~120 runs, ~2 days).
+If latency >1500s/run sustained on TP-8, the 4.4-day estimate slips. Decide at that point: continue full sweep (6-7 days) or reduce to headline cells (FC + TRC+SS @ 20k only, ~120 runs, ~1-2 days).
 
 ---
 
@@ -435,7 +437,7 @@ venv/bin/python3 Review1/plot_cross_model.py
 
 ## 5. Failure recovery
 
-- **vLLM OOMs at TP-6 for Llama 70B**: try TP-8 if Albus has 8 GPUs, or drop max-num-seqs from 32 to 16. Re-run.
+- **vLLM OOMs at TP-8 for Llama 70B**: drop `--max-num-seqs` from 64 to 32 or 16. Re-run.
 - **Phase 2 latency much higher than estimated**: pause; either extend the ETA or cut Llama scope to headline cells (FC + TRC+SS @ 20k only, ~120 runs, ~2 days).
 - **Quantized model unavailable for Qwen3.5-35B-A3B**: substitute with quantized Qwen3.5-7B or skip that quant level.
 - **rsync to Dobby fails**: results stay on Albus; rsync can be retried later. Don't block on transfer.
@@ -456,4 +458,4 @@ echo $! > logs/albus_chain.pid
 disown
 ```
 
-One PID, one log per phase. Total runtime ~5 days.
+One PID, one log per phase. Total runtime ~4.4 days (with TP-8 on Llama 70B).
