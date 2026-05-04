@@ -16,6 +16,14 @@ Albus runs three experiments sequentially (each requires a different vLLM model 
 
 **Wall-clock total**: ~105h ≈ **4.4 days** (with TP-8 on Llama 70B).
 
+> **Important**: Phases 1 and 2 each include a *calibration pause* between
+> running FC+OTRC (∞-budget cells) and the budgeted cells. The Qwen3.5-35B
+> budgets (10k/15k/20k) are calibrated to that model's specific peak
+> step-prompt-token distribution and won't transfer one-to-one to
+> Qwen2.5-7B or Llama 3.3 70B. After FC+OTRC complete, compute the FC peak
+> distribution and report back to Dobby for budget approval before
+> launching the budgeted cells. See §1.3 and §2.2 for the exact protocol.
+
 ---
 
 ## 0. Initial setup (~2h, one-time)
@@ -128,90 +136,160 @@ environment:
     TQDM_DISABLE: "1"
 ```
 
-### 1.3 Run experiment
+### 1.3 Run experiment — three sub-steps with a calibration pause
 
-Set `MODEL_TAG=qwen25-7b` so result dirs are tagged distinctly. Add a `--model-tag` arg to `run_experiment.py` (already present).
+The Qwen3.5-35B-A3B budgets (10k/15k/20k) were calibrated to *that* model's
+peak-context distribution. Qwen2.5-7B has a different distribution, so we
+**must calibrate budgets from real data before running the budgeted cells**.
 
-`scripts/run_qwen25_7b.sh`:
+Workflow:
+- **§1.3a**: run FC + OTRC only (both ∞-budget — no calibration dependency).
+  Produces 60 FC trajectories whose peak `step_prompt_tokens` define the
+  calibration.
+- **§1.3b**: PAUSE — compute the FC peak distribution and report back to
+  Dobby for budget approval. Do NOT proceed to §1.3c without explicit
+  approval.
+- **§1.3c**: run the 11 budgeted primitives × 3 calibrated budgets.
+
+**Verify run_experiment.py supports `--model-tag` and `--agent-config`**
+before launching — both are present as of commit 770577e.
+
+#### §1.3a — FC + OTRC first (~6-8h)
+
+`scripts/run_qwen25_7b_step1.sh`:
 
 ```bash
 #!/bin/bash
 set -euo pipefail
-WS="$HOME/projects/agentCtx-mB"
+WS="$HOME/projects/agentCtx"
 cd "$WS"
-LOG="$WS/logs/qwen25_7b_replication.log"
+LOG="$WS/logs/qwen25_7b_step1.log"
 mkdir -p "$WS/logs"
-echo "[$(date)] === Qwen2.5-7B replication starting ===" | tee -a "$LOG"
+echo "[$(date)] === Qwen2.5-7B §1.3a: FC + OTRC ===" | tee -a "$LOG"
 
-# Same 35 cells as Review1: 11 budgeted prims × 3 budgets + FC + OTRC
-CONDS_BUDGETED="truncation summarization summarization-partial structured-summarize structured-summarize-partial tool-result-clear trc-su trc-ss otrc-tr otrc-su-partial otrc-ss-partial"
 CONDS_INF="full-context online-trc"
 
-for budget in 15000 10000 20000; do
+venv/bin/python3 scripts/run_experiment.py \
+    --ablation     qwen25-7b-inf \
+    --model-tag    qwen25-7b \
+    --agent-config config-qwen25-7b-vllm.yaml \
+    --budget       999999999 \
+    --tasks-file   task_lists/ablation_30tasks.json \
+    --conditions   $CONDS_INF \
+    2>&1 | tee -a "$LOG"
+venv/bin/python3 scripts/run_experiment.py \
+    --ablation     qwen25-7b-inf \
+    --model-tag    qwen25-7b \
+    --agent-config config-qwen25-7b-vllm.yaml \
+    --budget       999999999 \
+    --tasks-file   task_lists/ablation_30tasks.json \
+    --conditions   $CONDS_INF \
+    --eval-only \
+    2>&1 | tee -a "$LOG"
+
+echo "[$(date)] === §1.3a done — STOP, run §1.3b calibration before continuing ===" | tee -a "$LOG"
+```
+
+Update `Active_runs.md` on launch and again on completion. **Do not auto-chain
+to §1.3c.**
+
+#### §1.3b — Calibration (5 min, no GPU)
+
+After §1.3a completes, compute the FC peak distribution:
+
+```bash
+venv/bin/python3 -c "
+import json, pathlib
+rows = json.loads(pathlib.Path(
+  'results/ablations/qwen25-7b-inf/experiment_results.json').read_text())
+fc = [r for r in rows if r.get('condition')=='full-context']
+peaks = sorted(max(r['step_prompt_tokens']) for r in fc if r.get('step_prompt_tokens'))
+print(f'n={len(peaks)} FC trajectories')
+print(f'p25={peaks[len(peaks)//4]}  median={peaks[len(peaks)//2]}  '
+      f'p75={peaks[3*len(peaks)//4]}  max={peaks[-1]}')
+print('Trigger rates at candidate budgets:')
+for b in (4000, 6000, 8000, 10000, 12000, 15000, 20000, 25000, 30000):
+    tr = sum(1 for p in peaks if p > b) / len(peaks)
+    print(f'  {b//1000:>3}k → {tr*100:>3.0f}% trigger')
+"
+```
+
+Paste the output back to Dobby. Budget proposal will mirror Qwen3.5-35B's
+trigger rates (97% / 88% / 76% for tight / medium / loose) within ~5pp.
+Wait for explicit approval before running §1.3c.
+
+#### §1.3c — Run the 11 budgeted prims × 3 calibrated budgets (~18-20h)
+
+Once budgets are locked, fill in `TIGHT_BUDGET`, `MEDIUM_BUDGET`,
+`LOOSE_BUDGET` below.
+
+`scripts/run_qwen25_7b_step3.sh`:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+WS="$HOME/projects/agentCtx"
+cd "$WS"
+LOG="$WS/logs/qwen25_7b_step3.log"
+mkdir -p "$WS/logs"
+echo "[$(date)] === Qwen2.5-7B §1.3c: budgeted cells ===" | tee -a "$LOG"
+
+CONDS_BUDGETED="truncation summarization summarization-partial structured-summarize structured-summarize-partial tool-result-clear trc-su trc-ss otrc-tr otrc-su-partial otrc-ss-partial"
+
+# FILL THESE FROM §1.3b CALIBRATION
+TIGHT_BUDGET=____
+MEDIUM_BUDGET=____
+LOOSE_BUDGET=____
+
+# Run order: medium first, then tight, then loose (matches Dobby convention)
+for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     name="qwen25-7b-budgeted-${budget}"
+    echo "[$(date)] --- $name ---" | tee -a "$LOG"
     venv/bin/python3 scripts/run_experiment.py \
-        --ablation   "$name" \
-        --model-tag  "qwen25-7b" \
+        --ablation     "$name" \
+        --model-tag    qwen25-7b \
         --agent-config config-qwen25-7b-vllm.yaml \
-        --budget     "$budget" \
-        --tasks-file task_lists/ablation_30tasks.json \
-        --conditions $CONDS_BUDGETED \
+        --budget       "$budget" \
+        --tasks-file   task_lists/ablation_30tasks.json \
+        --conditions   $CONDS_BUDGETED \
         2>&1 | tee -a "$LOG"
     venv/bin/python3 scripts/run_experiment.py \
-        --ablation   "$name" \
-        --model-tag  "qwen25-7b" \
+        --ablation     "$name" \
+        --model-tag    qwen25-7b \
         --agent-config config-qwen25-7b-vllm.yaml \
-        --budget     "$budget" \
-        --tasks-file task_lists/ablation_30tasks.json \
-        --conditions $CONDS_BUDGETED \
+        --budget       "$budget" \
+        --tasks-file   task_lists/ablation_30tasks.json \
+        --conditions   $CONDS_BUDGETED \
         --eval-only \
         2>&1 | tee -a "$LOG"
 done
 
-# ∞-budget conditions
-venv/bin/python3 scripts/run_experiment.py \
-    --ablation   qwen25-7b-inf \
-    --model-tag  "qwen25-7b" \
-    --agent-config config-qwen25-7b-vllm.yaml \
-    --budget     999999999 \
-    --tasks-file task_lists/ablation_30tasks.json \
-    --conditions $CONDS_INF \
-    2>&1 | tee -a "$LOG"
-venv/bin/python3 scripts/run_experiment.py \
-    --ablation   qwen25-7b-inf \
-    --model-tag  "qwen25-7b" \
-    --agent-config config-qwen25-7b-vllm.yaml \
-    --budget     999999999 \
-    --tasks-file task_lists/ablation_30tasks.json \
-    --conditions $CONDS_INF \
-    --eval-only \
-    2>&1 | tee -a "$LOG"
-
-echo "[$(date)] === Qwen2.5-7B replication done — chaining to Llama 3.3 70B ===" | tee -a "$LOG"
+echo "[$(date)] === Qwen2.5-7B done — switching to Llama 3.3 70B ===" | tee -a "$LOG"
 
 # Stop vLLM, switch to Llama 70B
 pkill -f vllm.entrypoints.openai.api_server || true
 sleep 30
-exec "$WS/scripts/run_llama33_70b.sh"
+exec "$WS/scripts/run_llama33_70b_step1.sh"
 ```
-
-**Verify run_experiment.py supports `--model-tag` and `--agent-config`** before launching — these args are referenced but I haven't confirmed they exist in the current code. If not, add them (they're 5-line additions).
 
 ### 1.4 Pre-flight pilot (10 min)
 
-Before the full 2 100-run launch, run a 5-task × 1 condition × 1 run pilot (~5 runs) to validate latency:
+Before launching §1.3a, run a 5-task FC pilot to validate latency:
 
 ```bash
 venv/bin/python3 scripts/run_experiment.py \
-    --ablation   qwen25-7b-pilot \
-    --model-tag  qwen25-7b \
+    --ablation     qwen25-7b-pilot \
+    --model-tag    qwen25-7b \
     --agent-config config-qwen25-7b-vllm.yaml \
-    --budget     15000 \
-    --tasks-file task_lists/ablation_30tasks.json \
-    --n-tasks    5 \
-    --conditions truncation \
+    --budget       999999999 \
+    --tasks-file   task_lists/ablation_30tasks.json \
+    --n-tasks      5 \
+    --conditions   full-context \
     | tee logs/qwen25_7b_pilot.log
 ```
+
+Median per-run latency should be ~300-500s on a 7B model. If much higher,
+investigate before launching §1.3a.
 
 Check the median per-run latency. If it's much higher than 400s, adjust the ETA in Active_runs.md.
 
@@ -240,19 +318,39 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
 
 Verify, then create config-llama33-70b-vllm.yaml mirroring config-qwen25-7b-vllm.yaml but with `model_name: "hosted_vllm/meta-llama/Llama-3.3-70B-Instruct"`.
 
-### 2.2 Run experiment
+### 2.2 Run experiment — three sub-steps with a calibration pause
 
-Same wrapper structure as Phase 1, with `model-tag llama33-70b`:
+Same FC-first / calibrate / budgeted structure as Phase 1. Llama 3.3 70B has
+a much tighter peak-context distribution than Qwen3.5-35B (preliminary FC
+data on a different task subset shows median peak ~6k vs Qwen3.5's ~27k),
+so its calibrated budgets will be substantially smaller — likely in the
+3-8k range. **We must calibrate from the canonical 30-task set, not the
+prior data.**
 
-`scripts/run_llama33_70b.sh` (mirror of run_qwen25_7b.sh, with two changes):
-- `model_name` → Llama 3.3 70B
-- Final `exec` → `scripts/run_quantization_sweep.sh`
+#### §2.2a — FC + OTRC first (~30-40h)
 
-### 2.3 Mid-run latency check (after ~30 min)
+`scripts/run_llama33_70b_step1.sh` — mirrors §1.3a with `model-tag
+llama33-70b` and `agent-config config-llama33-70b-vllm.yaml`. Output dir:
+`results/ablations/llama33-70b-inf/`. Update `Active_runs.md` on launch.
+**Do not auto-chain.**
+
+#### §2.2b — Calibration (5 min, no GPU)
+
+Same script as §1.3b but reading from
+`results/ablations/llama33-70b-inf/experiment_results.json`. Paste the
+output back to Dobby for budget approval. Wait for explicit approval.
+
+#### §2.2c — Run the 11 budgeted prims × 3 calibrated budgets (~20-25h)
+
+`scripts/run_llama33_70b_step3.sh` — mirrors §1.3c with `TIGHT_BUDGET`,
+`MEDIUM_BUDGET`, `LOOSE_BUDGET` filled from §2.2b. Final `exec` →
+`scripts/run_quantization_sweep.sh` (Phase 3).
+
+### 2.3 Mid-run latency check (after ~30 min in §2.2a)
 
 ```bash
 # How fast are runs actually completing?
-tail -100 logs/llama33_70b_replication.log | grep -E '\[ +[0-9]+/'
+tail -100 logs/llama33_70b_step1.log | grep -E '\[ +[0-9]+/'
 # If the per-run latency is >1500s, post a warning to Active_runs.md and consider reducing scope
 ```
 
@@ -442,18 +540,32 @@ venv/bin/python3 Review1/plot_cross_model.py
 
 ---
 
-## 6. Single-PID chain
+## 6. Chain structure (with calibration pauses)
 
-After Phase 1 pilot validates latency, the three phases chain via `exec`:
+The two calibration pauses (§1.3b after Phase 1's FC+OTRC, §2.2b after
+Phase 2's FC+OTRC) prevent a single-PID chain across the whole queue.
+Instead: each step runs as its own background job, the next step is
+launched manually after Dobby approves the budgets.
 
 ```
-run_qwen25_7b.sh → exec run_llama33_70b.sh → exec run_quantization_sweep.sh
+§1.1-1.2  setup vLLM Qwen2.5-7B  (manual)
+§1.3a     run_qwen25_7b_step1.sh  →  FC+OTRC, ~6-8h     (background)
+                ↓ pause for calibration approval
+§1.3c     run_qwen25_7b_step3.sh  →  budgeted cells, ~18-20h  (background, chains to §2.1)
+§2.1      switch vLLM to Llama 70B  (autochained from end of step3)
+§2.2a     run_llama33_70b_step1.sh  →  FC+OTRC, ~30-40h  (background)
+                ↓ pause for calibration approval
+§2.2c     run_llama33_70b_step3.sh  →  budgeted cells, ~20-25h  (chains to §3)
+§3        run_quantization_sweep.sh  →  ~21h            (background)
 ```
+
+Three nohup launches across the whole queue, with two human checkpoints
+between them. Total runtime ~4.4 days (with TP-8 on Llama 70B).
+
+Launch each segment as:
 
 ```bash
-nohup scripts/run_qwen25_7b.sh > logs/albus_chain.out 2>&1 &
-echo $! > logs/albus_chain.pid
+nohup scripts/run_<segment>.sh > logs/<segment>.out 2>&1 &
+echo $! > logs/<segment>.pid
 disown
 ```
-
-One PID, one log per phase. Total runtime ~4.4 days (with TP-8 on Llama 70B).
