@@ -37,3 +37,14 @@ Thumbs.db
 
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.log
+
+# ── Heavy / scratch dirs (regeneratable or one-machine artifacts) ─────────────
+archive/
+temp/
+Review1/raw/
+
+# ── Paper artifacts kept local (regeneratable; would churn the repo) ──────────
+PaperSections/
+figures/
+Review1/figures/
+exp_plans/
