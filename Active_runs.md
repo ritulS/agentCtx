@@ -2,15 +2,22 @@
 
 ## Currently Running
 
-### Albus §1.3a: Qwen2.5-7B FC + OTRC (120 runs)
+### Albus §1.3a: Qwen2.5-7B FC + OTRC — DONE
+- **Status:** COMPLETE (2026-05-05 00:42 CDT, ~3h wall-time)
+- **Output:** 120 agent runs in `results/ablations/qwen25-7b-inf/`. Aggregated to `Review1/Review1_qwen25-7b.csv` (gitignored).
+- **Outcome distribution:** 49 Submitted (16 with patches), 37 LimitsExceeded, 19 ContextWindowExceededError, 15 empty-exit. 0/16 patches resolved (expected for 7B on Verified).
+
+### Albus §1.3c: Qwen2.5-7B budgeted cells (1,980 runs)
 - **Status:** RUNNING (Albus)
-- **Started:** 2026-05-04 23:40 CDT
-- **PGID:** 806013 (clean kill: `kill -- -806013`)
-- **Conditions:** full-context, online-trc (∞ budget) × 30 tasks × 2 runs = 120 runs + eval pass
-- **Workers:** 32 concurrent agents against vLLM DP=8 (8 replicas, 1 per A6000)
-- **Logs:** `logs/qwen25_7b_step1.log`
-- **Output:** `results/ablations/qwen25-7b-inf/`
-- **ETA:** ~1-3h based on mini pilot timing (median e2e ~520s for FC+OTRC mix). After this: STOP, run §1.3b calibration, paste output, await budget approval before §1.3c.
+- **Started:** 2026-05-05 00:49 CDT
+- **PGID:** 3009963 (clean kill: `kill -- -3009963`)
+- **Budgets:** TIGHT=4k, MEDIUM=8k, LOOSE=12k (manual pick — see `logs/qwen25-7b_calibrated_budgets.sh`. Trigger rates 79/67/58% on §1.3a's bimodal distribution; matches 35B's ~9-12pp gradient between conditions.)
+- **Conditions:** 11 budgeted primitives × 3 budgets × 30 tasks × 2 runs = 1,980 runs + eval pass
+- **Run order:** MEDIUM (8k) → TIGHT (4k) → LOOSE (12k), each followed by `--eval-only` rescore
+- **Workers:** 32 concurrent agents against vLLM DP=8
+- **Logs:** `logs/qwen25_7b_step3.log`
+- **Output:** `results/ablations/qwen25-7b-budgeted-{4000,8000,12000}/`
+- **ETA:** ~10-14h. After this: chains via `exec` to `run_llama33_70b_step1.sh` (Phase 2 vLLM swap + §2.2a).
 
 ---
 
