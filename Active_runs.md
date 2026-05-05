@@ -2,6 +2,18 @@
 
 ## Currently Running
 
+### Albus environment ready (Phase 1 prep complete; §1.3a not yet launched)
+- **Hardware:** 8× A6000 on Albus, vLLM DP=8 serving Qwen2.5-7B-Instruct (port 8000, 1 replica/GPU)
+- **Mini pilot done** (5 tasks × FC + OTRC × 2 reps = 20 runs): symmetric outcomes (4 Submitted + 6 LimitsExceeded per condition), 0 errors.
+- **Pre-§1.3a fixes landed:**
+  - `config-online-trc.yaml` stripped to delta (prompt only, no `model:`/`environment:`)
+  - `run_experiment.py`: `--n-tasks` now slices ablation lists; `--max-workers` flag (default 16); OTRC chain layers `--agent-config` after the OTRC config so model wins
+  - 4 step scripts added under `scripts/run_qwen25_7b_step{1,3}.sh` and `scripts/run_llama33_70b_step{1,3}.sh`, all `setsid`-launchable for clean process-group cleanup
+- **Env setup notes (Albus-specific, not on Dobby):** rootless podman 5.8.2 at `~/.local/bin/`, DOCKER_HOST→podman socket, pinned `vllm==0.11.0` + `transformers<5.0` (vllm latest pulled cu130 incompatible with driver 12.9).
+- **Dobby compatibility verified:** Dobby's run_p100_*.sh scripts don't pass any of the new flags → defaults preserved → identical behavior including upcoming OTRC stack phase.
+
+
+
 ### P100 expansion: 70 new tasks × 35 cells × 2 runs (4 452 new runs)
 - **Status:** RUNNING
 - **First attempt aborted:** 2026-04-30 12:13 CDT, PID 3861703 — died immediately with "unknown condition: summarization-full". Fixed via rename `summarization-full` → `summarization` in p100_inventory.py, p100_seed.py, run_p100_phase1.sh (Option A from earlier).

@@ -103,11 +103,12 @@ CONDITIONS = [
 ]
 
 N_TASKS            = 100   # total tasks (~33 per repo); overridden by --n-tasks
+N_TASKS_OVERRIDE: int | None = None  # set by --n-tasks; slices ablation task lists too
 RUNS_PER_TASK      = 2
 COMPRESSION_RATIO  = 0.5   # fraction of budget retained after compression; overridden by --depth
 STEP_LIMIT    = 125
 AGENT_TIMEOUT = 1500  # 25 min; 125 steps × ~10s/step + headroom
-MAX_WORKERS   = 16    # concurrent runs against the shared vLLM server
+MAX_WORKERS   = 16    # concurrent runs against the shared vLLM server (override with --max-workers)
 
 # SWE-bench evaluation
 SWE_BENCH_PYTHON = WORKSPACE_ROOT / "venv" / "bin" / "python"
@@ -134,21 +135,21 @@ def load_tasks() -> list[dict]:
     if ABLATION_NAME:
         if TASKS_FILE_EXPLICIT:
             tasks = json.loads(TASKS_FILE.read_text())
-            by_repo = defaultdict(int)
-            for t in tasks:
-                by_repo[t["repo"]] += 1
-            counts = ", ".join(f"{r}={n}" for r, n in sorted(by_repo.items()))
-            print(f"Ablation mode (custom task file {TASKS_FILE}) — {len(tasks)} tasks: {counts}")
-            return tasks
-        if not ABLATION_TASKS_FILE.exists():
-            print(f"ERROR: ablation task file not found at {ABLATION_TASKS_FILE}")
-            raise SystemExit(1)
-        tasks = json.loads(ABLATION_TASKS_FILE.read_text())
+            source_desc = f"custom task file {TASKS_FILE}"
+        else:
+            if not ABLATION_TASKS_FILE.exists():
+                print(f"ERROR: ablation task file not found at {ABLATION_TASKS_FILE}")
+                raise SystemExit(1)
+            tasks = json.loads(ABLATION_TASKS_FILE.read_text())
+            source_desc = "fixed 30-task set"
+        if N_TASKS_OVERRIDE is not None and N_TASKS_OVERRIDE < len(tasks):
+            tasks = tasks[:N_TASKS_OVERRIDE]
+            source_desc += f" (sliced to first {N_TASKS_OVERRIDE} via --n-tasks)"
         by_repo = defaultdict(int)
         for t in tasks:
             by_repo[t["repo"]] += 1
         counts = ", ".join(f"{r}={n}" for r, n in sorted(by_repo.items()))
-        print(f"Ablation mode — using fixed 30-task set: {counts}")
+        print(f"Ablation mode ({source_desc}) — {len(tasks)} tasks: {counts}")
         return tasks
 
     if not TASKS_FILE.exists():
@@ -229,15 +230,26 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
     # `import memory` regardless of the cwd the subprocess starts in.
     env["PYTHONPATH"] = str(WORKSPACE_ROOT) + (":" + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
 
-    _config = config if config is not None else AGENT_CONFIG
+    # Build -c config chain. mini-swe-agent merges configs in order, later overriding earlier.
+    # When a condition has a config (e.g. OTRC's prompts), load it first, then layer the user's
+    # --agent-config on top so the model section (model_name, api_base) wins.
+    config_chain = ["swebench_backticks.yaml"]
+    if config is not None:
+        config_chain.append(str(config))
+        if AGENT_CONFIG and Path(AGENT_CONFIG) != Path(config):
+            config_chain.append(str(AGENT_CONFIG))
+    else:
+        config_chain.append(str(AGENT_CONFIG))
     cmd = [
         str(WORKSPACE_ROOT / "venv" / "bin" / "python"),
         "-m", "minisweagent.run.benchmarks.swebench_single",
         "--subset",   DATASET_SUBSET,
         "--split",    DATASET_SPLIT,
         "--instance", instance_id,
-        "-c", "swebench_backticks.yaml",
-        "-c", str(_config),
+    ]
+    for c in config_chain:
+        cmd += ["-c", c]
+    cmd += [
         "-c", f"agent.step_limit={STEP_LIMIT}",
         "-o", str(traj_file),
         "-y",
@@ -537,7 +549,7 @@ results/{MODEL_TAG}/
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    global MODEL_TAG, AGENT_CONFIG, N_TASKS
+    global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS
 
     parser = argparse.ArgumentParser(description="Experiment runner")
     parser.add_argument("--model-tag",    default="qwen35-a3b",
@@ -557,6 +569,8 @@ def main() -> None:
                         help="Compression ratio: fraction of budget retained after compression (default: 0.5)")
     parser.add_argument("--conditions",   nargs="+", default=None, metavar="COND",
                         help="Run only these conditions (e.g. --conditions online-trc full-context)")
+    parser.add_argument("--max-workers",  type=int, default=None,
+                        help=f"Concurrent agent runs (default: {MAX_WORKERS}). On Albus DP=8 server, 32 saturates.")
     grp = parser.add_mutually_exclusive_group()
     grp.add_argument("--eval-only",  action="store_true")
     grp.add_argument("--with-eval",  action="store_true")
@@ -574,6 +588,9 @@ def main() -> None:
         AGENT_CONFIG = Path(args.agent_config).resolve()
     if args.n_tasks is not None:
         N_TASKS = args.n_tasks
+        N_TASKS_OVERRIDE = args.n_tasks
+    if args.max_workers is not None:
+        MAX_WORKERS = args.max_workers
     if args.budget is not None:
         for c in CONDITIONS:
             if c["budget"] != 999_999_999:

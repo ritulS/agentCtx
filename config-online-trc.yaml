@@ -1,29 +1,15 @@
+# OTRC delta config: prompt override only.
+# Layer this *before* the model agent-config in the -c chain so the model_name
+# from --agent-config wins. run_experiment.py handles that ordering for any
+# condition that sets "config" in the CONDITIONS list.
+#
+# OTRC primitive clears tool-result stubs from history mid-run. The system
+# prompt is shorter than the swebench_backticks.yaml default because the
+# agent's prior outputs may be cleared, so a verbose "remember the workflow"
+# template doesn't help.
 agent:
-  step_limit: 125
-  cost_limit: 0.0
-  cost_tracking: ignore_errors
-  mode: yolo
-  confirm_exit: false
   system_template: |
     You are a helpful assistant that can interact with a computer.
 
     Your response must contain exactly ONE bash code block with ONE command (or commands connected with && or ||).
     Include a THOUGHT section before your command where you briefly explain your reasoning.
-
-model:
-  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
-  model_class: "litellm_textbased"
-  model_kwargs:
-    api_base: "http://localhost:8000/v1"
-    drop_params: true
-    temperature: 0.2
-    max_tokens: 4096
-  cost_tracking: ignore_errors
-
-environment:
-  env:
-    PAGER: cat
-    MANPAGER: cat
-    LESS: -R
-    PIP_PROGRESS_BAR: "off"
-    TQDM_DISABLE: "1"

@@ -73,14 +73,24 @@ def run_agent(instance_id: str, cond: dict) -> dict:
     if local_bin not in env.get("PATH", ""):
         env["PATH"] = local_bin + ":" + env.get("PATH", "")
 
+    # config-online-trc.yaml is a delta (prompt only, no model section), so chain
+    # it before BASELINE_CONFIG to get the model from the baseline. For the FC
+    # condition, config IS BASELINE_CONFIG so no chaining needed.
+    config_chain = ["swebench_backticks.yaml"]
+    if config != BASELINE_CONFIG:
+        config_chain += [str(config), str(BASELINE_CONFIG)]
+    else:
+        config_chain += [str(config)]
     cmd = [
         str(WORKSPACE_ROOT / "venv" / "bin" / "python"),
         "-m", "minisweagent.run.benchmarks.swebench_single",
         "--subset",   DATASET_SUBSET,
         "--split",    DATASET_SPLIT,
         "--instance", instance_id,
-        "-c", "swebench_backticks.yaml",
-        "-c", str(config),
+    ]
+    for c in config_chain:
+        cmd += ["-c", c]
+    cmd += [
         "-c", f"agent.step_limit={STEP_LIMIT}",
         "-o", str(traj_file),
         "-y",
