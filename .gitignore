@@ -42,6 +42,9 @@ Thumbs.db
 archive/
 temp/
 Review1/raw/
+# Per-model aggregated CSVs — partial during sweeps, noisy to track. Sync via
+# rsync. Add specific final versions manually with `git add -f` when stable.
+Review1/Review1_*.csv
 
 # ── Paper artifacts kept local (regeneratable; would churn the repo) ──────────
 PaperSections/

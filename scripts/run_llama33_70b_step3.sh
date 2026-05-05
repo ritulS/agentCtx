@@ -45,6 +45,9 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
         2>&1 | tee -a "$LOG"
 done
 
+echo "[$(date)] === aggregating into Review1 ===" | tee -a "$LOG"
+venv/bin/python3 Review1/build_review1_albus.py --model-tag llama33-70b 2>&1 | tee -a "$LOG"
+
 echo "[$(date)] === Llama 3.3 70B done — Phase 2 complete ===" | tee -a "$LOG"
 echo "[$(date)] === Stopping here — Phase 3 (quantization) is a separate launch ===" | tee -a "$LOG"
 pkill -f vllm.entrypoints.openai.api_server || true

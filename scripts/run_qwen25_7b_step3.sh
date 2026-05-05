@@ -53,6 +53,9 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
         2>&1 | tee -a "$LOG"
 done
 
+echo "[$(date)] === aggregating into Review1 ===" | tee -a "$LOG"
+venv/bin/python3 Review1/build_review1_albus.py --model-tag qwen25-7b 2>&1 | tee -a "$LOG"
+
 echo "[$(date)] === Qwen2.5-7B done — switching to Llama 3.3 70B ===" | tee -a "$LOG"
 
 # Stop vLLM, switch to Llama 70B setup

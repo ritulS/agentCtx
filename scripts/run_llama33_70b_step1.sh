@@ -72,4 +72,7 @@ venv/bin/python3 scripts/run_experiment.py \
     --eval-only \
     2>&1 | tee -a "$LOG"
 
+echo "[$(date)] === aggregating into Review1 ===" | tee -a "$LOG"
+venv/bin/python3 Review1/build_review1_albus.py --model-tag llama33-70b 2>&1 | tee -a "$LOG"
+
 echo "[$(date)] === §2.2a done — STOP, run §2.2b calibration before continuing ===" | tee -a "$LOG"
