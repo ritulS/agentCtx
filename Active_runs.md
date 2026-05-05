@@ -2,7 +2,19 @@
 
 ## Currently Running
 
-### Albus environment ready (Phase 1 prep complete; §1.3a not yet launched)
+### Albus §1.3a: Qwen2.5-7B FC + OTRC (120 runs)
+- **Status:** RUNNING (Albus)
+- **Started:** 2026-05-04 23:40 CDT
+- **PGID:** 806013 (clean kill: `kill -- -806013`)
+- **Conditions:** full-context, online-trc (∞ budget) × 30 tasks × 2 runs = 120 runs + eval pass
+- **Workers:** 32 concurrent agents against vLLM DP=8 (8 replicas, 1 per A6000)
+- **Logs:** `logs/qwen25_7b_step1.log`
+- **Output:** `results/ablations/qwen25-7b-inf/`
+- **ETA:** ~1-3h based on mini pilot timing (median e2e ~520s for FC+OTRC mix). After this: STOP, run §1.3b calibration, paste output, await budget approval before §1.3c.
+
+---
+
+### Albus environment ready (Phase 1 prep complete)
 - **Hardware:** 8× A6000 on Albus, vLLM DP=8 serving Qwen2.5-7B-Instruct (port 8000, 1 replica/GPU)
 - **Mini pilot done** (5 tasks × FC + OTRC × 2 reps = 20 runs): symmetric outcomes (4 Submitted + 6 LimitsExceeded per condition), 0 errors.
 - **Pre-§1.3a fixes landed:**
