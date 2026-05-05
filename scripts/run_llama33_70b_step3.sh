@@ -11,15 +11,19 @@ echo "[$(date)] === Llama 3.3 70B §2.2c: budgeted cells ===" | tee -a "$LOG"
 
 CONDS_BUDGETED="truncation summarization summarization-partial structured-summarize structured-summarize-partial tool-result-clear trc-su trc-ss otrc-tr otrc-su-partial otrc-ss-partial"
 
-# FILL THESE FROM §2.2b CALIBRATION
-TIGHT_BUDGET=____
-MEDIUM_BUDGET=____
-LOOSE_BUDGET=____
-
-if [[ "$TIGHT_BUDGET" == "____" || "$MEDIUM_BUDGET" == "____" || "$LOOSE_BUDGET" == "____" ]]; then
-    echo "ERROR: budgets not filled in. Edit this script before launching." | tee -a "$LOG"
+# Source calibrated budgets (written by Review1/calibrate_budgets.py or manually).
+BUDGETS_FILE="$WS/logs/llama33-70b_calibrated_budgets.sh"
+if [[ ! -f "$BUDGETS_FILE" ]]; then
+    echo "ERROR: $BUDGETS_FILE not found. Run §2.2b calibration first." | tee -a "$LOG"
     exit 1
 fi
+# shellcheck disable=SC1090
+source "$BUDGETS_FILE"
+if [[ -z "${TIGHT_BUDGET:-}" || -z "${MEDIUM_BUDGET:-}" || -z "${LOOSE_BUDGET:-}" ]]; then
+    echo "ERROR: budgets not set in $BUDGETS_FILE" | tee -a "$LOG"
+    exit 1
+fi
+echo "[$(date)] using budgets: TIGHT=$TIGHT_BUDGET MEDIUM=$MEDIUM_BUDGET LOOSE=$LOOSE_BUDGET" | tee -a "$LOG"
 
 for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     name="llama33-70b-budgeted-${budget}"

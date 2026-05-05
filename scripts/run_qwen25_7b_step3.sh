@@ -18,15 +18,19 @@ WORKERS=32  # DP=8 vLLM server can absorb this; lower if oversubscribed
 
 CONDS_BUDGETED="truncation summarization summarization-partial structured-summarize structured-summarize-partial tool-result-clear trc-su trc-ss otrc-tr otrc-su-partial otrc-ss-partial"
 
-# FILL THESE FROM §1.3b CALIBRATION
-TIGHT_BUDGET=____
-MEDIUM_BUDGET=____
-LOOSE_BUDGET=____
-
-if [[ "$TIGHT_BUDGET" == "____" || "$MEDIUM_BUDGET" == "____" || "$LOOSE_BUDGET" == "____" ]]; then
-    echo "ERROR: budgets not filled in. Edit this script before launching." | tee -a "$LOG"
+# Source calibrated budgets (written by Review1/calibrate_budgets.py or manually).
+BUDGETS_FILE="$WS/logs/qwen25-7b_calibrated_budgets.sh"
+if [[ ! -f "$BUDGETS_FILE" ]]; then
+    echo "ERROR: $BUDGETS_FILE not found. Run §1.3b calibration first." | tee -a "$LOG"
     exit 1
 fi
+# shellcheck disable=SC1090
+source "$BUDGETS_FILE"
+if [[ -z "${TIGHT_BUDGET:-}" || -z "${MEDIUM_BUDGET:-}" || -z "${LOOSE_BUDGET:-}" ]]; then
+    echo "ERROR: budgets not set in $BUDGETS_FILE" | tee -a "$LOG"
+    exit 1
+fi
+echo "[$(date)] using budgets: TIGHT=$TIGHT_BUDGET MEDIUM=$MEDIUM_BUDGET LOOSE=$LOOSE_BUDGET" | tee -a "$LOG"
 
 # Run order: medium first, then tight, then loose (matches Dobby convention)
 for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
