@@ -1,0 +1,194 @@
+[
+  {
+    "instance_id": "django__django-11087",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-11095",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-11433",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-12143",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-12276",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-12304",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-12325",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-12663",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-13809",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-13810",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-15098",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-15278",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-15368",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-15525",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-15629",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-15741",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-16667",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "django__django-17084",
+    "repo": "django__django"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-10844",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-12585",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-12682",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-12973",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-13135",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-13142",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-13439",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-13496",
+    "repo": "scikit-learn__scikit-learn"
+  },
+  {
+    "instance_id": "sympy__sympy-12419",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-12489",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-13372",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-13647",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-13798",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-13878",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-14248",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-14531",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-14711",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-15349",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-15875",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-16450",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-17139",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-17318",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-18189",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-18199",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-18211",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-19954",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-20438",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-22456",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-24213",
+    "repo": "sympy__sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-24661",
+    "repo": "sympy__sympy"
+  }
+]

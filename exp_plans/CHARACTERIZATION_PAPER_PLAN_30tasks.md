@@ -1,8 +1,13 @@
-# Characterization Paper — Framing v1
+# Characterization Paper — Framing v1 (n=30 era — archival)
 
 **Date:** 2026-05-01
-**Status:** Spine locked. Abstract drafted. Awaiting n=100 expansion to finalize numbers.
+**Status:** ARCHIVED. This is the n=30-era framing kept for reference. Several
+structural claims here (oracle-of-2 saturation; threshold +6pp resolve over
+online at 1.5× tokens; stacking sub-additive-but-positive; LOO-near-baseline
+predictability) shifted at n=100. The current paper framing lives in
+[CHARACTERIZATION_PAPER_PLAN_100tasks.md](CHARACTERIZATION_PAPER_PLAN_100tasks.md).
 **Supersedes:** prior framings (long-context, signal-curation, compression-beats-FC, smaller-models-benefit-more, routing-as-takeaway, cascade-as-mechanism — all rejected).
+**Superseded by:** [CHARACTERIZATION_PAPER_PLAN_100tasks.md](CHARACTERIZATION_PAPER_PLAN_100tasks.md) (2026-05-05).
 
 ---
 
@@ -151,6 +156,181 @@ Add one additional benchmark to characterize across task domains, not just SWE-b
 | Failure-mode shift table (#3) | pending |
 | Compression overhead audit (#4) | pending |
 | Second benchmark (#8) | pending — needs scoping |
+
+---
+
+---
+
+## Detailed section spine
+
+Per-section breakdown: contents, anchoring figure/table, data dependencies, writeable-now status. Cells link back to the four strengthening items where relevant.
+
+### §1 — Introduction
+| element | content |
+|---|---|
+| ¶1 setup | Multi-step LLM agents accumulate context, exceed budget; compression is the standard mitigation |
+| ¶2 gap | Primitives have proliferated; field evaluates each in isolation against FC; combined design space is uncharacterized; cite ACON, AgentDiet, LLMLingua-2 |
+| ¶3 our work | We characterize the four axes on SWE-bench Verified; n=100 tasks, N models |
+| ¶4 findings preview | Pareto · heterogeneity · timing · stacking — terse one-liners |
+| ¶5 contributions | (a) taxonomy + grid, (b) four structural findings, (c) statistical scaffold, (d) failure-mode characterization, (e) released artifact |
+| anchor | Fig 1: taxonomy schematic — four axes and where primitives sit |
+| writeable now? | yes |
+
+### §2 — Related Work
+| sub-theme | role |
+|---|---|
+| long-context evaluation (RULER, lost-in-middle) | brief; explicitly *not* our contribution area |
+| single-turn prompt compression (LLMLingua-2, Selective Context) | brief; different problem |
+| **agent-loop compression** (ACON, AgentDiet, Reflexion-style summary) | central — position our work as the first design-space characterization, not a method |
+| routing/cascade adjacent literature | acknowledge as adjacent; explicitly state we do not propose routing |
+| SWE-bench Verified and agent benchmarks | grounding |
+
+### §3 — Compression-Primitive Taxonomy
+| sub | content |
+|---|---|
+| §3.1 four axes | formal definitions of *content*, *trigger*, *aggressiveness*, *interaction* |
+| §3.2 the 11 primitives | per-primitive: name, axis coordinates, mechanism, pseudocode, source |
+| §3.3 the grid | how primitives populate the axes |
+| anchors | Table 1 (primitives × axis coordinates), Fig 2 (axis schematic with primitives placed) |
+| writeable now? | yes — definitional |
+
+### §4 — Experimental Setup
+| sub | content |
+|---|---|
+| §4.1 benchmark | SWE-bench Verified; n=100 task selection criteria |
+| §4.2 models | Qwen3.5-35B-A3B primary; secondaries TBD |
+| §4.3 agent harness | mini-swe-agent fork, tool inventory, system prompt, step cap |
+| §4.4 budgets | {10k, 15k, 20k}; two unbounded baselines (FC@262k, OTRC@∞) |
+| §4.5 **compression overhead accounting** | what `total_tokens_consumed` counts; SU/SS overhead disclosure — **item #4** |
+| §4.6 **statistical procedure** | paired bootstrap CIs, McNemar exact, multi-comparison correction — **item #1** |
+| §4.7 run protocol | 2 runs/cell; seeds; total run count |
+| anchors | Table 2 (run grid), Table 3 (harness hyperparameters) |
+| writeable now? | partially — §4.5 needs #4 audit |
+
+### §5 — Structural Findings (RQ1–RQ4)
+| sub | claim | evidence | figure |
+|---|---|---|---|
+| §5.1 RQ1 mechanism specialization | Primitives form a Pareto frontier; no single primitive dominates | per-cell Pareto plot with 95% CIs | Fig 3 |
+| §5.2 RQ2 task specialization | ~30% pairwise disagreement; top-2 oracle saturates achievable resolve | per-task winner heatmap, pairwise disagreement matrix, oracle-of-k curve | Fig 4–5 |
+| §5.3 RQ3 composition | Stacking yields consistent but sub-additive gains | stacking interaction table, marginal-gain decomposition, paired CIs | Fig 6 |
+| §5.4 RQ4 timing | Threshold +6 pp resolve, online 1.5× cheaper; monotone in budget, consistent across stack variants | head-to-head table (3 pairs × 3 budgets), trade plot, McNemar p-values | Fig 7 |
+
+### §6 — Failure-Mode Reshaping (RQ5)
+| sub | content |
+|---|---|
+| §6.1 outcome taxonomy | `resolved / submitted_unresolved / limits_exceeded / silent_crash`, formally defined |
+| §6.2 FC's silent failure | ~50% wrong-patch silent failures at 262k — the baseline pathology |
+| §6.3 compression reshapes the failure mix | per-cell outcome distribution; deltas vs FC |
+| §6.4 stacking and failure modes | does +SS / +SU change failure mix differently than it changes resolve? |
+| anchors | Fig 8 (stacked-bar grid), Table 4 (FC vs primitive silent-failure shares with paired CIs) — **item #3** |
+
+### §7 — Generalization (RQ6)
+| sub | content |
+|---|---|
+| §7.1 cross-model | re-run subset on secondary models; replicate RQ1, RQ4, RQ5 |
+| §7.2 cross-benchmark | second benchmark; reduced grid (top 4 primitives × 1–2 budgets × 30+ tasks) — **item #8** |
+| §7.3 what replicates vs what shifts | explicit per-finding × per-(model, benchmark) categorization |
+| anchors | Fig 9 (Pareto across models), Fig 10 (Pareto across benchmarks), Table 5 (replicate / shift / break per finding) |
+
+### §8 — Implications
+| sub | content |
+|---|---|
+| §8.1 cost-per-resolve frontier | practitioner guidance: at budget B, most efficient primitive is X |
+| §8.2 where stacking pays | which stack combinations have favorable cost / risk profiles |
+| §8.3 failure-mode-aware deployment | choose primitive by which failure mode is least acceptable |
+| §8.4 implications for future methods | what new compression methods must beat: Pareto frontier, online-vs-threshold trade, stacking baseline |
+| writing rule | no routing framing — implications stay characterizing, not prescribing a router |
+
+### §9 — Limitations & Threats
+- single harness (mini-swe-agent) — flag #9 (second harness) as future work
+- n=100 limits very fine-grained claims
+- compression overhead disclosed in §4.5
+- 2 runs/cell — bounded variance estimate
+- two benchmark domains, not exhaustive
+
+### §10 — Conclusion
+- Restate gap → findings → contribution → one forward sentence on what new methods would look like evaluated against the map.
+
+---
+
+## Writing order (when each section unblocks)
+
+| order | section | blocked by |
+|---|---|---|
+| 1 | §3 Taxonomy | nothing — definitional |
+| 2 | §1 Introduction | spine lock (this doc) |
+| 3 | §4 Experimental Setup | item #4 audit (overhead accounting) |
+| 4 | §5 RQ1–4 | n=100 data + item #1 (stats) |
+| 5 | §6 RQ5 | item #3 (failure-mode table) |
+| 6 | §7 RQ6 | cross-model runs + item #8 (second benchmark) |
+| 7 | §2 Related Work | iterative |
+| 8 | §8–10 | all results |
+| 9 | abstract | last — final numbers |
+
+---
+
+---
+
+## Introduction blueprint
+
+Per-paragraph plan for §1. Each paragraph: goal, key claims, citations to anchor, transition, length, open knobs. Approved 2026-05-01; draft pending after compact.
+
+### ¶1 — The agent context-budget problem (motivation)
+- **Goal:** Establish a real, growing context-pressure problem for agents — independent of long-context-degradation framing.
+- **Key claims:** Multi-step agents accumulate context across every step (tool calls, observations, intermediate decisions); long-horizon tasks routinely exceed the budget; mechanically distinct from long-context evaluation since trajectories grow with task complexity, not input size.
+- **Citations:** SWE-bench Verified, GAIA, AppWorld; agent-harness papers showing trajectory growth.
+- **Transition:** *"A growing literature responds with..."*
+- **Length:** 4–5 sentences.
+
+### ¶2 — The compression-primitive landscape (state of the field)
+- **Goal:** Establish that compression is a dense sub-area; foreshadow the evaluation-pattern gap.
+- **Key claims:** Many primitives have been proposed (truncation, summarization, structured/selective deletion, online tool-result reduction); each is typically introduced and evaluated in isolation against full-context; existing work establishes that compression *helps*, not how compression decisions *trade off*.
+- **Citations:** ACON, AgentDiet, LLMLingua-2, Reflexion-style summary, agent-harness compression knobs.
+- **Transition:** *"This isolation leaves a structural question unanswered..."*
+- **Length:** 4–5 sentences.
+
+### ¶3 — The design-space gap (load-bearing)
+- **Goal:** Articulate why the *design space* is the right unit of analysis.
+- **Key claims:** Compression is not a single dial but a multi-axis design problem; primitives differ along orthogonal axes — what content is removed, when compression fires, how aggressively, how primitives interact; without characterizing the cumulative space, practitioners can't choose and researchers can't situate new methods; the field needs a map.
+- **Length:** 4–5 sentences.
+- **Open knob:** rhetorical register — measured ("the field accumulates point comparisons") vs sharp ("compression is treated as a single dial when it is a four-axis design problem"). Default: measured.
+
+### ¶4 — Our approach (methods preview)
+- **Goal:** State concretely what we did with enough scale signal for a skimmer.
+- **Key claims:** 11 compression primitives organized along the four axes; populated 35-cell evaluation grid (three budgets × 11 primitives + two unbounded baselines); 100 SWE-bench Verified tasks across N models; generalization probes on a second benchmark domain; statistical scaffolding (paired CIs, McNemar) throughout.
+- **Length:** 3–4 sentences.
+- **Open knob:** whether to mention the second benchmark here or save for §7. Default: mention here, strengthens "characterization" framing.
+
+### ¶5 — Findings preview
+- **Goal:** Hook with the four structural findings — concrete enough to interest, terse enough to keep reading.
+- **Key claims** (one sentence each):
+  - **Pareto:** primitives form a frontier on resolve rate vs tokens-per-resolve; no choice dominates jointly.
+  - **Heterogeneity:** primitives disagree on ~30% of tasks; top-2 oracle exceeds any single primitive.
+  - **Timing:** threshold-triggered clearing buys ~6 pp resolve over online at 1.5× tokens, monotone and consistent.
+  - **Stacking:** sub-additive; reshapes failure modes more than it shifts resolve.
+- **Length:** 5–6 sentences.
+- **Open knob:** include cross-model/benchmark replication line here, or as a separate sentence before ¶6. Default: separate sentence.
+
+### ¶6 — Contributions list
+1. A four-axis taxonomy of agent context-compression primitives.
+2. The 35-cell evaluation grid populated across 100 tasks and N models, with paired-CI statistical scaffolding.
+3. Four structural findings (Pareto, heterogeneity, timing, stacking) anchored with significance tests.
+4. A failure-mode characterization showing FC's silent-failure share and how compression reshapes the outcome distribution.
+5. A released artifact: the design-space map (data, eval pipeline, scripts) as a scaffold for future compression methods.
+- **Open knob:** keep 5, or trim to 3 (taxonomy / findings / artifact). Default: 5.
+
+### ¶7 (optional) — Roadmap
+- *"Section 2 surveys related work; Section 3 defines the taxonomy; Section 4 details the experimental setup; Sections 5–7 present results; Section 8 discusses implications."*
+- **Length:** 1–2 sentences.
+- **Open knob:** include or skip. Default: include.
+
+### Decisions still pending before drafting
+1. ¶3 rhetorical register (measured vs sharp)
+2. ¶4 — mention second benchmark or save for §7
+3. ¶5 — cross-model/benchmark line placement
+4. Contributions count (5 or 3)
+5. ¶7 roadmap (include or skip)
+6. Length target (typical EMNLP intro 200–450 words)
 
 ---
 
