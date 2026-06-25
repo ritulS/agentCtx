@@ -50,3 +50,7 @@ Review1/Review1_*.csv
 PaperSections/
 figures/
 Review1/figures/
+Review1/figures_n100/
+
+# ── Local CSV backups (timestamped snapshots, not history) ────────────────────
+*.csv.bak.*
