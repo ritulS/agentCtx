@@ -2,65 +2,229 @@
 
 ## Currently Running
 
-### Albus §1.3a: Qwen2.5-7B FC + OTRC — DONE
-- **Status:** COMPLETE (2026-05-05 00:42 CDT, ~3h wall-time)
-- **Output:** 120 agent runs in `results/ablations/qwen25-7b-inf/`. Aggregated to `Review1/Review1_qwen25-7b.csv` (gitignored).
-- **Outcome distribution:** 49 Submitted (16 with patches), 37 LimitsExceeded, 19 ContextWindowExceededError, 15 empty-exit. 0/16 patches resolved (expected for 7B on Verified).
-
-### Albus §1.3c: Qwen2.5-7B budgeted cells (1,980 runs)
-- **Status:** RUNNING (Albus)
-- **Started:** 2026-05-05 00:49 CDT
-- **PGID:** 3009963 (clean kill: `kill -- -3009963`)
-- **Budgets:** TIGHT=4k, MEDIUM=8k, LOOSE=12k (manual pick — see `logs/qwen25-7b_calibrated_budgets.sh`. Trigger rates 79/67/58% on §1.3a's bimodal distribution; matches 35B's ~9-12pp gradient between conditions.)
-- **Conditions:** 11 budgeted primitives × 3 budgets × 30 tasks × 2 runs = 1,980 runs + eval pass
-- **Run order:** MEDIUM (8k) → TIGHT (4k) → LOOSE (12k), each followed by `--eval-only` rescore
-- **Workers:** 32 concurrent agents against vLLM DP=8
-- **Logs:** `logs/qwen25_7b_step3.log`
-- **Output:** `results/ablations/qwen25-7b-budgeted-{4000,8000,12000}/`
-- **ETA:** ~10-14h. After this: chains via `exec` to `run_llama33_70b_step1.sh` (Phase 2 vLLM swap + §2.2a).
-
----
-
-### Albus environment ready (Phase 1 prep complete)
-- **Hardware:** 8× A6000 on Albus, vLLM DP=8 serving Qwen2.5-7B-Instruct (port 8000, 1 replica/GPU)
-- **Mini pilot done** (5 tasks × FC + OTRC × 2 reps = 20 runs): symmetric outcomes (4 Submitted + 6 LimitsExceeded per condition), 0 errors.
-- **Pre-§1.3a fixes landed:**
-  - `config-online-trc.yaml` stripped to delta (prompt only, no `model:`/`environment:`)
-  - `run_experiment.py`: `--n-tasks` now slices ablation lists; `--max-workers` flag (default 16); OTRC chain layers `--agent-config` after the OTRC config so model wins
-  - 4 step scripts added under `scripts/run_qwen25_7b_step{1,3}.sh` and `scripts/run_llama33_70b_step{1,3}.sh`, all `setsid`-launchable for clean process-group cleanup
-- **Env setup notes (Albus-specific, not on Dobby):** rootless podman 5.8.2 at `~/.local/bin/`, DOCKER_HOST→podman socket, pinned `vllm==0.11.0` + `transformers<5.0` (vllm latest pulled cu130 incompatible with driver 12.9).
-- **Dobby compatibility verified:** Dobby's run_p100_*.sh scripts don't pass any of the new flags → defaults preserved → identical behavior including upcoming OTRC stack phase.
-
-
-
-### P100 expansion: 70 new tasks × 35 cells × 2 runs (4 452 new runs)
-- **Status:** RUNNING
-- **First attempt aborted:** 2026-04-30 12:13 CDT, PID 3861703 — died immediately with "unknown condition: summarization-full". Fixed via rename `summarization-full` → `summarization` in p100_inventory.py, p100_seed.py, run_p100_phase1.sh (Option A from earlier).
-- **Second attempt aborted:** 2026-04-30 12:17 CDT, PID 3864657 — ran for ~4h on the WRONG 30 ablation tasks instead of the 70 new tasks. Root cause: `run_experiment.py:load_tasks()` ignored `--tasks-file` whenever `--ablation` was set. Patched run_experiment.py to honor `--tasks-file` even in ablation mode (added `TASKS_FILE_EXPLICIT` flag). Cleaned 295 wrong-task fresh entries from p100-singles-15000.
-- **Started (third attempt):** 2026-04-30 16:19 CDT
-- **Third attempt crashed:** 2026-05-01 ~10:20 CDT (after ~18h, agent runs for p100-singles-15000 finished 700/700, then `--eval-only` crashed with KeyError on `r["patch_generated"]` because seeded stubs lack that field). Patched `run_swebench_eval()` to skip records with `seeded_from` flag.
-- **Started (fourth attempt):** 2026-05-01 11:37 CDT
-- **Fourth attempt died:** 2026-05-02 (mid-run file move from `scripts/` to `task_lists/` invalidated bash-cached path in the for-loop; got `FileNotFoundError: scripts/p100_new_tasks.json`). Wrappers now updated; no further file moves planned.
-- **Progress preserved:** p100-singles-15000 (700 agents + 303 evals) + p100-singles-10000 (700 agents) all on disk and resumable.
-- **Started (fifth attempt):** 2026-05-02 15:53 CDT
-- **PID:** 2743033
-- **Phase 1 DONE:** 2026-05-03 05:33 CDT (~14h after fifth-attempt launch — all 4 sub-budgets complete: singles-10k/15k/20k + inf, fresh runs 2022, evals all clean, 0 wrong-task)
-- **Phase 2 in progress:** started 2026-05-03 05:33 CDT, currently in p100-trc-15000 eval (~90% of that sub-budget)
-- **Workers:** 16
-- **Phases:** 1 (singles+∞) → 2 (TRC stack) → 3 (OTRC stack), chained via `exec`
-- **Logs:** `logs/p100_chain.out`, `logs/p100_phase{1,2,3}.log`
-- **PID file:** `logs/p100_chain.pid`
-- **Output dirs:**
-  - `results/ablations/p100-singles-{10000,15000,20000}/`
-  - `results/ablations/p100-trc-{10000,15000,20000}/`
-  - `results/ablations/p100-otrc-{10000,15000,20000}/`
-  - `results/ablations/p100-inf/`
-- **Inventory:** 448 existing runs reused (374 with full symlinks, 74 summarization-full with stubs only — known issue, fine for §6 since build_review1.py reads from source paths regardless)
-- **ETA:** ~65h wall-clock (~3 days from start)
+### Logit Pilot (Tier-A) — Devstral logit-rank measurement on Dobby
+- **Status:** ✅ Phase 4 FULL RUN **COMPLETE** 2026-06-04 11:13 CDT
+  (`reports/tier_a_full.json`). Matrix 1000×14272, fill 0.973. α=0.536 (R²0.99);
+  held-out (700/300 H, 100/100 disjoint bases) SVD d=89 rmse 0.691 / KL 0.118
+  **beats** rank-1 (1.052/.337), marginal (1.052/.338), random-subspace (2.19).
+  Scale-stable α .46→.54. Verdict: positive but moderate — real low-dim summary
+  generalizing off unseen bases; smooth power-law, not a cliff. Replicates smoke.
+  Server (PID 1251455, :8002) still up. **Next: Phase 5 decision — Tier B
+  (full-vocab in-process HF logits, server torn down) to rule out a
+  top-50/log-softmax artifact.** Project in `~/projects/logit_v1`.
+- **Host:** Dobby (4× A100 80GB PCIe, TP=4, **port 8002**, `--max-model-len 65536`,
+  `--max-logprobs 64 --enable-prefix-caching`).
+- **Launch:** `bash ~/projects/logit_v1/scripts/start_vllm_logitpilot.sh`
+  (serves from agentCtx venv; logit_v1 venv talks to it over HTTP only).
+- **GPUs freed for this:** killed orphaned idle Qwen2.5-Coder-32B server
+  (PID 2471642) on 2026-06-03 — its grid was already complete (see below).
+- **Next phases:** 3-way token gate → smoke (200×25) → full (1000×200). Tracked
+  in `~/projects/logit_v1/PHASE_CHECKLIST.md`.
 
 ---
 
 ## Recently Completed
+
+### Qwen2.5-Coder-32B-Instruct — reduced-scope model expansion on Dobby ✅ COMPLETE
+- **Status:** DONE Sat May 23 17:37 CDT — `phase DONE — 780 runs complete`;
+  790 trajectories on disk (`qwen25-coder-32b-{inf,budgeted-15000,pilot}`).
+- **Server teardown:** the TP=4 vLLM server (PID 2471642, port 8003) was left
+  running idle for ~11 days after completion; killed 2026-06-03 to free all 4
+  GPUs for the Logit Pilot. GPUs confirmed released (14 MiB/card).
+- **Scope (reduced, decided 2026-05-22):** §a + §c@15k = 780 runs
+  (§a inf FC+OTRC d=0.5: 120; §c canonical @15k, 11 prims, d=0.5: 660).
+- **Followup (manual, still pending):** add `_QWEN25_CODER_32B_SOURCES` map to
+  `Review1/build_review1.py`; rebuild `Review1.csv`; flip checklist row.
+
+---
+
+## Recently Completed
+
+### Devstral-Small-2-24B-Instruct-2512 — full 3,900-run grid ✅ COMPLETE
+- **Status:** DONE Fri May 22 04:26 AM CDT (3.3 days end-to-end)
+- **Records on disk:** 3,900 / 3,900 across 10 dirs:
+  - `results/ablations/devstral-2-inf/` — 120 (FC + OTRC @ ∞, d=0.5)
+  - `results/ablations/devstral-2-budgeted-{15000,20000,24000}/` — 660 each (canonical d=0.5)
+  - `results/ablations/devstral-2-budgeted-{15000,20000,24000}-d030/` — 300 each (tail d=0.3)
+  - `results/ablations/devstral-2-budgeted-{15000,20000,24000}-d070/` — 300 each (tail d=0.7)
+- **Headline:** FC@∞ = 71.7%, OTRC@∞ = 38.3% (note: 33pp REVERSAL of Qwen3.5-A3B's OTRC > FC pattern — worth highlighting in §5.4 cross-model story)
+- **Calibrated budgets:** 15k/20k/24k (calibrated from FC §a peak distribution, n=60)
+- **Followup pending (manual):** add `_DEVSTRAL_2_SOURCES` map to `Review1/build_review1.py`; rebuild `Review1.csv` with `model` column per `~/.claude/plans/albus-to-dobby-transfer.md`; flip checklist row to ✅ complete; archive 3 unused Devstral launcher scripts.
+
+---
+
+## Recently Completed
+
+### Devstral pivot — Llama 3.3 70B abandoned, Devstral-Small-2 selected as Phase 2 model
+- **Status:** DONE 2026-05-18
+- **Why pivoted from Llama:** Llama 3.3 70B FC@∞ resolved only 2/60 = 3.3% on ABL-30 (vs Qwen3.5-A3B's 43%) due to early-submit behavior (median 9 calls vs Devstral's 67). Likely cause: Llama 3.3 was post-trained for explicit JSON tool-calling, mini-swe-agent uses raw bash-block prompting via `litellm_textbased` — mode mismatch depresses iteration depth.
+- **Devstral verification:** 5-task pilot at TP=2/32k showed 6/10 resolved (100% of completed submissions; the rest hit BadRequestError at 32k context cap). Restarted at TP=4/65k → 0 BadRequestErrors on full FC §a, 43/60 = 71.7% resolved.
+- **Architectural confound check:** Mistral-Small-3.1-24B base (which Devstral fine-tunes from) uses `sliding_window: null` — full dense attention, no SWA, no architectural confound for compression study.
+- **Artifacts retained for reference:**
+  - `exp_plans/DOBBY_LLAMA_PHASE.md` — Llama plan (now superseded but kept as reference)
+  - `scripts/start_vllm_llama33_70b.sh`, `scripts/run_llama_*.sh` — Llama launchers, not used
+  - `config-llama33-vllm.yaml`, `config-online-trc-llama33.yaml` — Llama configs, not used
+  - `results/ablations/llama33-70b-inf/` — 60 FC @ ∞ records kept as the documented Llama-on-harness baseline
+
+---
+
+## Recently Completed
+
+### Depth-tunable backfill — depth=0.7 × budget=10k × ABL-30 (closed the last in-scope gap)
+- **Status:** DONE
+- **Started:** 2026-05-14 ~23:30 CDT
+- **Ended:** 2026-05-15 05:23:53 CDT
+- **Wall-time:** ~5h 53m (prewarm ~10 min + agent ~4h44m + eval 69 min)
+- **PID:** 3886536 (wrapper); log `logs/depth70_singles_10k.out`
+- **Wrapper:** `scripts/run_depth70_singles_10k.sh`
+- **Net new runs:** 300 (5 conds × 30 ABL tasks × 2 runs).
+- **Conditions:** `truncation summarization summarization-partial structured-summarize structured-summarize-partial`.
+- **Output dir:** `results/ablations/p100-depth70-singles-10000/` (ABL-30 cohort despite p100 prefix, per `--tasks-file`).
+- **Snapshot:** `Review1/raw/depth_p100_runs/p100-depth70-singles-10000.json`.
+- **Followup completed (2026-05-15 ~11:10 CDT):**
+  1. ✅ `_P100_DEPTH70_SINGLES_SOURCES[10000]` entry added to `Review1/build_review1.py`.
+  2. ✅ `Review1.csv` rebuilt — depth=0.7 @ 10k singles now appears with 60 runs/condition × 5 conditions = 300 records.
+  3. ✅ `Review1/depth_analysis.py` §2b extended to include depth=0.7 @ 10k row. Result: SU-partial 45.0% vs SU-full 38.3% (Δ=+6.7pp, b/c=5/0, p=0.062). Marginally significant; reinforces that the +14.5pp SU-partial advantage at depth=0.5 is a point feature.
+  4. ✅ `project_runs_checklist.md` updated — cell marked complete, no remaining in-scope gaps.
+
+### Depth-grid paper-critical 15k slice (depth=0.3 + 0.7 @ 15k, singles + otrc)
+- **Status:** DONE
+- **Started (revised scope):** 2026-05-11 15:17 CDT
+- **Ended:** 2026-05-14 06:24:23 CDT
+- **Wall-time:** ~63h master-uptime (~2.6 days, matches plan)
+- **Prior history:**
+  - 2026-05-10 13:02 CDT: image pre-warm started; done 13:08 CDT (100/100 cached)
+  - 2026-05-10 13:26 CDT: original 18-cell orchestrator launched
+  - 2026-05-11 ~13:30 CDT: orchestrator killed at cell 2 (after cell 1 completed at 1,000 runs and cell 2 reached 272/600) — scope revised to drop TRC group and focus on the paper-critical 15k slice
+  - 2026-05-11 15:17 CDT: relaunched with 4-cell `TARGETED_CELLS` config (PID 2933068, exited cleanly)
+- **Plan:** `~/.claude/plans/effervescent-yawning-rain.md` (revised)
+- **Goal:** support RQ5 (depth as preservation lever) and RQ5b (axis interaction) at a symmetric 3-point depth grid (0.3, 0.5, 0.7) at the canonical 15k budget.
+- **Net new runs:** 3,200 across 4 ablation dirs.
+- **Workers:** 16.
+- **Per-cell tally (resolved / total aggregated across all conditions in the group):**
+
+| Cell | Conds | n | Resolved | % | Cell wall-time |
+|---|---|---:|---:|---:|---|
+| p100-depth30-singles-15000 | 5 singles | 1000 | 410 | 41.0% | ~17h agent + eval |
+| p100-depth30-otrc-15000 | 3 otrc | 600 | 250 | 41.7% | ~13h agent + eval |
+| p100-depth70-singles-15000 | 5 singles | 1000 | 400 | 40.0% | ~17h agent + eval |
+| p100-depth70-otrc-15000 | 3 otrc | 600 | 230 | 38.3% | ~10h agent + eval |
+
+- **Snapshots:** `Review1/raw/depth_p100_runs/p100-depth{30,70}-{singles,otrc}-15000.json` (+ bonus `p100-depth30-singles-10000.json` from prior aborted run, kept)
+- **Bonus data (kept, from prior aborted run):** `p100-depth30-singles-10000` complete (1,000 runs at depth=0.3 singles @ 10k — paper-relevant but non-canonical budget).
+- **Out-of-scope legacy data:** `p100-depth30-trc-10000` partial (272 runs at depth=0.3 trc @ 10k — TRC group dropped for depth analysis, will not be used in build_review1.py depth-faceted rebuild).
+- **Checkpoints:**
+  - **CP-A** ✅ passed (spot-check 5 trajectories had `compression_ratio=0.3`, throughput ~57 runs/hr)
+  - **CP-B** ✅ passed (depth=0.3 layer @ 15k complete with both snapshots written)
+  - **CP-C** ✅ reached — kicking off `Review1/build_review1.py` extension for `depth` column + new source maps
+- **Followup (IN PROGRESS):** modify `Review1/build_review1.py` for `depth` column + depth-scoped source maps; add `Review1/depth_analysis.py` for paired depth-vs-depth analyses; propose RQ5/RQ5b paper-spine update language in chat per `feedback_paper_edits.md`.
+
+### Zero-step recovery (incident 2026-05-06 docker cold-pull cascade)
+- **Status:** DONE
+- **Started:** 2026-05-06 17:57 CDT (image pre-warm) → 18:43 CDT (relaunch master)
+- **Ended:** 2026-05-06 ~22:46 CDT (relaunch master exited; `ALL ZERO-STEP RECOVERY CELLS DONE` marker present)
+- **Wall-time:** ~4h 3m (relaunch master); ~3 min image prewarm post-Docker-Hub-auth
+- **Trigger:** 473 / 7072 Review1 rows were zero-step `silent_crash` from 120s docker pull timeout (5 bare-primitive @20k cells = 398/473)
+- **Recovery plan:** `exp_plans/INFRA_INCIDENT_zero_step_recovery.md`
+- **Phase A — Image pre-warm:** 48/48 cached (45 fresh pulls, 3 already-cached). Docker Hub rate-limit hit on first pass; resolved by `podman login docker.io` (rituls619@gmail.com). Log `logs/zero_step_image_prewarm.log`.
+- **Phase B — Patch pull_timeout:** `mini-swe-agent/src/minisweagent/environments/docker.py:36` bumped 120 → 600s (local edit; submodule push pending).
+- **Phase C — Relaunch:** all 5 cells processed. Per-cell totals (recovered/total runs):
+  - `p100-otrc-15000`: 5 / 12
+  - `p100-otrc-10000`: 14 / 30
+  - `p100-trc-20000`: 15 / 30
+  - `p100-singles-10000`: 41 / 60
+  - `p100-singles-20000`: 398 / 480
+- **Phase D — Rebuild & validate:** `Review1/Review1.csv` rebuilt (7072 rows, **0 zero-step rows residual**). All 6 downstream analyses re-ran cleanly: sanity, paired_analysis, routing_evidence, predictability_sprint, winners_table, plot_review1.
+- **Manifest:** `scripts/zero_step_manifest.json` (473 entries), `scripts/zero_step_images.txt` (48 unique tasks)
+- **Followup:** Step 9 paper-spine disclosure — show proposed diff in chat first per `feedback_paper_edits.md`.
+
+### Staggered compression pilot (TR ↔ budget-best, 6 hard tasks × 3 budgets)
+- **Status:** DONE
+- **Started:** 2026-05-06 00:17 CDT
+- **Ended:** 2026-05-06 02:08:06 CDT
+- **Wall-time:** ~1h 51m
+- **PID:** 3355402 (exited cleanly)
+- **Workers:** 16
+- **Total runs:** 72 (6 tasks × 2 strategies × 3 budgets × 2 runs)
+- **Output dirs:** `results/ablations/staggered-pilot-{10000,15000,20000}/`
+- **Log:** `logs/staggered_pilot.log`
+- **Snapshots:** `Review1/raw/staggered_runs/staggered-pilot-{10000,15000,20000}.json`
+- **Design doc:** `exp_plans/STAGGERED_DESIGN.md`
+- **Headline result (NEGATIVE pilot):** Staggered did NOT lift over single primitives on the 6 pilot tasks. At 20k: STAG-alt resolves 1/12, STAG-rand 1/12. TRC+SS alone resolves 3/12 on the same tasks. Per STAGGERED_DESIGN §6, this is the "0 lifted tasks" outcome — the temporal-mixing mechanism appears inert on hard cases.
+- **Per-budget resolves (after backfill):** 10k 0/24 · 15k 0/24 · 20k 2/24 (1 each from STAG-alt and STAG-rand on different sympy tasks)
+- **Backfill applied 2026-05-06 17:43:** 45 no-patch rows (17+16+12) with resolved=None → resolved=False; Review1.csv STAG-* rows refreshed.
+
+### Depth-chain wrapper (depth-30 + depth-70 @ 20k × 8 primitives, 30 ABL tasks)
+- **Status:** DONE
+- **Started:** 2026-05-06 00:23:40 CDT (parked on staggered until 02:08)
+- **Depth-30 agent runs:** 02:08 → ~08:36 CDT (~6h 28m for 480 runs)
+- **Depth-30 eval:** ~08:36 → ~11:35 CDT (~3h)
+- **Depth-70 agent runs:** 11:35 → ~14:35 CDT (~3h for ~300 new runs)
+- **Depth-70 eval:** ~14:35 → 17:38:46 CDT (~3h for 219 new patches)
+- **Ended:** 2026-05-06 17:38:46 CDT
+- **Wall-time:** ~17h 15m total (incl. ~1h 45m park on staggered)
+- **PID:** 3436072 (exited cleanly)
+- **Workers:** 16
+- **Total fresh runs:** 480 (depth-30) + ~300 (depth-70 net new on top of pre-existing TR/SU/TRC at depth=0.7)
+- **Output dirs:** `results/ablations/depth-30/`, `results/ablations/depth-70/`
+- **Log:** `logs/depth_chain.log`
+- **Snapshots:** `Review1/raw/depth_runs/depth-{30,40,50,60,70}.json`
+- **Final tally per dir:**
+
+| dir | n | patches | resolved | resolve % |
+|---|---:|---:|---:|---:|
+| depth-30 | 480 | 348 | 292 | 60.8% |
+| depth-40 | 180 | 132 | 103 | 57.2% |
+| depth-50 | 180 | 135 | 109 | 60.6% |
+| depth-60 | 180 | 137 | 110 | 61.1% |
+| depth-70 | 480 | 359 | 281 | 58.5% |
+
+- **Headline:** aggregate flat across depths, but per-primitive curves are NOT flat. TRC+SS likes tight depth (76.7% @ 0.3, 56.7% @ 0.7 — −20pp); SU-full likes loose depth (50% @ 0.3 → 61.7% @ 0.7). Story is **primitive × depth interaction**, not depth-as-clean-lever.
+- **SU-partial > SU-full** at depth=0.3 by +6.7pp, at 0.5 by +5.0pp (regular runs filtered to ABL), at 0.7 by −1.7pp — gap collapses as depth loosens. Consistent with n=100's +14.5pp at 15k/0.5 (paired analysis).
+- **Backfill applied 2026-05-06 17:43:** 253 no-patch rows (132 depth-30 + 121 depth-70) with resolved=None → resolved=False.
+
+### P100 expansion: 70 new tasks × 35 cells × 2 runs (4 452 new runs)
+- **Status:** DONE
+- **Started (first attempt):** 2026-04-30 12:13 CDT
+- **Ended (sixth attempt):** 2026-05-05 20:07:50 CDT
+- **Total wall-clock (incl. crashes/relaunches):** ~5d 8h
+- **Total fresh runs:** 4 452 / 4 452 ✅ (matches plan exactly), 0 wrong-task entries
+- **Total evaled patches:** 2 185
+- **Final per-dir tally:**
+
+| Dir | Fresh | Evaled (patches) |
+|---|---|---|
+| p100-inf | 146 | 65 |
+| p100-singles-10000 | 665 | 252 |
+| p100-singles-15000 | 583 | 311 |
+| p100-singles-20000 | 628 | 120 |
+| p100-trc-10000 | 400 | 244 |
+| p100-trc-15000 | 374 | 249 |
+| p100-trc-20000 | 396 | 270 |
+| p100-otrc-10000 | 420 | 170 |
+| p100-otrc-15000 | 420 | 250 |
+| p100-otrc-20000 | 420 | 254 |
+
+- **Known data issue (handed off to main chat):** non-patch fresh runs have `resolved=None` instead of `resolved=False` due to bug in `run_swebench_eval` (no save_results after no_patch loop). One-shot backfill required at §6.
+- **vLLM:** restarted 2026-05-05 11:32 CDT (PID 1111264), still alive at task end.
+
+### Failure-and-recovery history (kept for the main chat):
+- **First attempt aborted:** 2026-04-30 12:13 CDT, PID 3861703 — died immediately with "unknown condition: summarization-full". Fixed via rename `summarization-full` → `summarization` in p100_inventory.py, p100_seed.py, run_p100_phase1.sh.
+- **Second attempt aborted:** 2026-04-30 12:17 CDT, PID 3864657 — ran for ~4h on the WRONG 30 ablation tasks instead of the 70 new tasks. Root cause: `run_experiment.py:load_tasks()` ignored `--tasks-file` whenever `--ablation` was set. Patched run_experiment.py to honor `--tasks-file` even in ablation mode (added `TASKS_FILE_EXPLICIT` flag). Cleaned 295 wrong-task fresh entries from p100-singles-15000.
+- **Third attempt crashed:** 2026-05-01 ~10:20 CDT (after ~18h, agent runs for p100-singles-15000 finished 700/700, then `--eval-only` crashed with KeyError on `r["patch_generated"]` because seeded stubs lack that field). Patched `run_swebench_eval()` to skip records with `seeded_from` flag.
+- **Fourth attempt died:** 2026-05-02 (mid-run file move from `scripts/` to `task_lists/` invalidated bash-cached path in the for-loop; got `FileNotFoundError: scripts/p100_new_tasks.json`). Wrappers updated.
+- **Fifth attempt:** 2026-05-02 15:53 → 2026-05-05 06:18 — Phase 1+2 fully clean; Phase 3 partial: vLLM crashed at 03:05 CDT (TimeoutError → EngineDeadError), so all 420 fresh runs in p100-otrc-20000 exited as InternalServerError.
+- **Sixth attempt:** 2026-05-05 11:34 → 20:07 — vLLM restart + cleanup of garbage p100-otrc-20000 entries + chain re-launch; cleanly filled the missing 420 OTRC-20k fresh runs + their evals. Done.
+
+### Files / scripts created (kept for §6 reference):
+- `scripts/p100_inventory.py` (writes `task_lists/p100_new_tasks.json` + `scripts/p100_existing_runs.json`)
+- `scripts/p100_seed.py` (idempotent — symlinks existing source data into p100-* dirs)
+- `scripts/run_p100_chain.sh` → `run_p100_phase1.sh` → `phase2.sh` → `phase3.sh` (chained via `exec`)
+- Patches: `TASKS_FILE_EXPLICIT` flag in run_experiment.py, `seeded_from` filter in `run_swebench_eval`
+- **Workers:** 16, **Logs:** `logs/p100_chain.out`, `logs/p100_phase{1,2,3}.log`, `logs/vllm-qwen35.log`
+- **Final master PID:** 1117086 (exited cleanly at 20:07:50 CDT)
+
+---
 
 ### Partial-summary ablation (SU-partial + SS-partial + SS gap-fill)
 - **Status:** DONE

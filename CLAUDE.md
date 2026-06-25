@@ -57,6 +57,45 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 - `Active_runs.md` — live status of long-running experiments. Update on
   launch/kill/completion.
 
+## Vocabulary
+
+Use these terms when discussing experimental coverage and depth runs.
+
+**Primitive families** (mechanistic split by whether `compression_ratio` engages):
+
+- **depth-tunable** — TR, SU-full, SU-partial, SS, SS-partial. The 5
+  primitives whose behavior is a function of `compression_ratio`. Studied at
+  all 3 depths.
+- **depth-invariant** — TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial,
+  OTRC+SS-partial. The 6 primitives where `compression_ratio` doesn't engage
+  meaningfully. Studied at canonical depth only.
+
+**Depths:**
+
+- **canonical depth** = 0.5 (default; the only depth in scope for
+  depth-invariant primitives).
+- **tail depths** = 0.3, 0.7 (studied for depth-tunable primitives only).
+- **depth grid** = {0.3, 0.5, 0.7} (the symmetric 3-point set).
+
+**Cohorts:**
+
+- **ABL-30** — original 30 FC-stratified ablation tasks
+  (`results/ablations/tasks.json`).
+- **NEW-70** — the 70 added tasks (`task_lists/p100_new_tasks.json`).
+- **P100** — full cohort = ABL-30 ∪ NEW-70
+  (`task_lists/p100_all_100_tasks.json`).
+
+**Scope rule** (main model = Qwen3.5-35B-A3B) for whether a
+`(primitive, budget, depth, cohort)` cell is in-scope for the paper:
+
+- `depth-tunable` × `depth grid` × cohort ⊇ {P100 if budget=15k, ABL-30 if
+  budget ∈ {10k, 20k}}.
+- `depth-invariant` × `canonical depth` × **P100 at every budget**.
+
+Any other `(primitive, depth, budget, cohort)` combination is **out-of-scope**
+and not run. Model-expansion runs on Albus (Qwen2.5-7B, Llama 3.3 70B) follow
+their own reduced-cohort scopes documented in `exp_plans/ALBUS_PLAN.md`.
+
 ## Critical rules
 
 - **Never commit** `results/`, `logs/`, `archive/`, `temp/`, `Review1/raw/`,
