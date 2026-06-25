@@ -3,60 +3,68 @@
 
 ## F1 — New primitive correctness invariants
 
-✅  SU-partial: 149/180 runs (83%) had summarization_prompt_tokens > 0
-✅  SS-partial: 139/180 runs (77%) had summarization_prompt_tokens > 0
-❌  OTRC+SU-partial: 51/180 runs (28%) had summarization_prompt_tokens > 0
-❌  OTRC+SS-partial: 50/180 runs (28%) had summarization_prompt_tokens > 0
-✅  OTRC: 60/60 runs (100%) had online_trc_clears > 0
-✅  OTRC+TR: 180/180 runs (100%) had online_trc_clears > 0
-✅  OTRC+SU-partial: 180/180 runs (100%) had online_trc_clears > 0
-✅  OTRC+SS-partial: 180/180 runs (100%) had online_trc_clears > 0
-✅  TRC+SU: 0/180 runs had trc_fallback_events > 0  (should always be 0)
-✅  TRC+SS: 0/180 runs had trc_fallback_events > 0  (should always be 0)
-✅  FC: 0/60 runs had compression_events > 0  (budget=∞ → should be 0)
-✅  OTRC: 0/60 runs had compression_events > 0  (budget=∞ → should be 0)
+✅  SU-partial: 509/600 runs (85%) had summarization_prompt_tokens > 0
+✅  SS-partial: 490/600 runs (82%) had summarization_prompt_tokens > 0
+❌  OTRC+SU-partial: 226/600 runs (38%) had summarization_prompt_tokens > 0
+❌  OTRC+SS-partial: 195/600 runs (32%) had summarization_prompt_tokens > 0
+✅  OTRC: 200/200 runs (100%) had online_trc_clears > 0
+✅  OTRC+TR: 600/600 runs (100%) had online_trc_clears > 0
+✅  OTRC+SU-partial: 600/600 runs (100%) had online_trc_clears > 0
+✅  OTRC+SS-partial: 600/600 runs (100%) had online_trc_clears > 0
+✅  TRC+SU: 0/600 runs had trc_fallback_events > 0  (should always be 0)
+✅  TRC+SS: 0/600 runs had trc_fallback_events > 0  (should always be 0)
+✅  FC: 0/200 runs had compression_events > 0  (budget=∞ → should be 0)
+✅  OTRC: 0/200 runs had compression_events > 0  (budget=∞ → should be 0)
 
 ## F2 — Cell completeness
 
-✅  All 35 cells (11×3 budget + 2 ∞) have exactly 60 unique (task, run) rows on the 30 ablation tasks
+❌  STAG-alt@10000: 12 rows (expected 200)
+❌  STAG-alt@10000: 6/100 unique tasks
+❌  STAG-alt@15000: 12 rows (expected 200)
+❌  STAG-alt@15000: 6/100 unique tasks
+❌  STAG-alt@20000: 12 rows (expected 200)
+❌  STAG-alt@20000: 6/100 unique tasks
+❌  STAG-rand@10000: 12 rows (expected 200)
+❌  STAG-rand@10000: 6/100 unique tasks
+❌  STAG-rand@15000: 12 rows (expected 200)
+❌  STAG-rand@15000: 6/100 unique tasks
+❌  STAG-rand@20000: 12 rows (expected 200)
+❌  STAG-rand@20000: 6/100 unique tasks
 ✅  0 rows with step_count=0, 0 rows with total_tokens=0
 
 ## F3 — Eval-result self-consistency
 
-❌  1 rows have resolved=None but patch_generated=True
-   sample:
-         task_name       primitive  token_budget exit_status
-sympy__sympy-19637 OTRC+SU-partial         20000   Submitted
-❌  6 rows have exit_status='Submitted' but patch_generated=False
-   sample tasks: {'sympy__sympy-13031': 5, 'scikit-learn__scikit-learn-11310': 1}
+✅  0 rows have resolved=None but patch_generated=True
+❌  21 rows have exit_status='Submitted' but patch_generated=False
+   sample tasks: {'sympy__sympy-13031': 6, 'scikit-learn__scikit-learn-13142': 3, 'scikit-learn__scikit-learn-14629': 2, 'django__django-15278': 2, 'django__django-12304': 1}
 ✅  0 rows have resolved=True but patch_generated=False
 
 ## F4 — Cross-validation against earlier numbers
 
-✅  TR@15000: source=20, csv=20
-✅  SU-full@15000: source=14, csv=14
-✅  TRC@15000: source=31, csv=31
-✅  SS@15000: source=18, csv=18
-✅  FC@∞: source=23, csv=23
-✅  TR@10000: source=29, csv=29
-✅  TR@20000: source=36, csv=36
-✅  TRC+SU@10000: source=33, csv=33
-✅  TRC+SS@15000: source=35, csv=35
-✅  SU-partial@15000: source=34, csv=34
-✅  OTRC+SU-partial@15000: source=39, csv=39
-✅  OTRC@∞: source=37, csv=37
+✅  TR@15000: source=20, csv(ABL only)=20
+✅  SU-full@15000: source=14, csv(ABL only)=14
+✅  TRC@15000: source=31, csv(ABL only)=31
+✅  SS@15000: source=18, csv(ABL only)=18
+✅  FC@∞: source=23, csv(ABL only)=23
+✅  TR@10000: source=29, csv(ABL only)=29
+✅  TR@20000: source=36, csv(ABL only)=36
+✅  TRC+SU@10000: source=33, csv(ABL only)=33
+✅  TRC+SS@15000: source=35, csv(ABL only)=35
+✅  SU-partial@15000: source=34, csv(ABL only)=34
+✅  OTRC+SU-partial@15000: source=39, csv(ABL only)=39
+✅  OTRC@∞: source=37, csv(ABL only)=37
 
 **Overall F4: PASS** — Review1.csv matches source experiment_results.json
 
 ## F5 — Step count definition
 
-LimitsExceeded runs: 281 total
+LimitsExceeded runs: 975 total
   step_count distribution: min=125, max=125, median=125.0
-  step_count ≥ 100: 281/281 runs
+  step_count ≥ 100: 975/975 runs
 
-Silent-crash runs: 372 total
-  step_count distribution: min=7, max=124, median=73.0
-  early-exit (<10 steps): 5 | mid (10-49): 82 | late (≥50): 285
+Silent-crash runs: 1680 total
+  step_count distribution: min=5, max=124, median=74.0
+  early-exit (<10 steps): 30 | mid (10-49): 393 | late (≥50): 1257
 
 ## F6 — Token accounting consistency
 
@@ -69,68 +77,74 @@ Silent-crash runs: 372 total
 ```
 primitive           budget  resolve%  95% CI              halfwidth (pp)
 ------------------------------------------------------------------------
-OTRC+SS-partial      10000     38.3%  [26.7, 50.0]                 11.7
-OTRC+SS-partial      15000     51.7%  [40.0, 63.3]                 11.7
-OTRC+SS-partial      20000     65.0%  [53.3, 76.7]                 11.7
-OTRC+SU-partial      10000     48.3%  [36.7, 61.7]                 12.5
-OTRC+SU-partial      15000     65.0%  [51.7, 76.7]                 12.5
-OTRC+SU-partial      20000     61.7%  [50.0, 73.3]                 11.7
-OTRC+TR              10000     46.7%  [35.0, 60.0]                 12.5
-OTRC+TR              15000     55.0%  [41.7, 68.3]                 13.3
-OTRC+TR              20000     66.7%  [55.0, 78.3]                 11.7
-SS                   10000     35.0%  [23.3, 46.7]                 11.7
-SS                   15000     30.0%  [18.3, 41.7]                 11.7
-SS                   20000     61.7%  [48.3, 73.3]                 12.5
-SS-partial           10000     36.7%  [23.3, 50.0]                 13.3
-SS-partial           15000     53.3%  [41.7, 66.7]                 12.5
-SS-partial           20000     65.0%  [53.3, 76.7]                 11.7
-SU-full              10000     31.7%  [20.0, 43.3]                 11.7
-SU-full              15000     23.3%  [13.3, 35.0]                 10.8
-SU-full              20000     56.7%  [43.3, 68.3]                 12.5
-SU-partial           10000     40.0%  [28.3, 53.3]                 12.5
-SU-partial           15000     56.7%  [43.3, 70.0]                 13.3
-SU-partial           20000     61.7%  [48.3, 73.3]                 12.5
-TR                   10000     48.3%  [36.7, 61.7]                 12.5
-TR                   15000     33.3%  [21.7, 45.0]                 11.7
-TR                   20000     60.0%  [48.3, 71.7]                 11.7
-TRC                  10000     46.7%  [33.3, 60.0]                 13.3
-TRC                  15000     51.7%  [38.3, 65.0]                 13.3
-TRC                  20000     71.7%  [60.0, 83.3]                 11.7
-TRC+SS               10000     60.0%  [48.3, 73.3]                 12.5
-TRC+SS               15000     58.3%  [46.7, 70.0]                 11.7
-TRC+SS               20000     76.7%  [66.7, 86.7]                 10.0
-TRC+SU               10000     55.0%  [41.7, 68.3]                 13.3
-TRC+SU               15000     65.0%  [53.3, 76.7]                 11.7
-TRC+SU               20000     66.7%  [55.0, 78.3]                 11.7
-FC                       ∞     38.3%  [26.7, 50.0]                 11.7
-OTRC                     ∞     61.7%  [50.0, 73.3]                 11.7
+OTRC+SS-partial      10000     29.0%  [22.5, 35.5]                  6.5
+OTRC+SS-partial      15000     42.0%  [35.5, 49.0]                  6.8
+OTRC+SS-partial      20000     47.0%  [40.0, 54.0]                  7.0
+OTRC+SU-partial      10000     33.5%  [27.0, 40.5]                  6.8
+OTRC+SU-partial      15000     39.5%  [32.5, 46.0]                  6.8
+OTRC+SU-partial      20000     43.5%  [37.0, 50.5]                  6.8
+OTRC+TR              10000     34.5%  [28.0, 41.0]                  6.5
+OTRC+TR              15000     44.5%  [38.0, 51.5]                  6.8
+OTRC+TR              20000     46.0%  [38.5, 52.5]                  7.0
+SS                   10000     26.5%  [21.0, 32.5]                  5.8
+SS                   15000     36.0%  [29.5, 43.0]                  6.8
+SS                   20000     43.5%  [37.0, 50.0]                  6.5
+SS-partial           10000     33.5%  [27.5, 40.0]                  6.2
+SS-partial           15000     38.0%  [31.5, 45.0]                  6.8
+SS-partial           20000     48.0%  [41.0, 55.0]                  7.0
+STAG-alt             10000      0.0%  [0.0, 0.0]                    0.0
+STAG-alt             15000      0.0%  [0.0, 0.0]                    0.0
+STAG-alt             20000      8.3%  [0.0, 25.0]                  12.5
+STAG-rand            10000      0.0%  [0.0, 0.0]                    0.0
+STAG-rand            15000      0.0%  [0.0, 0.0]                    0.0
+STAG-rand            20000      8.3%  [0.0, 25.0]                  12.5
+SU-full              10000     32.5%  [26.5, 39.0]                  6.3
+SU-full              15000     29.0%  [23.0, 35.5]                  6.2
+SU-full              20000     38.5%  [32.0, 45.0]                  6.5
+SU-partial           10000     35.0%  [28.5, 42.0]                  6.8
+SU-partial           15000     43.5%  [37.0, 50.5]                  6.8
+SU-partial           20000     47.5%  [40.5, 54.5]                  7.0
+TR                   10000     39.5%  [33.0, 46.5]                  6.8
+TR                   15000     38.5%  [32.0, 45.5]                  6.8
+TR                   20000     43.5%  [37.0, 50.5]                  6.8
+TRC                  10000     39.5%  [33.0, 46.5]                  6.8
+TRC                  15000     45.5%  [38.5, 52.5]                  7.0
+TRC                  20000     51.5%  [44.5, 58.5]                  7.0
+TRC+SS               10000     44.0%  [37.0, 50.5]                  6.8
+TRC+SS               15000     45.0%  [38.5, 52.0]                  6.8
+TRC+SS               20000     53.0%  [46.0, 60.0]                  7.0
+TRC+SU               10000     44.0%  [37.0, 51.0]                  7.0
+TRC+SU               15000     47.0%  [40.0, 54.0]                  7.0
+TRC+SU               20000     50.5%  [44.0, 57.5]                  6.7
+FC                       ∞     43.0%  [36.0, 50.0]                  7.0
+OTRC                     ∞     51.5%  [44.5, 58.5]                  7.0
 ```
 
-Mean CI half-width across cells: **±12.1pp**. Differences smaller than 2× this width are within sampling noise.
+Mean CI half-width across cells: **±6.4pp**. Differences smaller than 2× this width are within sampling noise.
 
 ## F9 — Per-task resolve rate (across all primitives × budgets × runs)
 
 Tasks with 100% resolve rate (universally easy): 0
-Tasks with 0% resolve rate (universally hard): 2
-Tasks with < 10% resolve: 5
-Tasks with > 90% resolve: 2
+Tasks with 0% resolve rate (universally hard): 20
+Tasks with < 10% resolve: 32
+Tasks with > 90% resolve: 6
 
 Top-5 easiest:
   django__django-11066                              98.6%
+  sympy__sympy-24213                                98.6%
+  django__django-12143                              97.1%
   django__django-14915                              95.7%
-  sympy__sympy-11618                                84.3%
-  scikit-learn__scikit-learn-15100                  84.3%
-  django__django-11292                              82.9%
+  sympy__sympy-19954                                95.7%
 
 Top-5 hardest:
-  sympy__sympy-13031                                 4.3%
-  scikit-learn__scikit-learn-25747                   4.3%
-  sympy__sympy-13091                                 2.9%
-  django__django-12273                               0.0%
+  sympy__sympy-13798                                 0.0%
+  sympy__sympy-19040                                 0.0%
+  sympy__sympy-18199                                 0.0%
   sympy__sympy-17630                                 0.0%
+  sympy__sympy-20438                                 0.0%
 
-Task-level resolve rate variance: σ = 31.1pp
-Coefficient of variation: 0.59
+Task-level resolve rate variance: σ = 35.6pp
+Coefficient of variation: 0.86
 
 ## F11 — Repo as confounder
 
@@ -139,9 +153,9 @@ Resolve rate by repo (all primitives × budgets × runs pooled):
 
 ```
 repo                                 n  resolved  resolve%  mean steps  mean tokens (k)
-django                             700       396     56.6%        61.7           527.0
-scikit-learn                       700       393     56.1%        65.5           578.6
-sympy                              700       317     45.3%        66.9           537.0
+django                            2392       872     36.5%        68.4           601.6
+scikit-learn                      2252      1012     44.9%        66.3           578.1
+sympy                             2428      1012     41.7%        67.9           553.5
 ```
 
 Per-primitive resolve rate by repo at 15k:
@@ -149,41 +163,41 @@ Per-primitive resolve rate by repo at 15k:
 ```
 repo_full        django  scikit-learn  sympy
 primitive                                   
-OTRC+SS-partial    45.0          65.0   45.0
-OTRC+SU-partial    75.0          75.0   45.0
-OTRC+TR            50.0          70.0   45.0
-SS                 45.0          35.0   10.0
-SS-partial         50.0          55.0   55.0
-SU-full            30.0          15.0   25.0
-SU-partial         55.0          75.0   40.0
-TR                 40.0          30.0   30.0
-TRC                75.0          50.0   30.0
-TRC+SS             70.0          70.0   35.0
-TRC+SU             80.0          60.0   55.0
+OTRC+SS-partial    35.0          45.0   46.0
+OTRC+SU-partial    40.0          44.0   35.0
+OTRC+TR            37.0          55.0   43.0
+SS                 38.0          33.0   37.0
+SS-partial         31.0          39.0   44.0
+STAG-alt            0.0           0.0    0.0
+STAG-rand           0.0           0.0    0.0
+SU-full            26.0          30.0   31.0
+SU-partial         37.0          53.0   41.0
+TR                 31.0          42.0   43.0
+TRC                49.0          50.0   38.0
+TRC+SS             41.0          53.0   41.0
+TRC+SU             44.0          48.0   49.0
 ```
 
 ## F13 — Run-number bias (run_1 vs run_2)
 
 
-run_num=1: 555/1050 = 52.9%
-run_num=2: 551/1050 = 52.5%
+run_num=1: 1455/3536 = 41.1%
+run_num=2: 1441/3536 = 40.8%
 Difference: +0.4pp
 (if non-zero with high magnitude, indicates ordering effects in the runner)
 
 ## F14 — Task-selection provenance
 
-From `results/ablations/ablation_index.md`:
-
-> Selection criteria: tasks where full-context (FC) patches (majority vote across 2 runs ≥ 0.5), stratified by compression outcome — 5 all-succeed + 5 mixed per repo (django, scikit-learn), 7 all-succeed + 3 mixed for sympy (only 3 mixed available). Seed=42.
+Cohort = 30 ABL_TASKS (FC-stratified, original sprint) ∪ 70 P100_NEW_TASKS
+(scaled-up cohort, drawn from broader SWE-bench Verified at expansion time).
 
 **Implications:**
-- Tasks are NOT a random SWE-bench sample — they were selected on FC ≥ 0.5.
-- Tasks are stratified on compression outcome from prior runs at 15k.
-- Result generalizes to: "tasks where FC succeeds and compression matters".
-- Does NOT generalize to: full SWE-bench Verified, or to tasks where FC already fails.
+- Original 30 tasks remain FC-biased (selected for FC ≥ 0.5, stratified on compression outcome).
+- 70 new tasks were added without the FC-success filter, so the 100-task cohort includes
+  genuinely FC-fail cases — paired comparisons against FC are now less FC-favored.
+- Result generalizes to: "100-task SWE-bench Verified subset spanning django, scikit-learn, sympy".
+- Does NOT generalize to: full SWE-bench Verified across all repos.
 
-**Repo coverage:** django, scikit-learn, sympy (3 of 12 SWE-bench Verified repos).
-
-Verifying FC-success criterion in current data:
-  Tasks where FC resolved ≥ 1 of 2 runs: 15/30
-  Tasks where FC resolved 0 of 2 runs:   15/30  (should be 0 if criterion held)
+FC-success split by cohort:
+  ABL_TASKS (n=30):    FC ≥ 1/2 runs = 15/30, FC = 0/2 = 15/30
+  P100_NEW (n=70):     FC ≥ 1/2 runs = 38/70, FC = 0/2 = 32/70

@@ -24,7 +24,9 @@ CSV    = REVIEW / "Review1.csv"
 OUT_MD = REVIEW / "paired_analysis_report.md"
 
 df = pd.read_csv(CSV)
+df = df[df.depth == 0.5].copy()  # scope to canonical depth — depth-grid lives in depth_analysis.py
 df["resolved_bool"] = df["resolved"].astype(str) == "True"
+N_TASKS = df.task_name.nunique()
 
 # (primitive, budget) → 30-task vector of resolve rates ∈ {0, 0.5, 1.0}
 def per_task_rate(prim: str, budget) -> pd.Series:
@@ -87,7 +89,7 @@ HEADLINE = [
 ]
 
 out("\n## Headline paired comparisons\n")
-out("Each row: paired bootstrap CI on the per-task difference (A − B) on the same 30 tasks,")
+out(f"Each row: paired bootstrap CI on the per-task difference (A − B) on the same {N_TASKS} tasks,")
 out("plus McNemar exact test on per-task best-of-2 outcome.\n")
 out("```")
 out(f"{'comparison':<55} {'A%':>5} {'B%':>5} {'Δpp':>6}  "
@@ -97,7 +99,8 @@ out("-" * 120)
 for label, pA, bA, pB, bB in HEADLINE:
     a = per_task_rate(pA, bA).values
     b = per_task_rate(pB, bB).values
-    if len(a) != 30 or len(b) != 30:
+    N_TASKS = df.task_name.nunique()
+    if len(a) != N_TASKS or len(b) != N_TASKS:
         out(f"{label:<55}  SKIP (cell missing)"); continue
     diff = a - b
     mean_diff, lo, hi = boot_mean_ci(diff)
@@ -127,7 +130,7 @@ fc_v = per_task_rate("FC", "∞").values
 
 for p in prims_15k:
     rates = per_task_rate(p, 15000)
-    if len(rates) != 30: continue
+    if len(rates) != N_TASKS: continue
     v = rates.values
     # Unpaired: bootstrap on individual run outcomes (n=60)
     sub = df[(df.primitive == p) & (df.token_budget == 15000)]

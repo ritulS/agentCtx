@@ -95,7 +95,9 @@ def featurize(ps: str, repo: str) -> dict:
 # 3. Define the task groups for each comparison
 # ────────────────────────────────────────────────────────────────────────────
 df = pd.read_csv(CSV)
+df = df[df.depth == 0.5].copy()  # scope to canonical depth — depth-grid lives in depth_analysis.py
 df["resolved_bool"] = df["resolved"].astype(str) == "True"
+N_TASKS = df.task_name.nunique()
 
 def per_task_rate(prim, budget=None):
     if prim in ("FC", "OTRC"):
@@ -158,7 +160,7 @@ for label, pA, bA, pB, bB in PAIRS:
     n_b = int((tasks.label == 0).sum())
     out(f"- Tasks where {pA} > {pB}: **{n_a}**")
     out(f"- Tasks where {pB} > {pA}: **{n_b}**")
-    out(f"- Ties dropped: {30 - n_a - n_b}\n")
+    out(f"- Ties dropped: {N_TASKS - n_a - n_b}\n")
 
     # Restrict to tasks for which we have features
     keep = [t for t in tasks.index if t in feat_df.index]
@@ -220,7 +222,7 @@ comp_primitives = ["TRC+SS", "SU-partial", "TRC", "TRC+SU", "SS", "SS-partial",
                    "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial", "SU-full"]
 comp_max = pd.concat(
     [per_task_rate(p, b) for p in comp_primitives for b in (10000, 15000, 20000)
-     if len(per_task_rate(p, b)) == 30], axis=1).max(axis=1)
+     if len(per_task_rate(p, b)) == N_TASKS], axis=1).max(axis=1)
 
 diff = (tr_avg - comp_max).dropna()
 labels = pd.Series((diff >= 0).astype(int), name="tr_friendly")  # 1 = TR ≥ best comp

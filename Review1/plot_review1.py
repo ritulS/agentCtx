@@ -8,6 +8,7 @@ Usage:
 """
 
 import argparse
+import os
 from pathlib import Path
 
 import numpy as np
@@ -19,7 +20,7 @@ from matplotlib.patches import Patch
 
 ROOT = Path(__file__).parent
 CSV  = ROOT / "Review1.csv"
-OUT  = ROOT / "figures"
+OUT  = Path(os.environ.get("REVIEW1_FIG_DIR", str(ROOT / "figures")))
 
 # ── Ordering and styling ──────────────────────────────────────────────────────
 PRIMITIVE_ORDER = [
@@ -83,6 +84,7 @@ plt.rcParams.update({"font.family": "sans-serif"})
 
 def load() -> pd.DataFrame:
     df = pd.read_csv(CSV)
+    df = df[df.depth == 0.5].copy()  # scope to canonical depth — depth-grid lives in depth_analysis.py
     # Booleans come through as "True" / "False" strings (or empty)
     df["resolved_bool"] = df["resolved"].astype(str) == "True"
     df["patch_bool"]    = df["patch_generated"].astype(str) == "True"
@@ -94,6 +96,8 @@ def load() -> pd.DataFrame:
 def fig_a_outcomes(df: pd.DataFrame) -> None:
     """3 budget panels (10k/15k/20k) + a 4th panel for FC and OTRC (no-threshold baselines)."""
     budgets = [10000, 15000, 20000]
+    n_tasks = df.task_name.nunique()
+    n_per_cell = n_tasks * 2  # 2 runs per task
     # 4th panel widths smaller (only 2 bars: FC + OTRC)
     fig, axes = plt.subplots(1, 4, figsize=(19, 5.2), sharey=True,
                              gridspec_kw={"width_ratios": [1, 1, 1, 0.35]})
@@ -114,13 +118,13 @@ def fig_a_outcomes(df: pd.DataFrame) -> None:
         ax.set_title(f"{b // 1000}k budget", fontsize=11, fontweight="bold")
         ax.set_xticks(range(len(pv.index)))
         ax.set_xticklabels(pv.index, rotation=40, ha="right", fontsize=9)
-        ax.set_ylim(0, 60)
+        ax.set_ylim(0, n_per_cell)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.grid(axis="y", alpha=0.3, linestyle="--", linewidth=0.5)
         ax.set_axisbelow(True)
         if ax is axes[0]:
-            ax.set_ylabel("Number of runs (n=60 = 30 tasks × 2 runs)", fontsize=10)
+            ax.set_ylabel(f"Number of runs (n={n_per_cell} = {n_tasks} tasks × 2 runs)", fontsize=10)
 
     # 4th panel: FC + OTRC (both at no-threshold)
     ax4 = axes[3]
@@ -137,7 +141,7 @@ def fig_a_outcomes(df: pd.DataFrame) -> None:
     ax4.set_title("No threshold", fontsize=11, fontweight="bold")
     ax4.set_xticks(range(len(refs)))
     ax4.set_xticklabels(refs, fontsize=9)
-    ax4.set_ylim(0, 60)
+    ax4.set_ylim(0, n_per_cell)
     ax4.spines["top"].set_visible(False)
     ax4.spines["right"].set_visible(False)
     ax4.grid(axis="y", alpha=0.3, linestyle="--", linewidth=0.5)
@@ -185,7 +189,8 @@ def fig_b_resolve_vs_budget(df: pd.DataFrame) -> None:
 
     ax.set_xlabel("Token budget", fontsize=11)
     ax.set_ylabel("Resolve rate (%)", fontsize=11)
-    ax.set_title("Resolve rate vs budget — 30-task ablation, 60 runs per cell",
+    n_tasks = df.task_name.nunique()
+    ax.set_title(f"Resolve rate vs budget — {n_tasks}-task ablation, {n_tasks * 2} runs per cell",
                  fontsize=12, fontweight="bold", pad=12)
     ax.set_xticks(budgets)
     ax.set_xticklabels([f"{b // 1000}k" for b in budgets])

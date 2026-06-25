@@ -16,11 +16,13 @@ import pandas as pd
 
 ROOT = Path(__file__).parent
 df   = pd.read_csv(ROOT / "Review1.csv")
+df = df[df.depth == 0.5].copy()  # scope to canonical depth — depth-grid lives in depth_analysis.py
 df["resolved_bool"] = df["resolved"].astype(str) == "True"
 
 PRIMS = ["FC", "TR", "SU-full", "SU-partial", "SS", "SS-partial", "TRC",
         "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial", "OTRC"]
 BUDGETS = [10000, 15000, 20000]
+N_TASKS = df.task_name.nunique()
 
 def slice_for(prim, budget):
     if prim in ("FC", "OTRC"):
@@ -91,9 +93,9 @@ for budget in BUDGETS:
         parts.append(f"| `{t}` | {n} | {tw} | {ru} | {mg} | {v} |")
 
     parts.append(f"\n**Summary @ {budget//1000}k:** "
-                 f"{stats['n_winner']}/30 unambiguous winner · "
-                 f"{stats['n_unclear']}/30 no clear winner · "
-                 f"{stats['n_unsolved']}/30 unresolved.\n")
+                 f"{stats['n_winner']}/{N_TASKS} unambiguous winner · "
+                 f"{stats['n_unclear']}/{N_TASKS} no clear winner · "
+                 f"{stats['n_unsolved']}/{N_TASKS} unresolved.\n")
     if stats["winner_counts"]:
         parts.append(f"**Winner distribution @ {budget//1000}k:**")
         for p, n in stats["winner_counts"].most_common():
@@ -104,8 +106,8 @@ parts.append("\n\n## Cross-budget comparison\n")
 parts.append("| budget | unambig winner | no clear winner | unresolved |")
 parts.append("|---|---:|---:|---:|")
 for budget, s in cross_budget:
-    parts.append(f"| {budget//1000}k | {s['n_winner']}/30 | "
-                 f"{s['n_unclear']}/30 | {s['n_unsolved']}/30 |")
+    parts.append(f"| {budget//1000}k | {s['n_winner']}/{N_TASKS} | "
+                 f"{s['n_unclear']}/{N_TASKS} | {s['n_unsolved']}/{N_TASKS} |")
 
 parts.append("\n### Winner counts side-by-side")
 all_winners = sorted(set().union(*(s["winner_counts"].keys() for _, s in cross_budget)))

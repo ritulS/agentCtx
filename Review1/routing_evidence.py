@@ -9,6 +9,7 @@ Outputs to Review1/figures/ and prints summary numbers.
 """
 
 import json
+import os
 from itertools import combinations
 from pathlib import Path
 
@@ -21,11 +22,13 @@ from matplotlib.patches import Patch
 
 ROOT   = Path(__file__).parent.parent
 REVIEW = Path(__file__).parent
-OUT    = REVIEW / "figures"
+OUT    = Path(os.environ.get("REVIEW1_FIG_DIR", str(REVIEW / "figures")))
 OUT.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv(REVIEW / "Review1.csv")
+df = df[df.depth == 0.5].copy()  # scope to canonical depth — depth-grid lives in depth_analysis.py
 df["resolved_bool"] = df["resolved"].astype(str) == "True"
+N_TASKS = df.task_name.nunique()
 
 # Primitives @ 15k + FC, OTRC at ∞
 BUDGET_PRIMS = ["TR", "SU-full", "SU-partial", "SS", "SS-partial", "TRC",
@@ -42,9 +45,9 @@ def solved_set(prim: str) -> set:
     return set(sub.groupby("task_name").resolved_bool.max()[lambda s: s].index)
 
 solve = {p: solved_set(p) for p in ALL_PRIMS}
-mean_rate = {p: len(solve[p]) / 30 * 100 for p in ALL_PRIMS}
+mean_rate = {p: len(solve[p]) / N_TASKS * 100 for p in ALL_PRIMS}
 TASKS = sorted(set().union(*solve.values()) |
-               set(df.task_name.unique()))   # all 30 tasks
+               set(df.task_name.unique()))   # all N_TASKS tasks
 
 # ────────────────────────────────────────────────────────────────────────────
 # M1: pairwise disagreement matrix
@@ -59,7 +62,7 @@ for i, a in enumerate(ALL_PRIMS):
         # symmetric difference between solved sets
         disagree[i, j] = len(solve[a].symmetric_difference(solve[b]))
 
-print(f"\n=== M1: pairwise disagreement (out of 30 tasks) ===")
+print(f"\n=== M1: pairwise disagreement (out of {N_TASKS} tasks) ===")
 print("(symmetric_diff of resolved-task sets — high = primitives win different tasks)\n")
 hdr = "                 " + "".join(f"{p[:8]:>9}" for p in ALL_PRIMS)
 print(hdr)
@@ -70,12 +73,12 @@ for i, p in enumerate(ALL_PRIMS):
 
 # Mean disagreement summary
 upper = [disagree[i, j] for i in range(n) for j in range(n) if i < j]
-print(f"\nMean pairwise disagreement: {np.mean(upper):.1f}/30 = {np.mean(upper)/30*100:.0f}%")
-print(f"Range: [{int(np.min(upper))}, {int(np.max(upper))}]/30")
+print(f"\nMean pairwise disagreement: {np.mean(upper):.1f}/{N_TASKS} = {np.mean(upper)/N_TASKS*100:.0f}%")
+print(f"Range: [{int(np.min(upper))}, {int(np.max(upper))}]/{N_TASKS}")
 
 # Plot M1
 fig, ax = plt.subplots(figsize=(10, 8.5))
-im = ax.imshow(disagree, cmap="Reds", vmin=0, vmax=30)
+im = ax.imshow(disagree, cmap="Reds", vmin=0, vmax=N_TASKS)
 ax.set_xticks(range(n)); ax.set_yticks(range(n))
 ax.set_xticklabels(ALL_PRIMS, rotation=45, ha="right", fontsize=9)
 ax.set_yticklabels(ALL_PRIMS, fontsize=9)
@@ -87,9 +90,9 @@ for i in range(n):
         else:
             txt = f"{v}"
         ax.text(j, i, txt, ha="center", va="center", fontsize=8,
-                color="white" if v > 15 else "black")
+                color="white" if v > N_TASKS // 2 else "black")
 cbar = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02)
-cbar.set_label("Tasks with disagreeing outcome (out of 30)", fontsize=10)
+cbar.set_label(f"Tasks with disagreeing outcome (out of {N_TASKS})", fontsize=10)
 ax.set_title("Pairwise per-task disagreement matrix\n"
              "(15k budget; FC and OTRC at no-threshold) — "
              "high values mean the two primitives solve different tasks",
@@ -135,13 +138,13 @@ for a, b, dm, ds in notables[:6]:
     ax.annotate(f"{a} vs {b}", (dm, ds), fontsize=7,
                 xytext=(5, 4), textcoords="offset points", color="#1F2937")
 
-# Reference line: minimum possible disagreement given Δ-mean (= |Δ-mean| × 30/100)
+# Reference line: minimum possible disagreement given Δ-mean (= |Δ-mean| × N/100)
 xs_line = np.linspace(0, 50, 100)
-ax.plot(xs_line, xs_line * 30 / 100, linestyle="--", color="#9CA3AF",
-        alpha=0.7, label="Min possible disagreement = |Δmean| × 30/100\n(if one primitive's solved-set ⊂ the other's)")
+ax.plot(xs_line, xs_line * N_TASKS / 100, linestyle="--", color="#9CA3AF",
+        alpha=0.7, label=f"Min possible disagreement = |Δmean| × {N_TASKS}/100\n(if one primitive's solved-set ⊂ the other's)")
 
 ax.set_xlabel("|Δ mean resolve rate|  (pp, between primitive pair)", fontsize=11)
-ax.set_ylabel("Pairwise per-task disagreement (out of 30 tasks)", fontsize=11)
+ax.set_ylabel(f"Pairwise per-task disagreement (out of {N_TASKS} tasks)", fontsize=11)
 ax.set_title("Disagreement is NOT predicted by mean-resolve gap\n"
              "Pairs above the dashed line have non-overlapping competence sets — routing has a job",
              fontsize=11, fontweight="bold", pad=10)
@@ -195,7 +198,7 @@ for b in budgets:
     for k in range(1, n_prims + 1):
         n_solved, combo = best_k_subset(cells, k)
         series.append((k, n_solved))
-        print(f"  {k:>2} {n_solved:>4}/30 ({n_solved/30*100:>3.0f}%) "
+        print(f"  {k:>2} {n_solved:>4}/{N_TASKS} ({n_solved/N_TASKS*100:>3.0f}%) "
               f"{', '.join(combo):<60}")
     curves[b] = series
 
@@ -219,7 +222,7 @@ best_pairs_table = []   # for the inset table
 for b in budgets:
     xs_base = [k for k, n in curves[b]]
     xs = [x + X_OFFSET[b] for x in xs_base]
-    ys = [n / 30 * 100 for k, n in curves[b]]
+    ys = [n / N_TASKS * 100 for k, n in curves[b]]
     style = BUDGET_STYLES[b]
     cells_b = budget_cells[b]
     ax.plot(xs, ys, label=f"{b // 1000}k budget", **style)
@@ -235,8 +238,8 @@ for b in budgets:
     best_pairs_table.append((b, ys[0], best_1_name, ys[1], " + ".join(best_2_combo)))
 
 # Reference: FC and OTRC at ∞
-fc_pct   = len(fc_solved)   / 30 * 100
-otrc_pct = len(otrc_solved) / 30 * 100
+fc_pct   = len(fc_solved)   / N_TASKS * 100
+otrc_pct = len(otrc_solved) / N_TASKS * 100
 ax.axhline(fc_pct, color="#1F2937", linestyle=":", linewidth=1.5, alpha=0.7,
            label=f"FC (no compression): {fc_pct:.0f}%")
 ax.axhline(otrc_pct, color="#F97316", linestyle="--", linewidth=1.5, alpha=0.7,
@@ -276,9 +279,9 @@ for b in budgets:
     s = curves[b]
     best1 = s[0][1]
     sat   = s[-1][1]
-    print(f"  {b//1000}k: best-single = {best1}/30 ({best1/30*100:.0f}%)  "
-          f"oracle-of-{len(s)} = {sat}/30 ({sat/30*100:.0f}%)  "
-          f"routing headroom = +{sat - best1} tasks (+{(sat - best1)/30*100:.0f}pp)")
+    print(f"  {b//1000}k: best-single = {best1}/{N_TASKS} ({best1/N_TASKS*100:.0f}%)  "
+          f"oracle-of-{len(s)} = {sat}/{N_TASKS} ({sat/N_TASKS*100:.0f}%)  "
+          f"routing headroom = +{sat - best1} tasks (+{(sat - best1)/N_TASKS*100:.0f}pp)")
 
 
 # ────────────────────────────────────────────────────────────────────────────

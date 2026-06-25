@@ -1,18 +1,26 @@
 """Populate Review1.csv from existing experiment_results.json files.
 
-Run incrementally per primitive. Currently fills SU-full from:
-  10k: results/ablations/timing-10k/
-  15k: results/qwen3.5-35B-A3B_15k_Fullrun/
-  20k: results/ablations/timing-20k/
+Sources cover two task cohorts:
+  * The original 30 ABL_TASKS (FC-stratified) — `results/qwen3.5-35B-A3B_15k_Fullrun/`,
+    `results/ablations/timing-{10,20}k/`, `results/ablations/{partial,stacked,
+    otrc-stacked}-{10,15,20}000/`, `results/qwen35-a3b_online-trc/`.
+  * The 70 P100_NEW tasks added in the n=30→100 expansion — `results/ablations/
+    p100-{singles,trc,otrc}-{10,15,20}000/` plus `results/ablations/p100-inf/`
+    for FC + OTRC at ∞.
 
-Also copies the filtered raw run records to Review1/raw/<primitive>/ for traceability.
+Every primitive's `fill_*` reads from BOTH cohorts. The filter is `P100_TASKS`
+(the union of 30 + 70 = 100). p100-* dirs contain stub `seeded_from` rows that
+duplicate the 30-task originals — we skip those and pull the data from the
+original sources.
 
-Each invocation APPENDS rows to Review1.csv (header preserved).
+Run with no args → rebuild everything from scratch (truncates Review1.csv to
+header). Run with primitive args → append-only fills for those primitives.
 """
 
 import csv
 import json
 import shutil
+import sys
 from pathlib import Path
 
 ROOT     = Path(__file__).parent.parent
@@ -21,6 +29,11 @@ CSV_PATH = REVIEW / "Review1.csv"
 
 with open(ROOT / "results/ablations/tasks.json") as f:
     ABL_TASKS = set(t["instance_id"] for t in json.load(f))
+
+with open(ROOT / "task_lists/p100_new_tasks.json") as f:
+    P100_NEW_TASKS = set(t["instance_id"] for t in json.load(f))
+
+P100_TASKS = ABL_TASKS | P100_NEW_TASKS  # the full 100-task cohort
 
 
 def repo_of(instance_id: str) -> str:
@@ -39,15 +52,27 @@ def failure_mode(r: dict) -> str:
     return "other"
 
 
+FIELDNAMES = [
+    "task_name", "primitive", "token_budget", "depth", "run_num", "repo",
+    "resolved", "exit_status", "patch_generated", "failure_mode", "step_count",
+    "total_tokens_consumed", "total_prompt_tokens", "total_completion_tokens",
+    "latency_e2e_s", "latency_llm_s", "mean_step_latency_s",
+    "compression_events", "mean_compression_ratio",
+    "summarization_prompt_tokens", "summarization_latency_s",
+    "trc_fallback_events", "online_trc_clears",
+]
+
+
 def to_row(r: dict, primitive_label: str) -> dict:
     n = r.get("n_calls") or 0
     return {
         "task_name":                   r.get("instance_id"),
         "primitive":                   primitive_label,
         "token_budget":                r.get("budget"),
+        "depth":                       r.get("compression_ratio", 0.5),
         "run_num":                     r.get("run_num"),
         "repo":                        repo_of(r.get("instance_id", "")),
-        "resolved":                    r.get("resolved"),
+        "resolved":                    r.get("resolved") if r.get("resolved") is not None else False,
         "exit_status":                 r.get("exit_status"),
         "patch_generated":             r.get("patch_generated"),
         "failure_mode":                failure_mode(r),
@@ -76,35 +101,121 @@ def append_rows(rows: list[dict]) -> None:
             w.writerow(row)
 
 
+# Auxiliary "fill" sources that carry P100_NEW records for the original 5
+# conditions at 10k/20k/∞. They were created during the n=30→100 expansion to
+# back-fill cells that timing-{10,20}k / Fullrun-15k didn't cover.
+_AUX_FILL_SOURCES = [
+    ROOT / "results/qwen35-a3b_10k/experiment_results.json",
+    ROOT / "results/qwen35-a3b_20k/experiment_results.json",
+    ROOT / "results/qwen35-a3b_trc20k/experiment_results.json",
+    ROOT / "results/qwen35-a3b_trc20k-fill/experiment_results.json",
+]
+
+
+def _collect_cell(cond: str, budget: int | None, primitive_label: str,
+                  raw_subdir: str, primary_sources: list[Path],
+                  depth_filter: float | None = None,
+                  consult_aux: bool = True) -> list[dict]:
+    """Collect 200 (task, run) records for a (cond, budget) cell using a
+    priority-ordered list of sources, deduping by (instance_id, run_num).
+
+    The first record encountered for a given (task, run) is kept. Pass
+    `primary_sources` ordered most-canonical-first; auxiliary fill sources are
+    consulted afterwards (unless consult_aux=False) for any (task, run) still
+    missing. depth_filter restricts to records with a specific compression
+    ratio (used by depth-grid fills to guard against cross-depth contamination).
+    """
+    seen = {}  # (task, run_num) → record
+
+    def consume(path: Path, task_filter: set):
+        if not path.exists():
+            return
+        for r in json.loads(path.read_text()):
+            if r.get("condition") != cond:
+                continue
+            if r.get("instance_id") not in task_filter:
+                continue
+            if "seeded_from" in r:
+                continue
+            # Match cell budget (∞ → 999_999_999)
+            expected = budget if budget is not None else 999_999_999
+            if r.get("budget") != expected:
+                continue
+            if depth_filter is not None and r.get("compression_ratio", 0.5) != depth_filter:
+                continue
+            key = (r["instance_id"], r["run_num"])
+            if key not in seen:
+                seen[key] = r
+
+    for path in primary_sources:
+        consume(path, P100_TASKS)
+    if consult_aux:
+        for path in _AUX_FILL_SOURCES:
+            consume(path, P100_TASKS)
+
+    # Save filtered raw records for traceability.
+    raw_dir = REVIEW / "raw" / raw_subdir
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    suffix = "inf" if budget is None else f"{budget // 1000}k"
+    safe_name = raw_subdir.lower().replace("+", "_")
+    with open(raw_dir / f"{safe_name}_{suffix}.json", "w") as f:
+        json.dump(list(seen.values()), f, indent=2)
+
+    return [to_row(r, primitive_label) for r in seen.values()]
+
+
 _TIMING_SOURCES = {
     10000: ROOT / "results/ablations/timing-10k/experiment_results.json",
     15000: ROOT / "results/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json",
     20000: ROOT / "results/ablations/timing-20k/experiment_results.json",
 }
 
+_P100_SINGLES_SOURCES = {
+    10000: ROOT / "results/ablations/p100-singles-10000/experiment_results.json",
+    15000: ROOT / "results/ablations/p100-singles-15000/experiment_results.json",
+    20000: ROOT / "results/ablations/p100-singles-20000/experiment_results.json",
+}
 
-def _fill_from_timing(condition_name: str, primitive_label: str, raw_subdir: str) -> None:
-    """Fill rows for a primitive that's present in timing-10k / Fullrun-15k / timing-20k.
+_P100_TRC_SOURCES = {
+    10000: ROOT / "results/ablations/p100-trc-10000/experiment_results.json",
+    15000: ROOT / "results/ablations/p100-trc-15000/experiment_results.json",
+    20000: ROOT / "results/ablations/p100-trc-20000/experiment_results.json",
+}
 
-    Filters each source by `condition_name`, copies filtered records to
-    Review1/raw/<raw_subdir>/<label>_<budget>k.json, and appends rows to Review1.csv.
-    """
-    raw_dir = REVIEW / "raw" / raw_subdir
-    raw_dir.mkdir(parents=True, exist_ok=True)
+_P100_OTRC_SOURCES = {
+    10000: ROOT / "results/ablations/p100-otrc-10000/experiment_results.json",
+    15000: ROOT / "results/ablations/p100-otrc-15000/experiment_results.json",
+    20000: ROOT / "results/ablations/p100-otrc-20000/experiment_results.json",
+}
 
+_P100_INF_SOURCE = ROOT / "results/ablations/p100-inf/experiment_results.json"
+
+
+def _records_in(path: Path, condition_name: str, task_set: set) -> list[dict]:
+    """Return runs from `path` matching `condition_name` and within `task_set`,
+    skipping seeded-stub rows (those duplicate records that live in the
+    original sources)."""
+    if not path.exists():
+        return []
+    runs = json.loads(path.read_text())
+    return [r for r in runs
+            if r.get("condition") == condition_name
+            and r.get("instance_id") in task_set
+            and "seeded_from" not in r]
+
+
+def _fill_from_timing(condition_name: str, primitive_label: str, raw_subdir: str,
+                      p100_sources: dict = None) -> None:
+    """Fill a primitive across 10/15/20k from timing/Fullrun sources +
+    p100-* sources, with dedupe by (instance_id, run_num)."""
+    p100_sources = p100_sources or _P100_SINGLES_SOURCES
     rows = []
-    for budget, path in _TIMING_SOURCES.items():
-        with open(path) as f:
-            all_runs = json.load(f)
-        rs = [r for r in all_runs
-              if r.get("condition") == condition_name
-              and r.get("instance_id") in ABL_TASKS]
-        with open(raw_dir / f"{raw_subdir.lower()}_{budget // 1000}k.json", "w") as f:
-            json.dump(rs, f, indent=2)
-        for r in rs:
-            rows.append(to_row(r, primitive_label))
-        print(f"  {budget // 1000}k: {len(rs)} runs from {path.relative_to(ROOT)}")
-
+    for budget in (10000, 15000, 20000):
+        # Priority: p100 fresh (canonical for P100_NEW) → original 30-task source.
+        primary = [p100_sources[budget], _TIMING_SOURCES[budget]]
+        cell = _collect_cell(condition_name, budget, primitive_label, raw_subdir, primary)
+        rows.extend(cell)
+        print(f"  {budget // 1000}k: {len(cell)} runs (deduped)")
     append_rows(rows)
     print(f"appended {len(rows)} rows to {CSV_PATH.name}")
 
@@ -121,7 +232,7 @@ def fill_tr() -> None:
 
 def fill_trc() -> None:
     print("[TRC]")
-    _fill_from_timing("tool-result-clear", "TRC", "TRC")
+    _fill_from_timing("tool-result-clear", "TRC", "TRC", _P100_TRC_SOURCES)
 
 
 _STACKED_SOURCES = {
@@ -132,23 +243,13 @@ _STACKED_SOURCES = {
 
 
 def _fill_from_stacked(condition_name: str, primitive_label: str, raw_subdir: str) -> None:
-    """Fill rows for a stacked primitive from the stacked-{10,15,20}k ablation dirs."""
-    raw_dir = REVIEW / "raw" / raw_subdir
-    raw_dir.mkdir(parents=True, exist_ok=True)
-
+    """Fill TRC+SU / TRC+SS via _collect_cell."""
     rows = []
-    for budget, path in _STACKED_SOURCES.items():
-        with open(path) as f:
-            all_runs = json.load(f)
-        rs = [r for r in all_runs
-              if r.get("condition") == condition_name
-              and r.get("instance_id") in ABL_TASKS]
-        with open(raw_dir / f"{raw_subdir.lower().replace('+','_')}_{budget // 1000}k.json", "w") as f:
-            json.dump(rs, f, indent=2)
-        for r in rs:
-            rows.append(to_row(r, primitive_label))
-        print(f"  {budget // 1000}k: {len(rs)} runs from {path.relative_to(ROOT)}")
-
+    for budget in (10000, 15000, 20000):
+        primary = [_P100_TRC_SOURCES[budget], _STACKED_SOURCES[budget]]
+        cell = _collect_cell(condition_name, budget, primitive_label, raw_subdir, primary)
+        rows.extend(cell)
+        print(f"  {budget // 1000}k: {len(cell)} runs (deduped)")
     append_rows(rows)
     print(f"appended {len(rows)} rows to {CSV_PATH.name}")
 
@@ -177,129 +278,229 @@ _OTRC_STACKED_SOURCES = {
 
 
 def _fill_from_sources(sources: dict, condition_name: str, primitive_label: str,
-                       raw_subdir: str) -> None:
-    raw_dir = REVIEW / "raw" / raw_subdir
-    raw_dir.mkdir(parents=True, exist_ok=True)
+                       raw_subdir: str, p100_sources: dict = None) -> None:
+    """Fill from {partial,stacked,otrc-stacked}-* + matching p100-* via _collect_cell."""
     rows = []
-    safe_name = raw_subdir.lower().replace("+", "_")
-    for budget, path in sources.items():
-        if not path.exists():
-            print(f"  {budget // 1000}k: MISSING {path}"); continue
-        with open(path) as f:
-            all_runs = json.load(f)
-        rs = [r for r in all_runs
-              if r.get("condition") == condition_name
-              and r.get("instance_id") in ABL_TASKS]
-        with open(raw_dir / f"{safe_name}_{budget // 1000}k.json", "w") as f:
-            json.dump(rs, f, indent=2)
-        for r in rs:
-            rows.append(to_row(r, primitive_label))
-        print(f"  {budget // 1000}k: {len(rs)} runs from {path.relative_to(ROOT)}")
+    for budget in (10000, 15000, 20000):
+        primary = []
+        if p100_sources is not None:
+            primary.append(p100_sources[budget])
+        primary.append(sources[budget])
+        cell = _collect_cell(condition_name, budget, primitive_label, raw_subdir, primary)
+        rows.extend(cell)
+        print(f"  {budget // 1000}k: {len(cell)} runs (deduped)")
     append_rows(rows)
     print(f"appended {len(rows)} rows to {CSV_PATH.name}")
 
 
 def fill_su_partial() -> None:
     print("[SU-partial]")
-    _fill_from_sources(_PARTIAL_SOURCES, "summarization-partial", "SU-partial", "SU-partial")
+    _fill_from_sources(_PARTIAL_SOURCES, "summarization-partial", "SU-partial",
+                       "SU-partial", _P100_SINGLES_SOURCES)
 
 
 def fill_ss_partial() -> None:
     print("[SS-partial]")
-    _fill_from_sources(_PARTIAL_SOURCES, "structured-summarize-partial", "SS-partial", "SS-partial")
+    _fill_from_sources(_PARTIAL_SOURCES, "structured-summarize-partial", "SS-partial",
+                       "SS-partial", _P100_SINGLES_SOURCES)
 
 
 def fill_ss() -> None:
-    """SS coverage: 10k & 20k from partial-* (gap-fill), 15k from Fullrun-15k."""
+    """SS @10k/20k: partial-* (30 ABL) + p100-singles-* (70 NEW).
+    SS @15k: Fullrun-15k (99 tasks) + p100-singles-15000 fresh."""
     print("[SS]")
-    raw_dir = REVIEW / "raw" / "SS"
-    raw_dir.mkdir(parents=True, exist_ok=True)
     rows = []
-
-    sources = {
+    ss_sources_30 = {
         10000: _PARTIAL_SOURCES[10000],
         15000: ROOT / "results/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json",
         20000: _PARTIAL_SOURCES[20000],
     }
-    for budget, path in sources.items():
-        with open(path) as f:
-            all_runs = json.load(f)
-        rs = [r for r in all_runs
-              if r.get("condition") == "structured-summarize"
-              and r.get("instance_id") in ABL_TASKS]
-        with open(raw_dir / f"ss_{budget // 1000}k.json", "w") as f:
-            json.dump(rs, f, indent=2)
-        for r in rs:
-            rows.append(to_row(r, "SS"))
-        print(f"  {budget // 1000}k: {len(rs)} runs from {path.relative_to(ROOT)}")
+    for budget in (10000, 15000, 20000):
+        primary = [_P100_SINGLES_SOURCES[budget], ss_sources_30[budget]]
+        cell = _collect_cell("structured-summarize", budget, "SS", "SS", primary)
+        rows.extend(cell)
+        print(f"  {budget // 1000}k: {len(cell)} runs (deduped)")
     append_rows(rows)
     print(f"appended {len(rows)} rows to {CSV_PATH.name}")
 
 
 def fill_otrc_tr() -> None:
     print("[OTRC+TR]")
-    _fill_from_sources(_OTRC_STACKED_SOURCES, "otrc-tr", "OTRC+TR", "OTRC+TR")
+    _fill_from_sources(_OTRC_STACKED_SOURCES, "otrc-tr", "OTRC+TR",
+                       "OTRC+TR", _P100_OTRC_SOURCES)
 
 
 def fill_otrc_su_partial() -> None:
     print("[OTRC+SU-partial]")
-    _fill_from_sources(_OTRC_STACKED_SOURCES, "otrc-su-partial", "OTRC+SU-partial", "OTRC+SU-partial")
+    _fill_from_sources(_OTRC_STACKED_SOURCES, "otrc-su-partial", "OTRC+SU-partial",
+                       "OTRC+SU-partial", _P100_OTRC_SOURCES)
 
 
 def fill_otrc_ss_partial() -> None:
     print("[OTRC+SS-partial]")
-    _fill_from_sources(_OTRC_STACKED_SOURCES, "otrc-ss-partial", "OTRC+SS-partial", "OTRC+SS-partial")
+    _fill_from_sources(_OTRC_STACKED_SOURCES, "otrc-ss-partial", "OTRC+SS-partial",
+                       "OTRC+SS-partial", _P100_OTRC_SOURCES)
 
 
 def fill_fc() -> None:
-    """FC (full-context, no compression) on the 30-task ablation set."""
+    """FC @∞: p100-inf (canonical for P100_NEW) + Fullrun-15k (30 ABL)."""
     print("[FC]")
-    src = ROOT / "results/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json"
-    raw_dir = REVIEW / "raw" / "FC"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-
-    with open(src) as f:
-        all_runs = json.load(f)
-    rs = [r for r in all_runs
-          if r.get("condition") == "full-context"
-          and r.get("instance_id") in ABL_TASKS]
-    with open(raw_dir / "fc_no_compression.json", "w") as f:
-        json.dump(rs, f, indent=2)
-
-    rows = [to_row(r, "FC") for r in rs]
-    append_rows(rows)
-    print(f"  {len(rs)} runs from {src.relative_to(ROOT)}")
-    print(f"appended {len(rows)} rows to {CSV_PATH.name}")
+    primary = [_P100_INF_SOURCE,
+               ROOT / "results/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json"]
+    cell = _collect_cell("full-context", None, "FC", "FC", primary)
+    append_rows(cell)
+    print(f"  {len(cell)} runs (deduped)")
 
 
 def fill_otrc() -> None:
-    """OTRC at budget=999_999_999 (no threshold, FREEZE_K=4 step-level clearing).
-
-    Source is the full 99-task SWE-bench run; we filter to the 30-task ablation set.
-    """
+    """OTRC @∞: p100-inf (canonical for P100_NEW) + qwen35-a3b_online-trc (30 ABL)."""
     print("[OTRC]")
-    src = ROOT / "results/qwen35-a3b_online-trc/experiment_results.json"
-    raw_dir = REVIEW / "raw" / "OTRC"
-    raw_dir.mkdir(parents=True, exist_ok=True)
+    primary = [_P100_INF_SOURCE,
+               ROOT / "results/qwen35-a3b_online-trc/experiment_results.json"]
+    cell = _collect_cell("online-trc", None, "OTRC", "OTRC", primary)
+    append_rows(cell)
+    print(f"  {len(cell)} runs (deduped)")
 
-    with open(src) as f:
-        all_runs = json.load(f)
-    rs = [r for r in all_runs
-          if r.get("condition") == "online-trc"
-          and r.get("instance_id") in ABL_TASKS]
-    with open(raw_dir / "otrc_no_threshold.json", "w") as f:
-        json.dump(rs, f, indent=2)
 
-    rows = [to_row(r, "OTRC") for r in rs]
-    append_rows(rows)
-    print(f"  {len(rs)} runs from {src.relative_to(ROOT)}")
-    print(f"appended {len(rows)} rows to {CSV_PATH.name}")
+# Staggered pilot: 6 tasks × 2 strategies × 3 budgets × 2 runs.
+# Cell size is ~12 records per (primitive, budget) — much smaller than the
+# 200-row n=100 cells. Fills are best-effort and skip any missing dir.
+_STAGGERED_PILOT_SOURCES = {
+    10000: ROOT / "results/ablations/staggered-pilot-10000/experiment_results.json",
+    15000: ROOT / "results/ablations/staggered-pilot-15000/experiment_results.json",
+    20000: ROOT / "results/ablations/staggered-pilot-20000/experiment_results.json",
+}
+
+
+def _fill_staggered(condition_name: str, primitive_label: str, raw_subdir: str) -> None:
+    rows = []
+    for budget in (10000, 15000, 20000):
+        primary = [_STAGGERED_PILOT_SOURCES[budget]]
+        if not primary[0].exists():
+            print(f"  {budget // 1000}k: source missing, skipping")
+            continue
+        cell = _collect_cell(condition_name, budget, primitive_label, raw_subdir, primary)
+        rows.extend(cell)
+        print(f"  {budget // 1000}k: {len(cell)} runs (deduped)")
+    if rows:
+        append_rows(rows)
+        print(f"appended {len(rows)} rows to {CSV_PATH.name}")
+    else:
+        print("no staggered rows appended (no source files yet)")
+
+
+def fill_staggered_alternate() -> None:
+    print("[STAG-alt]")
+    _fill_staggered("staggered-alternate", "STAG-alt", "STAG-alt")
+
+
+def fill_staggered_random() -> None:
+    print("[STAG-rand]")
+    _fill_staggered("staggered-random", "STAG-rand", "STAG-rand")
+
+
+# Depth-grid (paper-critical 15k slice + bonus singles-10000 at depth=0.3).
+# Each dir is a single (depth, budget, group) cell. Sources read with
+# depth_filter and consult_aux=False to keep depth strata cleanly separated.
+_P100_DEPTH30_SINGLES_SOURCES = {
+    10000: ROOT / "results/ablations/p100-depth30-singles-10000/experiment_results.json",  # bonus
+    15000: ROOT / "results/ablations/p100-depth30-singles-15000/experiment_results.json",
+}
+_P100_DEPTH30_OTRC_SOURCES = {
+    15000: ROOT / "results/ablations/p100-depth30-otrc-15000/experiment_results.json",
+}
+_P100_DEPTH70_SINGLES_SOURCES = {
+    10000: ROOT / "results/ablations/p100-depth70-singles-10000/experiment_results.json",
+    15000: ROOT / "results/ablations/p100-depth70-singles-15000/experiment_results.json",
+}
+_P100_DEPTH70_OTRC_SOURCES = {
+    15000: ROOT / "results/ablations/p100-depth70-otrc-15000/experiment_results.json",
+}
+
+_SINGLES_CONDS = [
+    ("truncation",                   "TR"),
+    ("summarization",                "SU-full"),
+    ("summarization-partial",        "SU-partial"),
+    ("structured-summarize",         "SS"),
+    ("structured-summarize-partial", "SS-partial"),
+]
+
+_OTRC_CONDS = [
+    ("otrc-tr",          "OTRC+TR"),
+    ("otrc-su-partial",  "OTRC+SU-partial"),
+    ("otrc-ss-partial",  "OTRC+SS-partial"),
+]
+
+
+def _fill_depth_cells(depth: float, sources: dict, conds: list,
+                      group_tag: str) -> None:
+    """Fill all (cond × budget) cells for a single (depth, group) bundle.
+
+    depth: 0.3 or 0.7 — used for depth_filter and raw_subdir naming.
+    sources: {budget: Path} for the depth/group bundle.
+    conds: list of (condition, primitive_label) tuples.
+    group_tag: "singles" or "otrc" for raw_subdir naming.
+    """
+    rows = []
+    for budget, src in sources.items():
+        for cond, label in conds:
+            raw_subdir = f"depth{int(depth*100):02d}-{label}"
+            cell = _collect_cell(cond, budget, label, raw_subdir,
+                                 [src], depth_filter=depth, consult_aux=False)
+            rows.extend(cell)
+            print(f"  depth={depth} {budget // 1000}k {label}: {len(cell)} runs")
+    if rows:
+        append_rows(rows)
+        print(f"appended {len(rows)} rows to {CSV_PATH.name}")
+    else:
+        print("no rows appended (sources missing?)")
+
+
+def fill_depth30_singles() -> None:
+    print("[depth=0.3 singles]")
+    _fill_depth_cells(0.3, _P100_DEPTH30_SINGLES_SOURCES, _SINGLES_CONDS, "singles")
+
+
+def fill_depth30_otrc() -> None:
+    print("[depth=0.3 otrc]")
+    _fill_depth_cells(0.3, _P100_DEPTH30_OTRC_SOURCES, _OTRC_CONDS, "otrc")
+
+
+def fill_depth70_singles() -> None:
+    print("[depth=0.7 singles]")
+    _fill_depth_cells(0.7, _P100_DEPTH70_SINGLES_SOURCES, _SINGLES_CONDS, "singles")
+
+
+def fill_depth70_otrc() -> None:
+    print("[depth=0.7 otrc]")
+    _fill_depth_cells(0.7, _P100_DEPTH70_OTRC_SOURCES, _OTRC_CONDS, "otrc")
+
+
+_ALL_FILLS = [
+    fill_fc, fill_otrc,
+    fill_tr, fill_su_full, fill_ss,
+    fill_su_partial, fill_ss_partial,
+    fill_trc, fill_trc_su, fill_trc_ss,
+    fill_otrc_tr, fill_otrc_su_partial, fill_otrc_ss_partial,
+    fill_staggered_alternate, fill_staggered_random,
+    fill_depth30_singles, fill_depth30_otrc,
+    fill_depth70_singles, fill_depth70_otrc,
+]
+
+
+def _truncate_csv_to_header() -> None:
+    """Reset Review1.csv to canonical header-only, ready for full rebuild."""
+    with open(CSV_PATH, "w", newline="") as f:
+        csv.writer(f).writerow(FIELDNAMES)
 
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) > 1:
         for arg in sys.argv[1:]:
             globals()[f"fill_{arg.replace('-', '_')}"]()
     else:
-        fill_su_full()
+        print("=== Full rebuild (n=100 cohort) ===")
+        _truncate_csv_to_header()
+        for fn in _ALL_FILLS:
+            fn()
+        print("\n=== Rebuild complete ===")

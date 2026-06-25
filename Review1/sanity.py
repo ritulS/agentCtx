@@ -15,14 +15,21 @@ ROOT     = Path(__file__).parent.parent
 REVIEW   = Path(__file__).parent
 REPORT   = REVIEW / "sanity_report.md"
 ABL_FILE = ROOT / "results/ablations/tasks.json"
+P100_NEW_FILE = ROOT / "task_lists/p100_new_tasks.json"
 CSV      = REVIEW / "Review1.csv"
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 abl_tasks = json.load(open(ABL_FILE))
+p100_new  = json.load(open(P100_NEW_FILE))
 ABL_IDS   = set(t["instance_id"] for t in abl_tasks)
-REPOS_OF  = {t["instance_id"]: t["repo"] for t in abl_tasks}
+P100_NEW_IDS = set(t["instance_id"] for t in p100_new)
+P100_IDS  = ABL_IDS | P100_NEW_IDS  # 100-task cohort
+REPOS_OF  = {t["instance_id"]: t["repo"] for t in abl_tasks + p100_new}
+N_TASKS   = len(P100_IDS)
+N_PER_CELL = N_TASKS * 2  # 2 runs per task
 
 df = pd.read_csv(CSV)
+df = df[df.depth == 0.5].copy()  # scope to canonical depth — depth-grid lives in depth_analysis.py
 df["resolved_bool"]   = df["resolved"].astype(str) == "True"
 df["patch_bool"]      = df["patch_generated"].astype(str) == "True"
 
@@ -97,8 +104,8 @@ for prim in INF_PRIMS:
 # ════════════════════════════════════════════════════════════════════════════
 out("\n## F2 — Cell completeness\n")
 
-# Expected cells: each budget primitive × 3 budgets × 60 runs; INF primitives × 1 cell × 60 runs
-expected_n = 60
+# Expected cells: each budget primitive × 3 budgets × N_PER_CELL runs; INF primitives × 1 cell × N_PER_CELL runs
+expected_n = N_PER_CELL
 issues = []
 
 for prim in BUDGET_PRIMS:
@@ -114,12 +121,12 @@ for prim in BUDGET_PRIMS:
             issues.append(f"{prim}@{b}: {n_dups} duplicate (task,run_num) pairs")
         # task coverage
         uniq_tasks = sub.task_name.nunique()
-        if uniq_tasks != 30:
-            issues.append(f"{prim}@{b}: {uniq_tasks}/30 unique tasks")
-        # all tasks in ABL_IDS?
-        outside = set(sub.task_name) - ABL_IDS
+        if uniq_tasks != N_TASKS:
+            issues.append(f"{prim}@{b}: {uniq_tasks}/{N_TASKS} unique tasks")
+        # all tasks in P100_IDS?
+        outside = set(sub.task_name) - P100_IDS
         if outside:
-            issues.append(f"{prim}@{b}: {len(outside)} tasks outside ablation set: {sorted(outside)[:3]}...")
+            issues.append(f"{prim}@{b}: {len(outside)} tasks outside P100 set: {sorted(outside)[:3]}...")
 
 for prim in INF_PRIMS:
     sub = df[df.primitive == prim]
@@ -127,7 +134,7 @@ for prim in INF_PRIMS:
         issues.append(f"{prim} (∞): {len(sub)} rows (expected {expected_n})")
 
 if not issues:
-    out(f"{status(True)} All 35 cells (11×3 budget + 2 ∞) have exactly 60 unique (task, run) rows on the 30 ablation tasks")
+    out(f"{status(True)} All 35 cells (11×3 budget + 2 ∞) have exactly {N_PER_CELL} unique (task, run) rows on the {N_TASKS} P100 tasks")
 else:
     for i in issues:
         out(f"{status(False)} {i}")
@@ -193,11 +200,13 @@ for src, cond, prim, budget in sources_to_check:
                         if r.get("condition") == cond
                         and r.get("instance_id") in ABL_IDS
                         and r.get("resolved") is True)
-    csv_sub = df[(df.primitive == prim) & (df.token_budget == budget)]
+    # Compare against the ABL portion of the CSV cell (the original 30-task cohort)
+    csv_sub = df[(df.primitive == prim) & (df.token_budget == budget) &
+                 (df.task_name.isin(ABL_IDS))]
     csv_resolved = csv_sub.resolved_bool.sum()
     ok = src_resolved == csv_resolved
     if not ok: all_match = False
-    out(f"{status(ok)} {prim}@{budget if budget < 1e8 else '∞'}: source={src_resolved}, csv={csv_resolved}")
+    out(f"{status(ok)} {prim}@{budget if budget < 1e8 else '∞'}: source={src_resolved}, csv(ABL only)={csv_resolved}")
 
 out(f"\n**Overall F4: {'PASS' if all_match else 'FAIL'}** — Review1.csv matches source experiment_results.json")
 
@@ -358,30 +367,28 @@ out("(if non-zero with high magnitude, indicates ordering effects in the runner)
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# F14: Selection — how were the 30 tasks chosen?
+# F14: Task-selection provenance for the 100-task cohort
 # ════════════════════════════════════════════════════════════════════════════
 out("\n## F14 — Task-selection provenance\n")
-out("From `results/ablations/ablation_index.md`:\n")
-out("> Selection criteria: tasks where full-context (FC) patches "
-    "(majority vote across 2 runs ≥ 0.5), stratified by compression outcome — "
-    "5 all-succeed + 5 mixed per repo (django, scikit-learn), "
-    "7 all-succeed + 3 mixed for sympy (only 3 mixed available). Seed=42.")
+out("Cohort = 30 ABL_TASKS (FC-stratified, original sprint) ∪ 70 P100_NEW_TASKS")
+out("(scaled-up cohort, drawn from broader SWE-bench Verified at expansion time).")
 out("")
 out("**Implications:**")
-out("- Tasks are NOT a random SWE-bench sample — they were selected on FC ≥ 0.5.")
-out("- Tasks are stratified on compression outcome from prior runs at 15k.")
-out("- Result generalizes to: \"tasks where FC succeeds and compression matters\".")
-out("- Does NOT generalize to: full SWE-bench Verified, or to tasks where FC already fails.")
-out("")
-out("**Repo coverage:** django, scikit-learn, sympy (3 of 12 SWE-bench Verified repos).")
+out("- Original 30 tasks remain FC-biased (selected for FC ≥ 0.5, stratified on compression outcome).")
+out("- 70 new tasks were added without the FC-success filter, so the 100-task cohort includes")
+out("  genuinely FC-fail cases — paired comparisons against FC are now less FC-favored.")
+out("- Result generalizes to: \"100-task SWE-bench Verified subset spanning django, scikit-learn, sympy\".")
+out("- Does NOT generalize to: full SWE-bench Verified across all repos.")
 
-# Verify the FC-succeeds invariant on the actual data
+# FC-succeeds split, by cohort
 fc_per_task = df[df.primitive == "FC"].groupby("task_name").resolved_bool.mean()
-n_fc_zero = (fc_per_task == 0).sum()
-n_fc_half = ((fc_per_task >= 0.5)).sum()
-out(f"\nVerifying FC-success criterion in current data:")
-out(f"  Tasks where FC resolved ≥ 1 of 2 runs: {n_fc_half}/30")
-out(f"  Tasks where FC resolved 0 of 2 runs:   {n_fc_zero}/30  (should be 0 if criterion held)")
+fc_abl  = fc_per_task.loc[fc_per_task.index.isin(ABL_IDS)]
+fc_new  = fc_per_task.loc[fc_per_task.index.isin(P100_NEW_IDS)]
+out("\nFC-success split by cohort:")
+out(f"  ABL_TASKS (n={len(fc_abl)}):    FC ≥ 1/2 runs = {(fc_abl >= 0.5).sum()}/{len(fc_abl)}, "
+    f"FC = 0/2 = {(fc_abl == 0).sum()}/{len(fc_abl)}")
+out(f"  P100_NEW (n={len(fc_new)}):     FC ≥ 1/2 runs = {(fc_new >= 0.5).sum()}/{len(fc_new)}, "
+    f"FC = 0/2 = {(fc_new == 0).sum()}/{len(fc_new)}")
 
 
 # ════════════════════════════════════════════════════════════════════════════

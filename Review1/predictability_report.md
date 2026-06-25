@@ -5,115 +5,115 @@ Can a controller pick the right primitive from observables alone?
 
 ## Budget 10k: TR vs TRC+SS
 
-- Tasks where TR > TRC+SS: **5**
-- Tasks where TRC+SS > TR: **10**
-- Ties dropped: 15
+- Tasks where TR > TRC+SS: **13**
+- Tasks where TRC+SS > TR: **21**
+- Ties dropped: 66
 
 ### Univariate feature tests
 | feature | mean(TR-wins) | mean(other-wins) | p (Mann-Whitney) |
 | --- | ---: | ---: | ---: |
-| **is_sklearn** | 0.00 | 0.60 | 0.037** |
-| n_inline_code | 0.60 | 3.80 | 0.144 |
-| is_sympy | 0.40 | 0.10 | 0.217 |
-| n_urls | 0.00 | 1.00 | 0.220 |
-| is_django | 0.60 | 0.30 | 0.313 |
-| n_tests | 0.00 | 1.10 | 0.352 |
-| n_traceback | 0.00 | 0.10 | 0.572 |
-| n_code_blocks | 0.80 | 0.90 | 0.694 |
-| len_lines | 32.00 | 41.10 | 0.902 |
-| len_chars | 1402.20 | 1764.20 | 0.953 |
-| len_words | 167.00 | 207.10 | 1.000 |
-| n_py_paths | 0.60 | 0.50 | 1.000 |
+| n_urls | 0.08 | 0.90 | 0.082 |
+| is_sympy | 0.46 | 0.24 | 0.190 |
+| is_sklearn | 0.23 | 0.43 | 0.257 |
+| len_lines | 35.46 | 34.90 | 0.329 |
+| len_words | 183.38 | 174.48 | 0.339 |
+| n_code_blocks | 1.77 | 1.10 | 0.346 |
+| n_inline_code | 2.54 | 3.29 | 0.409 |
+| len_chars | 1438.85 | 1533.10 | 0.547 |
+| n_py_paths | 2.77 | 0.52 | 0.847 |
+| n_tests | 0.08 | 0.52 | 0.857 |
+| n_traceback | 0.23 | 0.14 | 0.885 |
+| is_django | 0.31 | 0.33 | 0.896 |
 | is_astropy | 0.00 | 0.00 | 1.000 |
 
 ### Leave-one-out logistic regression
 
-- LOO accuracy: **53.3%**  (n=15)
-- Majority-class baseline: 66.7%
-- **Verdict:** NOT separable (-13.3pp over baseline)
+- LOO accuracy: **64.7%**  (n=34)
+- Majority-class baseline: 61.8%
+- **Verdict:** NOT separable (++2.9pp over baseline)
 
 ## Budget 15k: TR vs SU-partial
 
-- Tasks where TR > SU-partial: **6**
-- Tasks where SU-partial > TR: **13**
-- Ties dropped: 11
+- Tasks where TR > SU-partial: **18**
+- Tasks where SU-partial > TR: **22**
+- Ties dropped: 60
 
 ### Univariate feature tests
 | feature | mean(TR-wins) | mean(other-wins) | p (Mann-Whitney) |
 | --- | ---: | ---: | ---: |
-| is_sklearn | 0.17 | 0.54 | 0.152 |
-| n_traceback | 0.00 | 0.31 | 0.154 |
-| n_py_paths | 0.67 | 1.92 | 0.203 |
-| is_sympy | 0.50 | 0.23 | 0.277 |
-| n_code_blocks | 1.00 | 2.00 | 0.321 |
-| n_inline_code | 2.83 | 3.38 | 0.344 |
-| n_urls | 0.83 | 0.62 | 0.556 |
-| n_tests | 1.67 | 0.08 | 0.565 |
-| is_django | 0.33 | 0.23 | 0.688 |
-| len_chars | 2310.33 | 1925.77 | 0.966 |
-| len_words | 261.17 | 197.31 | 1.000 |
-| len_lines | 52.83 | 51.31 | 1.000 |
+| n_urls | 0.44 | 0.86 | 0.087 |
+| n_py_paths | 1.33 | 1.64 | 0.087 |
+| n_traceback | 0.11 | 0.36 | 0.120 |
+| is_sympy | 0.50 | 0.27 | 0.149 |
+| is_sklearn | 0.28 | 0.45 | 0.263 |
+| n_inline_code | 2.39 | 3.45 | 0.281 |
+| len_words | 158.72 | 192.14 | 0.289 |
+| len_chars | 1397.94 | 1753.95 | 0.308 |
+| n_tests | 0.61 | 0.05 | 0.439 |
+| n_code_blocks | 1.39 | 1.95 | 0.576 |
+| is_django | 0.22 | 0.27 | 0.731 |
+| len_lines | 35.33 | 42.68 | 0.881 |
 | is_astropy | 0.00 | 0.00 | 1.000 |
 
 ### Leave-one-out logistic regression
 
-- LOO accuracy: **63.2%**  (n=19)
-- Majority-class baseline: 68.4%
-- **Verdict:** NOT separable (-5.3pp over baseline)
+- LOO accuracy: **45.0%**  (n=40)
+- Majority-class baseline: 55.0%
+- **Verdict:** NOT separable (-10.0pp over baseline)
 
 ## Budget 20k: TR vs TRC+SS
 
-- Tasks where TR > TRC+SS: **2**
-- Tasks where TRC+SS > TR: **9**
-- Ties dropped: 19
+- Tasks where TR > TRC+SS: **8**
+- Tasks where TRC+SS > TR: **20**
+- Ties dropped: 72
 
 ### Univariate feature tests
 | feature | mean(TR-wins) | mean(other-wins) | p (Mann-Whitney) |
 | --- | ---: | ---: | ---: |
-| **n_urls** | 2.00 | 0.11 | 0.016** |
-| n_inline_code | 19.50 | 2.89 | 0.117 |
-| is_sympy | 1.00 | 0.33 | 0.134 |
-| len_lines | 16.50 | 61.78 | 0.145 |
-| n_tests | 0.50 | 0.11 | 0.292 |
-| n_py_paths | 2.00 | 1.78 | 0.303 |
-| is_sklearn | 0.00 | 0.44 | 0.324 |
-| n_traceback | 0.00 | 0.22 | 0.598 |
-| is_django | 0.00 | 0.22 | 0.598 |
-| n_code_blocks | 1.00 | 2.00 | 0.903 |
-| len_words | 158.50 | 224.22 | 0.906 |
-| len_chars | 1254.00 | 2278.33 | 0.909 |
+| **is_sympy** | 0.75 | 0.20 | 0.008** |
+| is_django | 0.00 | 0.30 | 0.093 |
+| is_sklearn | 0.25 | 0.50 | 0.248 |
+| n_py_paths | 2.88 | 1.25 | 0.351 |
+| n_urls | 0.88 | 0.80 | 0.379 |
+| n_inline_code | 8.00 | 3.45 | 0.430 |
+| n_tests | 0.12 | 0.05 | 0.531 |
+| n_code_blocks | 1.38 | 1.45 | 0.635 |
+| len_lines | 35.00 | 47.00 | 0.741 |
+| len_chars | 1464.25 | 1804.25 | 0.746 |
+| len_words | 173.75 | 194.20 | 0.939 |
+| n_traceback | 0.25 | 0.25 | 1.000 |
 | is_astropy | 0.00 | 0.00 | 1.000 |
 
 ### Leave-one-out logistic regression
 
-- LOO accuracy: **81.8%**  (n=11)
-- Majority-class baseline: 81.8%
-- **Verdict:** NOT separable (+0.0pp over baseline)
+- LOO accuracy: **42.9%**  (n=28)
+- Majority-class baseline: 71.4%
+- **Verdict:** NOT separable (-28.6pp over baseline)
 
 ## Pooled: TR-friendly vs compression-friendly tasks (pan-budget)
 
 A task is 'TR-friendly' if TR's mean rate across budgets > best-compression's.
-- TR-friendly (TR ≥ best compressor on average): **4** tasks
-- compression-friendly: **26** tasks
+- TR-friendly (TR ≥ best compressor on average): **35** tasks
+- compression-friendly: **65** tasks
 
 ### Univariate (pooled)
 | feature | mean(TR-friendly) | mean(comp-friendly) | p |
 | --- | ---: | ---: | ---: |
-| is_django | 0.75 | 0.27 | 0.067 |
-| n_traceback | 1.00 | 0.15 | 0.087 |
-| is_sklearn | 0.00 | 0.38 | 0.145 |
-| n_inline_code | 0.75 | 4.12 | 0.214 |
-| n_code_blocks | 1.00 | 1.42 | 0.355 |
-| n_py_paths | 4.00 | 1.23 | 0.416 |
-| n_tests | 0.00 | 0.46 | 0.519 |
-| len_chars | 1806.50 | 1788.08 | 0.659 |
-| len_words | 186.75 | 194.88 | 0.692 |
-| is_sympy | 0.25 | 0.35 | 0.737 |
-| len_lines | 33.25 | 44.38 | 0.927 |
-| n_urls | 0.75 | 0.62 | 1.000 |
+| **n_inline_code** | 2.51 | 3.51 | 0.028** |
+| **n_code_blocks** | 0.86 | 1.63 | 0.034** |
+| is_sklearn | 0.20 | 0.38 | 0.061 |
+| is_django | 0.43 | 0.29 | 0.174 |
+| len_lines | 40.03 | 40.94 | 0.556 |
+| n_tests | 0.29 | 0.37 | 0.607 |
+| n_traceback | 0.43 | 0.31 | 0.621 |
+| is_sympy | 0.37 | 0.32 | 0.631 |
+| len_chars | 1901.94 | 1694.97 | 0.662 |
+| n_urls | 1.00 | 0.80 | 0.841 |
+| len_words | 213.66 | 189.68 | 0.908 |
+| n_py_paths | 2.60 | 1.83 | 0.975 |
 | is_astropy | 0.00 | 0.00 | 1.000 |
 
 ### Leave-one-out logistic regression (pooled)
-- LOO accuracy: **70.0%**  (n=30)
-- Majority-class baseline: 86.7%
-- **Verdict:** NOT separable (-16.7pp over baseline)
+- LOO accuracy: **51.0%**  (n=100)
+- Majority-class baseline: 65.0%
+- **Verdict:** NOT separable (-14.0pp over baseline)
