@@ -559,6 +559,11 @@ def main() -> None:
                              "fixed 30-task set is used automatically.")
     parser.add_argument("--agent-config", default=None,
                         help="Path to agent config YAML (default: config-qwen-vllm.yaml)")
+    parser.add_argument("--otrc-config",  default=None,
+                        help="Override the agent config used by OTRC conditions "
+                             "(online-trc, otrc-tr, otrc-su-partial, otrc-ss-partial). "
+                             "Needed when --agent-config points at a non-Qwen model; "
+                             "default is config-online-trc.yaml which targets Qwen port 8000.")
     parser.add_argument("--n-tasks",      type=int, default=None,
                         help="Override number of tasks (default: 100)")
     parser.add_argument("--tasks-file",   default=None,
@@ -586,6 +591,12 @@ def main() -> None:
         TASKS_FILE_EXPLICIT = True
     if args.agent_config:
         AGENT_CONFIG = Path(args.agent_config).resolve()
+    if args.otrc_config:
+        otrc_path = Path(args.otrc_config).resolve()
+        for c in CONDITIONS:
+            cur = c.get("config")
+            if cur is not None and "config-online-trc" in str(cur):
+                c["config"] = otrc_path
     if args.n_tasks is not None:
         N_TASKS = args.n_tasks
         N_TASKS_OVERRIDE = args.n_tasks
