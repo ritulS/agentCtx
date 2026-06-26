@@ -33,16 +33,15 @@ the right branch automatically.
 ```bash
 python3.10 -m venv venv
 source venv/bin/activate
-pip install -e mini-swe-agent          # editable install of the agent harness
-# plus the serving/eval stack: vllm, litellm, swebench, pandas, matplotlib, ...
+pip install -r requirements.txt        # pinned deps + the mini-swe-agent submodule (editable)
 ```
 
-> **Heads-up — no pinned dependency manifest yet.** There is currently no
-> root `requirements.txt`/`pyproject.toml` capturing the exact versions used.
-> The vLLM/CUDA pins in particular are host-specific (see the Albus notes in
-> [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md)). Generate one from a
-> known-good venv with `pip freeze > requirements.txt` and commit it to make
-> the environment reproducible.
+[requirements.txt](requirements.txt) is a pinned snapshot from the dev venv. The
+GPU stack (torch, vllm, triton) is CUDA-coupled and the explicit `nvidia-cuda-*`
+pins are intentionally omitted — if your driver/CUDA differs, install torch/vllm
+per their platform instructions first, then `pip install -r requirements.txt`.
+See the Albus notes in [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md) for
+host-specific serving caveats.
 
 ## Repository layout
 
