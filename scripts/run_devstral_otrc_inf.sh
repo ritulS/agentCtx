@@ -23,8 +23,8 @@ fi
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     devstral-2-inf \
     --model-tag    devstral-2 \
-    --agent-config config-devstral-vllm.yaml \
-    --otrc-config  config-online-trc-devstral.yaml \
+    --agent-config configs/config-devstral-vllm.yaml \
+    --otrc-config  configs/config-online-trc-devstral.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   online-trc \
@@ -33,8 +33,8 @@ venv/bin/python3 scripts/run_experiment.py \
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     devstral-2-inf \
     --model-tag    devstral-2 \
-    --agent-config config-devstral-vllm.yaml \
-    --otrc-config  config-online-trc-devstral.yaml \
+    --agent-config configs/config-devstral-vllm.yaml \
+    --otrc-config  configs/config-online-trc-devstral.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   online-trc \

@@ -19,7 +19,7 @@ The three OTRC variants are stage-1 + stage-2 stacks:
 
 **SU-full and SS-full are deliberately not run as OTRC fallbacks** — they collapse the freeze window and break OTRC's recency contract. Partial variants compose coherently; full variants would be a dishonest comparison.
 
-All three conditions reuse `config-online-trc.yaml` (agent prompts expect cleared-tool stubs).
+All three conditions reuse `configs/config-online-trc.yaml` (agent prompts expect cleared-tool stubs).
 
 ---
 
@@ -50,7 +50,7 @@ Expect 2 matches.
 ```bash
 grep -nE '"(otrc-tr|otrc-su-partial|otrc-ss-partial)"' scripts/run_experiment.py
 ```
-Expect 3 matches in the `CONDITIONS = [ ... ]` list, each with `"config": WORKSPACE_ROOT / "config-online-trc.yaml"`.
+Expect 3 matches in the `CONDITIONS = [ ... ]` list, each with `"config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"`.
 
 ### e) Functional smoke test (covers OTRC family + new dispatch)
 ```bash
@@ -101,8 +101,8 @@ Must print `OK`. If it fails, **stop** and inspect — do not launch.
 
 2. **vLLM server**:
    ```bash
-   grep -E "url|model" config-online-trc.yaml | head -5
-   curl -s "$(grep -oP 'url:\s*\K\S+' config-online-trc.yaml)/models" | head -c 200
+   grep -E "url|model" configs/config-online-trc.yaml | head -5
+   curl -s "$(grep -oP 'url:\s*\K\S+' configs/config-online-trc.yaml)/models" | head -c 200
    ```
 
 3. **Worker count**: confirm no other large run is active.
@@ -133,7 +133,7 @@ Append to `Active_runs.md`:
   - `results/ablations/otrc-stacked-10000/`  (180 runs)
   - `results/ablations/otrc-stacked-15000/`  (180 runs)
   - `results/ablations/otrc-stacked-20000/`  (180 runs)
-- **Conditions:** otrc-tr, otrc-su-partial, otrc-ss-partial (all use config-online-trc.yaml)
+- **Conditions:** otrc-tr, otrc-su-partial, otrc-ss-partial (all use configs/config-online-trc.yaml)
 - **Log:** `logs/otrc_stacked_ablation.log`
 - **ETA:** ~10–11h from start
 ```
@@ -204,7 +204,7 @@ ls results/ablations/otrc-stacked-10000/*/run_*/  2>/dev/null | wc -l
 ls results/ablations/otrc-stacked-20000/*/run_*/  2>/dev/null | wc -l
 
 # Confirm vLLM is healthy
-curl -s "$(grep -oP 'url:\s*\K\S+' config-online-trc.yaml)/models" | head -c 100
+curl -s "$(grep -oP 'url:\s*\K\S+' configs/config-online-trc.yaml)/models" | head -c 100
 ```
 
 If vLLM dies: kill the runner, restart vLLM, re-launch — runs are idempotent (already-completed (task,cond,run) tuples are skipped on re-launch).

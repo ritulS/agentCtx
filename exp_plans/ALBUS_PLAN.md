@@ -107,7 +107,7 @@ sleep 60 && curl -s http://localhost:8000/v1/models | head
 
 ### 1.2 Create model config
 
-`config-qwen25-7b-vllm.yaml`:
+`configs/config-qwen25-7b-vllm.yaml`:
 
 ```yaml
 agent:
@@ -172,7 +172,7 @@ CONDS_INF="full-context online-trc"
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     qwen25-7b-inf \
     --model-tag    qwen25-7b \
-    --agent-config config-qwen25-7b-vllm.yaml \
+    --agent-config configs/config-qwen25-7b-vllm.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \
@@ -180,7 +180,7 @@ venv/bin/python3 scripts/run_experiment.py \
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     qwen25-7b-inf \
     --model-tag    qwen25-7b \
-    --agent-config config-qwen25-7b-vllm.yaml \
+    --agent-config configs/config-qwen25-7b-vllm.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \
@@ -248,7 +248,7 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    qwen25-7b \
-        --agent-config config-qwen25-7b-vllm.yaml \
+        --agent-config configs/config-qwen25-7b-vllm.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \
@@ -256,7 +256,7 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    qwen25-7b \
-        --agent-config config-qwen25-7b-vllm.yaml \
+        --agent-config configs/config-qwen25-7b-vllm.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \
@@ -280,7 +280,7 @@ Before launching §1.3a, run a 5-task FC pilot to validate latency:
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     qwen25-7b-pilot \
     --model-tag    qwen25-7b \
-    --agent-config config-qwen25-7b-vllm.yaml \
+    --agent-config configs/config-qwen25-7b-vllm.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --n-tasks      5 \
@@ -316,7 +316,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
   > logs/vllm_llama33_70b.log 2>&1 &
 ```
 
-Verify, then create config-llama33-70b-vllm.yaml mirroring config-qwen25-7b-vllm.yaml but with `model_name: "hosted_vllm/meta-llama/Llama-3.3-70B-Instruct"`.
+Verify, then create configs/config-llama33-70b-vllm.yaml mirroring configs/config-qwen25-7b-vllm.yaml but with `model_name: "hosted_vllm/meta-llama/Llama-3.3-70B-Instruct"`.
 
 ### 2.2 Run experiment — three sub-steps with a calibration pause
 
@@ -330,7 +330,7 @@ prior data.**
 #### §2.2a — FC + OTRC first (~30-40h)
 
 `scripts/run_llama33_70b_step1.sh` — mirrors §1.3a with `model-tag
-llama33-70b` and `agent-config config-llama33-70b-vllm.yaml`. Output dir:
+llama33-70b` and `agent-config configs/config-llama33-70b-vllm.yaml`. Output dir:
 `results/ablations/llama33-70b-inf/`. Update `Active_runs.md` on launch.
 **Do not auto-chain.**
 
@@ -434,7 +434,7 @@ for entry in "${QUANT_CONFIGS[@]}"; do
     sleep 120
     curl -s http://localhost:8000/v1/models > /dev/null || { echo "vLLM failed for $quant_tag"; exit 1; }
 
-    # Generate config-quant.yaml on the fly
+    # Generate configs/config-quant.yaml on the fly
     cat > "config-quant-${quant_tag}.yaml" <<EOF
 agent:
   step_limit: 125

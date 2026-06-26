@@ -31,8 +31,8 @@ CONDS_INF="full-context online-trc"
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     llama33-70b-inf \
     --model-tag    llama33-70b \
-    --agent-config config-llama33-vllm.yaml \
-    --otrc-config  config-online-trc-llama33.yaml \
+    --agent-config configs/config-llama33-vllm.yaml \
+    --otrc-config  configs/config-online-trc-llama33.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \
@@ -41,8 +41,8 @@ venv/bin/python3 scripts/run_experiment.py \
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     llama33-70b-inf \
     --model-tag    llama33-70b \
-    --agent-config config-llama33-vllm.yaml \
-    --otrc-config  config-online-trc-llama33.yaml \
+    --agent-config configs/config-llama33-vllm.yaml \
+    --otrc-config  configs/config-online-trc-llama33.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \

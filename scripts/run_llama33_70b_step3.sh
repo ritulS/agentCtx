@@ -31,7 +31,7 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    llama33-70b \
-        --agent-config config-llama33-70b-vllm.yaml \
+        --agent-config configs/config-llama33-70b-vllm.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \
@@ -40,7 +40,7 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    llama33-70b \
-        --agent-config config-llama33-70b-vllm.yaml \
+        --agent-config configs/config-llama33-70b-vllm.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \

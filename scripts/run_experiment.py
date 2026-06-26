@@ -46,7 +46,7 @@ from pathlib import Path
 
 WORKSPACE_ROOT       = Path(__file__).parent.parent
 MINI_SWE_AGENT       = WORKSPACE_ROOT / "mini-swe-agent"
-AGENT_CONFIG         = WORKSPACE_ROOT / "config-qwen-vllm.yaml"
+AGENT_CONFIG         = WORKSPACE_ROOT / "configs/config-qwen-vllm.yaml"
 TASKS_FILE           = WORKSPACE_ROOT / "task_lists" / "selected_tasks.json"
 TASKS_FILE_EXPLICIT  = False
 ABLATION_TASKS_FILE  = WORKSPACE_ROOT / "results" / "ablations" / "tasks.json"
@@ -80,7 +80,7 @@ CONDITIONS = [
     {"condition": "tool-result-clear",    "primitive": "tool_result_clear",    "budget": 15_000},
     # online-trc: freeze-window clearing (k=4), no budget gate
     {"condition": "online-trc", "primitive": "online_trc", "budget": 999_999_999,
-     "config": WORKSPACE_ROOT / "config-online-trc.yaml"},
+     "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
     # Stacked primitives: TRC (KEEP_RECENT=3) fires first; second primitive is fallback
     {"condition": "trc-su",  "primitive": "trc_summarize",           "budget": 15_000},
     {"condition": "trc-ss",  "primitive": "trc_structured_summarize","budget": 15_000},
@@ -89,13 +89,13 @@ CONDITIONS = [
     {"condition": "summarization-partial",        "primitive": "summarization_partial",        "budget": 15_000},
     {"condition": "structured-summarize-partial", "primitive": "structured_summarize_partial", "budget": 15_000},
     # OTRC stacked variants: per-step freeze-window clearing + budget-triggered fallback.
-    # All three reuse config-online-trc.yaml (agent prompts expect cleared tool stubs).
+    # All three reuse configs/config-online-trc.yaml (agent prompts expect cleared tool stubs).
     {"condition": "otrc-tr",         "primitive": "online_trc",                              "budget": 15_000,
-     "config": WORKSPACE_ROOT / "config-online-trc.yaml"},
+     "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
     {"condition": "otrc-su-partial", "primitive": "online_trc_summarize_partial",            "budget": 15_000,
-     "config": WORKSPACE_ROOT / "config-online-trc.yaml"},
+     "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
     {"condition": "otrc-ss-partial", "primitive": "online_trc_structured_summarize_partial", "budget": 15_000,
-     "config": WORKSPACE_ROOT / "config-online-trc.yaml"},
+     "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
     # Staggered: at each compression event, pick one of the oracle-optimal pair (TR + budget-best).
     # Pair is fixed by budget inside default.py: 10k→TR+TRC+SS, 15k→TR+SU-partial, 20k→TR+TRC+SS.
     {"condition": "staggered-alternate", "primitive": "staggered_alternate", "budget": 15_000},
@@ -558,12 +558,12 @@ def main() -> None:
                         help="Ablation name (e.g. timing-10k). Results go to results/ablations/NAME/; "
                              "fixed 30-task set is used automatically.")
     parser.add_argument("--agent-config", default=None,
-                        help="Path to agent config YAML (default: config-qwen-vllm.yaml)")
+                        help="Path to agent config YAML (default: configs/config-qwen-vllm.yaml)")
     parser.add_argument("--otrc-config",  default=None,
                         help="Override the agent config used by OTRC conditions "
                              "(online-trc, otrc-tr, otrc-su-partial, otrc-ss-partial). "
                              "Needed when --agent-config points at a non-Qwen model; "
-                             "default is config-online-trc.yaml which targets Qwen port 8000.")
+                             "default is configs/config-online-trc.yaml which targets Qwen port 8000.")
     parser.add_argument("--n-tasks",      type=int, default=None,
                         help="Override number of tasks (default: 100)")
     parser.add_argument("--tasks-file",   default=None,

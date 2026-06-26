@@ -1,6 +1,6 @@
 #!/bin/bash
 # Start vLLM serving for Llama 3.3 70B Instruct on Dobby.
-# 4x A100 80GB PCIe -> TP=4. Port 8001 (matches config-llama33-vllm.yaml).
+# 4x A100 80GB PCIe -> TP=4. Port 8001 (matches configs/config-llama33-vllm.yaml).
 # Weights are already cached at ~/.cache/huggingface/hub/models--meta-llama--Llama-3.3-70B-Instruct
 #
 # Usage:  bash scripts/start_vllm_llama33_70b.sh

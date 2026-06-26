@@ -58,10 +58,10 @@ Must print `OK`. If it fails, **stop** and inspect — do not launch.
 
 ## 2 — Pre-flight
 
-1. **vLLM server**: confirm Qwen3.5-35B-A3B vLLM endpoint is up (it's referenced from `config-qwen-vllm.yaml`).  Quick check:
+1. **vLLM server**: confirm Qwen3.5-35B-A3B vLLM endpoint is up (it's referenced from `configs/config-qwen-vllm.yaml`).  Quick check:
    ```bash
-   grep -E "url|model" config-qwen-vllm.yaml | head -5
-   curl -s "$(grep -oP 'url:\s*\K\S+' config-qwen-vllm.yaml)/models" | head -c 200
+   grep -E "url|model" configs/config-qwen-vllm.yaml | head -5
+   curl -s "$(grep -oP 'url:\s*\K\S+' configs/config-qwen-vllm.yaml)/models" | head -c 200
    ```
    Expect a JSON response listing the model.
 
@@ -175,7 +175,7 @@ ls results/ablations/partial-10k/*/run_*/  2>/dev/null | wc -l   # max 180
 ls results/ablations/partial-20k/*/run_*/  2>/dev/null | wc -l   # max 180
 
 # Check vLLM is still healthy
-curl -s "$(grep -oP 'url:\s*\K\S+' config-qwen-vllm.yaml)/models" | head -c 100
+curl -s "$(grep -oP 'url:\s*\K\S+' configs/config-qwen-vllm.yaml)/models" | head -c 100
 ```
 
 If vLLM dies: kill the runner, restart vLLM, re-launch — runs are idempotent (already-completed (task,cond,run) tuples are skipped on re-launch).

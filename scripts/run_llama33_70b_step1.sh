@@ -41,11 +41,11 @@ for i in $(seq 1 180); do
     sleep 10
 done
 
-# Build config-llama33-70b-vllm.yaml if missing
-if [[ ! -f config-llama33-70b-vllm.yaml ]]; then
+# Build configs/config-llama33-70b-vllm.yaml if missing
+if [[ ! -f configs/config-llama33-70b-vllm.yaml ]]; then
     sed 's|Qwen/Qwen2.5-7B-Instruct|meta-llama/Llama-3.3-70B-Instruct|' \
-        config-qwen25-7b-vllm.yaml > config-llama33-70b-vllm.yaml
-    echo "[$(date)] generated config-llama33-70b-vllm.yaml" | tee -a "$LOG"
+        configs/config-qwen25-7b-vllm.yaml > configs/config-llama33-70b-vllm.yaml
+    echo "[$(date)] generated configs/config-llama33-70b-vllm.yaml" | tee -a "$LOG"
 fi
 
 echo "[$(date)] === §2.2a: FC + OTRC ===" | tee -a "$LOG"
@@ -54,7 +54,7 @@ CONDS_INF="full-context online-trc"
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     llama33-70b-inf \
     --model-tag    llama33-70b \
-    --agent-config config-llama33-70b-vllm.yaml \
+    --agent-config configs/config-llama33-70b-vllm.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \
@@ -64,7 +64,7 @@ venv/bin/python3 scripts/run_experiment.py \
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     llama33-70b-inf \
     --model-tag    llama33-70b \
-    --agent-config config-llama33-70b-vllm.yaml \
+    --agent-config configs/config-llama33-70b-vllm.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \

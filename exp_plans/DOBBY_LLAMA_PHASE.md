@@ -25,20 +25,20 @@ replicates. Only differences: model identity, calibrated-budget values
 
 ### 0.1 — Patch run_experiment.py for per-model OTRC config (5 min, code change)
 
-`scripts/run_experiment.py` hardcodes `config-online-trc.yaml` for the
+`scripts/run_experiment.py` hardcodes `configs/config-online-trc.yaml` for the
 OTRC conditions (`online-trc`, `otrc-tr`, `otrc-su-partial`,
 `otrc-ss-partial`). That YAML points at Qwen3.5-A3B port 8000. Without a
 patch, those 4 conditions will hit the wrong model during Llama runs.
 
 **Minimal fix:** add a CLI flag `--otrc-config PATH` that overrides the
-hardcoded `config-online-trc.yaml` per run. Pass
-`--otrc-config config-online-trc-llama33.yaml` from the Llama launcher
+hardcoded `configs/config-online-trc.yaml` per run. Pass
+`--otrc-config configs/config-online-trc-llama33.yaml` from the Llama launcher
 scripts. ~10-line change in `run_experiment.py` (parse flag, override the
 4 hardcoded paths at startup).
 
 **Alternative if minimal-fix is too invasive:** rename
-`config-online-trc.yaml` → `config-online-trc-qwen.yaml`, symlink
-`config-online-trc.yaml` → `config-online-trc-llama33.yaml` during Llama
+`configs/config-online-trc.yaml` → `configs/config-online-trc-qwen.yaml`, symlink
+`configs/config-online-trc.yaml` → `configs/config-online-trc-llama33.yaml` during Llama
 runs and back after. Fragile; flag-based is cleaner.
 
 ### 0.2 — Pre-flight pilot (10 min)
@@ -51,7 +51,7 @@ slower than Qwen2.5-7B; expect 800-1500s/run not 300-500s).
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     llama33-70b-pilot \
     --model-tag    llama33-70b \
-    --agent-config config-llama33-vllm.yaml \
+    --agent-config configs/config-llama33-vllm.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --n-tasks      5 \
@@ -76,7 +76,7 @@ with TP=4 spanning Dobby's 4× A100 80GB. Logs to
 `logs/vllm_llama33_70b.log`. Verify with a single completion request
 before launching §a.
 
-Port 8001 (not 8000) is the convention from `config-llama33-vllm.yaml`.
+Port 8001 (not 8000) is the convention from `configs/config-llama33-vllm.yaml`.
 If Qwen3.5-A3B is ever brought back up on Dobby it can coexist on port 8000.
 
 ---
@@ -192,7 +192,7 @@ returns latency >2x estimate, revisit scope.
 
 **To create:**
 - `exp_plans/DOBBY_LLAMA_PHASE.md` (this file)
-- `config-online-trc-llama33.yaml` — Llama variant of OTRC agent config
+- `configs/config-online-trc-llama33.yaml` — Llama variant of OTRC agent config
 - `scripts/start_vllm_llama33_70b.sh` — vLLM TP=4 startup
 - `scripts/run_llama_inf.sh` — §a launcher (120 runs)
 - `scripts/calibrate_llama_budgets.sh` — §b helper
@@ -207,7 +207,7 @@ returns latency >2x estimate, revisit scope.
 - `project_runs_checklist.md` — status per phase
 
 **Reused without change:**
-- `config-llama33-vllm.yaml` — already exists (port 8001)
+- `configs/config-llama33-vllm.yaml` — already exists (port 8001)
 - `task_lists/ablation_30tasks.json` — ABL-30 cohort
 - `scripts/run_experiment.py` aside from the OTRC patch
 - `mini-swe-agent/` submodule — model-agnostic

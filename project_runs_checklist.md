@@ -209,7 +209,7 @@ be too noisy.
 - `exp_plans/DOBBY_LLAMA_PHASE.md`
 - `scripts/start_vllm_llama33_70b.sh`, `scripts/run_llama_*.sh`,
   `scripts/calibrate_llama_budgets.sh`
-- `config-llama33-vllm.yaml`, `config-online-trc-llama33.yaml`
+- `configs/config-llama33-vllm.yaml`, `configs/config-online-trc-llama33.yaml`
 - `results/ablations/llama33-70b-inf/` — 60 FC @ ∞ records (3.3% resolve,
   documented as the Llama-on-mini-swe-agent baseline)
 

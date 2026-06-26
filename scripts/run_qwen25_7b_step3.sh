@@ -39,7 +39,7 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    qwen25-7b \
-        --agent-config config-qwen25-7b-vllm.yaml \
+        --agent-config configs/config-qwen25-7b-vllm.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \
@@ -48,7 +48,7 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    qwen25-7b \
-        --agent-config config-qwen25-7b-vllm.yaml \
+        --agent-config configs/config-qwen25-7b-vllm.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \

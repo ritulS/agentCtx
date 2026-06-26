@@ -12,7 +12,7 @@ and work amplification factor (WAF) across 30 SWE-bench Lite tasks (10 per repo,
 agentCtx/
 ├── mini-swe-agent/          # git submodule — SWE-agent/mini-swe-agent @ e68906f
 ├── memory.py                # truncation + summarization primitives (hook target)
-├── config-qwen-vllm.yaml    # agent config pointing to local vLLM server
+├── configs/config-qwen-vllm.yaml    # agent config pointing to local vLLM server
 ├── setup.sh                 # one-shot setup script (submodule + patch + venv)
 ├── patches/
 │   └── default_memory_hook.patch   # patch applied to mini-swe-agent/default.py

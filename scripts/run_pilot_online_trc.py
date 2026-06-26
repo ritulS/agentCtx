@@ -22,8 +22,8 @@ from pathlib import Path
 
 WORKSPACE_ROOT = Path(__file__).parent.parent
 MINI_SWE_AGENT = WORKSPACE_ROOT / "mini-swe-agent"
-BASELINE_CONFIG = WORKSPACE_ROOT / "config-qwen-vllm.yaml"
-ONLINE_TRC_CONFIG = WORKSPACE_ROOT / "config-online-trc.yaml"
+BASELINE_CONFIG = WORKSPACE_ROOT / "configs/config-qwen-vllm.yaml"
+ONLINE_TRC_CONFIG = WORKSPACE_ROOT / "configs/config-online-trc.yaml"
 RESULTS_DIR = WORKSPACE_ROOT / "results" / "online-trc-pilot"
 
 PILOT_TASKS = [
@@ -73,7 +73,7 @@ def run_agent(instance_id: str, cond: dict) -> dict:
     if local_bin not in env.get("PATH", ""):
         env["PATH"] = local_bin + ":" + env.get("PATH", "")
 
-    # config-online-trc.yaml is a delta (prompt only, no model section), so chain
+    # configs/config-online-trc.yaml is a delta (prompt only, no model section), so chain
     # it before BASELINE_CONFIG to get the model from the baseline. For the FC
     # condition, config IS BASELINE_CONFIG so no chaining needed.
     config_chain = ["swebench_backticks.yaml"]

@@ -34,8 +34,8 @@ CONDS_INF="full-context online-trc"
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     qwen25-coder-32b-inf \
     --model-tag    qwen25-coder-32b \
-    --agent-config config-qwen25-coder-32b-vllm.yaml \
-    --otrc-config  config-online-trc-qwen25-coder-32b.yaml \
+    --agent-config configs/config-qwen25-coder-32b-vllm.yaml \
+    --otrc-config  configs/config-online-trc-qwen25-coder-32b.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \
@@ -44,8 +44,8 @@ venv/bin/python3 scripts/run_experiment.py \
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     qwen25-coder-32b-inf \
     --model-tag    qwen25-coder-32b \
-    --agent-config config-qwen25-coder-32b-vllm.yaml \
-    --otrc-config  config-online-trc-qwen25-coder-32b.yaml \
+    --agent-config configs/config-qwen25-coder-32b-vllm.yaml \
+    --otrc-config  configs/config-online-trc-qwen25-coder-32b.yaml \
     --budget       999999999 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_INF \
@@ -62,8 +62,8 @@ CONDS_BUDGETED="truncation summarization summarization-partial structured-summar
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     qwen25-coder-32b-budgeted-15000 \
     --model-tag    qwen25-coder-32b \
-    --agent-config config-qwen25-coder-32b-vllm.yaml \
-    --otrc-config  config-online-trc-qwen25-coder-32b.yaml \
+    --agent-config configs/config-qwen25-coder-32b-vllm.yaml \
+    --otrc-config  configs/config-online-trc-qwen25-coder-32b.yaml \
     --budget       15000 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_BUDGETED \
@@ -72,8 +72,8 @@ venv/bin/python3 scripts/run_experiment.py \
 venv/bin/python3 scripts/run_experiment.py \
     --ablation     qwen25-coder-32b-budgeted-15000 \
     --model-tag    qwen25-coder-32b \
-    --agent-config config-qwen25-coder-32b-vllm.yaml \
-    --otrc-config  config-online-trc-qwen25-coder-32b.yaml \
+    --agent-config configs/config-qwen25-coder-32b-vllm.yaml \
+    --otrc-config  configs/config-online-trc-qwen25-coder-32b.yaml \
     --budget       15000 \
     --tasks-file   task_lists/ablation_30tasks.json \
     --conditions   $CONDS_BUDGETED \

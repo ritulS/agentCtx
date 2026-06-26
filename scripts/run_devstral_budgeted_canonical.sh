@@ -38,8 +38,8 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    devstral-2 \
-        --agent-config config-devstral-vllm.yaml \
-        --otrc-config  config-online-trc-devstral.yaml \
+        --agent-config configs/config-devstral-vllm.yaml \
+        --otrc-config  configs/config-online-trc-devstral.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \
@@ -48,8 +48,8 @@ for budget in $MEDIUM_BUDGET $TIGHT_BUDGET $LOOSE_BUDGET; do
     venv/bin/python3 scripts/run_experiment.py \
         --ablation     "$name" \
         --model-tag    devstral-2 \
-        --agent-config config-devstral-vllm.yaml \
-        --otrc-config  config-online-trc-devstral.yaml \
+        --agent-config configs/config-devstral-vllm.yaml \
+        --otrc-config  configs/config-online-trc-devstral.yaml \
         --budget       "$budget" \
         --tasks-file   task_lists/ablation_30tasks.json \
         --conditions   $CONDS_BUDGETED \

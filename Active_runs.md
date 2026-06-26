@@ -63,7 +63,7 @@
 - **Artifacts retained for reference:**
   - `exp_plans/DOBBY_LLAMA_PHASE.md` — Llama plan (now superseded but kept as reference)
   - `scripts/start_vllm_llama33_70b.sh`, `scripts/run_llama_*.sh` — Llama launchers, not used
-  - `config-llama33-vllm.yaml`, `config-online-trc-llama33.yaml` — Llama configs, not used
+  - `configs/config-llama33-vllm.yaml`, `configs/config-online-trc-llama33.yaml` — Llama configs, not used
   - `results/ablations/llama33-70b-inf/` — 60 FC @ ∞ records kept as the documented Llama-on-harness baseline
 
 ---
@@ -274,7 +274,7 @@
 
 ### FC custom-prompt run — EVAL PENDING
 - **Started**: 2026-04-20 14:20 — agent runs verified complete 2026-04-26 (PID 928353 no longer running)
-- **Command**: `python3 scripts/run_experiment.py --model-tag qwen35-a3b_fc-customprompt --agent-config config-fc-customprompt.yaml --conditions full-context --tasks-file selected_tasks.json`
+- **Command**: `python3 scripts/run_experiment.py --model-tag qwen35-a3b_fc-customprompt --agent-config configs/config-fc-customprompt.yaml --conditions full-context --tasks-file selected_tasks.json`
 - **Log**: `logs/fc_customprompt.log`
 - **Results dir**: `results/qwen35-a3b_fc-customprompt/`
 - **State**: 198/198 runs (99 tasks × 2), 152 patches generated, **0 evaluated** (resolved=None for all)
