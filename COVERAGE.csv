@@ -1,0 +1,254 @@
+model,primitive,budget,depth,scope,required_cohort,status,tasks_on_disk,runs_on_disk,cohort_covered,rows_in_csv,source_dirs,notes
+Qwen3.5-35B-A3B,FC,inf,0.5,in-scope,P100,COMPLETE,70,140,P100,200,p100-inf,
+Qwen3.5-35B-A3B,OTRC,inf,0.5,in-scope,P100,COMPLETE,70,140,P100,200,p100-inf,
+Qwen3.5-35B-A3B,OTRC+SS-partial,10k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-10000;p100-otrc-10000,
+Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.3,out-of-scope,,EXTRA,100,200,P100,200,p100-depth30-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-15000;p100-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.7,out-of-scope,,EXTRA,100,200,P100,200,p100-depth70-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+SS-partial,20k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-20000;p100-otrc-20000,
+Qwen3.5-35B-A3B,OTRC+SU-partial,10k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-10000;p100-otrc-10000,
+Qwen3.5-35B-A3B,OTRC+SU-partial,15k,0.3,out-of-scope,,EXTRA,100,200,P100,200,p100-depth30-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+SU-partial,15k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-15000;p100-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+SU-partial,15k,0.7,out-of-scope,,EXTRA,100,200,P100,200,p100-depth70-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+SU-partial,20k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-20000;p100-otrc-20000,
+Qwen3.5-35B-A3B,OTRC+TR,10k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-10000;p100-otrc-10000,
+Qwen3.5-35B-A3B,OTRC+TR,15k,0.3,out-of-scope,,EXTRA,100,200,P100,200,p100-depth30-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+TR,15k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-15000;p100-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+TR,15k,0.7,out-of-scope,,EXTRA,100,200,P100,200,p100-depth70-otrc-15000,
+Qwen3.5-35B-A3B,OTRC+TR,20k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,otrc-stacked-20000;p100-otrc-20000,
+Qwen3.5-35B-A3B,SS,10k,0.3,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-depth30-singles-10000,
+Qwen3.5-35B-A3B,SS,10k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-10000;partial-10000,
+Qwen3.5-35B-A3B,SS,10k,0.7,in-scope,ABL-30,COMPLETE,30,60,ABL-30,60,p100-depth70-singles-10000,
+Qwen3.5-35B-A3B,SS,15k,0.3,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth30-singles-15000,
+Qwen3.5-35B-A3B,SS,15k,0.5,in-scope,P100,COMPLETE,70,140,P100,200,p100-singles-15000,
+Qwen3.5-35B-A3B,SS,15k,0.7,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth70-singles-15000,
+Qwen3.5-35B-A3B,SS,20k,0.3,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,SS,20k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-20000;partial-20000,
+Qwen3.5-35B-A3B,SS,20k,0.7,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,SS-partial,10k,0.3,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-depth30-singles-10000,
+Qwen3.5-35B-A3B,SS-partial,10k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-10000;partial-10000,
+Qwen3.5-35B-A3B,SS-partial,10k,0.7,in-scope,ABL-30,COMPLETE,30,60,ABL-30,60,p100-depth70-singles-10000,
+Qwen3.5-35B-A3B,SS-partial,15k,0.3,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth30-singles-15000,
+Qwen3.5-35B-A3B,SS-partial,15k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-singles-15000;partial-15000,
+Qwen3.5-35B-A3B,SS-partial,15k,0.7,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth70-singles-15000,
+Qwen3.5-35B-A3B,SS-partial,20k,0.3,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,SS-partial,20k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-20000;partial-20000,
+Qwen3.5-35B-A3B,SS-partial,20k,0.7,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,STAG-alt,10k,0.5,out-of-scope,,EXTRA,6,12,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-10000,
+Qwen3.5-35B-A3B,STAG-alt,15k,0.5,out-of-scope,,EXTRA,6,12,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-15000,
+Qwen3.5-35B-A3B,STAG-alt,20k,0.5,out-of-scope,,EXTRA,6,12,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-20000,
+Qwen3.5-35B-A3B,STAG-rand,10k,0.5,out-of-scope,,EXTRA,6,12,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-10000,
+Qwen3.5-35B-A3B,STAG-rand,15k,0.5,out-of-scope,,EXTRA,6,12,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-15000,
+Qwen3.5-35B-A3B,STAG-rand,20k,0.5,out-of-scope,,EXTRA,6,12,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-20000,
+Qwen3.5-35B-A3B,SU-full,10k,0.3,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-depth30-singles-10000,
+Qwen3.5-35B-A3B,SU-full,10k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-10000;timing-10k,
+Qwen3.5-35B-A3B,SU-full,10k,0.7,in-scope,ABL-30,COMPLETE,30,60,ABL-30,60,p100-depth70-singles-10000,
+Qwen3.5-35B-A3B,SU-full,15k,0.3,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth30-singles-15000,
+Qwen3.5-35B-A3B,SU-full,15k,0.5,in-scope,P100,COMPLETE,70,140,P100,200,p100-singles-15000,
+Qwen3.5-35B-A3B,SU-full,15k,0.7,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth70-singles-15000,
+Qwen3.5-35B-A3B,SU-full,20k,0.3,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,SU-full,20k,0.4,out-of-scope,,EXTRA,30,60,ABL-30,0,depth-40,
+Qwen3.5-35B-A3B,SU-full,20k,0.5,in-scope,ABL-30,COMPLETE,100,260,P100,200,depth-50;p100-singles-20000;timing-20k,
+Qwen3.5-35B-A3B,SU-full,20k,0.6,out-of-scope,,EXTRA,30,60,ABL-30,0,depth-60,
+Qwen3.5-35B-A3B,SU-full,20k,0.7,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,SU-partial,10k,0.3,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-depth30-singles-10000,
+Qwen3.5-35B-A3B,SU-partial,10k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-10000;partial-10000,
+Qwen3.5-35B-A3B,SU-partial,10k,0.7,in-scope,ABL-30,COMPLETE,30,60,ABL-30,60,p100-depth70-singles-10000,
+Qwen3.5-35B-A3B,SU-partial,15k,0.3,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth30-singles-15000,
+Qwen3.5-35B-A3B,SU-partial,15k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-singles-15000;partial-15000,
+Qwen3.5-35B-A3B,SU-partial,15k,0.7,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth70-singles-15000,
+Qwen3.5-35B-A3B,SU-partial,20k,0.3,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,SU-partial,20k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-20000;partial-20000,
+Qwen3.5-35B-A3B,SU-partial,20k,0.7,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,TR,10k,0.3,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-depth30-singles-10000,
+Qwen3.5-35B-A3B,TR,10k,0.5,in-scope,ABL-30,COMPLETE,100,200,P100,200,p100-singles-10000;timing-10k,
+Qwen3.5-35B-A3B,TR,10k,0.7,in-scope,ABL-30,COMPLETE,30,60,ABL-30,60,p100-depth70-singles-10000,
+Qwen3.5-35B-A3B,TR,15k,0.3,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth30-singles-15000,
+Qwen3.5-35B-A3B,TR,15k,0.5,in-scope,P100,COMPLETE,70,140,P100,200,p100-singles-15000,
+Qwen3.5-35B-A3B,TR,15k,0.7,in-scope,P100,COMPLETE,100,200,P100,200,p100-depth70-singles-15000,
+Qwen3.5-35B-A3B,TR,20k,0.3,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,TR,20k,0.4,out-of-scope,,EXTRA,30,60,ABL-30,0,depth-40,
+Qwen3.5-35B-A3B,TR,20k,0.5,in-scope,ABL-30,COMPLETE,100,260,P100,200,depth-50;p100-singles-20000;timing-20k,
+Qwen3.5-35B-A3B,TR,20k,0.6,out-of-scope,,EXTRA,30,60,ABL-30,0,depth-60,
+Qwen3.5-35B-A3B,TR,20k,0.7,in-scope,ABL-30,COMPLETE,30,120,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv"
+Qwen3.5-35B-A3B,TRC,10k,0.3,out-of-scope,,EXTRA,69,137,ABL-30 (+39),0,p100-depth30-trc-10000,
+Qwen3.5-35B-A3B,TRC,10k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-trc-10000;timing-10k,
+Qwen3.5-35B-A3B,TRC,15k,0.5,in-scope,P100,COMPLETE,70,140,P100,200,p100-trc-15000,
+Qwen3.5-35B-A3B,TRC,20k,0.3,out-of-scope,,EXTRA,30,120,ABL-30,0,depth-30;p100-depth30-trc-20000,
+Qwen3.5-35B-A3B,TRC,20k,0.4,out-of-scope,,EXTRA,30,60,ABL-30,0,depth-40,
+Qwen3.5-35B-A3B,TRC,20k,0.5,in-scope,P100,COMPLETE,100,260,P100,200,depth-50;p100-trc-20000;timing-20k,
+Qwen3.5-35B-A3B,TRC,20k,0.6,out-of-scope,,EXTRA,30,60,ABL-30,0,depth-60,
+Qwen3.5-35B-A3B,TRC,20k,0.7,out-of-scope,,EXTRA,30,120,ABL-30,0,depth-70;p100-depth70-trc-20000,
+Qwen3.5-35B-A3B,TRC+SS,10k,0.3,out-of-scope,,EXTRA,71,139,ABL-30 (+41),0,p100-depth30-trc-10000,
+Qwen3.5-35B-A3B,TRC+SS,10k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-trc-10000;stacked-10000,
+Qwen3.5-35B-A3B,TRC+SS,15k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-trc-15000;stacked-15000,
+Qwen3.5-35B-A3B,TRC+SS,20k,0.3,out-of-scope,,EXTRA,30,120,ABL-30,0,depth-30;p100-depth30-trc-20000,
+Qwen3.5-35B-A3B,TRC+SS,20k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-trc-20000;stacked-20000,
+Qwen3.5-35B-A3B,TRC+SS,20k,0.7,out-of-scope,,EXTRA,30,120,ABL-30,0,depth-70;p100-depth70-trc-20000,
+Qwen3.5-35B-A3B,TRC+SU,10k,0.3,out-of-scope,,EXTRA,71,142,ABL-30 (+41),0,p100-depth30-trc-10000,
+Qwen3.5-35B-A3B,TRC+SU,10k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-trc-10000;stacked-10000,
+Qwen3.5-35B-A3B,TRC+SU,15k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-trc-15000;stacked-15000,
+Qwen3.5-35B-A3B,TRC+SU,20k,0.3,out-of-scope,,EXTRA,30,120,ABL-30,0,depth-30;p100-depth30-trc-20000,
+Qwen3.5-35B-A3B,TRC+SU,20k,0.5,in-scope,P100,COMPLETE,100,200,P100,200,p100-trc-20000;stacked-20000,
+Qwen3.5-35B-A3B,TRC+SU,20k,0.7,out-of-scope,,EXTRA,30,120,ABL-30,0,depth-70;p100-depth70-trc-20000,
+Devstral-Small-2-24B,FC,inf,0.5,in-scope,ABL-30,COMPLETE,30,60,ABL-30,0,devstral-2-inf,
+Devstral-Small-2-24B,OTRC,inf,0.5,in-scope,ABL-30,COMPLETE,30,60,ABL-30,0,devstral-2-inf,
+Devstral-Small-2-24B,OTRC+SS-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,OTRC+SS-partial,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,OTRC+SS-partial,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,OTRC+SU-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,OTRC+SU-partial,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,OTRC+SU-partial,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,OTRC+TR,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,OTRC+TR,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,OTRC+TR,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,SS,15k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d030,
+Devstral-Small-2-24B,SS,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,SS,15k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d070,
+Devstral-Small-2-24B,SS,20k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d030,
+Devstral-Small-2-24B,SS,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,SS,20k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d070,
+Devstral-Small-2-24B,SS,24k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d030,
+Devstral-Small-2-24B,SS,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,SS,24k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d070,
+Devstral-Small-2-24B,SS-partial,15k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d030,
+Devstral-Small-2-24B,SS-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,SS-partial,15k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d070,
+Devstral-Small-2-24B,SS-partial,20k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d030,
+Devstral-Small-2-24B,SS-partial,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,SS-partial,20k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d070,
+Devstral-Small-2-24B,SS-partial,24k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d030,
+Devstral-Small-2-24B,SS-partial,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,SS-partial,24k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d070,
+Devstral-Small-2-24B,SU-full,15k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d030,
+Devstral-Small-2-24B,SU-full,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,SU-full,15k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d070,
+Devstral-Small-2-24B,SU-full,20k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d030,
+Devstral-Small-2-24B,SU-full,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,SU-full,20k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d070,
+Devstral-Small-2-24B,SU-full,24k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d030,
+Devstral-Small-2-24B,SU-full,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,SU-full,24k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d070,
+Devstral-Small-2-24B,SU-partial,15k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d030,
+Devstral-Small-2-24B,SU-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,SU-partial,15k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d070,
+Devstral-Small-2-24B,SU-partial,20k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d030,
+Devstral-Small-2-24B,SU-partial,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,SU-partial,20k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d070,
+Devstral-Small-2-24B,SU-partial,24k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d030,
+Devstral-Small-2-24B,SU-partial,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,SU-partial,24k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d070,
+Devstral-Small-2-24B,TR,15k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d030,
+Devstral-Small-2-24B,TR,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,TR,15k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000-d070,
+Devstral-Small-2-24B,TR,20k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d030,
+Devstral-Small-2-24B,TR,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,TR,20k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000-d070,
+Devstral-Small-2-24B,TR,24k,0.3,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d030,
+Devstral-Small-2-24B,TR,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,TR,24k,0.7,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000-d070,
+Devstral-Small-2-24B,TRC,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,TRC,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,TRC,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,TRC+SS,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,TRC+SS,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,TRC+SS,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Devstral-Small-2-24B,TRC+SU,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-15000,
+Devstral-Small-2-24B,TRC+SU,20k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-20000,
+Devstral-Small-2-24B,TRC+SU,24k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,devstral-2-budgeted-24000,
+Llama-3.3-70B,FC,inf,0.5,in-scope,ABL-30,COMPLETE,30,70,ABL-30,0,llama33-70b-inf;llama33-70b-pilot,
+Llama-3.3-70B,OTRC,inf,0.5,in-scope,ABL-30,MISSING,0,0,,0,,
+Qwen2.5-7B,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+SS-partial,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+SS-partial,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+SS-partial,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+SU-partial,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+SU-partial,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+SU-partial,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+TR,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+TR,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,OTRC+TR,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,4k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,4k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,8k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,8k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,12k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS,12k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,4k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,4k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,8k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,8k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,12k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SS-partial,12k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,4k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,4k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,8k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,8k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,12k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-full,12k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,4k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,4k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,8k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,8k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,12k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,SU-partial,12k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,4k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,4k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,8k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,8k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,12k,0.3,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TR,12k,0.7,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC+SS,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC+SS,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC+SS,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC+SU,4k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC+SU,8k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-7B,TRC+SU,12k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen2.5-Coder-32B,FC,inf,0.5,in-scope,ABL-30,COMPLETE,30,70,ABL-30,0,qwen25-coder-32b-inf;qwen25-coder-32b-pilot,
+Qwen2.5-Coder-32B,OTRC,inf,0.5,in-scope,ABL-30,COMPLETE,30,60,ABL-30,0,qwen25-coder-32b-inf,
+Qwen2.5-Coder-32B,OTRC+SS-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,OTRC+SU-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,OTRC+TR,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,SS,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,SS-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,SU-full,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,SU-partial,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,TR,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,TRC,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,TRC+SS,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen2.5-Coder-32B,TRC+SU,15k,0.5,model-expansion,,HAVE,30,60,ABL-30,0,qwen25-coder-32b-budgeted-15000,
+Qwen3-30B-A3B-2507/awq-int4,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/awq-int4,SU-full,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/awq-int4,TR,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/awq-int4,TRC+SS,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp16,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp16,SU-full,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp16,TR,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp16,TRC+SS,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp8,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp8,SU-full,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp8,TR,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/fp8,TRC+SS,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/gptq-int4,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/gptq-int4,SU-full,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/gptq-int4,TR,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)
+Qwen3-30B-A3B-2507/gptq-int4,TRC+SS,20k,0.5,model-expansion,,HAVE (csv-only),0,0,ABL-30,60,,csv only (raw data on Albus)

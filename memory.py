@@ -668,7 +668,17 @@ def write_token_log(agent) -> None:
     log_path = os.environ.get("MSWEA_TOKEN_LOG_PATH")
     if not log_path:
         return
+    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(log_path).write_text(json.dumps(token_log_dict(agent), indent=2))
 
+
+def token_log_dict(agent) -> dict:
+    """Build the token-log dict from an agent's _mem_* accumulators.
+
+    Used by write_token_log (env-var path, SWE-bench harness) and by
+    tbench/agent_adapter.py, which writes per-task logs to explicit paths
+    because the terminal-bench harness runs concurrent tasks in one process.
+    """
     n = len(agent._mem_call_latencies)
     data = {
         # ── Cumulative totals ────────────────────────────────────────────────
@@ -701,5 +711,4 @@ def write_token_log(agent) -> None:
         "online_trc_total_tokens_saved": agent._mem_online_trc_tokens_saved,
         "online_trc_clears":             len(agent._mem_online_trc_flags),
     }
-    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(log_path).write_text(json.dumps(data, indent=2))
+    return data

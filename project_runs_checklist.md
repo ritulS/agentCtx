@@ -1,5 +1,11 @@
 # Project runs checklist
 
+> **Machine-generated ground truth: [COVERAGE.csv](COVERAGE.csv)** — one row
+> per (model, primitive, budget, depth) cell with scope, status, and disk/CSV
+> coverage. Regenerate with `python scripts/build_coverage.py` (scans
+> `data/swebench/ablations/*/experiment_results.json` and the Review1 CSVs).
+> Trust COVERAGE.csv over the hand-maintained tables below when they disagree.
+
 This file is the **first place to check** when asking what runs are needed,
 what we already have, or whether a particular cell is covered. Organized
 per-model. Always verify against disk (`results/ablations/` and

@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-05
 **Status:** Spine refreshed against n=100 results. Abstract redrafted. Numbers below match `Review1/Review1.csv` (7 000 rows: 100 tasks × 35 cells × 2 runs).
-**Supersedes:** [CHARACTERIZATION_PAPER_PLAN_30tasks.md](CHARACTERIZATION_PAPER_PLAN_30tasks.md) (n=30 era; archival).
+**Supersedes:** CHARACTERIZATION_PAPER_PLAN_30tasks.md (n=30 era; deleted 2026-08-19, in git history).
 **Excluded directions remain excluded:** cascade-as-mechanism, routing-as-takeaway, "compression beats FC" as headline, "smaller models benefit more", long-context degradation, signal curation.
 
 ---
@@ -275,8 +275,8 @@ Unchanged from v1.
 
 ## Cross-references
 
-- [exp_plans/CHARACTERIZATION_PAPER_PLAN_30tasks.md](CHARACTERIZATION_PAPER_PLAN_30tasks.md) — archival v1 framing (n=30 era)
-- [exp_plans/FULL_TASK_EXPANSION_INSTRUCTIONS.md](FULL_TASK_EXPANSION_INSTRUCTIONS.md) — P100 expansion handover
+- CHARACTERIZATION_PAPER_PLAN_30tasks.md — archival v1 framing (n=30 era; deleted, in git history)
+- FULL_TASK_EXPANSION_INSTRUCTIONS.md — P100 expansion handover (completed; deleted, in git history)
 - [exp_plans/DOBBY_PLAN.md](DOBBY_PLAN.md) — primary-model queue
 - [exp_plans/ALBUS_PLAN.md](ALBUS_PLAN.md) — secondary-model queue (Qwen2.5-7B, Llama 3.3 70B, quant sweep)
 - [Active_runs.md](../Active_runs.md) — live status of long-running experiments

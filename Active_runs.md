@@ -1,6 +1,75 @@
 # Active Experiment Runs
 
+## ✅ RESOLVED 2026-08-07 — Dobby GPU/MIG incident (2026-07-30 → 08-07)
+
+The 2026-07-30 09:55 reboot left MIG Enabled on all 4 A100s with zero
+instances — CUDA saw no devices; all GPU work (incl. Qwen3.5-35B serving)
+dead for a week, unnoticed. Fixed 2026-08-07 via lab-admin sudo:
+`rmmod nvidia_uvm nvidia_drm nvidia_modeset nvidia` + `nvidia-smi -mig 0`
+(no reboot needed; nvidia_drm/modeset was the hidden "client" blocking
+gpu-reset). **Open follow-ups:** (1) find what enabled MIG at boot before
+the next reboot repeats this; (2) persistence mode is off (`nvidia-smi
+-pm 1`); (3) vLLM `vllm-qwen35` user unit + rootless podman socket still
+need rebuilding for serving/tbench.
+
 ## Currently Running
+
+### Kill test — damage map, 7B GPU run — Dobby
+- **Status:** ✅ COMPLETE 2026-08-07 ~14:20 CDT (fast — ~25 min on one
+  A100). **Confirms 0.5B verdict at scale:** damage diffuse (medK deep
+  0.23 @ dist<8 → 0.08 @ >2k), concentration weak (top-15% tokens = 36.7%
+  of mass), early layers clean, damage in mid-deep layers; new wrinkle —
+  final layer (27) nearly clean (medK 0.004). State-level selective
+  repair (mode S *and* cheap mode D) looks weak in our error regime →
+  **next arm: action divergence, naive (rotate-only) vs exact** on the
+  same 86 events. Outputs `results/killtest/deviation_qwen2.5-coder-7b/`,
+  figure `results/killtest/figs/damage_map_qwen2.5-coder-7b.png`.
+
+### Kill test — damage map, CPU pilot (0.5B) — Dobby
+- **Status:** ✅ COMPLETE 2026-08-06 — all 86 events, 456k after-cut
+  tokens (`results/killtest/deviation_qwen2.5-coder-0.5b/`). Headline:
+  contamination is **diffuse, not boundary-pinned** (medK deep 0.21 @
+  dist<8 → 0.06 @ dist>2k; top-15% tokens carry only 34% of deviation
+  mass — weak concentration vs CacheBlend's setting); early layers ≈0,
+  damage lives in deep half. Weakens healing mode S; action-level arms
+  now decisive (see exp_plans/HEALING_V1.md). Figure:
+  `results/killtest/figs/damage_map_qwen2.5-coder-0.5b.png`.
+- **What:** `scripts/killtest_damage_map.py measure` on all 86 clean TRC
+  events (`results/killtest/events_b15000_d050.json`, extracted from
+  p100-inf full-context runs; budget 15k, depth 0.5) with
+  Qwen2.5-Coder-0.5B-Instruct on **CPU** (A100s dead — MIG incident above).
+  Output: per-event per-layer K/V deviation vs distance-from-cut arrays in
+  `results/killtest/deviation/`; then `plot` → damage map figure. Pilot
+  validated on 1 event: control tokens ≈1e-7, layer-0 ≈0, deep-layer
+  after-cut median ≈0.13. Decides healing mode S vs D
+  (exp_plans/HEALING_V1.md). Re-run on 7B GPU once MIG is fixed.
+
+### Terminal-Bench 1.0 generalization runs (reviewer-facing) — Dobby
+- **Status:** ✅ **GRID COMPLETE 2026-07-14 ~21:10 CDT** — all 12
+  (condition × rep) pairs valid; 260 rows, 119 resolved, in
+  `results/tbench/experiment_results.json` (+ 32k-window FC archive in
+  `experiment_results_window32k.json`). Final grid: 20 tasks (10 high /
+  4 mid / 6 low strata) × 4 conditions × 3 reps; FC served at 100k window
+  (user directive), compressed at 15k budget. Resolve summary (r1 pairs on
+  24 tasks pre-reduction): FC@100k 9/24, 10/20, 9/20; truncation 10/24,
+  10/24, 11/20; tool-result-clear 11/24, 11/20, 9/20; structured-summarize
+  9/24, 10/20, 10/20. Remaining: results table (Review1/tbench_table.py,
+  pending) + paper paragraph. vLLM (:8000, 102400 ctx) left serving;
+  stop with `systemctl --user stop vllm-qwen35` when GPUs needed.
+  Full incident/decision log: `results/tbench/STATUS.md`.
+- **What:** TB-core 0.1.1 (80 tasks), 4 conditions (full-context@∞,
+  truncation/tool-result-clear/structured-summarize @15k), pilot 25 tasks →
+  main grid 15 tasks × 4 cond × 3 runs = 180 runs. Custom adapter
+  `tbench/agent_adapter.py` reuses fork's DefaultAgent (compression path
+  identical to SWE-bench); orchestrator `scripts/run_tbench.py`.
+- **Host:** Dobby. vLLM Qwen3.5-35B-A3B on :8000 (TP=4, PID in
+  `logs/vllm_qwen35_a3b.pid`). Podman API service on rootless socket
+  (`podman system service`, started manually — restart after reboot).
+- **Infra notes:** tb 0.2.18 in `venv-tb` (Python 3.12 via uv);
+  venv-local lchown patch (`scripts/patch_tb_lchown.py`); task images
+  prebuilt natively (`scripts/tb_prebuild_images.sh`) because docker-buildx
+  fails over rootless podman; oracle smoke 3/3.
+
 
 ### Logit Pilot (Tier-A) — Devstral logit-rank measurement on Dobby
 - **Status:** ✅ Phase 4 FULL RUN **COMPLETE** 2026-06-04 11:13 CDT

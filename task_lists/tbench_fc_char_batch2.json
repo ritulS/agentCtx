@@ -1,0 +1,23 @@
+{
+  "dataset": "terminal-bench-core==0.1.1",
+  "note": "FC characterization batch 2 (validated eligible tasks not in the original 18-task pilot).",
+  "tasks": [
+    "blind-maze-explorer-algorithm",
+    "incompatible-python-fasttext",
+    "raman-fitting",
+    "decommissioning-service-with-sensitive-data",
+    "tmux-advanced-workflow",
+    "blind-maze-explorer-5x5",
+    "intrusion-detection",
+    "organization-json-generator",
+    "password-recovery",
+    "play-zork",
+    "write-compressor",
+    "chess-best-move",
+    "crack-7z-hash",
+    "path-tracing-reverse",
+    "prove-plus-comm",
+    "sqlite-with-gcov",
+    "vim-terminal-task"
+  ]
+}

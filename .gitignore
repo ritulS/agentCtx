@@ -7,10 +7,14 @@ __pycache__/
 
 # ── Virtual environments ──────────────────────────────────────────────────────
 venv/
+venv-tb/
 .venv/
 env/
 
 # ── Experiment outputs (generated at runtime, never commit) ───────────────────
+# All collected experiment data lives in data/ (see data/README.md).
+# results/ablations, results/tbench, Review1/raw are compatibility symlinks.
+data/
 results/*
 !results/.gitkeep
 logs/*
@@ -42,6 +46,7 @@ Thumbs.db
 archive/
 temp/
 Review1/raw/
+Review1/raw
 # Per-model aggregated CSVs — partial during sweeps, noisy to track. Sync via
 # rsync. Add specific final versions manually with `git add -f` when stable.
 Review1/Review1_*.csv
@@ -54,3 +59,4 @@ Review1/figures_n100/
 
 # ── Local CSV backups (timestamped snapshots, not history) ────────────────────
 *.csv.bak.*
+DASHBOARD.html

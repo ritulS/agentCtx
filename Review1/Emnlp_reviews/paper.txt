@@ -1,0 +1,2093 @@
+Understanding Context Compression in Agentic Systems
+
+Anonymous ACL submission
+
+001
+
+Abstract
+
+002
+003
+004
+005
+006
+007
+
+Agentic systems rely on context compression
+to execute long-horizon tasks within finite context windows. Existing systems typically adopt
+a single compression strategy, such as truncation, summarization, or selective eviction, with
+limited understanding of how these choices
+affect task success, token usage, and latency
+across deployment settings. To better understand the impact of these choices, in this paper,
+we present the first systematic characterization
+of context compression policies for agentic systems. We organize the compression design
+space along three design axes: how context
+is compressed, when compression is triggered,
+and how aggressively context is compressed.
+Using this framework, we evaluate 33 compression policies on SWE-bench Verified across
+multiple context budgets and LLMs. We show
+that compression policies induce substantially
+different tradeoffs between task success, token
+usage, and latency, varying by up to 18 percentage points in task success, 1.5× in token
+usage, and 1.6× in latency under the same context budget. We further show that different
+compression policies solve distinct subsets of
+tasks and that the best-performing policy varies
+across models and context budgets. Together,
+our results show that no single compression policy consistently dominates across deployment
+settings, motivating adaptive compression systems instead of fixed global strategies.
+
+008
+009
+010
+011
+012
+013
+014
+015
+016
+017
+018
+019
+020
+021
+022
+023
+024
+025
+026
+027
+028
+029
+030
+031
+032
+033
+
+1
+
+034
+
+Agentic systems increasingly execute long-horizon
+workflows that interleave LLM reasoning, tool
+calls, code execution, and environment interaction.
+As trajectories grow over hundreds of steps (Figure 1), accumulated context eventually exceeds
+finite context windows (Packer et al., 2023), forcing agents to compress prior interactions to continue execution (Xiao et al., 2025; Kang et al.,
+2025). Long contexts also degrade model effectiveness (Liu et al., 2024; Levy et al., 2024), while
+
+035
+036
+037
+038
+039
+040
+041
+042
+043
+
+Figure 1: Agent trajectories grow across steps and are
+repeatedly compressed using policies defined by three
+axes: compression primitives (P ), triggers (T ), and
+depth (D). See § 1.
+
+repeatedly reprocessing accumulated trajectories
+increases token usage and latency. So, modern
+agentic systems rely on context compression policies that selectively remove, rewrite, or summarize
+portions of the trajectory during execution.
+Existing systems adopt a wide range of context
+compression policies. Some agents truncate older
+interactions entirely (OpenAI, 2025; LangChain,
+2025b), while others summarize prior context using auxiliary LLM calls (OpenAI, 2026; Anthropic,
+2026). More recent systems combine multiple compression mechanisms, triggering compression at
+different points during execution and compressing
+different amounts of context (Packer et al., 2023;
+Wang et al., 2025). Given this growing design
+space of context compression policies, it has become difficult to disentangle the impact of individual design decisions, including how agents compress context, when compression is triggered, and
+how aggressively to compress context, on task success, token consumption, and execution latency.
+To this end, we study the compression design
+space around three design axes: how agents compress context (e.g., truncation versus summarization), when compression is triggered (e.g., compressing only after the context window fills versus compressing after every step), and how aggressively context is compressed (Figure 1). Using this
+
+Introduction
+
+1
+
+044
+045
+046
+047
+048
+049
+050
+051
+052
+053
+054
+055
+056
+057
+058
+059
+060
+061
+062
+063
+064
+065
+066
+067
+068
+069
+070
+071
+
+072
+073
+074
+075
+076
+077
+078
+079
+080
+081
+082
+083
+084
+085
+086
+087
+088
+089
+090
+091
+092
+093
+094
+095
+
+Our characterization reveals four key findings
+(§3). First, compression policies induce substantially different tradeoffs between task success, token usage, and execution latency, and no single
+policy consistently dominates across all three metrics. Second, different compression policies solve
+overlapping but distinct subsets of tasks. An oracle that selects the best policy per task improves
+task success by 20 percentage points over the best
+individual policy, indicating that the choice of compression policy is task-specific. Third, compression
+policy behavior varies significantly across LLMs,
+with different models preferring different compression strategies. Fourth, compression policy choice
+becomes increasingly important as context budgets
+shrink, since policies differ substantially in how
+effectively they preserve useful context under aggressive compression.
+
+102
+
+Together, our results show that context compression is not a single optimization problem with a
+globally optimal solution. Our findings motivate a
+shift from evaluating isolated compression strategies toward developing adaptive compression systems that dynamically select policies based on the
+task, model, and deployment constraints.
+
+103
+
+We summarize our contributions as follows:
+
+104
+
+• We present the first systematic characterization
+of context compression policies for agentic systems, organizing the compression design space
+along three design axes (§2): how context is compressed, when compression is triggered, and how
+aggressively context is compressed.
+• We evaluate 33 compression policies across
+SWE-bench Verified under varying compression
+primitives, context budgets, compression configurations, and models, jointly measuring task
+success, token usage, and end-to-end latency.
+• We show that no single compression policy consistently dominates across tasks, models, and context budgets. Different policies optimize different
+tradeoffs and solve different subsets of tasks, motivating adaptive compression systems instead of
+fixed global compression strategies.
+
+096
+097
+098
+099
+100
+101
+
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+
+2
+
+framework, we evaluate 33 compression policies
+on SWE-bench Verified using open-source coding
+agents operating under constrained context budgets. We also study the impact of multiple context
+budgets and LLMs on the task performance, token
+usage, and execution latency of tasks.
+
+2
+
+The Choices in Context Compression
+
+121
+
+Existing context compression methods (Kang et al.,
+2025; Xiao et al., 2025; Gu et al., 2026; Anthropic,
+2025; OpenAI, 2025; LangChain, 2025a) combine
+multiple design decisions within a single policy,
+making it difficult to isolate the impact of individual choices. We represent a context compression
+policy using three explicit design axes:
+1. how the agent compresses context (primitive
+compression mechanism axis),
+2. when the agent triggers compression (trigger
+axis), and
+3. how aggressively the agent compresses context
+(depth axis).
+A compression policy is fully specified by one
+choice along each axis. This formulation provides
+a common representation for systematically characterizing context compression behavior across policies. The remainder of this section defines the
+design space, and Table 1 summarizes all the compression policies evaluated in Section 3.
+
+122
+
+2.1
+
+Which compression primitive to use?
+
+142
+
+As agents execute multi-step trajectories, they accumulate tokens across model invocations and tool
+interactions (Xiao et al., 2025; Kang et al., 2025).
+Once the trajectory exceeds the available context
+budget, the agent must compress part of the accumulated context. The compression primitive axis
+specifies how compression is performed. Different compression primitives preserve different information. For example, truncation removes portions of the trajectory entirely, while summarization replaces them with a compact generated representation. Thus, the choice of primitive determines which information remains available for subsequent reasoning steps.
+We categorize compression primitives into three
+families: rule-based, LLM-based, and stacked.
+Across these families, we study eight primitives
+used in existing agentic systems (Table 1). All
+primitives operate only on the accumulated trajectory context; the system prompt and current task
+instruction are always preserved verbatim. We describe each family next.
+Rule-based. Rule-based primitives compress trajectories using fixed deterministic procedures. We
+study two rule-based primitives used in production
+agentic systems:
+• TR (truncation) removes the oldest messages
+from the compressible window until the trajec-
+
+143
+
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+
+210
+
+tory fits within the token budget (OpenAI, 2025;
+LangChain, 2025b).
+• TRC (tool-result clearing) replaces older tool
+outputs with a short placeholder string (e.g.,
+[output cleared]), while preserving recent
+tool interactions, assistant reasoning, and user
+messages (Anthropic, 2025).
+LLM-based. LLM-based primitives compress trajectories by generating shorter representations of
+existing context. We study four summarization
+primitives that vary along two dimensions: whether
+summarization is applied to the entire trajectory or
+only older context, and whether the generated summary is free-form or schema-constrained.
+• SU (summarization) summarizes the compressible window with a free-form prompt (OpenAI,
+2026).
+• SU-p (partial summarization) applies SU only to
+older portions of the trajectory while preserving
+recent interactions verbatim (Anthropic, 2026).
+• SS (structured summarization) summarizes the
+trajectory using a fixed schema (e.g., files
+modified, decisions made, or unresolved issues) (Shinn et al., 2023).
+• SS-p applies SS only to older portions of the
+trajectory while preserving recent interactions
+verbatim (Packer et al., 2023).
+Stacked. Rule-based primitives are computationally inexpensive but can only compress specific
+portions of the trajectory. LLM-based primitives
+can compress arbitrary context, but require an additional model invocation at each compression event.
+Some production agents combine both approaches to balance these tradeoffs (Packer et al.,
+2023; Wang et al., 2025). We therefore also study
+stacked primitives, which first apply a rule-based
+primitive and invoke an LLM-based primitive only
+if the trajectory still exceeds the token budget. We
+denote stacked primitives using an addition operator (e.g., TRC+SU).
+
+211
+
+2.2
+
+212
+
+Compression primitives specify how context is
+compressed, but not when compression occurs. We
+study two trigger mechanisms. Under threshold
+triggers (T h), the agent invokes compression only
+when the accumulated trajectory exceeds a fixed
+token budget. For example, compression may be
+triggered once the trajectory grows beyond 15K
+tokens. Under step triggers (St), the agent compresses context after every agent step, such as a tool
+
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+
+213
+214
+215
+216
+217
+218
+219
+220
+
+invocation or model call, regardless of the current
+token budget.
+
+221
+
+2.3
+
+How aggressively should we compress?
+
+223
+
+This final question determines how aggressively
+an agent should compress the context window.
+Formally, to answer this question, we define the
+compression depth ratio as the fraction of the current context removed during compression: D =
+target tokens
+1 − current
+tokens . All prior agents fix this ratio.
+We explore various settings of D ∈ {0.3, 0.5, 0.7},
+where larger values denote more compression.
+
+224
+
+2.4
+
+232
+
+Formal notation
+
+3
+
+225
+226
+227
+228
+229
+230
+231
+
+A compression policy is fully specified by three
+choices: the compression primitive P , trigger
+mechanism T , and compression depth D. We denote a policy as P/T /D (e.g., T RC/St/0.5). Table 1 enumerates the resulting compression policy
+design space across all three axes. In total, we
+study 33 compression policies.
+
+233
+
+3
+
+240
+
+Characterization
+
+We now characterize context compression policies
+across the design space defined in Section 2. We
+study three questions: how compression policies
+impact task performance, latency, and token usage;
+how different compression primitives affect agent
+behavior across tasks; and whether these trends
+remain consistent across models.
+Benchmark and tasks. We evaluate on SWEbench Verified (Jimenez et al., 2024), where each
+task is a real GitHub issue. The resolution is binary,
+scored by whether the agent’s final patch passes the
+held-out test patch. Following prior works (Wang
+et al., 2025; Hou et al., 2024), we sample 100 tasks
+across the three repositories in SWE-bench Verified
+(Django 34, SymPy 34, scikit-learn 32).
+Agent harness and model. We evaluate compression policies in the mini-swe-agent harness (Yang
+et al., 2024), a minimal tool-loop agent that exposes a single bash tool with auto-execution and a
+one-shot tool-call protocol, producing clean turn
+boundaries for compression. Each task is allocated
+a maximum of 125 agent steps. We use Qwen3Coder-30B-A3B (Team, 2025) with temperature
+0.2 and served through vLLM on four A100 GPUs.
+Experimental setup. Table 1 summarizes the compression policies evaluated in our study, spanning 8
+compression primitives, 2 trigger mechanisms, and
+3 compression depths (0.3, 0.5, 0.7). We evaluate
+
+When to trigger context compression?
+
+222
+
+234
+235
+236
+237
+238
+239
+
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+
+Compress Primitive (P )
+
+Primitive family
+
+Trigger (T )
+
+Depth (D)
+
+TR (OpenAI, 2025; LangChain, 2025b)
+TRC (Anthropic, 2025)
+
+Rule-based
+Rule-based
+
+threshold
+threshold / step
+
+0.3 / 0.5 / 0.7
+0.3 / 0.5 / 0.7
+
+SU-full (Anthropic, 2026; OpenAI, 2026; LangChain, 2025a)
+SU-partial
+SS (Shinn et al., 2023)
+SS-partial (Packer et al., 2023)
+
+LLM-based
+LLM-based
+LLM-based
+LLM-based
+
+threshold
+threshold
+threshold
+threshold
+
+0.3 / 0.5 / 0.7
+0.3 / 0.5 / 0.7
+0.3 / 0.5 / 0.7
+0.3 / 0.5 / 0.7
+
+Stacked
+Stacked
+
+threshold / step
+threshold / step
+
+0.3 / 0.5 / 0.7
+0.3 / 0.5 / 0.7
+
+TRC+SU (Anthropic, 2025)
+TRC+SS (Anthropic, 2025)
+
+Table 1: Compression policies mapped into the three-axis design space that we study in our characterization.
+Citations for each primitive link to production runtime strategies. See § 2.
+
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+
+policies under three context budgets (10K, 15K,
+and 20K tokens) with two runs per task. Our primary setting uses a 15K-token budget, where all
+primitives are evaluated on the full 100-task benchmark. For primitives with tunable compression
+depth, we additionally evaluate all three depth settings on the same task set. We use the 10K and 20K
+settings as budget ablations. Under these settings,
+depth-invariant primitives are evaluated at depth
+0.5 on the full benchmark, while depth-tunable
+primitives are evaluated across all depths on a 30task stratified subset. As a baseline, we compare
+all compression policies against FC (full context),
+which disables context compression entirely. For
+reproducibility, we release the task split, model
+checkpoint, and evaluation harness at TBD1 .
+Metrics. We report three metrics: (1) Resolve
+rate, the fraction of tasks successfully solved
+by the agent (Jimenez et al., 2024); (2) Token
+cost, the total input and output tokens consumed
+across all model invocations, including compression calls (Kang et al., 2025); and (3) Latency, the
+duration to complete a task from initialization to
+final solution submission (Ni et al., 2026).
+
+mechanism, and compression depth—shapes these
+tradeoffs.
+Impact of compression primitives. Figure 2
+shows that the three primitive families—rulebased, LLM-based, and stacked—occupy different regions of the tradeoff space. Stacked primitives consistently achieve the highest resolve rates.
+TRC+SU achieves the best overall performance
+at 47.0%, followed by TRC+SS at 45.0% and
+TRC+TR at 44.5%. Rule-based primitives span
+a wider range: TRC achieves 45.5% resolve rate,
+while TR drops to 38.5%. LLM-based primitives
+show the largest variation, ranging from 29.0% for
+SU to 43.5% for SU-p.
+These differences arise from how each primitive
+family manages context. Rule-based primitives
+compress context through deletion alone, making
+them the fastest policies (563–641s) but also the
+most token-intensive (601K–716K tokens), since
+they preserve larger portions of the original trajectory. LLM-based primitives instead rewrite context
+through additional model calls, reducing token usage (487K–583K tokens) at the cost of substantially
+higher latency (734–920s). Their resolve rates
+also vary widely, indicating that summary quality depends heavily on which information is preserved during rewriting. Stacked primitives combine both approaches by first pruning context using
+rule-based compression before invoking summarization only when necessary. This reduces the
+amount of context processed by the summarization model, resulting in intermediate token usage
+(462K–644K tokens) and latency (625–774s) while
+consistently achieving the highest resolve rates.
+Impact of compression triggers. To isolate the impact of compression triggers, we compare TRC under threshold versus per-step triggers (§ 2). We only
+analyze TRC here; compression per step with LLMbased methods is prohibitively expensive, while TR
+at per-step granularity is overly aggressive and sig-
+
+Q1. How do compression policies impact
+resolve rate, token cost, and latency?
+We first analyze the impact of different compression policies on resolve rate, token cost, and latency.
+Figure 2 shows the tradeoff between token usage
+and resolve rate (left), and latency and resolve
+rate (right), under a 15K-token budget. Across
+the 33 policies, resolve rate varies by 18 percentage points (pp), token usage by 1.5× (462K–716K
+tokens), and end-to-end latency by 1.6× (563–920
+seconds), indicating substantial variation across the
+compression design space. We next analyze how
+each design axis—compression primitive, trigger
+1
+
+Link redacted to ensure anonymity during review process
+
+4
+
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+
+Figure 2: Resolve rate versus token usage (left) and latency (right) across compression policies under a 15K-token
+budget on 100 SWE-bench tasks. Compression depth D = 0.5. See § 3 Q1.
+
+impact of compression depth on resolve rate does
+not follow a predictable pattern and varies across
+primitives. SU is the most sensitive to depth, with
+resolve rate varying by 11.5pp across configurations: it maximizes at d=0.7, but drops to 29.0%
+at d=0.5. TR varies by 6.5pp across depths and
+performs best at d=0.3, while SU-partial varies by
+5.0pp and peaks at d=0.7. In contrast, SS and SSpartial are comparatively stable, varying by only
+3.5pp each.
+These differences arise because compression
+depth controls two competing effects simultaneously. Increasing depth removes more context during each compression event, reducing token usage
+more aggressively while also increasing the risk
+of discarding information required for downstream
+reasoning. Different primitives respond differently
+because they preserve different forms of information. SU rewrites the entire trajectory during each
+compression event, while SS preserves information
+within a fixed schema independent of depth. The
+effect of depth on resolve rate therefore depends on
+whether the information preserved by a primitive
+aligns with what the agent requires to complete the
+task.
+We observe that neither shallow (d=0.3) nor aggressive (d=0.7) compression consistently dominates across primitives. Different depths optimize
+different tradeoffs between resolve rate and token
+usage, indicating that compression depth must be
+tuned jointly with the compression primitive rather
+than fixed globally.
+Takeaway #1. Each design axis shapes the tradeoff between resolve rate, token usage, and latency
+differently. Primitive choice determines the operating region of the tradeoff space, trigger mechanisms trade off resolve rate against token usage,
+
+Figure 3: Resolve rate (left) and total prompt tokens
+(right) across compression depths. See § 3 Q1.
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+
+nificantly degrades output quality. We compare
+three matched pairs that differ only in their trigger
+mechanism: threshold-triggered (TRC, TRC+SU,
+TRC+SS) versus per-step-triggered (TRC/St+TR,
+TRC/St+SU-partial, TRC/St+SS-partial). Across
+all three pairs in Figure 2, threshold-triggered compression achieves higher resolution, increasing resolve rate by 1.0pp on the TR pair, 7.5pp on the SU
+pair, and 3.0pp on the SS pair. However, threshold
+triggers inflate token cost by 46-145K compared to
+the per-step compression.
+Threshold triggers preserve tool outputs until
+compression is necessary, enabling agents to reuse
+prior results across reasoning steps. In contrast,
+per-step triggers clear outputs after every step,
+limiting token growth but discarding useful context even when budget remains. Consequently,
+threshold-triggered policies achieve higher resolve
+rates, while per-step policies reduce token usage
+more aggressively.
+Impact of compression depths. We next analyze
+how compression depth impacts the resolve rate
+and token cost (Figure 3). We vary the compression depth ratio d ∈ {0.3, 0.5, 0.7} for the five
+depth-tunable primitives (§2). While increasing d
+monotonically reduces the token cost, we find the
+5
+
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+
+Figure 4: Per-task outcomes (rows) across 12 compression policies (columns) at a 15K-token budget and depth
+D = 0.5. Green indicates resolved tasks and red unresolved tasks. The mixed middle region shows outcomes
+depend strongly on the compression policy. See § 3 Q2.
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+432
+433
+434
+435
+
+and compression depth must be tuned jointly with
+the primitive. Thus, compression policies require
+axis-specific tuning rather than a single globally
+optimal configuration.
+Q2. Does the choice of compression policy
+affect which tasks an agent solves?
+So far, we compared compression policies using aggregate resolve rates across all tasks. This comparison implicitly assumes that stronger policies simply
+solve a superset of the tasks solved by weaker ones.
+We find that this assumption does not hold.
+Figure 4 shows the per-task outcomes for all
+compression policies. Across the benchmark, 22%
+of tasks are solved by every policy, while 25% are
+solved by none. For the remaining 53% of tasks,
+however, task resolution depends strongly on the
+chosen compression policy. An oracle that selects
+the best policy per task achieves a 67% resolve rate,
+improving by 20 percentage points over the best
+individual policy (TRC+SU at 47%).
+Different tasks require preserving different
+forms of information across long trajectories. Compression policies vary substantially in which information they retain. For example, TR preserves
+recent context verbatim while discarding older interactions entirely. SU rewrites the trajectory into
+a compact free-form summary, compressing ag6
+
+gressively but potentially removing structural details. SS instead preserves information within a
+fixed schema, while step-triggered TRC policies
+aggressively remove prior tool outputs throughout
+execution. As a result, different policies produce
+different trajectory representations, causing different tasks to favor different compression behaviors.
+Takeaway #2. Compression policies solve overlapping but distinct subsets of tasks. So, the best compression policy is task-dependent, since policies
+preserve different information from the trajectory.
+
+436
+
+Q3. How does the efficacy of compression
+policies vary across models and token budgets?
+
+447
+
+In Q1 and Q2, we fixed the model, context budget,
+and model precision following prior work (Kang
+et al., 2025; Xiao et al., 2025). We next study how
+compression policy behavior changes as these deployment settings vary. We next evaluate three
+open-source coding models—Qwen3.5-35B-A3BInstruct, Devstral-Small-24B, and Qwen2.5-Coder32B-Instruct—across three context budgets (10K,
+15K, and 20K tokens) and four model precisions
+(fp16, fp8, GPTQ-int4, and AWQ-int4). Each configuration is evaluated on a 30-task stratified subset.
+We fix the compression depth to D=0.5, which
+is the default setting used throughout Q1 and Q2.
+Since Section 3 already studies depth as an independent design axis, fixing D here isolates the effects
+of model choice and context budget from depthdependent variation. We analyze the effects of
+model and context budget in this section and defer
+precision results to Appendix 4.
+
+449
+
+Impact of models. Across models, the best compression policy changes. While models exhibit
+the same tradeoff between resolve rate, token usage, and latency (Q1), the policies that optimize
+these tradeoffs differ across models. For Qwen3.535B-A3B-Instruct, T RC + SU/T h achieves the
+highest resolve rate (47%), while T RC/T h performs best on Devstral-Small-2-24B (68.3%) and
+T RC + T R/St performs best on Qwen2.5-Coder32B-Instruct (11.7%). These differences are
+also large in magnitude: on Devstral-Small-224B, T RC/T h outperforms T RC + SU/T h, the
+best policy for Qwen3.5-35B-A3B-Instruct, by
+roughly 15pp, while T RC + SU/T h outperforms T RC/T h on Qwen3.5-35B-A3B-Instruct
+by 2.5pp. More broadly, policy rankings shift
+across models. The ranking correlation between
+Qwen3.5-35B-A3B-Instruct and Devstral-Small-
+
+468
+
+437
+438
+439
+440
+441
+442
+443
+444
+445
+446
+
+448
+
+450
+451
+452
+453
+454
+455
+456
+457
+458
+459
+460
+461
+462
+463
+464
+465
+466
+467
+
+469
+470
+471
+472
+473
+474
+475
+476
+477
+478
+479
+480
+481
+482
+483
+484
+485
+
+Table 2: Resolve rate, token cost, and latency across token budgets for 30 tasks on SWE-bench Verified. The LLM
+is fixed to Qwen3.5-35B-A3B, and compression depth is fixed at D = 0.5. See § 3 Q3.
+
+10K
+
+486
+487
+488
+489
+490
+491
+492
+493
+494
+495
+496
+497
+498
+499
+500
+501
+502
+503
+504
+505
+506
+507
+508
+509
+510
+511
+512
+513
+514
+515
+516
+517
+518
+519
+520
+
+15K
+
+20K
+
+Primitive
+
+Res% Tok(K) Lat(s) Res% Tok(K) Lat(s) Res% Tok(K) Lat(s)
+
+TR
+TRC
+SU-full
+SU-partial
+SS
+SS-partial
+TRC+SU
+TRC+SS
+TRC/St+TR
+TRC/St+SU-partial
+TRC/St+SS-partial
+
+48.3
+46.7
+31.7
+40.0
+35.0
+36.7
+55.0
+60.0
+46.7
+48.3
+38.3
+
+525
+461
+424
+370
+274
+273
+475
+438
+437
+321
+372
+
+398
+368
+915
+949
+984
+978
+637
+669
+511
+750
+890
+
+33.3
+51.7
+23.3
+56.7
+30.0
+53.3
+65.0
+58.3
+55.0
+65.0
+51.7
+
+2-24B is moderate (Spearman 0.61), and drops
+to 0.14 between Qwen3.5-35B-A3B-Instruct and
+Qwen2.5-Coder-32B-Instruct.
+We also find that the benefits of compression
+relative to full context (FC) depend strongly on the
+model. For Qwen3.5-35B-A3B-Instruct, six compression policies outperform FC in resolve rate,
+token usage, and latency (see Table 3). In contrast, for Devstral-Small-24B, the best compression
+policy (T RC/T h) reduces token usage by 1.7×
+but resolves 3.3pp fewer tasks while increasing latency by 1.4×. For Qwen2.5-Coder-32B-Instruct,
+even the tradeoff between token usage and resolve
+rate largely disappears: the best compressed policy (T RC + T R/St) improves resolve rate only
+marginally over FC (11.7% vs. 10.0%) while increasing both token usage and latency. These results show that compression policy behavior is
+strongly model-dependent. For some models, compression improves both efficiency and task performance. For others, compression introduces tradeoffs between resolve rate, token usage, and latency.
+Takeaway #3. The efficacy of compression policies
+shifts across models: the optimal policy and benefit
+of compression relative to no compression vary
+across models and capabilities.
+
+748
+545
+587
+566
+497
+524
+580
+540
+501
+460
+393
+
+601
+417
+801
+785
+707
+794
+638
+632
+572
+617
+656
+
+60.0
+71.7
+56.7
+61.7
+61.7
+65.0
+66.7
+76.7
+66.7
+61.7
+65.0
+
+764
+662
+685
+628
+657
+587
+681
+669
+517
+495
+474
+
+474
+434
+556
+737
+711
+750
+732
+653
+555
+606
+596
+
+correlation between 10K and 15K token budget is
+0.7, while between 20K and 15K it is 0.8.
+The benefits of compression relative to full context (FC) also vary with token budget. At larger
+budgets (20K), several compression policies outperform FC in resolve rate, token usage, and latency.
+At smaller budgets (10K), however, FC achieves
+higher resolve rates. Larger budgets allow compression policies to remove redundant context while
+preserving information needed for downstream reasoning. Meanwhile, smaller budgets force compression policies to discard increasingly useful context
+from shorter trajectories. As a result, compression
+consistently reduces token usage, but increasingly
+trades off resolve rate at tighter budgets.
+Takeaway #4. Context compression policy rankings remain relatively stable across context budgets.
+However, compression policy choice matters most
+at smaller budgets, where policies increasingly differ in how effectively they preserve useful context
+under aggressive compression.
+
+521
+
+4
+
+542
+
+Implications for Future Agentic
+Systems
+
+Our findings show that context compression behavior is far more structured and task-specific than existing systems assume. We next discuss the broader
+implications of these results for future agentic systems and context compression research.
+Adaptive compression systems. Existing agentic systems (OpenAI, 2026; Anthropic, 2026;
+LangChain, 2025b; Wang et al., 2025) typically
+deploy a single fixed compression policy across
+all tasks and deployment settings. Our characterization shows that no single policy consistently
+
+Impact of token budgets. Unlike the impact of
+models, we observe less fluctuation in relative rankings across token budgets. Generally, the rankings
+of compression primitive families remain the same:
+stacked, rule-based, and finally LLM-based. Moreover, the best and worst primitive is the same across
+token budgets (a threshold-stacked primitive and
+SU, respectively). However, within families, there
+are slight fluctuations. Hence, the Spearman rank
+7
+
+522
+523
+524
+525
+526
+527
+528
+529
+530
+531
+532
+533
+534
+535
+536
+537
+538
+539
+540
+541
+
+543
+544
+545
+546
+547
+548
+549
+550
+551
+552
+553
+554
+
+Table 3: Resolve rate, token cost, and latency across models for 30 tasks on SWE-bench Verified. The token budget
+is fixed at 15K tokens and compression depth at D = 0.5. See § 3 Q3.
+
+Qwen3.5-35B-A3B
+
+555
+556
+557
+558
+559
+560
+561
+562
+563
+564
+565
+566
+567
+568
+569
+570
+571
+572
+573
+574
+575
+576
+577
+578
+579
+580
+581
+582
+583
+584
+585
+586
+587
+588
+
+Devstral-Small-2-24B
+
+Qwen2.5-Coder-32B
+
+Primitive
+
+Res% Tok(K) Lat(s) Res% Tok(K) Lat(s) Res% Tok(K) Lat(s)
+
+FC
+
+43.0
+
+1020
+
+737
+
+71.7
+
+1232
+
+290
+
+10.0
+
+437
+
+566
+
+TR
+TRC
+SU-full
+SU-partial
+SS
+SS-partial
+TRC+SU
+TRC+SS
+TRC/St+TR
+TRC/St+SU-partial
+TRC/St+SS-partial
+
+38.5
+45.5
+29.0
+43.5
+36.0
+38.0
+47.0
+45.0
+44.5
+39.5
+42.0
+
+716
+601
+583
+572
+487
+558
+644
+607
+555
+500
+462
+
+641
+563
+812
+821
+734
+920
+768
+727
+625
+774
+733
+
+63.3
+68.3
+43.3
+43.3
+30.0
+38.3
+50.0
+53.3
+48.3
+36.7
+38.3
+
+814
+738
+968
+646
+911
+743
+833
+892
+595
+610
+598
+
+451
+403
+727
+1192
+714
+938
+427
+486
+537
+737
+642
+
+10.0
+8.3
+8.3
+8.3
+6.7
+8.3
+6.7
+11.7
+11.7
+6.7
+6.7
+
+512
+618
+348
+358
+351
+290
+558
+508
+554
+485
+433
+
+672
+856
+846
+871
+930
+869
+777
+742
+556
+746
+693
+
+dominates across tasks, models, and context budgets. Different policies preserve different information and succeed on different subsets of tasks.
+This motivates adaptive compression systems that
+dynamically select compression policies based on
+the task, model behavior, available context budget,
+and execution state. A natural next step is to learn
+compression controllers from workload features,
+task planning, intermediate trajectory state, thus
+turning compression policy selection into an online
+systems optimization problem for agentic systems.
+Context compression as a systems resourcemanagement problem. All prior work (Kang et al.,
+2025; Xiao et al., 2025; Gu et al., 2026) studies
+context compression primarily as a prompting or
+representation problem. Our findings show that
+compression policies also induce large systemslevel tradeoffs across token usage, latency, and task
+success. So, compression decisions directly shape
+the operational behavior of agentic systems under
+constrained context budgets. This suggests that
+future work should treat context compression as a
+systems resource-management problem, jointly optimizing compression behavior alongside inference
+cost, scheduling, and deployment constraints.
+
+context budgets. Hence, future evaluations should
+move beyond single aggregate metrics and instead
+characterize compression behavior across tasks, deployment settings, and operating constraints.
+
+589
+
+Compression-aware agent design. Existing
+agents (Yang et al., 2024; Wang et al., 2025) generate trajectories without considering how those
+trajectories will later be compressed. Our characterization shows that different compression policies
+preserve different forms of information and alter
+which tasks agents successfully complete. Future
+agents may therefore need to explicitly structure
+trajectories for downstream context compression.
+For example, agents may separate persistent state
+from ephemeral reasoning, expose semantic checkpoints for summarization, or generate compressionfriendly execution traces. These findings motivate
+jointly designing agents and context compression
+systems rather than treating compression as an external add-on applied after trajectory generation.
+
+593
+
+5
+
+609
+
+Conclusion
+
+We presented the first systematic characterization
+of context compression policies for agentic systems.
+Our study shows that compression policies induce
+substantially different tradeoffs across task success,
+token usage, and latency, solve different subsets
+of tasks, and vary significantly across models and
+context budgets. These findings demonstrate that
+no single compression policy consistently dominates across deployment settings. More broadly,
+our results motivate adaptive compression systems
+that dynamically select compression policies based
+on the task, model, and context budget.
+
+Beyond aggregate evaluation. All existing
+work (Kang et al., 2025; Xiao et al., 2025; Gu
+et al., 2026) evaluates context compression using
+aggregate task success under a fixed model and deployment setting. Our characterization shows that
+aggregate metrics obscure substantial structure in
+compression behavior. Policies with similar aggregate performance often solve different subsets of
+tasks, and policy rankings shift across models and
+8
+
+590
+591
+592
+
+594
+595
+596
+597
+598
+599
+600
+601
+602
+603
+604
+605
+606
+607
+608
+
+610
+611
+612
+613
+614
+615
+616
+617
+618
+619
+620
+621
+
+622
+
+6
+
+623
+
+Our study characterizes the cost-resolve trade-off
+of context-compression primitives across three
+open-weight models, four token budgets, and three
+compression depths. While our results give a consistent picture of how primitives behave inside this
+regime, the current study has a few limitations.
+First, we run all primitives inside a single agent
+harness, mini-swe-agent. The harness uses a
+trajectory-style tool-use loop with a fixed tool set,
+which matches the most common deployment-style
+agent design (Jimenez et al., 2024; Wang et al.,
+2025). Holding the harness fixed exercises every
+primitive under identical conditions and isolates
+compression-strategy effects from harness-design
+effects. Harnesses that use richer memory architectures, planner-executor splits, or substantially different tool sets may exhibit different compression
+behavior, and we have not measured this transfer
+directly.
+Second, we evaluate on three open-weight codecapable models in the 24–35B range, drawn
+from three different lineages (Qwen3, Devstral,
+Qwen2.5-Coder). This range balances coverage
+across distinct model families with the compute
+needed to run every primitive at every budget. The
+three lineages let us probe transfer of the trade-off
+across qualitatively different agents while keeping the full primitive sweep tractable. We have
+not measured frontier closed-source models, much
+smaller models, or models trained with explicit
+long-context curricula, and the operating points
+reported here may not extrapolate to those regimes.
+Third, our summarization-based primitives use
+the same model as the agent itself to compress
+the trajectory. While this keeps the deployment
+footprint small and isolates the effect of compression strategy from summarizer-quality differences,
+a separately trained or stronger summarizer could
+change the ranking of summarization-based primitives, and we have not measured this dimension.
+Fourth, several internal defaults of our compression primitives are fixed at single values rather than
+swept along their own axes. Our TRC variants
+preserve the three most recent tool-result turns, our
+summarization-based primitives use a single handwritten instruction prompt for both SU and SS, and
+the protected prefix of every trajectory is fixed at
+the system message and the first user turn. While
+these defaults are consistent across all of our runs
+and isolate the effect of the primitive choice itself,
+
+624
+625
+626
+627
+628
+629
+630
+631
+632
+633
+634
+635
+636
+637
+638
+639
+640
+641
+642
+643
+644
+645
+646
+647
+648
+649
+650
+651
+652
+653
+654
+655
+656
+657
+658
+659
+660
+661
+662
+663
+664
+665
+666
+667
+668
+669
+670
+671
+672
+
+Limitations
+
+9
+
+each of them can shift resolve and cost within a
+primitive family, and we have not measured the
+sensitivity of our results to these knobs.
+Addressing these dimensions; the agent harness,
+the summarizer-model coupling, and the internal
+defaults, would strengthen the generality of the
+cost-resolve trade-off characterized here, and we
+leave this to future work.
+
+673
+
+References
+
+681
+
+Anthropic. 2025. Context editing. https://platform.
+claude.com/docs/en/build-with-claude/
+context-editing. Accessed 2026-05-11.
+
+682
+683
+684
+
+Anthropic. 2026. Compaction. https://platform.
+claude.com/docs/en/build-with-claude/
+compaction. Accessed 2026-05-11.
+
+685
+686
+687
+
+Zhuohan Gu, Qizheng Zhang, Omar Khattab, and
+Samuel Madden. 2026. Peek: Context map as an
+orientation cache for long-context llm agents. arXiv
+preprint arXiv:2605.19932.
+
+688
+689
+690
+691
+
+Xinyi Hou, Yanjie Zhao, Yue Liu, Zhou Yang, Kailong
+Wang, Li Li, Xiapu Luo, David Lo, John Grundy,
+and Haoyu Wang. 2024. Large language models
+for software engineering: A systematic literature review. ACM Transactions on Software Engineering
+and Methodology, 33(8):1–79.
+
+692
+693
+694
+695
+696
+697
+
+Carlos E. Jimenez, John Yang, Alexander Wettig,
+Shunyu Yao, Kexin Pei, Ofir Press, and Karthik R.
+Narasimhan. 2024. SWE-bench: Can language models resolve real-world github issues? In The Twelfth
+International Conference on Learning Representations.
+
+698
+699
+700
+701
+702
+703
+
+Minki Kang, Wei-Ning Chen, Dongge Han, Huseyin A
+Inan, Lukas Wutschitz, Yanzhi Chen, Robert Sim,
+and Saravan Rajmohan. 2025. Acon: Optimizing
+context compression for long-horizon llm agents.
+arXiv preprint arXiv:2510.00615.
+
+704
+705
+706
+707
+708
+
+LangChain. 2025a.
+Short-term memory.
+https://docs.langchain.com/oss/python/
+langchain/short-term-memory.
+Accessed:
+2026-05-11.
+
+709
+710
+711
+712
+
+LangChain. 2025b. Short-term memory — trim
+messages. https://docs.langchain.com/oss/
+python/langchain/short-term-memory.
+Accessed 2026-05-11.
+
+713
+714
+715
+716
+
+Mosh Levy, Alon Jacoby, and Yoav Goldberg. 2024.
+Same task, more tokens: the impact of input length on
+the reasoning performance of large language models.
+In Proceedings of the 62nd Annual Meeting of the
+Association for Computational Linguistics (Volume
+1: Long Papers), pages 15339–15353.
+
+717
+718
+719
+720
+721
+722
+
+Nelson F Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, and Percy
+
+723
+724
+
+674
+675
+676
+677
+678
+679
+680
+
+725
+726
+727
+
+Liang. 2024. Lost in the middle: How language models use long contexts. Transactions of the association
+for computational linguistics, 12:157–173.
+
+728
+729
+730
+731
+732
+
+Kangqi Ni, Wenyue Hua, Xiaoxiang Shi, Jiang
+Guo, Shiyu Chang, and Tianlong Chen. 2026.
+Chimera: Latency-and performance-aware multiagent serving for heterogeneous llms. arXiv preprint
+arXiv:2603.22206.
+
+733
+734
+735
+736
+
+OpenAI. 2025.
+Responses api — create response. https://platform.openai.com/docs/
+api-reference/responses/create.
+Accessed
+2026-05-11.
+
+737
+738
+739
+
+OpenAI. 2026. Compaction. https://developers.
+openai.com/api/docs/guides/compaction. Accessed 2026-05-11.
+
+740
+741
+742
+
+Charles Packer, Vivian Fang, Shishir_G Patil, Kevin
+Lin, Sarah Wooders, and Joseph_E Gonzalez. 2023.
+Memgpt: towards llms as operating systems.
+
+743
+744
+745
+746
+747
+
+Noah Shinn, Federico Cassano, Ashwin Gopinath,
+Karthik Narasimhan, and Shunyu Yao. 2023. Reflexion: Language agents with verbal reinforcement
+learning. Advances in neural information processing
+systems, 36:8634–8652.
+
+748
+749
+
+Qwen Team. 2025. Qwen3 technical report. Preprint,
+arXiv:2505.09388.
+
+750
+751
+752
+753
+754
+755
+756
+
+Xingyao Wang, Boxuan Li, Yufan Song, Frank F Xu, Xiangru Tang, Mingchen Zhuge, Jiayi Pan, Yueqi Song,
+Bowen Li, Jaskirat Singh, and 1 others. 2025. Openhands: An open platform for ai software developers
+as generalist agents. In International Conference
+on Learning Representations, volume 2025, pages
+65882–65919.
+
+757
+758
+759
+760
+
+Yuan-An Xiao, Pengfei Gao, Chao Peng, and Yingfei
+Xiong. 2025. Improving the efficiency of llm agent
+systems through trajectory reduction. arXiv preprint
+arXiv:2509.23586.
+
+761
+762
+763
+764
+765
+766
+
+John Yang, Carlos E Jimenez, Alexander Wettig, Kilian
+Lieret, Shunyu Yao, Karthik Narasimhan, and Ofir
+Press. 2024. Swe-agent: Agent-computer interfaces
+enable automated software engineering. Advances in
+Neural Information Processing Systems, 37:50528–
+50652.
+
+767
+
+A
+
+768
+
+Across Quantizations. We next test whether the
+compression conclusion survive lower precision
+serving. We run a subset of the primitives, namely
+FC, TR, SU, and TRC+SS, each representing one
+of the primitive families. Together, these policies
+span the main families in our taxonomy(§2). We
+evaluate Qwen3-30B-A3B-Instruct at four precisions: fp16, fp8, gptq-int4 (), and awq-int4 (). Compressed policies use a 20k budget and depth 0.5.
+
+769
+770
+771
+772
+773
+774
+775
+776
+
+Example Appendix
+
+10
+
+Each condition uses two runs per task, yielding 240
+trajectories per precision.
+The results split cleanly into two regimes. fp16
+and fp8 behave similarly, while both 4-bit quantizations degrade sharply. Resolve rate is 9.2% at fp16
+and 7.1% at fp8, but drops to 3.3% with GPTQint4 and 2.9% with AWQ-int4. Because every task
+and policy is run under each precision settin, the
+comparison controls for task difficulty and policy
+choice. Thus, differences in resolve rate can be
+attributed more directly to precision rather than to
+different task samples. Token use is broadly comparable across precision, with median tokens per
+run between 32k and 40k.
+The Q2 heterogeneity check is not informative
+on this base model. Even at fp16, the model solves
+too few tasks for policy differences to be meaningfully analyzed: 80% of tasks are not solved by any
+primtive, leaving only a small set of tasks where
+the choice of compression strategy can affect the
+outcome. Under 4-bit quantization this becomes
+even more sever, with 90% of tasks unsolved by all
+primitives.
+Takeaway. The Q1 trade-off transfers from fp16
+to fp8, but not to 4-bit. At 4-bit, the base model resolves too few tasks for compression policy choice
+to matter, so the strategy-level contrasts largely
+disappear.
+
+777
+778
+779
+780
+781
+782
+783
+784
+785
+786
+787
+788
+789
+790
+791
+792
+793
+794
+795
+796
+797
+798
+799
+800
+801
+802
+803
+804
+
+Table 4: Resolve rate, token cost, and latency for Qwen3-30B-A3B-Instruct-2507 across model precision (quantization) types. Token budget is fixed to 20K and compression depth D = 0.5. See Appendix A.
+FP16
+
+FP8
+
+GPTQ-int4
+
+AWQ-int4
+
+Primitive
+
+Res%
+
+Tok(K)
+
+Lat(s)
+
+Res%
+
+Tok(K)
+
+Lat(s)
+
+Res%
+
+Tok(K)
+
+Lat(s)
+
+Res%
+
+Tok(K)
+
+Lat(s)
+
+FC
+
+11.7
+
+240
+
+157
+
+5.0
+
+59
+
+890
+
+3.3
+
+176
+
+514
+
+3.3
+
+57
+
+859
+
+TR
+SU-full
+TRC+SS
+
+10.0
+8.3
+6.7
+
+404
+239
+314
+
+254
+224
+325
+
+10.0
+3.3
+10.0
+
+53
+56
+70
+
+800
+877
+855
+
+0.0
+5.0
+5.0
+
+169
+131
+230
+
+580
+555
+633
+
+5.0
+3.3
+0.0
+
+91
+61
+74
+
+808
+868
+861
+
+11
+
+

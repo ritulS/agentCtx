@@ -24,12 +24,17 @@ to *regenerate* `Review1.csv` or do new raw-level analysis.
 
 ## What is NOT in git (gitignored)
 
+**As of 2026-08-19 all collected run data lives in one folder: `data/`.**
+See [data/README.md](data/README.md) for the full layout and provenance map.
+`results/ablations`, `results/tbench`, and `Review1/raw` are compatibility
+symlinks into `data/`, so every script path in this repo keeps working.
+
 | Path | Size | Note |
 |------|------|------|
-| `results/` | ~8.8 GB | Raw run outputs — 21k+ `trajectory.json` files. |
+| `data/` | ~9.9 GB | ALL run outputs. Canonical grid: `data/swebench/ablations/`. |
 | `venv/` | ~11 GB | Python env; recreate locally (see README). |
 | `logs/`, `archive/`, `temp/` | varies | Run logs and scratch. |
-| `Review1/raw/`, `Review1/figures*/`, `figures/`, `PaperSections/` | varies | Regeneratable / paper-local. |
+| `Review1/figures*/`, `figures/`, `PaperSections/` | varies | Regeneratable / paper-local. |
 | `*.csv.bak.*` | — | Local timestamped CSV snapshots. |
 
 See [.gitignore](.gitignore) for the authoritative list.
@@ -41,8 +46,8 @@ Results are transferred machine-to-machine with rsync, not git. Template:
 ```bash
 # Pull results from the machine that produced them (run on the destination):
 rsync -avhP --info=progress2 \
-    <user>@<source-host>:/path/to/agentCtx/results/ \
-    /path/to/agentCtx/results/
+    <user>@<source-host>:/path/to/agentCtx/data/ \
+    /path/to/agentCtx/data/
 
 # Logs, if needed for debugging:
 rsync -avhP <user>@<source-host>:/path/to/agentCtx/logs/ ./logs/

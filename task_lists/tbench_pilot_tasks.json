@@ -1,0 +1,35 @@
+{
+  "dataset": "terminal-bench-core==0.1.1",
+  "note": "Pilot pool for the TB generalization experiment: all 12 easy tasks + tractable mediums (excluded: heavy builds/QEMU, large model downloads, external-network-dependent, interactive-vim/tmux, and dotted .easy/.hard variants). The full-context pilot filters this to ~15 tasks for the main grid (kept if the model makes progress AND peak context exceeds the 15k budget). infra_excluded: images unbuildable under single-UID rootless podman (dpkg lchown during unpack of tmux/man-db/at deps; see results/tbench/STATUS.md 2026-07-12). oracle_excluded: failed oracle validation on this infra (2 oracle-agent errors, 1 failing reference tests) 2026-07-13.",
+  "infra_excluded": [
+    "create-bucket",
+    "fix-pandas-version",
+    "new-encrypt-command",
+    "cron-broken-network"
+  ],
+  "tasks": [
+    "count-dataset-tokens",
+    "csv-to-parquet",
+    "extract-safely",
+    "fix-permissions",
+    "git-workflow-hack",
+    "grid-pattern-transform",
+    "hello-world",
+    "modernize-fortran-build",
+    "processing-pipeline",
+    "security-vulhub-minio",
+    "fix-git",
+    "conda-env-conflict-resolution",
+    "openssl-selfsigned-cert",
+    "heterogeneous-dates",
+    "sqlite-db-truncate",
+    "polyglot-c-py",
+    "sanitize-git-repo",
+    "fibonacci-server"
+  ],
+  "oracle_excluded": [
+    "nginx-request-logging",
+    "simple-sheets-put",
+    "simple-web-scraper"
+  ]
+}

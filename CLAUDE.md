@@ -30,8 +30,10 @@ This project is worked on across two machines:
 moving from analysis to runs — push commits from whichever machine you edited
 on, then pull on the other. Don't let a code change live on one machine for
 more than half a day without pushing. Code goes through git; experiment
-results (`results/ablations/*`) and logs are gitignored (too large) and
-transferred via rsync if needed for cross-machine analysis.
+results and logs are gitignored (too large) and transferred via rsync if
+needed for cross-machine analysis. All collected run data lives in `data/`
+(see `data/README.md`); `results/ablations`, `results/tbench`, and
+`Review1/raw` are compatibility symlinks into it.
 
 Per-machine queues live in [exp_plans/DOBBY_PLAN.md](exp_plans/DOBBY_PLAN.md)
 and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
@@ -53,9 +55,15 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `plot_depth_outcomes.py`.
 - `task_lists/` — pinned task JSONs (the 100-task set, the 6-task staggered
   pilot, etc.).
-- `exp_plans/` — DOBBY_PLAN, ALBUS_PLAN, plus per-ablation handoff docs.
+- `exp_plans/` — HANDOFF_COHERENCE (current direction), PRIOR_WORK_MLSys,
+  DOBBY_PLAN, ALBUS_PLAN, CHARACTERIZATION_PAPER_PLAN_100tasks. Retired plans
+  live in git history or `~/agentCtx_attic/exp_plans/`.
 - `Active_runs.md` — live status of long-running experiments. Update on
   launch/kill/completion.
+- `COVERAGE.csv` — auto-generated cell-coverage sheet (one row per
+  model × primitive × budget × depth, with scope and status). Regenerate with
+  `python scripts/build_coverage.py` after any run completes or Review1.csv
+  is rebuilt.
 
 ## Vocabulary
 

@@ -1,0 +1,76 @@
+{
+  "dataset": "terminal-bench-core==0.1.1",
+  "protocol": "Universe=80 -> mechanical exclusions X1(variant-dedup) X2(external-resources) X3(swebench-overlap) X4(unbuildable/timeout>1500s) X5(oracle-fail) -> 35 validated eligible -> FC characterization (1 run, step_limit=100, timeout=1500s) on all 35 -> stratify on FC peak context vs 15k budget: ALL high(>15k, n=14) + ALL mid(10-15k, n=4) + seeded sample(seed=0, n=6) of low(<10k, n=17). No FC-solvability filter (FC overflow is the studied phenomenon; deviation from ABL-30 disclosed).",
+  "strata": {
+    "high": [
+      "blind-maze-explorer-5x5",
+      "blind-maze-explorer-algorithm",
+      "conda-env-conflict-resolution",
+      "intrusion-detection",
+      "path-tracing-reverse",
+      "play-zork",
+      "polyglot-c-py",
+      "sanitize-git-repo",
+      "sqlite-db-truncate",
+      "sqlite-with-gcov"
+    ],
+    "mid": [
+      "count-dataset-tokens",
+      "crack-7z-hash",
+      "git-workflow-hack",
+      "password-recovery"
+    ],
+    "low_sampled": [
+      "csv-to-parquet",
+      "fix-git",
+      "hello-world",
+      "heterogeneous-dates",
+      "organization-json-generator",
+      "processing-pipeline"
+    ],
+    "low_unsampled": [
+      "decommissioning-service-with-sensitive-data",
+      "extract-safely",
+      "fibonacci-server",
+      "fix-permissions",
+      "grid-pattern-transform",
+      "incompatible-python-fasttext",
+      "modernize-fortran-build",
+      "openssl-selfsigned-cert",
+      "prove-plus-comm",
+      "tmux-advanced-workflow",
+      "vim-terminal-task"
+    ]
+  },
+  "tasks": [
+    "blind-maze-explorer-5x5",
+    "blind-maze-explorer-algorithm",
+    "conda-env-conflict-resolution",
+    "intrusion-detection",
+    "path-tracing-reverse",
+    "play-zork",
+    "polyglot-c-py",
+    "sanitize-git-repo",
+    "sqlite-db-truncate",
+    "sqlite-with-gcov",
+    "count-dataset-tokens",
+    "crack-7z-hash",
+    "git-workflow-hack",
+    "password-recovery",
+    "csv-to-parquet",
+    "fix-git",
+    "hello-world",
+    "heterogeneous-dates",
+    "organization-json-generator",
+    "processing-pipeline"
+  ],
+  "dropped_for_time": {
+    "tasks": [
+      "write-compressor",
+      "chess-best-move",
+      "raman-fitting",
+      "security-vulhub-minio"
+    ],
+    "rule": "2026-07-14 user directive to cut to 20 tasks: drop the most expensive tasks with zero resolves under every condition after 6 runs each (all-fail ties; uninformative for paired resolve contrasts, disclosed). All were high-stratum; strata now 10 high / 4 mid / 6 low."
+  }
+}
