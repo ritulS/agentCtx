@@ -51,6 +51,7 @@ TASKS_FILE           = WORKSPACE_ROOT / "task_lists" / "selected_tasks.json"
 TASKS_FILE_EXPLICIT  = False
 ABLATION_TASKS_FILE  = WORKSPACE_ROOT / "results" / "ablations" / "tasks.json"
 RESULTS_DIR          = WORKSPACE_ROOT / "results"
+ACON_TEMPLATE_DEFAULT = WORKSPACE_ROOT / "configs" / "acon" / "prompt_history_v0.jinja"
 
 # Set by main() from --model-tag / --ablation; used by run_dir() and results_file_path().
 MODEL_TAG: str    = "qwen35-a3b"
@@ -100,6 +101,12 @@ CONDITIONS = [
     # Pair is fixed by budget inside default.py: 10k→TR+TRC+SS, 15k→TR+SU-partial, 20k→TR+TRC+SS.
     {"condition": "staggered-alternate", "primitive": "staggered_alternate", "budget": 15_000},
     {"condition": "staggered-random",    "primitive": "staggered_random",    "budget": 15_000},
+    # ACON (arXiv 2510.00615): guideline-driven summarization via an external jinja template.
+    # depth-invariant (canonical depth 0.5 only — see exp_plans/SWE_EXPANSION.md).
+    # acon_template defaults to the round-0 (un-optimized) template; --acon-template or Stage 2's
+    # scripts/acon_optimize.py override it with an offline-optimized candidate.
+    {"condition": "acon-summarize", "primitive": "acon_summarize", "budget": 15_000,
+     "acon_template": ACON_TEMPLATE_DEFAULT},
 ]
 
 N_TASKS            = 100   # total tasks (~33 per repo); overridden by --n-tasks
@@ -196,14 +203,16 @@ def save_results(results: list[dict]) -> None:
 # ── Agent run ──────────────────────────────────────────────────────────────────
 
 def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run_num: int,
-              config: Path | None = None, compression_ratio: float = 0.5) -> dict:
+              config: Path | None = None, compression_ratio: float = 0.5,
+              acon_template: Path | None = None) -> dict:
     """
     Run mini-swe-agent for one (task, condition, run) combination.
 
-    condition = "full-context" | "truncation" | "summarization" | "online-trc"
+    condition = "full-context" | "truncation" | "summarization" | "online-trc" | ...
     primitive = MSWEA_PRIMITIVE value
     budget    = MSWEA_TOKEN_BUDGET value (999999999 = never fires)
     config    = agent config YAML; defaults to global AGENT_CONFIG
+    acon_template = jinja prompt template path; only consumed when primitive == "acon_summarize"
     """
     key = run_key(instance_id, condition, run_num)
     out = run_dir(instance_id, condition, run_num)
@@ -220,6 +229,8 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
     env["MSWEA_COMPRESSION_RATIO"]  = str(compression_ratio)
     env["MSWEA_TOKEN_LOG_PATH"]     = str(token_log_file)
     env["MSWEA_RUN_KEY"]            = key   # used by staggered_random for reproducible seeding
+    if acon_template is not None:
+        env["MSWEA_ACON_TEMPLATE_PATH"] = str(acon_template)
     env["DOCKER_HOST"]          = DOCKER_HOST
 
     local_bin = str(Path.home() / ".local" / "bin")
@@ -372,7 +383,8 @@ def run_all_agents(tasks: list[dict]) -> list[dict]:
     def _run_one(args):
         iid, cond, rn = args
         return run_agent(iid, cond["condition"], cond["primitive"], cond["budget"], rn,
-                         config=cond.get("config"), compression_ratio=COMPRESSION_RATIO)
+                         config=cond.get("config"), compression_ratio=COMPRESSION_RATIO,
+                         acon_template=cond.get("acon_template"))
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         futures = {pool.submit(_run_one, item): item for item in needed}
@@ -564,6 +576,10 @@ def main() -> None:
                              "(online-trc, otrc-tr, otrc-su-partial, otrc-ss-partial). "
                              "Needed when --agent-config points at a non-Qwen model; "
                              "default is configs/config-online-trc.yaml which targets Qwen port 8000.")
+    parser.add_argument("--acon-template", default=None,
+                        help="Override the jinja template used by the acon-summarize condition "
+                             "(default: configs/acon/prompt_history_v0.jinja). Used to plug in "
+                             "Stage-2-optimized candidate templates from scripts/acon_optimize.py.")
     parser.add_argument("--n-tasks",      type=int, default=None,
                         help="Override number of tasks (default: 100)")
     parser.add_argument("--tasks-file",   default=None,
@@ -597,6 +613,11 @@ def main() -> None:
             cur = c.get("config")
             if cur is not None and "config-online-trc" in str(cur):
                 c["config"] = otrc_path
+    if args.acon_template:
+        acon_path = Path(args.acon_template).resolve()
+        for c in CONDITIONS:
+            if c["condition"] == "acon-summarize":
+                c["acon_template"] = acon_path
     if args.n_tasks is not None:
         N_TASKS = args.n_tasks
         N_TASKS_OVERRIDE = args.n_tasks

@@ -42,10 +42,12 @@ import time
 from pathlib import Path
 
 import tiktoken
+from jinja2 import Template as _JinjaTemplate
 
 COMPRESSION_RATIO = float(os.environ.get("MSWEA_COMPRESSION_RATIO", "0.5"))
 N_PROTECTED       = 2   # system + first-user (task) messages are never compressed
 KEEP_RECENT       = 3   # TRC: preserve the last N tool-result turns (mirrors Anthropic's default)
+ACON_PRESERVE_TURNS = 3   # ACON: preserve_last_k_turns — kept verbatim, mirrors KEEP_RECENT
 
 # cl100k_base is accurate to ~5% for code+English across all major models (GPT-4,
 # Claude, Qwen, Llama, etc.).  Loading the exact Qwen tokenizer would require
@@ -414,6 +416,130 @@ def structured_summarize_partial(
 
     tokens_after = count_tokens(new_messages)
     return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
+
+
+_ACON_SUMMARY_PREFIX = "[ACON HISTORY SUMMARY]"
+_ACON_SUMMARY_SUFFIX = "[END ACON SUMMARY]"
+_ACON_OUTPUT_MARKER  = "## History Summary"
+
+
+def _acon_flatten(msg: dict) -> str:
+    content = msg.get("content") or ""
+    if isinstance(content, list):
+        content = " ".join(
+            block.get("text", "") for block in content if isinstance(block, dict)
+        )
+    return str(content)
+
+
+def _acon_extract_summary(response_text: str, marker: str = _ACON_OUTPUT_MARKER) -> str:
+    """Pull the summary out of the optimizer/template's raw response.
+
+    Templates are expected to emit an output-format marker line (default
+    "## History Summary"); everything from that marker onward is the summary.
+    Falls back to the full response if the marker is missing (e.g. a
+    candidate template rewrote the marker text during Stage-2 optimization).
+    """
+    idx = response_text.find(marker)
+    if idx == -1:
+        return response_text.strip()
+    return response_text[idx:].strip()
+
+
+def acon_summarize(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+    template_path: str,
+    preserve_last_k_turns: int = ACON_PRESERVE_TURNS,
+) -> tuple[list[dict], int, int, int, float]:
+    """ACON-style guideline-driven summarization (arXiv 2510.00615).
+
+    Ported from github.com/microsoft/acon's HistoryOptimizer primitive: an
+    external Jinja2 template ({{task}}, {{prev_summary}}, {{history}})
+    renders the summarization prompt instead of a hardcoded string, so the
+    guideline can be iteratively rewritten offline (Stage 2 of the ACON
+    expansion — see exp_plans/SWE_EXPANSION.md) without touching this
+    function. The last `preserve_last_k_turns` turns (assistant+observation
+    pairs) are kept verbatim — ACON's `preserve_last_k_turns`, structurally
+    the same role KEEP_RECENT plays for TRC.
+
+    Round-trip: the produced summary is tagged with _ACON_SUMMARY_PREFIX so
+    the next compression event recognizes it as `prev_summary` instead of
+    re-summarizing it as part of the history dump.
+
+    Falls through to truncate() if there's no head to summarize (everything
+    is inside the preserve window) or if the LLM output still exceeds target.
+
+    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
+    """
+    if len(messages) <= N_PROTECTED:
+        return messages, 0, 0, 0, 0.0
+
+    tokens_before = count_tokens(messages)
+    protected     = messages[:N_PROTECTED]
+    compressible  = list(messages[N_PROTECTED:])
+
+    keep_n = min(len(compressible), max(0, 2 * preserve_last_k_turns))
+    head   = compressible[: len(compressible) - keep_n]
+    tail   = compressible[len(compressible) - keep_n:] if keep_n else []
+
+    # Nothing to summarize (everything sits inside the preserve window) — truncate instead.
+    if not head:
+        new_messages, _ = truncate(messages, target_tokens)
+        return new_messages, max(0, tokens_before - count_tokens(new_messages)), 0, 0, 0.0
+
+    # Recognize a prior ACON summary at the front of head and carry it as prev_summary,
+    # rather than re-dumping it verbatim into the history text below.
+    prev_summary = ""
+    if head[0].get("role") == "user":
+        c = _acon_flatten(head[0])
+        if c.startswith(_ACON_SUMMARY_PREFIX):
+            prev_summary = c[len(_ACON_SUMMARY_PREFIX):].rsplit(_ACON_SUMMARY_SUFFIX, 1)[0].strip()
+            head = head[1:]
+
+    if not head:
+        # Only a previous summary sat in head — nothing new to fold in.
+        new_messages, _ = truncate(messages, target_tokens)
+        return new_messages, max(0, tokens_before - count_tokens(new_messages)), 0, 0, 0.0
+
+    history_text = ""
+    for msg in head:
+        history_text += f"[{msg.get('role', 'unknown')}]:\n{_acon_flatten(msg)}\n\n"
+
+    task_text = _acon_flatten(messages[1]) if len(messages) > 1 else ""
+
+    template_text = Path(template_path).read_text()
+    rendered_prompt = _JinjaTemplate(template_text).render(
+        task=task_text, prev_summary=prev_summary, history=history_text
+    )
+
+    summary_prompt = [model.format_message(role="user", content=rendered_prompt)]
+
+    _t0       = time.time()
+    response  = model.query(summary_prompt)
+    latency_s = time.time() - _t0
+    summary_text = _acon_extract_summary(_acon_flatten(response))
+
+    extra = response.get("extra", {})
+    resp  = extra.get("response", {})
+    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
+    prompt_toks     = usage.get("prompt_tokens", 0) or 0
+    completion_toks = usage.get("completion_tokens", 0) or 0
+
+    summary_msg = model.format_message(
+        role="user",
+        content=f"{_ACON_SUMMARY_PREFIX}\n{summary_text}\n{_ACON_SUMMARY_SUFFIX}",
+    )
+    new_messages = protected + [summary_msg] + tail
+
+    # Safety net: if the (rewritten, possibly Stage-2-optimized) template over-generated
+    # past target, truncate the combined result.
+    if count_tokens(new_messages) > target_tokens:
+        new_messages, _ = truncate(new_messages, target_tokens)
+
+    tokens_after = count_tokens(new_messages)
+    return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
 
 
 def tool_result_clear(

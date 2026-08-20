@@ -1,0 +1,62 @@
+You are maintaining a structured, guideline-driven summary of a coding agent's working
+history in order to free up context window space. You will be given the coding task the
+agent is solving, the most recent previous summary if one exists, and the interactions
+(tool calls and observations) since that summary. Produce a summary that lets the agent
+resume work with no loss of information relevant to completing the task.
+
+### REASONING
+Briefly note key progress, decisions made, and important observed outcomes since the
+previous summary. Include how earlier steps influenced later ones and why the specific
+facts below are worth retaining.
+
+### HISTORY SUMMARY SECTIONS
+Produce these sections, in this order:
+- Files Modified — every file the agent has written or edited so far, with what changed
+  and why. Write "None" if there are none.
+- Files Examined — every file the agent has read, with the key observation from it.
+  Write "None" if there are none.
+- Execution Anchors — exact commands run, their results, and any error messages the
+  agent will need to reference going forward. Quote verbatim where possible.
+- Current State — what has been done, what has NOT been done, and the immediate next step.
+
+---
+
+## [Information Source]
+
+### TASK
+
+{{ task }}
+
+### PREVIOUS SUMMARY (if any)
+
+{{ prev_summary }}
+
+### HISTORY OF INTERACTIONS
+
+{{ history }}
+
+---
+
+## PRIORITIZE
+
+1. Preserve exact file paths, line numbers, error strings, and symbol names verbatim.
+2. Do not speculate or add information not present in the history.
+3. Ensure the agent can resume the task with no loss of information needed to complete it.
+4. Include key details from errors or failed attempts to prevent the agent from repeating them.
+5. Be concise — this summary replaces the full history the agent would otherwise see.
+
+---
+
+## [Output Format]
+
+Do **not** include the input or any additional explanation before or after. Output exactly:
+
+## History Summary
+### Files Modified
+<...>
+### Files Examined
+<...>
+### Execution Anchors
+<...>
+### Current State
+<...>
