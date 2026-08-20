@@ -14,6 +14,18 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Context Coherence RQ2 checkpoint replay screen — Dobby
+- **Status:** RUNNING since 2026-08-20 13:05 CDT.
+- **Scope:** replay all 20 selected full-context prefixes in clean SWE-bench
+  containers. Screen on exact stale/current resource state and mutation return
+  codes. This is eligibility screening for Gate 2, not the causal pilot.
+- **Session:** Codex execution session 79148.
+- **Launch note:** detached PID 210022 exited immediately before screening
+  began because the execution wrapper reaped the background job. Relaunched
+  in the persistent session above.
+- **Log/output:** live process output; final record at
+  `results/coherence/rq2_replay_screen.json`.
+
 ### Context Coherence Week-1 offline bootstrap — Dobby
 - **Status:** ✅ COMPLETE 2026-08-20.
 - **Lineage v0:** parsed the exact 200-run Qwen full-context P100 cohort.
