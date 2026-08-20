@@ -9,7 +9,7 @@ transfer checks.
 
 **Start here, in order:**
 
-1. **[Coverage dashboard](https://claude.ai/code/artifact/5952fe5d-6a12-4ae4-b9b2-0032b7e11fc0)**
+1. **[Coverage dashboard]**
    — every run we already have, per model × primitive × budget × depth,
    with gaps highlighted. Regenerable (see [Coverage tracking](#coverage-tracking) below).
 2. [CLAUDE.md](CLAUDE.md) — project context, vocabulary (primitive families,

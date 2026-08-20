@@ -16,7 +16,7 @@ Usage:  python scripts/build_coverage.py        # writes COVERAGE.csv at repo ro
 
 import csv
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -25,6 +25,9 @@ OUT = ROOT / "COVERAGE.csv"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
 INF = 999_999_999
+
+# Expansion 1 (see exp_plans/SWE_EXPANSION.md): runs/task 2->3.
+REQUIRED_RUNS_PER_TASK = 3
 
 CONDITION_TO_PRIMITIVE = {
     "truncation": "TR",
@@ -84,8 +87,11 @@ def main():
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
 
     # ---- 1. scan disk -------------------------------------------------------
-    # cell key: (model, primitive, budget, depth) -> {tasks, runs, dirs}
-    disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set()})
+    # cell key: (model, primitive, budget, depth) -> {tasks, runs, dirs, task_runs}
+    # Some dirs are copies of other dirs' runs (see seed_depth_dirs.py) — dedupe
+    # by (cell, instance_id, run_num) so copies don't inflate run counts.
+    disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set(), "task_runs": Counter()})
+    seen_runs = set()
     for exp in sorted(ABLATIONS.iterdir()):
         meta = exp / "experiment_results.json"
         if not exp.is_dir() or not meta.exists():
@@ -101,14 +107,23 @@ def main():
                 continue
             budget = r.get("budget")
             depth = r.get("compression_ratio", 0.5) or 0.5
-            cell = disk[(model, prim, budget, round(float(depth), 1))]
-            cell["tasks"].add(r.get("instance_id"))
+            cell_key = (model, prim, budget, round(float(depth), 1))
+            cell = disk[cell_key]
+            iid = r.get("instance_id")
+            dedup_key = cell_key + (iid, r.get("run_num"))
+            if dedup_key in seen_runs:
+                cell["dirs"].add(exp.name)  # still note provenance, don't double count
+                continue
+            seen_runs.add(dedup_key)
+            cell["tasks"].add(iid)
             cell["runs"] += 1
             cell["dirs"].add(exp.name)
+            cell["task_runs"][iid] += 1
 
     # ---- 2. scan CSVs --------------------------------------------------------
     csv_rows = defaultdict(int)    # same cell key -> ingested row count
     csv_tasks = defaultdict(set)   # same cell key -> tasks present in CSV
+    csv_task_runs = defaultdict(Counter)   # same cell key -> {task: run count}
 
     def scan_csv(path: Path, model_fn):
         if not path.exists():
@@ -119,6 +134,7 @@ def main():
                    round(float(row.get("depth") or 0.5), 1))
             csv_rows[key] += 1
             csv_tasks[key].add(row["task_name"])
+            csv_task_runs[key][row["task_name"]] += 1
 
     scan_csv(ROOT / "Review1/Review1.csv", lambda r: MAIN_MODEL)
     scan_csv(ROOT / "Review1/Review1_qwen25-7b.csv", lambda r: "Qwen2.5-7B")
@@ -156,6 +172,7 @@ def main():
         covered = (d["tasks"] if d else set()) | csv_tasks.get(key, set())
         cohort = classify_cohort(covered, abl30, p100) if covered else ""
 
+        runs_per_task_min = 0
         if req is None:
             scope = "out-of-scope" if model == MAIN_MODEL else "model-expansion"
             status = "EXTRA" if model == MAIN_MODEL else "HAVE"
@@ -166,14 +183,26 @@ def main():
             if not covered:
                 status = "MISSING"
             else:
-                have = cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100"))
-                status = "COMPLETE" if have else "PARTIAL"
+                have_cohort = cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100"))
+                if not have_cohort:
+                    status = "PARTIAL"
+                else:
+                    required_tasks = p100 if req == "P100" else abl30
+                    d_runs = d["task_runs"] if d else {}
+                    c_runs = csv_task_runs.get(key, {})
+                    runs_per_task_min = min(
+                        (max(d_runs.get(t, 0), c_runs.get(t, 0)) for t in required_tasks),
+                        default=0)
+                    status = "COMPLETE" if runs_per_task_min >= REQUIRED_RUNS_PER_TASK else "PARTIAL"
 
         notes = []
         if d and model == MAIN_MODEL and n_csv == 0 and req is not None:
             notes.append("on disk, NOT in Review1.csv")
         if d is None and n_csv:
             notes.append("csv only (raw data on Albus)")
+        if status == "PARTIAL" and req is not None and covered and \
+                (cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100"))):
+            notes.append(f"only {runs_per_task_min}/{REQUIRED_RUNS_PER_TASK} runs/task")
 
         rows.append({
             "model": model,
@@ -185,6 +214,7 @@ def main():
             "status": status,
             "tasks_on_disk": len(d["tasks"]) if d else 0,
             "runs_on_disk": d["runs"] if d else 0,
+            "runs_per_task_min": runs_per_task_min,
             "cohort_covered": cohort,
             "rows_in_csv": n_csv,
             "source_dirs": ";".join(sorted(d["dirs"])) if d else "",

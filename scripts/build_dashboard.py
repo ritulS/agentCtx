@@ -44,7 +44,8 @@ def chip(cell, depth):
     status, notes = cell["status"], cell["notes"]
     title = (f'{cell["model"]} · {cell["primitive"]} · {cell["budget"]} · d={cell["depth"]} — '
              f'{cell["status"]}; {cell["tasks_on_disk"]} tasks / {cell["runs_on_disk"]} runs on disk; '
-             f'{cell["rows_in_csv"]} CSV rows; cohort {cell["cohort_covered"] or "—"}'
+             f'{cell["rows_in_csv"]} CSV rows; min {cell.get("runs_per_task_min", "?")} runs/task; '
+             f'cohort {cell["cohort_covered"] or "—"}'
              + (f'; {notes}' if notes else ''))
     if status == "MISSING":
         cls = "missing"
@@ -315,9 +316,11 @@ per model × primitive × budget × depth. Generated {today} from
 <h3 class="subhead">Main model — Qwen3.5-35B-A3B (Dobby)</h3>
 <p class="note">Scope: depth-tunable primitives at all 3 depths (P100 cohort at 15k, ABL-30 at
 10k/20k); depth-invariant primitives at d=0.5 on P100 at every budget; FC and OTRC baselines at
-unlimited budget. Everything below is 2 runs per task. Solid chips carry the full 100-task set;
-outlined chips are ABL-30 only. Not drawn: out-of-scope extras at depths 0.4/0.6 and the dropped
-staggered pilot — they live in <code>COVERAGE.csv</code>.</p>
+unlimited budget. A cell only turns solid/complete once every task has 3 runs (Expansion 1,
+<code>exp_plans/SWE_EXPANSION.md</code>) — cells with the right cohort but fewer runs show as
+partial. Solid chips carry the full 100-task set; outlined chips are ABL-30 only. Not drawn:
+out-of-scope extras at depths 0.4/0.6 and the dropped staggered pilot — they live in
+<code>COVERAGE.csv</code>.</p>
 {main_matrix}
 
 <h3 class="subhead">Model expansion (Albus)</h3>
