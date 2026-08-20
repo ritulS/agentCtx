@@ -55,7 +55,29 @@ rsync -avhP <user>@<source-host>:/path/to/agentCtx/logs/ ./logs/
 
 `-a` preserves structure/timestamps; `--partial` (`-P`) makes interrupted
 transfers of the many small files resumable. Pull only the subdirs you need
-(e.g. `results/ablations/p100-singles-15000/`) to keep transfers small.
+(e.g. `data/swebench/ablations/p100-singles-15000/`) to keep transfers small.
+
+### One-time setup on a fresh clone (after the rsync)
+
+The repo's compatibility symlinks are gitignored, so create them once —
+every script path then works unchanged:
+
+```bash
+ln -s ../data/swebench/ablations results/ablations
+ln -s ../data/tbench results/tbench
+ln -s ../data/review1_raw Review1/raw
+```
+
+Verify the transfer by regenerating the coverage sheet and comparing it to
+the committed one — any diff means missing files:
+
+```bash
+python scripts/build_coverage.py && git diff --stat COVERAGE.csv
+```
+
+Note: the Qwen2.5-7B and precision-sweep **raw** trajectories live only on
+Albus (their distilled CSVs are in git). Rsync from Albus separately if you
+need those at raw level.
 
 ## Regenerating Review1.csv from raw
 
