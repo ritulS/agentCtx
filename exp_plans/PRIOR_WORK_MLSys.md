@@ -5,7 +5,7 @@ submission here. Add papers as found; date every entry batch. The older
 position table in AgentMem_MLSys.md (2026-04-26; deleted 2026-08-19, in git history) is
 superseded by this file.
 
-**Last updated:** 2026-08-17
+**Last updated:** 2026-08-20
 
 ---
 
@@ -335,6 +335,31 @@ recover on demand" — none measures the bet causally.
 - Both are learned/heuristic implicit working-set policies. Neither
   decomposes why they work.
 
+### Lost in Conversation (Laban et al., ICLR 2026) — citation anchor, read 2026-08-20
+*LLMs Get Lost in Multi-Turn Conversation* (arXiv 2505.06120; MSR + Salesforce)
+
+- Sharded simulation. Single-turn instructions split into shards, one revealed
+  per turn. 15 LLMs x 6 tasks, 200k+ simulated conversations. FULL -> SHARDED
+  drop of -39% on average, for every model tested.
+- **Reusable metric**: aptitude A90 vs unreliability U (90th - 10th percentile
+  over N=10 sims per point). Multi-turn drop decomposes into aptitude -16%,
+  unreliability +112%. The compression literature (ours included) has no
+  reliability axis — open measurement we can claim (needs N=10 subset).
+- **CONCAT control** kills the rephrasing/information-loss confound (95.1% of
+  FULL). Template for promoting our duplicated-current arm to a named control.
+- **Root cause #4** (their Appendix F, qualitative): models over-rely on their
+  own earlier incorrect answer attempts. This is superseded self-generated
+  state harming behavior — our thesis, observed in chat, without causal
+  isolation. Positioning sentence: they identify it; we isolate it causally,
+  at matched volume and position, in real agent trajectories, and build the
+  primitive that acts on it.
+- Mitigations tested: RECAP / SNOWBALL — both *add* context. Nobody has tested
+  *removing* superseded content in their (public) harness. Open transfer
+  market for the coherence primitive; clearing there runs without budget
+  pressure, the analog of our @inf cells.
+- What they do not cover: tool-use agents, causal isolation of any root cause,
+  compression under budget, cross-model intervention reversals.
+
 ### Rest of the neighborhood (abstract-level scan)
 
 | Work | Bet it embodies |
@@ -366,6 +391,15 @@ nobody measures it.
 
 ## Scan log
 
+- **2026-08-20** — read Laban et al., *LLMs Get Lost in Multi-Turn
+  Conversation* (ICLR 2026) in full; added above as Tier 4 citation anchor.
+  Submission lessons adopted: name the phenomenon in one sentence; promote the
+  duplicated-current arm to named-control status (their CONCAT move); add an
+  N=10 reliability subset (A/U decomposition, ABL-30 x {FC, TR, TRC, OTRC},
+  ~1,200 runs) to kill the n=2-stability objection; state scale numbers
+  (33 policies, ~19k trajectories, 3 model families, 2 benchmarks) in the
+  abstract. Before committing the N=10 table: sweep for 2025-26 follow-ups on
+  "reliability under compression" (paper is May 2025 arXiv, highly visible).
 - **2026-08-17 (later)** — coherence/staleness collision scan for the
   adopted "Context Coherence" direction (see
   [HANDOFF_COHERENCE.md](HANDOFF_COHERENCE.md)). Added STALE, Less Context
