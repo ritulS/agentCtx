@@ -1,5 +1,14 @@
 # Active Experiment Runs
 
+## ⚠️ REGRESSED 2026-08-20 — Dobby GPU/MIG incident
+
+A read-only Week-1 preflight found MIG enabled again on all four A100s.
+No GPU memory is in use, but CUDA compute remains unavailable without MIG
+instances. Persistence mode is enabled only on GPU 0. The
+`vllm-qwen35.service` user unit is absent. Gate 2 GPU continuations are blocked
+until the prior driver reset is repeated and the boot-time cause is fixed. No
+GPU or service state was changed during this check.
+
 ## ✅ RESOLVED 2026-08-07 — Dobby GPU/MIG incident (2026-07-30 → 08-07)
 
 The 2026-07-30 09:55 reboot left MIG Enabled on all 4 A100s with zero
@@ -15,16 +24,23 @@ need rebuilding for serving/tbench.
 ## Currently Running
 
 ### Context Coherence RQ2 checkpoint replay screen — Dobby
-- **Status:** RUNNING since 2026-08-20 13:05 CDT.
-- **Scope:** replay all 20 selected full-context prefixes in clean SWE-bench
+- **Status:** ✅ COMPLETE 2026-08-20 13:32 CDT. Screened 42 checkpoints and
+  retained 20. The conservative screening rate is 47.6%.
+- **Scope:** replay selected full-context prefixes in clean SWE-bench
   containers. Screen on exact stale/current resource state and mutation return
   codes. This is eligibility screening for Gate 2, not the causal pilot.
-- **Session:** Codex execution session 79148.
+- **Gate status:** replay eligibility is complete. The four-arm causal pilot
+  has not launched and Gate 2 has not passed.
 - **Launch note:** detached PID 210022 exited immediately before screening
-  began because the execution wrapper reaped the background job. Relaunched
-  in the persistent session above.
-- **Log/output:** live process output; final record at
-  `results/coherence/rq2_replay_screen.json`.
+  began because the execution wrapper reaped the background job. It left the
+  disposable container `agentctx-coherence-bed41a5267`; that container was
+  stopped and removed at 13:05 CDT. Relaunched in the persistent session
+  above.
+- **Outputs:** final batch at
+  `results/coherence/rq2_replay_screen_41_50.json`. Prior batches are at
+  `results/coherence/rq2_replay_screen.json` and
+  `results/coherence/rq2_replay_screen_21_40.json`. The final pilot manifest
+  is `results/coherence/rq2_eligible_checkpoints.json`.
 
 ### Context Coherence Week-1 offline bootstrap — Dobby
 - **Status:** ✅ COMPLETE 2026-08-20.
@@ -32,10 +48,9 @@ need rebuilding for serving/tbench.
   All 200 structured histories are complete. The strict decision-time stale
   exposure estimate is 28.2%. This value remains provisional until the
   planned 50-observation manual audit.
-- **RQ2 replay:** selected 20 high-confidence read-edit-reread checkpoints
-  from 1,453 candidates. A clean-container smoke test passed with 4/4 exact
-  command outputs and return codes. The 20-checkpoint causal pilot has not
-  launched.
+- **RQ2 replay:** found 1,453 high-confidence read-edit-reread candidates.
+  The replay screen retained 20 eligible checkpoints from 42 screened cases.
+  The 20-checkpoint causal pilot has not launched.
 - **20k tail ingest:** added 960 unique rows across 16 depth-tail cells to
   `Review1/Review1.csv`. The rebuild changed no prior cell. `COVERAGE.csv`
   now has zero pending ingests and one missing cell.

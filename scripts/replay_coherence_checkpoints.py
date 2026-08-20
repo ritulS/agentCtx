@@ -207,6 +207,8 @@ def main() -> None:
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--max-checkpoints", type=int)
+    parser.add_argument("--skip-checkpoints", type=int, default=0)
+    parser.add_argument("--stop-after-eligible", type=int)
     parser.add_argument("--checkpoint-id", action="append", help="Replay only the named checkpoint")
     parser.add_argument("--container-command", default="docker")
     parser.add_argument("--docker-host", default=f"unix:///run/user/{os.getuid()}/podman/podman.sock")
@@ -226,6 +228,8 @@ def main() -> None:
         missing = requested - {item["checkpoint_id"] for item in checkpoints}
         if missing:
             parser.error(f"checkpoint IDs not found: {', '.join(sorted(missing))}")
+    if args.skip_checkpoints:
+        checkpoints = checkpoints[args.skip_checkpoints :]
     if args.max_checkpoints is not None:
         checkpoints = checkpoints[: args.max_checkpoints]
 
@@ -238,6 +242,12 @@ def main() -> None:
             f"  eligible={result.get('eligible')} "
             f"exact={result.get('exact_events', 0)}/{result.get('events_expected', 0)}"
         )
+        if (
+            args.stop_after_eligible is not None
+            and sum(bool(item.get("eligible")) for item in results) >= args.stop_after_eligible
+        ):
+            print(f"  reached {args.stop_after_eligible} eligible checkpoints; stopping")
+            break
 
     output = Path(args.output)
     if not output.is_absolute():
