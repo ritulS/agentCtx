@@ -105,10 +105,10 @@ def append_rows(rows: list[dict]) -> None:
 # conditions at 10k/20k/∞. They were created during the n=30→100 expansion to
 # back-fill cells that timing-{10,20}k / Fullrun-15k didn't cover.
 _AUX_FILL_SOURCES = [
-    ROOT / "results/qwen35-a3b_10k/experiment_results.json",
-    ROOT / "results/qwen35-a3b_20k/experiment_results.json",
-    ROOT / "results/qwen35-a3b_trc20k/experiment_results.json",
-    ROOT / "results/qwen35-a3b_trc20k-fill/experiment_results.json",
+    ROOT / "data/swebench/source_runs/qwen35-a3b_10k/experiment_results.json",
+    ROOT / "data/swebench/source_runs/qwen35-a3b_20k/experiment_results.json",
+    ROOT / "data/swebench/legacy/qwen35-a3b_trc20k/experiment_results.json",
+    ROOT / "data/swebench/legacy/qwen35-a3b_trc20k-fill/experiment_results.json",
 ]
 
 
@@ -166,7 +166,7 @@ def _collect_cell(cond: str, budget: int | None, primitive_label: str,
 
 _TIMING_SOURCES = {
     10000: ROOT / "results/ablations/timing-10k/experiment_results.json",
-    15000: ROOT / "results/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json",
+    15000: ROOT / "data/swebench/source_runs/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json",
     20000: ROOT / "results/ablations/timing-20k/experiment_results.json",
 }
 
@@ -312,7 +312,7 @@ def fill_ss() -> None:
     rows = []
     ss_sources_30 = {
         10000: _PARTIAL_SOURCES[10000],
-        15000: ROOT / "results/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json",
+        15000: ROOT / "data/swebench/source_runs/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json",
         20000: _PARTIAL_SOURCES[20000],
     }
     for budget in (10000, 15000, 20000):
@@ -346,7 +346,7 @@ def fill_fc() -> None:
     """FC @∞: p100-inf (canonical for P100_NEW) + Fullrun-15k (30 ABL)."""
     print("[FC]")
     primary = [_P100_INF_SOURCE,
-               ROOT / "results/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json"]
+               ROOT / "data/swebench/source_runs/qwen3.5-35B-A3B_15k_Fullrun/experiment_results.json"]
     cell = _collect_cell("full-context", None, "FC", "FC", primary)
     append_rows(cell)
     print(f"  {len(cell)} runs (deduped)")
@@ -356,7 +356,7 @@ def fill_otrc() -> None:
     """OTRC @∞: p100-inf (canonical for P100_NEW) + qwen35-a3b_online-trc (30 ABL)."""
     print("[OTRC]")
     primary = [_P100_INF_SOURCE,
-               ROOT / "results/qwen35-a3b_online-trc/experiment_results.json"]
+               ROOT / "data/swebench/source_runs/qwen35-a3b_online-trc/experiment_results.json"]
     cell = _collect_cell("online-trc", None, "OTRC", "OTRC", primary)
     append_rows(cell)
     print(f"  {len(cell)} runs (deduped)")
@@ -399,12 +399,13 @@ def fill_staggered_random() -> None:
     _fill_staggered("staggered-random", "STAG-rand", "STAG-rand")
 
 
-# Depth-grid (paper-critical 15k slice + bonus singles-10000 at depth=0.3).
+# Depth-grid. The 20k tail cells cover ABL-30 only.
 # Each dir is a single (depth, budget, group) cell. Sources read with
 # depth_filter and consult_aux=False to keep depth strata cleanly separated.
 _P100_DEPTH30_SINGLES_SOURCES = {
     10000: ROOT / "results/ablations/p100-depth30-singles-10000/experiment_results.json",  # bonus
     15000: ROOT / "results/ablations/p100-depth30-singles-15000/experiment_results.json",
+    20000: ROOT / "results/ablations/p100-depth30-singles-20000/experiment_results.json",
 }
 _P100_DEPTH30_OTRC_SOURCES = {
     15000: ROOT / "results/ablations/p100-depth30-otrc-15000/experiment_results.json",
@@ -412,9 +413,16 @@ _P100_DEPTH30_OTRC_SOURCES = {
 _P100_DEPTH70_SINGLES_SOURCES = {
     10000: ROOT / "results/ablations/p100-depth70-singles-10000/experiment_results.json",
     15000: ROOT / "results/ablations/p100-depth70-singles-15000/experiment_results.json",
+    20000: ROOT / "results/ablations/p100-depth70-singles-20000/experiment_results.json",
 }
 _P100_DEPTH70_OTRC_SOURCES = {
     15000: ROOT / "results/ablations/p100-depth70-otrc-15000/experiment_results.json",
+}
+_P100_DEPTH30_TRC_SOURCES = {
+    20000: ROOT / "results/ablations/p100-depth30-trc-20000/experiment_results.json",
+}
+_P100_DEPTH70_TRC_SOURCES = {
+    20000: ROOT / "results/ablations/p100-depth70-trc-20000/experiment_results.json",
 }
 
 _SINGLES_CONDS = [
@@ -429,6 +437,12 @@ _OTRC_CONDS = [
     ("otrc-tr",          "OTRC+TR"),
     ("otrc-su-partial",  "OTRC+SU-partial"),
     ("otrc-ss-partial",  "OTRC+SS-partial"),
+]
+
+_TRC_CONDS = [
+    ("tool-result-clear", "TRC"),
+    ("trc-su",            "TRC+SU"),
+    ("trc-ss",            "TRC+SS"),
 ]
 
 
@@ -476,6 +490,16 @@ def fill_depth70_otrc() -> None:
     _fill_depth_cells(0.7, _P100_DEPTH70_OTRC_SOURCES, _OTRC_CONDS, "otrc")
 
 
+def fill_depth30_trc() -> None:
+    print("[depth=0.3 trc]")
+    _fill_depth_cells(0.3, _P100_DEPTH30_TRC_SOURCES, _TRC_CONDS, "trc")
+
+
+def fill_depth70_trc() -> None:
+    print("[depth=0.7 trc]")
+    _fill_depth_cells(0.7, _P100_DEPTH70_TRC_SOURCES, _TRC_CONDS, "trc")
+
+
 _ALL_FILLS = [
     fill_fc, fill_otrc,
     fill_tr, fill_su_full, fill_ss,
@@ -485,6 +509,7 @@ _ALL_FILLS = [
     fill_staggered_alternate, fill_staggered_random,
     fill_depth30_singles, fill_depth30_otrc,
     fill_depth70_singles, fill_depth70_otrc,
+    fill_depth30_trc, fill_depth70_trc,
 ]
 
 

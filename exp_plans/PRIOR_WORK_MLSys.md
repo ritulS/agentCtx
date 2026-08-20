@@ -343,8 +343,9 @@ recover on demand" — none measures the bet causally.
   drop of -39% on average, for every model tested.
 - **Reusable metric**: aptitude A90 vs unreliability U (90th - 10th percentile
   over N=10 sims per point). Multi-turn drop decomposes into aptitude -16%,
-  unreliability +112%. The compression literature (ours included) has no
-  reliability axis — open measurement we can claim (needs N=10 subset).
+  unreliability +112%. This metric is not directly portable to SWE-bench:
+  binary outcomes make the two percentiles coarse at N=10. Use repeated-run
+  solve probabilities and stable/unstable task rates instead.
 - **CONCAT control** kills the rephrasing/information-loss confound (95.1% of
   FULL). Template for promoting our duplicated-current arm to a named control.
 - **Root cause #4** (their Appendix F, qualitative): models over-rely on their
@@ -391,6 +392,15 @@ nobody measures it.
 
 ## Scan log
 
+- **2026-08-20 (reliability follow-up sweep)** — the reliability axis is not
+  open as a novelty claim. TRACE (2608.06503) evaluates context compression
+  with Pass-squared and Pass-at-two and explicitly reports multi-run
+  reliability. SeDT (2605.26788) and MAIGO (2605.27186) reuse Lost in
+  Conversation's reliability framing outside tool-agent compression. MAIGO
+  also names self-contamination from earlier assistant replies. The planned
+  N=10 ABL-30 subset remains useful as reviewer defense, but it must use
+  binary-appropriate metrics and be positioned as stronger statistical
+  support rather than a new evaluation axis.
 - **2026-08-20** — read Laban et al., *LLMs Get Lost in Multi-Turn
   Conversation* (ICLR 2026) in full; added above as Tier 4 citation anchor.
   Submission lessons adopted: name the phenomenon in one sentence; promote the

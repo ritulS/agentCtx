@@ -85,7 +85,7 @@ def main():
 
     # ---- 1. scan disk -------------------------------------------------------
     # cell key: (model, primitive, budget, depth) -> {tasks, runs, dirs}
-    disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set()})
+    disk = defaultdict(lambda: {"tasks": set(), "runs": set(), "dirs": set()})
     for exp in sorted(ABLATIONS.iterdir()):
         meta = exp / "experiment_results.json"
         if not exp.is_dir() or not meta.exists():
@@ -103,7 +103,9 @@ def main():
             depth = r.get("compression_ratio", 0.5) or 0.5
             cell = disk[(model, prim, budget, round(float(depth), 1))]
             cell["tasks"].add(r.get("instance_id"))
-            cell["runs"] += 1
+            # Several legacy directory names can point to the same logical
+            # run. Count the task/run identity once, as Review1.csv does.
+            cell["runs"].add((r.get("instance_id"), r.get("run_num")))
             cell["dirs"].add(exp.name)
 
     # ---- 2. scan CSVs --------------------------------------------------------
@@ -184,7 +186,7 @@ def main():
             "required_cohort": req or "",
             "status": status,
             "tasks_on_disk": len(d["tasks"]) if d else 0,
-            "runs_on_disk": d["runs"] if d else 0,
+            "runs_on_disk": len(d["runs"]) if d else 0,
             "cohort_covered": cohort,
             "rows_in_csv": n_csv,
             "source_dirs": ";".join(sorted(d["dirs"])) if d else "",

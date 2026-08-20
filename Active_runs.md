@@ -14,6 +14,22 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Context Coherence Week-1 offline bootstrap — Dobby
+- **Status:** ✅ COMPLETE 2026-08-20.
+- **Lineage v0:** parsed the exact 200-run Qwen full-context P100 cohort.
+  All 200 structured histories are complete. The strict decision-time stale
+  exposure estimate is 28.2%. This value remains provisional until the
+  planned 50-observation manual audit.
+- **RQ2 replay:** selected 20 high-confidence read-edit-reread checkpoints
+  from 1,453 candidates. A clean-container smoke test passed with 4/4 exact
+  command outputs and return codes. The 20-checkpoint causal pilot has not
+  launched.
+- **20k tail ingest:** added 960 unique rows across 16 depth-tail cells to
+  `Review1/Review1.csv`. The rebuild changed no prior cell. `COVERAGE.csv`
+  now has zero pending ingests and one missing cell.
+- **Outputs:** `results/coherence/fc_inf_lineage.{csv,json}` and
+  `results/coherence/rq2_checkpoints.json`.
+
 ### Kill test — damage map, 7B GPU run — Dobby
 - **Status:** ✅ COMPLETE 2026-08-07 ~14:20 CDT (fast — ~25 min on one
   A100). **Confirms 0.5B verdict at scale:** damage diffuse (medK deep
