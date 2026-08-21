@@ -42,7 +42,7 @@ Experiments env: **Dobby (GPU: 4× A100 80GB)**
 | TR, SU-full, SU-partial, SS, SS-partial | 0.5  |10K / 15K / 20K | P100 (100 tasks) | 4500 |
 | TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K |  ABL-30 (30 tasks)|  2700 |
 | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K / 20K | P100 (100 tasks) | 5400 |
-| FC, OTRC | depth invariant | ∞ | P100 (100 tasks) | 1800 |
+| FC, OTRC | depth invariant | ∞ | P100 (100 tasks) | 600 |
 
 ## 3. Add [ACON](https://arxiv.org/abs/2510.00615)
 - ETA: TBD
