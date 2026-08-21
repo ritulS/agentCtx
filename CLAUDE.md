@@ -107,13 +107,13 @@ their own reduced-cohort scopes documented in `exp_plans/ALBUS_PLAN.md`.
 ## Critical rules
 
 - **Never commit** `results/`, `logs/`, `archive/`, `temp/`, `Review1/raw/`,
-  `PaperSections/`, `figures/`, `Review1/figures/` — all gitignored.
+  `paper_layout_EMNLP/`, `paper_sections_ICLR/`, `figures/`, `Review1/figures/` — all gitignored.
 - **Always update** `Active_runs.md` when launching or killing a long-running
   experiment.
 - **Submodule updates**: `cd mini-swe-agent`, commit + push there first
   (branch `agentctx-customizations`), then `git add mini-swe-agent` in parent
   to record the new pointer.
-- **Don't write to `PaperSections/`** files without showing the user the draft
+- **Don't write to `paper_sections_ICLR/` (or `paper_layout_EMNLP/`)** files without showing the user the draft
   content in chat first.
 - **Don't propose routing/cascade as a paper direction** — user has called
   these dead ends.

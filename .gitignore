@@ -52,7 +52,8 @@ Review1/raw
 Review1/Review1_*.csv
 
 # ── Paper artifacts kept local (regeneratable; would churn the repo) ──────────
-PaperSections/
+paper_layout_EMNLP/
+paper_sections_ICLR/
 figures/
 Review1/figures/
 Review1/figures_n100/
