@@ -12,8 +12,8 @@ Experiments env: Dobby (GPU: 4* A100 80GB)
 - Metrics: accuracy, token cost, latency, compression behavior
 
 
-| Primitives | Depths | Budget |
-|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.5/0.7  |10K / 15K / 20K | 
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial, FC, OTRC | depth invariant |10K / 15K / 20K | 
-| FC, OTRC | depth invariant | ∞ | 
+| Primitives | Depths | Budget | Runs |
+|---|---|---|---|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.5/0.7  |10K / 15K / 20K | 20025 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial, FC, OTRC | depth invariant |10K / 15K / 20K | 8010 |
+| FC, OTRC | depth invariant | ∞ | 890 |
