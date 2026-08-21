@@ -1,5 +1,116 @@
 # Active Experiment Runs
 
+## ⏸ PAUSED 2026-08-21 — Terminal-Bench 2.0 / Harbor smoke test — Dobby
+
+Reviving the terminal-bench generalization line (exp_plans/TERMINAL-BENCH.md).
+Goal: 1 task/1 condition smoke test on **Terminal-Bench 2.0**, over rootless
+podman (rs67788's binaries — we can't use root docker on this account).
+**Paused, not blocked on us** — a labmate is intentionally running
+MIG-partitioned work on Dobby's 4 A100s through **~2026-08-23 (Sun)**; all
+our processes/services were stopped and GPU/containers confirmed idle before
+stepping away (see "Resume checklist" below). Nothing here needs admin
+escalation.
+
+### Key findings (still true, don't re-derive)
+
+- **"Terminal-Bench 2.0" needs Harbor, not the old `tb` CLI.** The old
+  `terminal-bench` pip package tops out at 0.2.18 with no 2.0 dataset in its
+  registry. Upstream renamed the project to **Harbor**
+  (`pip install harbor`; old repo now `harbor-framework/terminal-bench-1`).
+  TB 2.0 (`harbor-framework/terminal-bench-2`, **89 tasks** — matches the
+  plan) only runs via `harbor run --dataset terminal-bench@2.0`. The old
+  `tbench/agent_adapter.py` (built against
+  `terminal_bench.agents.base_agent.BaseAgent`) does not load under Harbor.
+  Harbor's built-in `mini-swe-agent` agent installs vanilla PyPI
+  mini-swe-agent *inside* the container — not our fork, not usable for the
+  compression primitives.
+- **New adapter written:** `tbench/harbor_adapter.py` — custom
+  `harbor.agents.base.BaseAgent` subclass (`CompressionAgent`) bridging
+  Harbor's async `environment.exec()` to DefaultAgent's sync `execute()` via
+  `asyncio.to_thread` + `run_coroutine_threadsafe`. **Committed to git**
+  (this file is real code, not scratch).
+- **Rootless podman over Harbor needed 3 fixes**, all applied to
+  `~/.config/containers/containers.conf` (ak58925's own file — references
+  rs67788's binaries read-only, never edit anything under
+  `/home/rs67788/`):
+  1. `conmon_path = ["/home/rs67788/.local/lib/podman/conmon"]` —
+     `helper_binaries_dir` alone doesn't cover conmon.
+  2. `helper_binaries_dir` extended to include
+     `"/home/rs67788/.local/bin"` — that's where `pasta` lives (rootless
+     network backend is `netavark`+`pasta`, not slirp4netns); without it,
+     container start fails with `could not find pasta`.
+  3. `harbor run ... --cpus ignore` — this account has no `cpu`/`cpuset`
+     cgroup delegation (`cat /sys/fs/cgroup/.../cgroup.controllers` only
+     shows `memory pids`), so runc's `cpu.max` write fails unless CPU
+     resource enforcement is skipped. (Same non-issue for `--memory`,
+     which *is* delegated.)
+  4. `podman system service` must run as a **transient systemd --user
+     unit** (`podman-api.service`) pointed at
+     `unix:///run/user/$UID/podman/podman.sock`, then `DOCKER_HOST` set to
+     that socket for both `docker` (SWE-bench harness) and Harbor's `--env
+     docker` backend (Harbor shells out to `docker`/`docker compose` CLI,
+     honors `DOCKER_HOST` like everything else). **Does not survive
+     logout** (`loginctl` linger is off for ak58925) — must be restarted
+     every session; see checklist below.
+- **Open problem, not yet fixed — likely affects an unknown subset of the
+  89 tasks:** confirmed one full oracle-agent run (`gpt2-codegolf`, no
+  compression agent involved) completed with **zero infra exceptions**
+  end-to-end (podman pull → build → exec → verify) but scored **reward 0**
+  because the task's own setup script does `tar xf <uv-release>.tar.gz`
+  expecting to restore original uid/gid ownership, which fails under
+  rootless podman's single-UID user namespace (`cat /etc/subuid` shows only
+  `lab-admin`/`ece-it-admin`/`splunkfwd` have ranges — **not even
+  rs67788**, so this isn't fixable by requesting a range for ak58925; it's
+  a structural constraint of the shared machine). This is the same class of
+  problem `scripts/tb_prebuild_images.sh` solved for TB-1.0 by baking a
+  chown/chgrp-tolerant shim into every task's Dockerfile at build time —
+  but TB-2.0 tasks mostly pull **prebuilt remote images**
+  (e.g. `alexgshaw/gpt2-codegolf:20251031`) rather than building from a
+  local Dockerfile, so the fix would need to be a derived-image layer
+  (pull → build a thin wrapper image on top that neutralizes ownership
+  failures, e.g. a `tar`/`chown`/`chgrp` shim) rather than a Dockerfile
+  injection. **Scope unknown** — haven't measured how many of the 89 tasks
+  actually hit this (oracle agent doesn't need GPU, so this can be measured
+  any time without waiting for Sunday — run `harbor run --agent oracle
+  --dataset terminal-bench@2.0 --cpus ignore` unfiltered, ~89 trials, no
+  GPU needed, does pull ~1-few GB of task images).
+
+### Resume checklist (Sunday, once the labmate's GPU work is done)
+
+```bash
+# 1. Confirm GPUs are actually free
+nvidia-smi --query-gpu=index,memory.used,mig.mode.current --format=csv
+
+# 2. Restart the podman API socket (does not survive logout)
+mkdir -p /run/user/$(id -u)/podman
+systemd-run --user --unit=podman-api --collect \
+  /home/rs67788/.local/bin/podman system service --time=0 \
+  "unix:///run/user/$(id -u)/podman/podman.sock"
+DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock" docker info   # sanity check
+
+# 3. Restart vLLM (Qwen3.5-35B-A3B, TP=4, port 8000) — see logs/vllm_qwen35_a3b.log
+#    for the exact command used 2026-08-21 11:04 CDT.
+cd ~/agentCtx && CUDA_VISIBLE_DEVICES=0,1,2,3 nohup venv/bin/python3 \
+  -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3.5-35B-A3B \
+  --port 8000 --tensor-parallel-size 4 --max-model-len 102400 \
+  --max-num-seqs 64 > logs/vllm_qwen35_a3b.log 2>&1 &
+echo $! > logs/vllm_qwen35_a3b.pid
+
+# 4. Smoke test: 1 task, full-context condition, our CompressionAgent
+DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock" \
+  venv-harbor/bin/harbor run --agent tbench.harbor_adapter:CompressionAgent \
+  --dataset terminal-bench@2.0 -l 1 --env docker --cpus ignore -y \
+  --job-name tb2-compression-smoke
+```
+
+venv-tb, venv-harbor, and the podman image/container cache
+(`~/.local/share/containers`, ~1.6GB total) were deliberately left on disk
+(3.5TB free, no rebuild needed Sunday). All processes/services we started
+today (podman-api.service, the podman pause scope, the failed vLLM attempt)
+were stopped and confirmed released before pausing — 0 GPU memory in use, 0
+running containers, 0 lingering systemd --user units as of 2026-08-21
+~12:10 CDT.
+
 ## ✅ RESOLVED 2026-08-07 — Dobby GPU/MIG incident (2026-07-30 → 08-07)
 
 The 2026-07-30 09:55 reboot left MIG Enabled on all 4 A100s with zero

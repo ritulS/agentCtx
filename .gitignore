@@ -8,6 +8,7 @@ __pycache__/
 # ── Virtual environments ──────────────────────────────────────────────────────
 venv/
 venv-tb/
+venv-harbor/
 .venv/
 env/
 
@@ -19,6 +20,8 @@ results/*
 !results/.gitkeep
 logs/*
 !logs/.gitkeep
+jobs/*
+!jobs/.gitkeep
 graphs/*
 !graphs/.gitkeep
 
