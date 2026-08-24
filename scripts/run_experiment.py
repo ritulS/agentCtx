@@ -549,7 +549,7 @@ results/{MODEL_TAG}/
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS
+    global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS, RUNS_PER_TASK
 
     parser = argparse.ArgumentParser(description="Experiment runner")
     parser.add_argument("--model-tag",    default="qwen35-a3b",
@@ -576,6 +576,10 @@ def main() -> None:
                         help="Run only these conditions (e.g. --conditions online-trc full-context)")
     parser.add_argument("--max-workers",  type=int, default=None,
                         help=f"Concurrent agent runs (default: {MAX_WORKERS}). On Albus DP=8 server, 32 saturates.")
+    parser.add_argument("--runs-per-task", type=int, default=None,
+                        help=f"Override runs per (task, condition) (default: {RUNS_PER_TASK}). "
+                             "Existing runs already recorded in experiment_results.json are skipped, "
+                             "so raising this resumes by adding only the missing run numbers.")
     grp = parser.add_mutually_exclusive_group()
     grp.add_argument("--eval-only",  action="store_true")
     grp.add_argument("--with-eval",  action="store_true")
@@ -602,6 +606,8 @@ def main() -> None:
         N_TASKS_OVERRIDE = args.n_tasks
     if args.max_workers is not None:
         MAX_WORKERS = args.max_workers
+    if args.runs_per_task is not None:
+        RUNS_PER_TASK = args.runs_per_task
     if args.budget is not None:
         for c in CONDITIONS:
             if c["budget"] != 999_999_999:
