@@ -4,13 +4,13 @@ Last update: August 21 by Akiho
 
 Experiments env: **Dobby (GPU: 4× A100 80GB)**
 
-## 1. [Priority] Runs/task: 2->3
+## 1. [Priority①] Runs/task: 2->3
 - ETA
 
-  | Option | Depth 0.5 | Depth 0.3 / 0.7 | ETA |
-  |---|---|---|---|
-  | Ablation depths runs | P100 (100 tasks) | **ABL-30 (30 tasks)** | **3–5 days** |
-  | Full depth runs | P100 (100 tasks) | **P100 (100 tasks)** | **7-11 days** |
+  | Status | Option | Depth 0.5 | Depth 0.3 / 0.7 | ETA |
+  |---|---|---|---|---|
+  | **Selected** | **Ablation-depth runs** | P100 (100 tasks) | **ABL-30 (30 tasks)** | **3–5 days** |
+  | Not selected | Full-depth runs | P100 (100 tasks) | P100 (100 tasks) | 7–11 days |
 
 - Model (agent & summarizer): Qwen3.5-35B-A3B-Instruct
 - Runs/task : **3 (Additional 1 run/task** mostly)
@@ -20,20 +20,20 @@ Experiments env: **Dobby (GPU: 4× A100 80GB)**
 | Primitives | Depths | Budget |Task |Runs |Notes|
 |---|---|---|---|---|---|
 | TR, SU-full, SU-partial, SS, SS-partial | 0.5  |10K / 15K / 20K | P100 (100 tasks) | 1500 ||
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K |  ABL-30 (30 tasks) | 900|Ablation depths runs|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K |  **P100 (100 tasks)** | 5800 |Full depth runs|
+| TR, SU-full, SU-partial, SS, SS-partial | **0.3 / 0.7** | 10K / 15K / 20K | **ABL-30 (30 tasks)** | **900** | **Selected: ablation-depth runs** |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K | P100 (100 tasks) | 5800 | Not selected: full-depth alternative |
 | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K / 20K | P100 (100 tasks) | 1800 ||
 | FC, OTRC | depth invariant | ∞ | P100 (100 tasks) | 200 ||
 
-## 2. [Priority] Add 2 models
+## 2. [Priority②] Add 2 models
 - ETA: TBD
   - Devstral-Small-2-24B: **10 days** 
     - Skip existing [Budget: 15K, Depth: 0.5, Task: ABL-30]
 
-      | Option | Depth 0.5 | Depth 0.3 / 0.7 | ETA |
-      |---|---|---|---|
-      | **Ablation depths runs** | P100 (100 tasks) | **ABL-30 (30 tasks)** | **10 days**  |
-      | **Full depth runs** | P100 (100 tasks) | **P100 (100 tasks)** | **15 days** |
+      | Status | Option | Depth 0.5 | Depth 0.3 / 0.7 | ETA |
+      |---|---|---|---|---|
+      | **Selected** | **Ablation-depth runs** | P100 (100 tasks) | **ABL-30 (30 tasks)** | **10 days** |
+      | Not selected | Full-depth runs | P100 (100 tasks) | P100 (100 tasks) | 15 days |
 
 
   - GLM-4.7-Flash: TBD
@@ -46,8 +46,8 @@ Experiments env: **Dobby (GPU: 4× A100 80GB)**
 | Primitives | Depths | Budget |Task | Runs |Notes|
 |---|---|---|---|---|---|
 | TR, SU-full, SU-partial, SS, SS-partial | 0.5  |10K / 15K / 20K | P100 (100 tasks) | 4200 ||
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K |  ABL-30 (30 tasks)|  2100 |Ablation depths runs|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K |  **P100 (100 tasks)**|  8400 |Full depths runs|
+| TR, SU-full, SU-partial, SS, SS-partial | **0.3 / 0.7** | 10K / 15K / 20K | **ABL-30 (30 tasks)** | **2100** | **Selected: ablation-depth runs** |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K | P100 (100 tasks) | 8400 | Not selected: full-depth alternative |
 | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K / 20K | P100 (100 tasks) | 5040||
 | FC, OTRC | depth invariant | ∞ | P100 (100 tasks) | 480 ||
 
@@ -55,8 +55,8 @@ Experiments env: **Dobby (GPU: 4× A100 80GB)**
 | Primitives | Depths | Budget |Task | Runs |Notes|
 |---|---|---|---|---|---|
 | TR, SU-full, SU-partial, SS, SS-partial | 0.5  |10K / 15K / 20K | P100 (100 tasks) | 4500 ||
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K |  ABL-30 (30 tasks)|  2700 |Ablation depths runs|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K |  **P100 (100 tasks)**|  9000 |Full depths runs|
+| TR, SU-full, SU-partial, SS, SS-partial | **0.3 / 0.7** | 10K / 15K / 20K | **ABL-30 (30 tasks)** | **2700** | **Selected: ablation-depth runs** |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K | P100 (100 tasks) | 9000 | Not selected: full-depth alternative |
 | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K / 20K | P100 (100 tasks) | 5400 ||
 | FC, OTRC | depth invariant | ∞ | P100 (100 tasks) | 600 |
 
