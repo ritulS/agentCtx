@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """Render DASHBOARD.html — the human-friendly coverage dashboard.
 
-Reads COVERAGE.csv (regenerate that first with scripts/build_coverage.py)
-plus data/tbench/experiment_results.json, and writes a self-contained HTML
-page at the repo root. Re-run after every completed run:
+Reads COVERAGE.csv (regenerate that first with scripts/build_coverage.py) and
+writes a self-contained HTML page at the repo root. Re-run after every completed run:
 
     python scripts/build_coverage.py && python scripts/build_dashboard.py
 """
 
 import csv
-import json
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -30,10 +28,21 @@ BUDGET_ORDER = {"4k": 4, "8k": 8, "10k": 10, "12k": 12, "15k": 15, "20k": 20, "2
 
 
 def load_cells():
-    cells = {}
+    swe_cells = {}
+    tb_cells = {}
+    invariant = {
+        "FC", "OTRC", "TRC", "TRC+SU", "TRC+SS",
+        "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial",
+    }
     for r in csv.DictReader(open(ROOT / "COVERAGE.csv")):
-        cells[(r["model"], r["primitive"], r["budget"], r["depth"])] = r
-    return cells
+        benchmark = (r.get("benchmark") or "swebench").strip().lower()
+        budget = r["budget"].lower()
+        if benchmark in {"terminal-bench", "terminal_bench", "tbench", "tb"}:
+            depth = "DI" if r["primitive"] in invariant else r["depth"]
+            tb_cells[(r["model"], r["primitive"], budget, depth)] = r
+        else:
+            swe_cells[(r["model"], r["primitive"], budget, r["depth"])] = r
+    return swe_cells, tb_cells
 
 
 def chip(cell, depth):
@@ -88,9 +97,176 @@ def budgets_for(cells, model):
     return sorted(bs, key=lambda b: BUDGET_ORDER.get(b, 500))
 
 
+def plan_chip(label, cohort, title):
+    """A chip in a planned-experiment matrix (separate from coverage state)."""
+    return f'<span class="plan-chip {cohort}" title="{title}">{label}</span>'
+
+
+def planned_matrix(budgets, rows):
+    """Render a roadmap matrix with the same visual grammar as the coverage grid."""
+    head = "".join(f"<th>{budget}</th>" for budget in budgets)
+    body = []
+    for label, cells in rows:
+        if cells is None:
+            body.append(f'<tr class="fam"><td colspan="{len(budgets) + 1}">{label}</td></tr>')
+            continue
+        rendered = []
+        for cell in cells:
+            rendered.append(f'<td>{cell or "<span class=chipdash>–</span>"}</td>')
+        body.append(f'<tr><td class="prim">{label}</td>{"".join(rendered)}</tr>')
+    return (
+        '<div class="tablewrap plan-table"><table><thead><tr><th>primitive</th>'
+        f'{head}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
+    )
+
+
+def _int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def coverage_progress(
+    cells, model, primitives, budget, depth, tasks, runs_per_task, baseline_runs=0
+):
+    """Aggregate SWE progress without exposing one row per primitive."""
+    target_each = tasks * (runs_per_task - baseline_runs)
+    total_required_each = tasks * runs_per_task
+    actual_total = 0
+    complete = True
+    for primitive in primitives:
+        cell = cells.get((model, primitive, budget.lower(), depth))
+        if not cell:
+            complete = False
+            continue
+        disk_tasks = _int(cell.get("tasks_on_disk"))
+        disk_runs = _int(cell.get("runs_on_disk"))
+        csv_runs = _int(cell.get("rows_in_csv"))
+        min_runs = _int(cell.get("runs_per_task_min"))
+        if disk_tasks:
+            # Scale a larger cohort down to the requested cohort (e.g. P100 data
+            # satisfying an ABL-30 row) instead of counting all P100 runs.
+            disk_progress = round(disk_runs * min(tasks, disk_tasks) / disk_tasks)
+        else:
+            disk_progress = 0
+        csv_progress = csv_runs if disk_tasks == 0 else 0
+        total_progress = max(disk_progress, csv_progress)
+        incremental_progress = max(0, total_progress - tasks * baseline_runs)
+        actual_total += min(target_each, incremental_progress)
+        disk_done = disk_tasks >= tasks and (
+            min_runs >= runs_per_task
+            or (min_runs == 0 and disk_runs >= disk_tasks * runs_per_task)
+        )
+        csv_done = disk_tasks == 0 and csv_runs >= total_required_each
+        complete = complete and (disk_done or csv_done)
+    return complete, actual_total, target_each * len(primitives)
+
+
+def status_badge(complete, actual, target):
+    """Keep status data structured until its budget-labelled chip is rendered."""
+    return complete, actual, target
+
+
+def tracking_table(rows):
+    """Rows: model, scope, depth, budget, dataset, target, status HTML."""
+    grouped = {}
+    group_order = []
+    for row in rows:
+        key = (row[0], row[1], row[2], row[4], row[5])
+        if key not in grouped:
+            grouped[key] = []
+            group_order.append(key)
+        grouped[key].append((row[3], row[6]))
+
+    compact_rows = []
+    for model, scope, depth, dataset, target in group_order:
+        budget_statuses = grouped[(model, scope, depth, dataset, target)]
+        chips = []
+        for budget, (complete, actual, target_runs) in budget_statuses:
+            cls = "done" if complete else "pending"
+            label = budget if complete else f"{budget}, {actual:,}/{target_runs:,} runs"
+            chips.append(
+                f'<span class="track-status {cls}">{label}</span>'
+            )
+        budget_progress = f'<div class="status-chips">{"".join(chips)}</div>'
+        compact_rows.append([dataset, model, scope, depth, budget_progress])
+
+    rendered_rows = []
+    previous = None
+    for row in compact_rows:
+        display = list(row)
+        if previous is not None and row[0] == previous[0]:
+            display[0] = ""
+            if row[1] == previous[1]:
+                display[1] = ""
+                if row[2] == previous[2]:
+                    display[2] = ""
+                    if row[3] == previous[3]:
+                        display[3] = ""
+        tds = "".join(
+            '<td class="repeat"></td>' if cell == "" else f'<td>{cell}</td>'
+            for cell in display
+        )
+        rendered_rows.append(f"<tr>{tds}</tr>")
+        previous = row
+    body = "".join(rendered_rows)
+    return (
+        '<div class="tablewrap tracking"><table><thead><tr>'
+        '<th>dataset</th><th>model</th><th>primitive scope</th>'
+        '<th>depth</th><th>budget</th></tr></thead>'
+        f'<tbody>{body}</tbody></table></div>'
+    )
+
+
+def progress_bar(rows):
+    """Horizontal aggregate progress bar for one plan section."""
+    actual = sum(row[6][1] for row in rows)
+    target = sum(row[6][2] for row in rows)
+    percent = min(100, (actual / target * 100) if target else 0)
+    return (
+        '<div class="section-progress">'
+        '<div class="progress-meta"><span>Progress</span>'
+        f'<strong>{actual:,} / {target:,} runs</strong></div>'
+        '<div class="progress-track" role="progressbar" '
+        f'aria-valuenow="{actual}" aria-valuemin="0" aria-valuemax="{target}">'
+        f'<span style="width:{percent:.1f}%"></span></div></div>'
+    )
+
+
+def summarizer_tracking_table(rows):
+    """Priority 4 table: agent and summarizer get separate columns; no depth column."""
+    body = []
+    previous = None
+    for exp_id, dataset, agent, summarizer, primitives, budget, status in rows:
+        complete, actual, target = status
+        cls = "done" if complete else "pending"
+        label = budget if complete else f"{budget}, {actual:,}/{target:,} runs"
+        display = [exp_id, dataset, agent, summarizer, primitives,
+                   f'<span class="track-status {cls}">{label}</span>']
+        if previous is not None:
+            # Only suppress adjacent repetitions within this compact four-row table.
+            for i in range(1, 5):
+                if display[i] == previous[i]:
+                    display[i] = ""
+        body.append('<tr>' + ''.join(
+            '<td class="repeat"></td>' if cell == "" else f'<td>{cell}</td>'
+            for cell in display
+        ) + '</tr>')
+        previous = [exp_id, dataset, agent, summarizer, primitives,
+                    f'<span class="track-status {cls}">{label}</span>']
+    return (
+        '<div class="tablewrap tracking summarizer-tracking"><table><thead><tr>'
+        '<th>experiment</th><th>dataset</th><th>agent model</th>'
+        '<th>summarizer model</th><th>primitives</th><th>budget</th>'
+        f'</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
+    )
+
+
 def main():
-    cells = load_cells()
+    cells, tb_cells = load_cells()
     rows = list(cells.values())
+    tb_rows = list(tb_cells.values())
     today = date.today().isoformat()
 
     # ---- headline stats -----------------------------------------------------
@@ -99,25 +275,22 @@ def main():
     n_missing = sum(r["status"] == "MISSING" for r in rows)
     n_pending = sum("NOT in Review1.csv" in r["notes"] for r in rows)
 
-    tb_recs = json.load(open(ROOT / "data/tbench/experiment_results.json"))
-    if isinstance(tb_recs, dict):
-        tb_recs = tb_recs.get("results", [])
-    tb_tasks = len({r.get("instance_id") for r in tb_recs})
-    tb_conds = sorted({r.get("condition") for r in tb_recs})
+    tb_runs = sum(max(_int(r.get("runs_on_disk")), _int(r.get("rows_in_csv")))
+                  for r in tb_rows)
 
     covered = [r for r in rows if r["cohort_covered"]]
     n_p100 = sum(r["cohort_covered"].startswith("P100") for r in covered)
     n_abl = len(covered) - n_p100
 
     stats = [
-        ("2", "benchmarks"),
+        (str(1 + bool(tb_rows)), "benchmarks with valid results"),
         ("6", "models"),
         ("100", "SWE-bench tasks (P100)"),
         ("11 + 2", "primitives + baselines"),
         (f"{n_p100} / {n_abl}", "cells at full P100 / ABL-30 only"),
         (f"{disk_runs:,}", "trajectories on this disk"),
         (f"{albus_rows:,}", "runs in CSVs (raw on Albus)"),
-        (f"{tb_tasks} × {len(tb_conds)}", "Terminal-Bench tasks × conds"),
+        (f"{tb_runs:,}", "valid Terminal-Bench runs in COVERAGE.csv"),
     ]
     stat_html = "".join(
         f'<div class="stat"><div class="n">{n}</div><div class="l">{l}</div></div>'
@@ -167,26 +340,227 @@ def main():
         f'<div class="tablewrap"><table><thead><tr><th>cell</th>{qhead}</tr></thead>'
         f'<tbody>{"".join(qbody)}</tbody></table></div></div>')
 
-    # Terminal-Bench per-condition table (own benchmark section)
-    tb_by_cond = defaultdict(lambda: {"tasks": set(), "runs": 0})
-    for r in tb_recs:
-        tb_by_cond[r["condition"]]["tasks"].add(r.get("instance_id"))
-        tb_by_cond[r["condition"]]["runs"] += 1
-    tb_rows = "".join(
-        f'<tr><td class="prim">{c}</td>'
-        f'<td>{len(v["tasks"])}</td><td>{v["runs"]}</td></tr>'
-        for c, v in sorted(tb_by_cond.items()))
-    tb_section = (
-        f'<p class="note">Transfer check for the main model (Qwen3.5-35B-A3B), '
-        f'terminal-bench-core 0.1.1. {tb_tasks} stratified tasks, 15k budget, d=0.5, '
-        f'{len(tb_recs)} records. Raw data in <code>data/tbench/</code>; run log in '
-        f'<code>data/tbench/STATUS.md</code>.</p>'
-        f'<div class="tablewrap tb"><table><thead><tr><th>condition</th>'
-        f'<th>tasks</th><th>runs</th></tr></thead><tbody>{tb_rows}</tbody></table></div>')
-
     main_matrix = matrix(cells, MAIN, ["10k", "15k", "20k", "inf"], FAMILIES)
 
-    html = f"""<title>agentCtx Coverage</title>
+    # ---- follow-up experiment roadmap (Priority 1–4) -----------------------
+    tunable = ["TR", "SU-full", "SU-partial", "SS", "SS-partial"]
+    invariant = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial"]
+
+    def depth_set(main_name, abl_name, budget, include_main=True, include_abl=True):
+        parts = []
+        if include_abl:
+            parts.append(plan_chip("0.3", "ablation", f"{abl_name} · {budget} · depth 0.3 · planned"))
+        if include_main:
+            parts.append(plan_chip("0.5", "main", f"{main_name} · {budget} · depth 0.5 · planned"))
+        elif include_abl:
+            parts.append(plan_chip("0.5", "ablation", f"{abl_name} · {budget} · depth 0.5 · planned"))
+        if include_abl:
+            parts.append(plan_chip("0.7", "ablation", f"{abl_name} · {budget} · depth 0.7 · planned"))
+        return "".join(parts)
+
+    p1_rows = [("Depth-tunable", None)]
+    p1_rows += [(p, [depth_set("SB:P-100", "SB:ABL-30", b) for b in ("10K", "15K", "20K")] + [""])
+                for p in tunable]
+    p1_rows.append(("Depth-invariant", None))
+    p1_rows += [(p, [plan_chip("DI", "main", f"SB:P-100 · {b} · depth-invariant · planned")
+                     for b in ("10K", "15K", "20K")] + [""])
+                for p in invariant]
+    p1_rows.append(("∞-budget baselines", None))
+    p1_rows += [(p, ["", "", "", plan_chip("DI", "main", "SB:P-100 · unlimited budget · depth-invariant · planned")])
+                for p in ("FC", "OTRC")]
+    p1_matrix = planned_matrix(["10K", "15K", "20K", "∞"], p1_rows)
+
+    def model_plan_matrix(budgets, main_name, abl_name, calibration=False):
+        rows_ = [("Depth-tunable", None)]
+        for p in tunable:
+            grid = []
+            for i, b in enumerate(budgets[:3]):
+                cell = depth_set(main_name, abl_name, b, include_main=(i == 1), include_abl=True)
+                if calibration:
+                    cell = cell.replace('plan-chip ablation', 'plan-chip calibration')
+                    if i == 1:
+                        cell = cell.replace('plan-chip main', 'plan-chip calibration-main')
+                grid.append(cell)
+            rows_.append((p, grid + [""]))
+        rows_.append(("Depth-invariant", None))
+        for p in invariant:
+            grid = []
+            for i, b in enumerate(budgets[:3]):
+                cohort = "main" if i == 1 else "ablation"
+                if calibration:
+                    cohort = "calibration-main" if i == 1 else "calibration"
+                dataset = main_name if i == 1 else abl_name
+                grid.append(plan_chip("DI", cohort, f"{dataset} · {b} · depth-invariant · planned"))
+            rows_.append((p, grid + [""]))
+        rows_.append(("∞-budget baselines", None))
+        rows_ += [(p, ["", "", "", plan_chip("DI", "main", f"{main_name} · unlimited budget · depth-invariant · planned")])
+                  for p in ("FC", "OTRC")]
+        return planned_matrix(budgets, rows_)
+
+    p2_devstral = model_plan_matrix(["10K", "15K", "20K", "∞"], "SB:P-100", "SB:ABL-30")
+    p2_glm = model_plan_matrix(["AK", "PK", "BK", "∞"], "SB:P-100", "SB:ABL-30", calibration=True)
+    p3_qwen_devstral = model_plan_matrix(["10K", "15K", "20K", "∞"], "TB:P-80", "TB:ABL-20")
+    p3_glm = model_plan_matrix(["AK", "PK", "BK", "∞"], "TB:P-80", "TB:ABL-20", calibration=True)
+
+    roadmap_overview = """
+<div class="tablewrap roadmap-overview"><table>
+<thead><tr><th>priority</th><th>experiment</th><th>dataset</th><th>planned runs</th></tr></thead>
+<tbody>
+<tr><td class="priority">P1</td><td><a href="#priority-1">Increase runs/task: 2 → 3</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400 additional</td></tr>
+<tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
+<tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-80 + TB:ABL-20</td><td>31,200</td></tr>
+<tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
+</tbody></table></div>"""
+
+    p4_table = """
+<div class="tablewrap"><table>
+<thead><tr><th>summarizer</th><th>primitive</th><th>SB:ABL-30</th><th>TB:ABL-20</th><th>total</th></tr></thead>
+<tbody>
+<tr><td rowspan="2" class="prim">Qwen3.5-9B</td><td class="prim">SU-full <span class="plan-chip ablation">0.5</span></td><td>90</td><td>100</td><td>190</td></tr>
+<tr><td class="prim">TRC+SU <span class="plan-chip ablation">DI</span></td><td>90</td><td>100</td><td>190</td></tr>
+<tr><td rowspan="2" class="prim">Gemma-4-12B</td><td class="prim">SU-full <span class="plan-chip ablation">0.5</span></td><td>90</td><td>100</td><td>190</td></tr>
+<tr><td class="prim">TRC+SU <span class="plan-chip ablation">DI</span></td><td>90</td><td>100</td><td>190</td></tr>
+<tr class="total"><td colspan="2">Total</td><td>360</td><td>400</td><td>760</td></tr>
+</tbody></table></div>"""
+
+    # ---- progress tables at model × family × depth × budget granularity ----
+    tunable_label = "Depth-tunable (5 primitives)"
+    invariant_label = "Depth-invariant (6 primitives)"
+    baseline_label = "FC + OTRC (2 baselines)"
+
+    def swe_track(
+        model, label, primitives, depth_label, budget_label, dataset, tasks, rpt,
+        baseline_runs=0,
+    ):
+        query_depth = "0.5" if depth_label == "DI" else depth_label
+        query_budget = "inf" if budget_label == "∞" else budget_label.lower()
+        done, actual, target = coverage_progress(
+            cells, model, primitives, query_budget, query_depth, tasks, rpt,
+            baseline_runs=baseline_runs,
+        )
+        tracked_runs = rpt - baseline_runs
+        target_text = f"{tasks} tasks × {tracked_runs} runs × {len(primitives)}"
+        return [model, label, depth_label, budget_label, dataset, target_text,
+                status_badge(done, actual, target)]
+
+    def tb_track(model, label, primitives, depth, budget, dataset, tasks, rpt):
+        done, actual, target = coverage_progress(
+            tb_cells, model, primitives, budget, depth, tasks, rpt
+        )
+        target_text = f"{tasks} tasks × {rpt} runs × {len(primitives)}"
+        return [model, label, depth, budget.upper() if budget != "inf" else "∞", dataset,
+                target_text, status_badge(done, actual, target)]
+
+    p1_tracking_rows = []
+    for budget in ("10K", "15K", "20K"):
+        p1_tracking_rows.append(swe_track(MAIN, tunable_label, tunable, "0.5", budget,
+                                                "SB:P-100", 100, 3, baseline_runs=2))
+    for depth in ("0.3", "0.7"):
+        for budget in ("10K", "15K", "20K"):
+            p1_tracking_rows.append(swe_track(MAIN, tunable_label, tunable, depth, budget,
+                                                    "SB:ABL-30", 30, 3, baseline_runs=2))
+    for budget in ("10K", "15K", "20K"):
+        p1_tracking_rows.append(swe_track(MAIN, invariant_label, invariant, "DI", budget,
+                                                "SB:P-100", 100, 3, baseline_runs=2))
+    p1_tracking_rows.append(swe_track(MAIN, baseline_label, ["FC", "OTRC"], "DI", "∞",
+                                            "SB:P-100", 100, 3, baseline_runs=2))
+    p1_tracking = tracking_table(p1_tracking_rows)
+
+    p2a_rows = [
+        swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "15K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "15K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
+    ]
+    p2a_tracking = tracking_table(p2a_rows)
+    p2b_rows = [
+        swe_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "PK", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "PK", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
+    ]
+    p2b_tracking = tracking_table(p2b_rows)
+
+    def ablation_tracking_rows(model, budgets):
+        rows_ = []
+        for depth in ("0.3", "0.7"):
+            for budget in budgets:
+                rows_.append(swe_track(model, tunable_label, tunable, depth, budget,
+                                             "SB:ABL-30", 30, 3))
+        for budget in (budgets[0], budgets[-1]):
+            rows_.append(swe_track(model, tunable_label, tunable, "0.5", budget,
+                                         "SB:ABL-30", 30, 3))
+            rows_.append(swe_track(model, invariant_label, invariant, "DI", budget,
+                                         "SB:ABL-30", 30, 3))
+        return rows_
+
+    p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["10K", "15K", "20K"])
+    p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["AK", "PK", "BK"])
+    p2c_tracking = tracking_table(p2c_rows)
+    p2d_tracking = tracking_table(p2d_rows)
+
+    p3a_rows = []
+    for model in (MAIN, "Devstral-Small-2-24B"):
+        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", "15k", "TB:P-80", 80, 5))
+        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", "15k", "TB:P-80", 80, 5))
+        p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5))
+    p3a_rows += [
+        tb_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "pk", "TB:P-80", 80, 5),
+        tb_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "pk", "TB:P-80", 80, 5),
+        tb_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5),
+    ]
+    p3a_tracking = tracking_table(p3a_rows)
+
+    p3b_rows = []
+    for model, budgets in ((MAIN, ["10k", "15k", "20k"]),
+                           ("Devstral-Small-2-24B", ["10k", "15k", "20k"]),
+                           ("GLM-4.7-Flash", ["ak", "pk", "bk"])):
+        for depth in ("0.3", "0.7"):
+            for budget in budgets:
+                p3b_rows.append(tb_track(model, tunable_label, tunable, depth, budget,
+                                               "TB:ABL-20", 20, 5))
+        for budget in (budgets[0], budgets[-1]):
+            p3b_rows.append(tb_track(model, tunable_label, tunable, "0.5", budget,
+                                           "TB:ABL-20", 20, 5))
+            p3b_rows.append(tb_track(model, invariant_label, invariant, "DI", budget,
+                                           "TB:ABL-20", 20, 5))
+    p3b_tracking = tracking_table(p3b_rows)
+
+    p4_tracking_rows = []
+    p4_specs = [
+        ("4.a", "Qwen3.5-9B", "SB:ABL-30", 30, 3),
+        ("4.b", "Qwen3.5-9B", "TB:ABL-20", 20, 5),
+        ("4.c", "Gemma-4-12B", "SB:ABL-30", 30, 3),
+        ("4.d", "Gemma-4-12B", "TB:ABL-20", 20, 5),
+    ]
+    p4_display_rows = []
+    for exp_id, summarizer, dataset, tasks, rpt in p4_specs:
+        target = tasks * rpt * 2
+        # No summarizer-specific run source exists yet. Missing data is zero;
+        # once those results are recorded, replace this with automatic discovery.
+        actual = 0
+        status = status_badge(actual >= target, min(actual, target), target)
+        p4_tracking_rows.append([
+            MAIN, "SU-full (0.5), TRC+SU (DI)", "mixed", "15K", dataset,
+            f"{tasks} tasks × {rpt} runs × 2",
+            status,
+        ])
+        p4_display_rows.append([
+            f"({exp_id})", dataset, MAIN, summarizer,
+            "SU-full (0.5), TRC+SU (DI)", "15K", status,
+        ])
+    p4_tracking = summarizer_tracking_table(p4_display_rows)
+
+    p1_progress = progress_bar(p1_tracking_rows)
+    p2a_progress = progress_bar(p2a_rows)
+    p2b_progress = progress_bar(p2b_rows)
+    p2c_progress = progress_bar(p2c_rows)
+    p2d_progress = progress_bar(p2d_rows)
+    p2_progress = progress_bar(p2a_rows + p2b_rows + p2c_rows + p2d_rows)
+    p3a_progress = progress_bar(p3a_rows)
+    p3b_progress = progress_bar(p3b_rows)
+    p3_progress = progress_bar(p3a_rows + p3b_rows)
+    p4_progress = progress_bar(p4_tracking_rows)
+
+    html = f"""<title>agentCtx Follow-up Experiments</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root {{
@@ -286,78 +660,152 @@ ul.attn li {{ background:var(--surface); border:1px solid var(--line); border-ra
 .subhead {{ font-size:1.1rem; margin:28px 0 8px; }}
 .tablewrap.tb {{ max-width:440px; }}
 .where td:first-child {{ font-family:"IBM Plex Mono",monospace; font-size:.82rem; }}
+.roadmap {{ margin:18px 0 36px; padding:18px; background:var(--surface);
+  border:1px solid var(--line); border-radius:10px; }}
+.roadmap > h2 {{ margin-top:36px; padding-top:18px; border-top:1px solid var(--line); }}
+.roadmap > h2:first-child {{ margin-top:0; padding-top:0; border-top:none; }}
+.roadmap > h3 {{ font-size:1.18rem; margin:28px 0 8px; }}
+.roadmap h4 {{ font-family:"Schibsted Grotesk",sans-serif; font-size:1rem;
+  margin:26px 0 5px; }}
+.roadmap td {{ white-space:normal; vertical-align:top; }}
+.roadmap ul {{ margin:12px 0 18px; }}
+.tracking {{ margin-top:10px; }}
+.tracking th:nth-child(5), .tracking td:nth-child(5) {{ min-width:240px; }}
+.summarizer-tracking th:nth-child(5), .summarizer-tracking td:nth-child(5) {{ min-width:210px; }}
+.summarizer-tracking th:nth-child(6), .summarizer-tracking td:nth-child(6) {{ min-width:150px; }}
+.tracking td.repeat {{ background:color-mix(in srgb, var(--bg) 45%, transparent); }}
+.track-status {{ display:inline-block; font-family:"IBM Plex Mono",monospace;
+  font-size:.74rem; font-weight:500; padding:3px 9px; border-radius:20px;
+  border:1px solid; white-space:nowrap; }}
+.track-status.done {{ color:var(--on-solid); background:var(--have); border-color:var(--have); }}
+.track-status.pending {{ color:var(--pending); background:var(--pending-bg); border-color:var(--pending); }}
+.status-chips {{ display:flex; flex-wrap:wrap; gap:6px; }}
+.section-progress {{ margin:8px 0 16px; }}
+.progress-meta {{ display:flex; justify-content:space-between; gap:16px; align-items:baseline;
+  color:var(--muted); font-size:.82rem; }}
+.progress-meta strong {{ color:var(--ink); font-family:"IBM Plex Mono",monospace;
+  font-size:.8rem; font-weight:500; }}
+.progress-track {{ height:9px; margin-top:5px; overflow:hidden; border-radius:999px;
+  background:var(--pending-bg); border:1px solid var(--line); }}
+.progress-track > span {{ display:block; height:100%; border-radius:inherit; background:var(--have); }}
+.roadmap-overview {{ margin-top:14px; }}
+.roadmap-overview td {{ white-space:normal; }}
+.priority {{ font-family:"IBM Plex Mono",monospace; color:var(--accent-ink); font-weight:500; }}
+.plan-legend {{ display:flex; flex-wrap:wrap; align-items:center; gap:12px;
+  color:var(--muted); font-size:.84rem; margin:12px 0; }}
+.plan-chip {{ display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.74rem;
+  padding:1px 7px; border-radius:20px; margin-right:4px; border:1px solid; }}
+.plan-chip.main {{ background:var(--csvonly); color:var(--on-solid); border-color:var(--csvonly); }}
+.plan-chip.ablation {{ background:transparent; color:var(--csvonly); border-color:var(--csvonly); }}
+.plan-chip.calibration-main {{ background:var(--pending); color:var(--on-solid); border-color:var(--pending); }}
+.plan-chip.calibration {{ background:transparent; color:var(--pending); border-color:var(--pending); }}
+.plan-table {{ margin-top:10px; }}
+.plan-card {{ margin-top:12px; }}
+.plan-card + .plan-card {{ margin-top:16px; }}
+.plan-card h4 {{ margin-top:0; }}
+tr.total td {{ font-weight:700; background:var(--bg); }}
+.current-label {{ margin-top:36px; padding-top:24px; border-top:1px solid var(--line); }}
 footer {{ color:var(--muted); font-size:.85rem; margin-top:40px;
   border-top:1px solid var(--line); padding-top:14px; }}
 a {{ color:var(--accent-ink); }}
 </style>
 
 <div class="wrap">
-<h1>agentCtx Coverage</h1>
-<p class="sub">Context-compression grid on SWE-bench Verified — what has already been run,
-per model × primitive × budget × depth. Generated {today} from
-<code>COVERAGE.csv</code> by <code>scripts/build_dashboard.py</code>.</p>
+<h1>Follow-up Experiments Plan</h1>
+<p class="sub">Last update: August 24 by Akiho · Generated {today} from
+<code>exp_plans/FOLLOWUP_EXPERIMENTS.md</code>.</p>
 
-<div class="stats">{stat_html}</div>
-
-<div class="legend">
-  <span class="chip have p100">0.5</span> full 100-task set (P100)
-  <span class="chip have abl">0.5</span> ablation set only (ABL-30)
-  <span class="chip pending abl">0.5</span> on disk, not yet in Review1.csv
-  <span class="chip csvonly abl">0.5</span> in CSV, raw trajectories on Albus
-  <span class="chip extra abl">0.5</span> out-of-scope extra
-  <span class="chip missing">0.5</span> missing
-  <span>· chip label = depth · hover any chip for tasks / runs / cohort</span>
-</div>
-
-<section class="bench">
-<div class="eyebrow">Benchmark</div>
-<h2 class="bench-title">SWE-bench Verified</h2>
-
-<h3 class="subhead">Main model — Qwen3.5-35B-A3B (Dobby)</h3>
-<p class="note">Scope: depth-tunable primitives at all 3 depths (P100 cohort at 15k, ABL-30 at
-10k/20k); depth-invariant primitives at d=0.5 on P100 at every budget; FC and OTRC baselines at
-unlimited budget. A cell only turns solid/complete once every task has 3 runs (Expansion 1,
-<code>exp_plans/SWE_EXPANSION.md</code>) — cells with the right cohort but fewer runs show as
-partial. Solid chips carry the full 100-task set; outlined chips are ABL-30 only. Not drawn:
-out-of-scope extras at depths 0.4/0.6 and the dropped staggered pilot — they live in
-<code>COVERAGE.csv</code>.</p>
-{main_matrix}
-
-<h3 class="subhead">Model expansion (Albus)</h3>
-<div class="cards">
-{"".join(exp_cards)}
-{quant_card}
-</div>
-</section>
-
-<section class="bench">
-<div class="eyebrow">Benchmark</div>
-<h2 class="bench-title">Terminal-Bench 1.0</h2>
-{tb_section}
-</section>
-
-<h2>Needs attention</h2>
-<ul class="attn">
-{"".join(attention) or "<li>Nothing — all in-scope cells covered and ingested.</li>"}
-</ul>
-
-<h2>Where the data lives</h2>
-<div class="tablewrap"><table class="where">
-<thead><tr><th>path</th><th>what</th></tr></thead>
+<div class="roadmap">
+<h2>Overview</h2>
+<div class="tablewrap roadmap-overview"><table>
+<thead><tr><th>priority</th><th>experiment</th><th>dataset(s)</th><th>runs</th></tr></thead>
 <tbody>
-<tr><td>data/swebench/ablations/</td><td>canonical grid — trajectory.json per (task, condition, run)</td></tr>
-<tr><td>data/swebench/source_runs/</td><td>backing store for deduplicated runs (symlinked from ablations)</td></tr>
-<tr><td>Review1/Review1.csv</td><td>canonical distilled table, main model (git-tracked)</td></tr>
-<tr><td>Review1/Review1_qwen25-7b.csv · _quant.csv</td><td>Albus per-model aggregations</td></tr>
-<tr><td>data/tbench/</td><td>Terminal-Bench runs + STATUS.md</td></tr>
-<tr><td>COVERAGE.csv</td><td>machine-readable cell sheet behind this page</td></tr>
+<tr><td class="priority">1</td><td><a href="#exp-runs">Increase runs/task</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400</td></tr>
+<tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
+<tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-80 + TB:ABL-20</td><td>31,200</td></tr>
+<tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
+</tbody></table></div>
+<ul>
+<li>Experiments env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
+<li>Metrics: resolve rate (SWE-Bench), accuracy (Terminal-Bench), token cost, latency, compression behavior</li>
+</ul>
+<div class="plan-legend">
+  <span class="track-status done">15K</span> completed
+  <span class="track-status pending">10K, 0/500 runs</span> planned work remains
+  <span>· Status is aggregated by model × primitive family × depth × budget × dataset.</span>
+</div>
+
+<h2 id="exp-runs">1. [Priority] SWE-Bench: Runs/task: 2 → 3</h2>
+{p1_progress}
+<ul>
+<li>ETA: 3–5 days</li>
+<li>Model (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct</li>
+<li>Runs/task: <strong>3 (mostly 1 additional run/task)</strong></li>
+</ul>
+<p class="note">Progress and budget chips count only the additional third run (the existing
+2 runs/task are excluded). Status is tracked per depth and budget. The unused full-depth P100
+alternative is excluded.</p>
+{p1_tracking}
+
+<h2 id="exp-models">2. [Priority] SWE-Bench: Add 2 agent models</h2>
+{p2_progress}
+<ul>
+<li><strong>GLM budget calibration (required before launch):</strong> determine the model-appropriate primary budget <em>P</em>K and ablation budgets <em>A</em>K/<em>B</em>K.</li>
+<li>Runs/task: 3</li>
+</ul>
+<div class="tablewrap"><table>
+<thead><tr><th>experiment</th><th>model (agent &amp; summarizer)</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead>
+<tbody>
+<tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 15K or <em>P</em>K (or ∞)</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: <em>P</em>K or ∞</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-devstral-abl">(2.c) Devstral-24B Ablation</a></td><td>Devstral-Small-2-24B</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
+<tr><td><a href="#exp-models-glm-abl">(2.d) GLM Ablation</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 </tbody></table></div>
 
-<footer>To update after new runs: <code>python scripts/build_coverage.py &amp;&amp;
-python scripts/build_dashboard.py</code>, then republish. Each benchmark is its own
-section — a new benchmark gets a new section in <code>scripts/build_dashboard.py</code>. Docs:
-<code>project_runs_checklist.md</code> (narrative), <code>DATA.md</code> (transfer),
-<code>Active_runs.md</code> (live runs).</footer>
+<h3 id="exp-models-devstral-main">(2.a) Devstral-24B Main</h3>
+{p2a_progress}
+{p2a_tracking}
+
+<h3 id="exp-models-glm-main">(2.b) GLM Main</h3>
+{p2b_progress}
+{p2b_tracking}
+
+<h3 id="exp-models-devstral-abl">(2.c) Devstral-24B Ablation</h3>
+{p2c_progress}
+{p2c_tracking}
+
+<h3 id="exp-models-glm-abl">(2.d) GLM Ablation</h3>
+{p2d_progress}
+{p2d_tracking}
+
+<h2 id="exp-tb">3. [Priority] Terminal-Bench Evaluation</h2>
+{p3_progress}
+<ul>
+<li>Terminal-Bench 1.0 (80 tasks)</li>
+<li>Runs/task: 5</li>
+<li>Models (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct, Devstral-Small-2-24B, GLM-4.7-Flash (30B-A3B MoE)</li>
+</ul>
+<div class="tablewrap"><table><thead><tr><th>experiment</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead><tbody>
+<tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-80</td><td>Depth: 0.5 or DI / Budget: 15K or <em>P</em>K (or ∞)</td><td>15,600</td></tr>
+<tr><td><a href="#exp-tb-abl">(3.b) TB Ablation</a></td><td>TB:ABL-20</td><td>Depth &amp; budget ablation</td><td>15,600</td></tr>
+</tbody></table></div>
+
+<h3 id="exp-tb-main">(3.a) TB Main</h3>
+{p3a_progress}
+{p3a_tracking}
+
+<h3 id="exp-tb-abl">(3.b) TB Ablation</h3>
+{p3b_progress}
+{p3b_tracking}
+
+<h2 id="exp-summarizer">4. [Priority] Summarizer Ablation</h2>
+{p4_progress}
+<ul>
+<li>ETA: TBD (760 runs)</li>
+</ul>
+<p>Existing self-summarization runs are used as the baseline.</p>
+{p4_tracking}
+</div>
 </div>
 """
     OUT.write_text(html)
