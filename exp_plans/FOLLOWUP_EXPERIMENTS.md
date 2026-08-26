@@ -118,12 +118,12 @@ Last update: August 24 by Akiho
 
 Existing self-summarization runs are used as the baseline.
 
-| **Summarizer** | Primitives | Agent | Budget | Benchmark | Tasks | Runs/task |
+| | **Summarizer** | Primitives | Agent | Budget | Tasks | Runs/task |
 |---|---|---|---|---|---|---:|
-| **Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K |SWE-Bench | SB:ABL-30 | 3 |
-| **Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K |Terminal-Bench | TB:ABL-20 | 5 |
-| **Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K |SWE-Bench | SB:ABL-30 | 3 |
-| **Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K |Terminal-Bench | TB:ABL-20 | 5 |
+|(4.a)|**Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-30 | 3 |
+|(4.b)|**Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | TB:ABL-20 | 5 |
+|(4.c)|**Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-30 | 3 |
+|(4.d)|**Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | TB:ABL-20 | 5 |
 
 <a id="exp-quantization"></a>
 ## 5. Quantization ablation
