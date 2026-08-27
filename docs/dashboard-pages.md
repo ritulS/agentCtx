@@ -6,9 +6,10 @@ The dashboard uses two branches:
 - `akiho-expansion-data` receives the generated `COVERAGE.csv`, dashboard
   builder, and Pages workflow.
 
-The local machine can see the gitignored experiment results, so it regenerates
-the coverage file and pushes it. GitHub Actions cannot access those local
-results; it only renders and deploys the inputs from the data branch.
+The local machine can see the gitignored experiment results, so it generates
+the coverage file directly in the data worktree and pushes it. The normal
+`akiho-expansion` worktree is not modified. GitHub Actions cannot access those
+local results; it only renders and deploys the inputs from the data branch.
 
 ## One-time setup
 
@@ -61,9 +62,10 @@ path if this checkout uses a different virtual environment):
 0 * * * * cd /home/ak58925/agentCtx && /usr/bin/flock -n /tmp/agentctx-dashboard-pages.lock /home/ak58925/agentCtx/venv/bin/python scripts/publish_dashboard.py >> /home/ak58925/agentCtx/logs/dashboard-pages.log 2>&1
 ```
 
-The script runs `scripts/build_coverage.py`, copies only the published inputs,
-and commits and pushes only if their content changed. `flock` prevents two
-runs from overlapping.
+The script runs `scripts/build_coverage.py` against the source worktree's local
+data while writing `COVERAGE.csv` directly into the data worktree. It then
+copies the builder and workflow, and commits and pushes only if their content
+changed. `flock` prevents two runs from overlapping.
 
 Run it manually at any time with:
 

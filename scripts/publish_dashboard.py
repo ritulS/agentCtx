@@ -2,8 +2,9 @@
 """Publish dashboard inputs from the experiment tree to a data worktree.
 
 The destination must be a git worktree checked out on
-``akiho-expansion-data``. This script rebuilds COVERAGE.csv, copies the three
-files needed by GitHub Pages, and pushes a commit only when they changed.
+``akiho-expansion-data``. This script builds COVERAGE.csv directly in that
+worktree, copies the other files needed by GitHub Pages, and pushes a commit
+only when they changed. The source worktree stays untouched.
 """
 
 from __future__ import annotations
@@ -69,6 +70,13 @@ def main() -> None:
     args = parse_args()
     worktree = args.worktree.expanduser().resolve()
 
+    if not worktree.exists():
+        raise SystemExit(
+            f"dashboard data worktree does not exist: {worktree}\n"
+            "Create it first; see docs/dashboard-pages.md."
+        )
+    if not worktree.is_dir():
+        raise SystemExit(f"dashboard data worktree is not a directory: {worktree}")
     if not (worktree / ".git").exists():
         raise SystemExit(
             f"{worktree} is not a git worktree. Create it first; see "
@@ -81,10 +89,19 @@ def main() -> None:
             f"expected {args.branch!r}"
         )
 
-    if not args.skip_coverage_build:
-        run(sys.executable, "scripts/build_coverage.py", cwd=ROOT)
+    coverage_destination = worktree / "COVERAGE.csv"
+    if args.skip_coverage_build:
+        shutil.copy2(ROOT / "COVERAGE.csv", coverage_destination)
+    else:
+        run(
+            sys.executable,
+            "scripts/build_coverage.py",
+            "--output",
+            str(coverage_destination),
+            cwd=ROOT,
+        )
 
-    for relative in PUBLISHED_FILES:
+    for relative in PUBLISHED_FILES[1:]:
         source = ROOT / relative
         if not source.is_file():
             raise SystemExit(f"required source file is missing: {source}")
