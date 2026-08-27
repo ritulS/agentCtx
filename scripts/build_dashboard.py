@@ -144,20 +144,34 @@ def coverage_progress(
         disk_runs = _int(cell.get("runs_on_disk"))
         csv_runs = _int(cell.get("rows_in_csv"))
         min_runs = _int(cell.get("runs_per_task_min"))
-        if disk_tasks:
-            # Scale a larger cohort down to the requested cohort (e.g. P100 data
-            # satisfying an ABL-30 row) instead of counting all P100 runs.
+        cohort = "p100" if tasks == 100 else "abl30" if tasks == 30 else None
+        capped_key = f"runs_capped_{runs_per_task}_{cohort}" if cohort else None
+        baseline_key = f"runs_capped_{baseline_runs}_{cohort}" if cohort and baseline_runs else None
+        has_exact_counts = capped_key and cell.get(capped_key, "") != ""
+
+        if has_exact_counts:
+            # These counts are constructed task-by-task in build_coverage.py.
+            # Subtracting two capped totals exactly counts runs in
+            # (baseline_runs, runs_per_task], without cohort scaling or
+            # over-counting tasks that happen to have extra retries.
+            total_progress = _int(cell[capped_key])
+            baseline_progress = _int(cell[baseline_key]) if baseline_key else 0
+            incremental_progress = total_progress - baseline_progress
+        elif disk_tasks:
+            # Backward-compatible fallback for coverage files generated before
+            # cohort-specific capped counts were added.
             disk_progress = round(disk_runs * min(tasks, disk_tasks) / disk_tasks)
+            total_progress = disk_progress
+            incremental_progress = max(0, total_progress - tasks * baseline_runs)
         else:
-            disk_progress = 0
-        csv_progress = csv_runs if disk_tasks == 0 else 0
-        total_progress = max(disk_progress, csv_progress)
-        incremental_progress = max(0, total_progress - tasks * baseline_runs)
+            total_progress = csv_runs
+            incremental_progress = max(0, total_progress - tasks * baseline_runs)
         actual_total += min(target_each, incremental_progress)
-        disk_done = disk_tasks >= tasks and (
+        exact_done = has_exact_counts and total_progress >= total_required_each
+        disk_done = exact_done or (not has_exact_counts and disk_tasks >= tasks and (
             min_runs >= runs_per_task
             or (min_runs == 0 and disk_runs >= disk_tasks * runs_per_task)
-        )
+        ))
         csv_done = disk_tasks == 0 and csv_runs >= total_required_each
         complete = complete and (disk_done or csv_done)
     return complete, actual_total, target_each * len(primitives)

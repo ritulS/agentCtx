@@ -14,6 +14,7 @@ Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 Usage:  python scripts/build_coverage.py        # writes COVERAGE.csv at repo root
 """
 
+import argparse
 import csv
 import json
 from collections import Counter, defaultdict
@@ -21,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ABLATIONS = ROOT / "data/swebench/ablations"
-OUT = ROOT / "COVERAGE.csv"
+DEFAULT_OUT = ROOT / "COVERAGE.csv"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
 INF = 999_999_999
@@ -82,7 +83,20 @@ def classify_cohort(tasks: set, abl30: set, p100: set) -> str:
     return f"partial ({len(tasks & abl30)}/30 ABL-30, {len(tasks)} total)"
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Build the experiment coverage CSV")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUT,
+        help="output CSV path (default: COVERAGE.csv at the repository root)",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+    out = args.output if args.output.is_absolute() else ROOT / args.output
     abl30 = load_task_list(ABLATIONS / "tasks.json")
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
 
@@ -173,6 +187,26 @@ def main():
         cohort = classify_cohort(covered, abl30, p100) if covered else ""
 
         runs_per_task_min = 0
+        # Cohort-specific capped run counts let downstream consumers answer
+        # questions such as "how many third runs are complete for ABL-30?"
+        # exactly.  A proportional slice of a mixed P100 cell is incorrect
+        # when only the ABL-30 tasks have received run_3.
+        d_runs = d["task_runs"] if d else {}
+        c_runs = csv_task_runs.get(key, {})
+
+        def capped_runs(tasks, cap):
+            return sum(min(cap, max(d_runs.get(t, 0), c_runs.get(t, 0))) for t in tasks)
+
+        cohort_counts = {}
+        for cohort_name, cohort_tasks in (("abl30", abl30), ("p100", p100)):
+            cohort_counts[f"tasks_covered_{cohort_name}"] = sum(
+                max(d_runs.get(t, 0), c_runs.get(t, 0)) > 0 for t in cohort_tasks
+            )
+            for cap in range(1, 6):
+                cohort_counts[f"runs_capped_{cap}_{cohort_name}"] = capped_runs(
+                    cohort_tasks, cap
+                )
+
         if req is None:
             scope = "out-of-scope" if model == MAIN_MODEL else "model-expansion"
             status = "EXTRA" if model == MAIN_MODEL else "HAVE"
@@ -188,8 +222,6 @@ def main():
                     status = "PARTIAL"
                 else:
                     required_tasks = p100 if req == "P100" else abl30
-                    d_runs = d["task_runs"] if d else {}
-                    c_runs = csv_task_runs.get(key, {})
                     runs_per_task_min = min(
                         (max(d_runs.get(t, 0), c_runs.get(t, 0)) for t in required_tasks),
                         default=0)
@@ -219,9 +251,11 @@ def main():
             "rows_in_csv": n_csv,
             "source_dirs": ";".join(sorted(d["dirs"])) if d else "",
             "notes": "; ".join(notes),
+            **cohort_counts,
         })
 
-    with open(OUT, "w", newline="") as f:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
@@ -230,7 +264,11 @@ def main():
     n = defaultdict(int)
     for r in rows:
         n[r["status"]] += 1
-    print(f"Wrote {OUT.relative_to(ROOT)} — {len(rows)} cells")
+    try:
+        display_out = out.relative_to(ROOT)
+    except ValueError:
+        display_out = out
+    print(f"Wrote {display_out} — {len(rows)} cells")
     for status in ("COMPLETE", "PARTIAL", "MISSING", "EXTRA", "HAVE", "HAVE (csv-only)"):
         if n[status]:
             print(f"  {status}: {n[status]}")
