@@ -9,8 +9,9 @@ writes a self-contained HTML page at the repo root. Re-run after every completed
 
 import csv
 from collections import defaultdict
-from datetime import date
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "DASHBOARD.html"
@@ -281,7 +282,9 @@ def main():
     cells, tb_cells = load_cells()
     rows = list(cells.values())
     tb_rows = list(tb_cells.values())
-    today = date.today().isoformat()
+    generated_at = datetime.now(ZoneInfo("America/Chicago")).strftime(
+        "%Y-%m-%d %H:%M %Z"
+    )
 
     # ---- headline stats -----------------------------------------------------
     disk_runs = sum(int(r["runs_on_disk"]) for r in rows)
@@ -726,7 +729,7 @@ a {{ color:var(--accent-ink); }}
 
 <div class="wrap">
 <h1>Follow-up Experiments Plan</h1>
-<p class="sub">Last update: August 24 by Akiho · Generated {today} from
+<p class="sub">Generated {generated_at} from
 <code>exp_plans/FOLLOWUP_EXPERIMENTS.md</code>.</p>
 
 <div class="roadmap">

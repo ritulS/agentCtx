@@ -61,7 +61,9 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 - `Active_runs.md` — live status of long-running experiments. Update on
   launch/kill/completion.
 - `COVERAGE.csv` — auto-generated cell-coverage sheet (one row per
-  model × primitive × budget × depth, with scope and status). Regenerate with
+  observed benchmark × model × primitive × budget × depth, with scope and
+  status. Dirty/archived data is excluded; fresh Terminal-Bench data is read
+  from its canonical path. Regenerate with
   `python scripts/build_coverage.py` after any run completes or Review1.csv
   is rebuilt.
 

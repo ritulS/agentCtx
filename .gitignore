@@ -60,3 +60,5 @@ Review1/figures_n100/
 # ── Local CSV backups (timestamped snapshots, not history) ────────────────────
 *.csv.bak.*
 DASHBOARD.html
+scripts/notify_slack.py
+Review1/archived_experiment_data/

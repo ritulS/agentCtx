@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Build COVERAGE.csv — the single sheet tracking every (model, primitive,
-budget, depth) cell: which cells the paper scope requires, which we have data
-for on disk, and which are ingested into the analysis CSVs.
+"""Build COVERAGE.csv — the single sheet tracking every (benchmark, model,
+primitive, budget, depth) cell: which cells the paper scope requires, which we
+have data for on disk, and which are ingested into the analysis CSVs.
 
 Sources of truth:
   - disk:  data/swebench/ablations/<exp>/experiment_results.json
+           data/swebench/tbench/experiment_results.json
            (per-record condition, budget, compression_ratio, instance_id)
   - CSVs:  Review1/Review1.csv (main model),
            Review1/Review1_qwen25-7b.csv, Review1/Review1_qwen3-30b-a3b-quant.csv
@@ -22,6 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ABLATIONS = ROOT / "data/swebench/ablations"
+TB_RESULTS = ROOT / "data/swebench/tbench/experiment_results.json"
 DEFAULT_OUT = ROOT / "COVERAGE.csv"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
@@ -29,6 +31,7 @@ INF = 999_999_999
 
 # Expansion 1 (see exp_plans/SWE_EXPANSION.md): runs/task 2->3.
 REQUIRED_RUNS_PER_TASK = 3
+TB_REQUIRED_RUNS_PER_TASK = 5
 
 CONDITION_TO_PRIMITIVE = {
     "truncation": "TR",
@@ -66,8 +69,25 @@ def model_for_dir(name: str) -> str:
     return MAIN_MODEL
 
 
+def model_for_record(record: dict, source_name: str) -> str:
+    """Prefer metadata, while retaining compatibility with older aggregates."""
+    return (
+        record.get("model")
+        or record.get("agent_model")
+        or model_for_dir(source_name)
+    )
+
+
+def load_records(path: Path) -> list[dict]:
+    data = json.load(open(path))
+    return data.get("results", []) if isinstance(data, dict) else data
+
+
 def load_task_list(path: Path) -> set:
-    return {t["instance_id"] if isinstance(t, dict) else t for t in json.load(open(path))}
+    data = json.load(open(path))
+    if isinstance(data, dict):
+        data = data.get("tasks", data.get("instances", []))
+    return {t["instance_id"] if isinstance(t, dict) else t for t in data}
 
 
 def budget_label(b) -> str:
@@ -99,21 +119,24 @@ def main():
     out = args.output if args.output.is_absolute() else ROOT / args.output
     abl30 = load_task_list(ABLATIONS / "tasks.json")
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
+    tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
 
     # ---- 1. scan disk -------------------------------------------------------
-    # cell key: (model, primitive, budget, depth) -> {tasks, runs, dirs, task_runs}
+    # cell key: (benchmark, model, primitive, budget, depth) -> coverage data.
     # Some dirs are copies of other dirs' runs (see seed_depth_dirs.py) — dedupe
     # by (cell, instance_id, run_num) so copies don't inflate run counts.
     disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set(), "task_runs": Counter()})
     seen_runs = set()
-    for exp in sorted(ABLATIONS.iterdir()):
-        meta = exp / "experiment_results.json"
-        if not exp.is_dir() or not meta.exists():
-            continue
-        model = model_for_dir(exp.name)
-        records = json.load(open(meta))
-        if isinstance(records, dict):
-            records = records.get("results", [])
+    disk_sources = []
+    disk_sources.extend(
+        ("swebench", p.parent.name, p)
+        for p in ABLATIONS.glob("*/experiment_results.json")
+    )
+    if TB_RESULTS.exists():
+        disk_sources.append(("terminal-bench", "tbench", TB_RESULTS))
+
+    for benchmark, source_name, meta in sorted(disk_sources):
+        records = load_records(meta)
         for r in records:
             cond = r.get("condition")
             prim = CONDITION_TO_PRIMITIVE.get(cond)
@@ -121,17 +144,18 @@ def main():
                 continue
             budget = r.get("budget")
             depth = r.get("compression_ratio", 0.5) or 0.5
-            cell_key = (model, prim, budget, round(float(depth), 1))
+            model = model_for_record(r, source_name)
+            cell_key = (benchmark, model, prim, budget, round(float(depth), 1))
             cell = disk[cell_key]
             iid = r.get("instance_id")
             dedup_key = cell_key + (iid, r.get("run_num"))
             if dedup_key in seen_runs:
-                cell["dirs"].add(exp.name)  # still note provenance, don't double count
+                cell["dirs"].add(source_name)  # still note provenance, don't double count
                 continue
             seen_runs.add(dedup_key)
             cell["tasks"].add(iid)
             cell["runs"] += 1
-            cell["dirs"].add(exp.name)
+            cell["dirs"].add(source_name)
             cell["task_runs"][iid] += 1
 
     # ---- 2. scan CSVs --------------------------------------------------------
@@ -139,12 +163,12 @@ def main():
     csv_tasks = defaultdict(set)   # same cell key -> tasks present in CSV
     csv_task_runs = defaultdict(Counter)   # same cell key -> {task: run count}
 
-    def scan_csv(path: Path, model_fn):
+    def scan_csv(path: Path, model_fn, benchmark="swebench"):
         if not path.exists():
             return
         for row in csv.DictReader(open(path)):
             model = model_fn(row)
-            key = (model, row["primitive"], int(row["token_budget"]),
+            key = (benchmark, model, row["primitive"], int(row["token_budget"]),
                    round(float(row.get("depth") or 0.5), 1))
             csv_rows[key] += 1
             csv_tasks[key].add(row["task_name"])
@@ -160,31 +184,74 @@ def main():
     for prim in DEPTH_TUNABLE:
         for b in BUDGETS:
             for d in DEPTH_GRID:
-                expected[(MAIN_MODEL, prim, b, d)] = "P100" if b == 15_000 else "ABL-30"
+                expected[("swebench", MAIN_MODEL, prim, b, d)] = "P100" if b == 15_000 else "ABL-30"
     for prim in DEPTH_INVARIANT:
         for b in BUDGETS:
-            expected[(MAIN_MODEL, prim, b, 0.5)] = "P100"
+            expected[("swebench", MAIN_MODEL, prim, b, 0.5)] = "P100"
     for prim in ("FC", "OTRC"):
-        expected[(MAIN_MODEL, prim, INF, 0.5)] = "P100"
+        expected[("swebench", MAIN_MODEL, prim, INF, 0.5)] = "P100"
     # known model-expansion requirements (∞ baselines; see HANDOFF_COHERENCE.md)
     for model in ("Devstral-Small-2-24B", "Qwen2.5-Coder-32B", "Llama-3.3-70B"):
         for prim in ("FC", "OTRC"):
-            expected[(model, prim, INF, 0.5)] = "ABL-30"
+            expected[("swebench", model, prim, INF, 0.5)] = "ABL-30"
+
+    # Concrete Devstral cells in FOLLOWUP_EXPERIMENTS.md.  This makes the
+    # follow-up plan part of the same inventory as completed data, instead of
+    # showing only whichever archived cells happen to exist today.
+    devstral = "Devstral-Small-2-24B"
+    for prim in DEPTH_TUNABLE:
+        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
+        for b in BUDGETS:
+            for d in DEPTH_GRID:
+                expected.setdefault(("swebench", devstral, prim, b, d), "ABL-30")
+    for prim in DEPTH_INVARIANT:
+        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
+        for b in (10_000, 20_000):
+            expected[("swebench", devstral, prim, b, 0.5)] = "ABL-30"
+    for prim in ("FC", "OTRC"):
+        expected[("swebench", devstral, prim, INF, 0.5)] = "P100"
+
+    # Concrete Terminal-Bench follow-up cells.  Planned cells are emitted as
+    # MISSING before the first run, then filled automatically from the runner's
+    # aggregate.  The current frozen TB cohort has 20 tasks.
+    for model in (MAIN_MODEL, "Devstral-Small-2-24B"):
+        for prim in DEPTH_TUNABLE:
+            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-20"
+        for prim in DEPTH_INVARIANT:
+            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-20"
+        for prim in ("FC", "OTRC"):
+            expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-20"
+        for prim in DEPTH_TUNABLE:
+            for b in (10_000, 20_000):
+                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
+            for b in BUDGETS:
+                for d in (0.3, 0.7):
+                    expected[("terminal-bench", model, prim, b, d)] = "TB-20"
+        for prim in DEPTH_INVARIANT:
+            for b in (10_000, 20_000):
+                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
 
     # ---- 4. merge into sheet rows --------------------------------------------
-    all_keys = sorted(set(disk) | set(expected) | set(csv_rows),
-                      key=lambda k: (k[0] != MAIN_MODEL, k[0], k[1], k[2], k[3]))
+    # COVERAGE.csv is an inventory of data that actually exists.  ``expected``
+    # only annotates the scope/status of observed cells; planned-but-unrun
+    # follow-ups must not create rows of their own.
+    all_keys = sorted(set(disk) | set(csv_rows),
+                      key=lambda k: (k[0], k[1] != MAIN_MODEL, k[1], k[2], k[3], k[4]))
     rows = []
     for key in all_keys:
-        model, prim, budget, depth = key
+        benchmark, model, prim, budget, depth = key
         d = disk.get(key)
         req = expected.get(key)
         n_csv = csv_rows.get(key, 0)
+        required_runs = (TB_REQUIRED_RUNS_PER_TASK
+                         if benchmark == "terminal-bench"
+                         else REQUIRED_RUNS_PER_TASK)
         # coverage = union of what's on this disk and what's already ingested
         # (ABL-30 slices of some canonical cells live in source_runs/ and are
         # reachable only through Review1.csv's dedup ingest)
         covered = (d["tasks"] if d else set()) | csv_tasks.get(key, set())
-        cohort = classify_cohort(covered, abl30, p100) if covered else ""
+        cohort = (f"TB-{len(covered)}" if benchmark == "terminal-bench" else
+                  classify_cohort(covered, abl30, p100)) if covered else ""
 
         runs_per_task_min = 0
         # Cohort-specific capped run counts let downstream consumers answer
@@ -217,26 +284,31 @@ def main():
             if not covered:
                 status = "MISSING"
             else:
-                have_cohort = cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100"))
+                have_cohort = (covered >= tb20 if req == "TB-20" else
+                               cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100")))
                 if not have_cohort:
                     status = "PARTIAL"
                 else:
-                    required_tasks = p100 if req == "P100" else abl30
+                    required_tasks = (tb20 if req == "TB-20" else
+                                      p100 if req == "P100" else abl30)
                     runs_per_task_min = min(
                         (max(d_runs.get(t, 0), c_runs.get(t, 0)) for t in required_tasks),
                         default=0)
-                    status = "COMPLETE" if runs_per_task_min >= REQUIRED_RUNS_PER_TASK else "PARTIAL"
+                    status = "COMPLETE" if runs_per_task_min >= required_runs else "PARTIAL"
 
         notes = []
-        if d and model == MAIN_MODEL and n_csv == 0 and req is not None:
+        if d and benchmark == "swebench" and model == MAIN_MODEL and n_csv == 0 and req is not None:
             notes.append("on disk, NOT in Review1.csv")
         if d is None and n_csv:
             notes.append("csv only (raw data on Albus)")
-        if status == "PARTIAL" and req is not None and covered and \
-                (cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100"))):
-            notes.append(f"only {runs_per_task_min}/{REQUIRED_RUNS_PER_TASK} runs/task")
+        has_required_cohort = (covered >= tb20 if req == "TB-20" else
+                               bool(req) and (cohort.startswith(req) or
+                                              (req == "ABL-30" and cohort.startswith("P100"))))
+        if status == "PARTIAL" and covered and has_required_cohort:
+            notes.append(f"only {runs_per_task_min}/{required_runs} runs/task")
 
         rows.append({
+            "benchmark": benchmark,
             "model": model,
             "primitive": prim,
             "budget": budget_label(budget),
@@ -256,7 +328,7 @@ def main():
 
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
 
@@ -278,7 +350,7 @@ def main():
     if problems:
         print("\nAttention:")
         for r in problems:
-            print(f"  [{r['status']:8s}] {r['model']} / {r['primitive']} / "
+            print(f"  [{r['status']:8s}] {r['benchmark']} / {r['model']} / {r['primitive']} / "
                   f"{r['budget']} / d={r['depth']}  {r['cohort_covered']}  {r['notes']}")
 
 

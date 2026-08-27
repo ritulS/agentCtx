@@ -97,8 +97,10 @@ Data flow: `results/ablations/<exp>/<task>/<condition>/run_<n>/trajectory.json`
 Two generated artifacts keep "what runs exist" honest — they are derived from
 disk, never hand-edited:
 
-- **`COVERAGE.csv`** (git-tracked) — one row per (model, primitive, budget,
-  depth) cell: scope, status, tasks/runs on disk, CSV ingest state.
+- **`COVERAGE.csv`** (git-tracked) — one row per (benchmark, model, primitive,
+  budget, depth) cell that has actual data: scope, status, tasks/runs on disk, and CSV
+  ingest state. Dirty/archived experiment data is intentionally excluded;
+  fresh Terminal-Bench results are included from their canonical data path.
 - **`DASHBOARD.html`** (gitignored, regenerable) — the human-friendly view,
   published at
   **https://claude.ai/code/artifact/5952fe5d-6a12-4ae4-b9b2-0032b7e11fc0**.
