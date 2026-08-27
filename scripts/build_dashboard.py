@@ -578,6 +578,7 @@ def main():
     p4_progress = progress_bar(p4_tracking_rows)
 
     html = f"""<title>agentCtx Follow-up Experiments</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root {{
