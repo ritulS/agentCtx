@@ -1,6 +1,6 @@
 benchmark,model,primitive,budget,depth,scope,required_cohort,status,tasks_on_disk,runs_on_disk,runs_per_task_min,cohort_covered,rows_in_csv,source_dirs,notes,tasks_covered_abl30,runs_capped_1_abl30,runs_capped_2_abl30,runs_capped_3_abl30,runs_capped_4_abl30,runs_capped_5_abl30,tasks_covered_p100,runs_capped_1_p100,runs_capped_2_p100,runs_capped_3_p100,runs_capped_4_p100,runs_capped_5_p100
-swebench,Qwen3.5-35B-A3B,FC,inf,0.5,in-scope,P100,PARTIAL,100,238,2,P100,200,p100-inf;qwen3.5-35B-A3B_15k_Fullrun,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,238,238,238
-swebench,Qwen3.5-35B-A3B,OTRC,inf,0.5,in-scope,P100,PARTIAL,100,236,2,P100,200,p100-inf;qwen35-a3b_online-trc,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,236,236,236
+swebench,Qwen3.5-35B-A3B,FC,inf,0.5,in-scope,P100,PARTIAL,100,256,2,P100,200,p100-inf;qwen3.5-35B-A3B_15k_Fullrun,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,256,256,256
+swebench,Qwen3.5-35B-A3B,OTRC,inf,0.5,in-scope,P100,PARTIAL,100,255,2,P100,200,p100-inf;qwen35-a3b_online-trc,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,255,255,255
 swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,otrc-stacked-10000;p100-otrc-10000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.3,out-of-scope,,EXTRA,100,200,0,P100,200,p100-depth30-otrc-15000,,30,30,60,60,60,60,100,100,200,200,200,200
 swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,otrc-stacked-15000;p100-otrc-15000,,30,30,60,90,90,90,100,100,200,300,300,300
