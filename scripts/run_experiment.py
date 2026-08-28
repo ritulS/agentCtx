@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""
-E2 Experiment Runner
-====================
-Design : 30 tasks × 3 conditions × 3 runs = 270 agent runs.
+"""Run context-compression experiments across tasks and conditions.
+
+Benchmark-specific behavior lives in ``scripts/datasets/``. This module owns
+only experiment expansion, parallel execution, metrics, and result persistence.
 
 Conditions
 ----------
@@ -26,9 +26,9 @@ Directory layout
 
 Usage
 -----
-  python scripts/run_experiment.py            # agents only
-  python scripts/run_experiment.py --with-eval
-  python scripts/run_experiment.py --eval-only
+  python scripts/run_experiment_expansion.py
+  python scripts/run_experiment_expansion.py --with-eval
+  python scripts/run_experiment_expansion.py --eval-only
 """
 
 import argparse
@@ -37,10 +37,11 @@ import os
 import subprocess
 import threading
 import time
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
+
+from bench_adapters import BENCHMARKS, create_benchmark
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
@@ -61,12 +62,6 @@ def model_results_dir() -> Path:
     if ABLATION_NAME:
         return RESULTS_DIR / "ablations" / ABLATION_NAME
     return RESULTS_DIR / MODEL_TAG
-
-REPOS = {
-    "django/django":             "django",
-    "sympy/sympy":               "sympy",
-    "scikit-learn/scikit-learn": "scikit-learn",
-}
 
 # Experimental conditions.
 # "condition" is used as directory name and result key component.
@@ -110,11 +105,8 @@ STEP_LIMIT    = 125
 AGENT_TIMEOUT = 1500  # 25 min; 125 steps × ~10s/step + headroom
 MAX_WORKERS   = 16    # concurrent runs against the shared vLLM server (override with --max-workers)
 
-# SWE-bench evaluation
-SWE_BENCH_PYTHON = WORKSPACE_ROOT / "venv" / "bin" / "python"
-DOCKER_HOST      = f"unix:///run/user/{os.getuid()}/podman/podman.sock"
-DATASET_SUBSET   = "verified"
-DATASET_SPLIT    = "test"
+# Selected in main(). All benchmark-specific operations go through this adapter.
+BENCHMARK = None
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -131,55 +123,14 @@ def results_file_path() -> Path:
 
 
 def load_tasks() -> list[dict]:
-    # Ablation mode: default to the fixed 30-task set, unless --tasks-file was passed
-    if ABLATION_NAME:
-        if TASKS_FILE_EXPLICIT:
-            tasks = json.loads(TASKS_FILE.read_text())
-            source_desc = f"custom task file {TASKS_FILE}"
-        else:
-            if not ABLATION_TASKS_FILE.exists():
-                print(f"ERROR: ablation task file not found at {ABLATION_TASKS_FILE}")
-                raise SystemExit(1)
-            tasks = json.loads(ABLATION_TASKS_FILE.read_text())
-            source_desc = "fixed 30-task set"
-        if N_TASKS_OVERRIDE is not None and N_TASKS_OVERRIDE < len(tasks):
-            tasks = tasks[:N_TASKS_OVERRIDE]
-            source_desc += f" (sliced to first {N_TASKS_OVERRIDE} via --n-tasks)"
-        by_repo = defaultdict(int)
-        for t in tasks:
-            by_repo[t["repo"]] += 1
-        counts = ", ".join(f"{r}={n}" for r, n in sorted(by_repo.items()))
-        print(f"Ablation mode ({source_desc}) — {len(tasks)} tasks: {counts}")
-        return tasks
-
-    if not TASKS_FILE.exists():
-        print(f"ERROR: {TASKS_FILE} not found – run scripts/select_tasks.py first.")
-        raise SystemExit(1)
-    all_tasks = json.loads(TASKS_FILE.read_text())
-
-    # Take N_TASKS // 3 from each repo (balanced sample).
-    # selected_tasks.json uses short repo labels (e.g. "django"), matching REPOS values.
-    by_repo: dict[str, list] = defaultdict(list)
-    for t in all_tasks:
-        by_repo[t["repo"]].append(t)
-
-    # Distribute N_TASKS across repos as evenly as possible, remainder goes to
-    # the first repos.  e.g. 20 tasks / 3 repos → 7, 7, 6.
-    n_base      = N_TASKS // len(REPOS)
-    n_remainder = N_TASKS  % len(REPOS)
-    tasks: list[dict] = []
-    counts_parts = []
-    for i, (repo, label) in enumerate(REPOS.items()):
-        n = n_base + (1 if i < n_remainder else 0)
-        repo_tasks = by_repo.get(label, [])
-        if len(repo_tasks) < n:
-            print(f"WARNING: only {len(repo_tasks)} tasks for {repo} (need {n})")
-        tasks.extend(repo_tasks[:n])
-        counts_parts.append(f"{label}={n}")
-
-    counts = ", ".join(counts_parts)
-    print(f"Using {len(tasks)} tasks: {counts}")
-    return tasks
+    return BENCHMARK.load_tasks(
+        TASKS_FILE,
+        tasks_file_explicit=TASKS_FILE_EXPLICIT,
+        ablation_name=ABLATION_NAME,
+        ablation_tasks_file=ABLATION_TASKS_FILE,
+        n_tasks=N_TASKS,
+        n_tasks_override=N_TASKS_OVERRIDE,
+    )
 
 
 def load_existing_results() -> list[dict]:
@@ -220,7 +171,7 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
     env["MSWEA_COMPRESSION_RATIO"]  = str(compression_ratio)
     env["MSWEA_TOKEN_LOG_PATH"]     = str(token_log_file)
     env["MSWEA_RUN_KEY"]            = key   # used by staggered_random for reproducible seeding
-    env["DOCKER_HOST"]          = DOCKER_HOST
+    env.update(BENCHMARK.agent_environment())
 
     local_bin = str(Path.home() / ".local" / "bin")
     if local_bin not in env.get("PATH", ""):
@@ -233,28 +184,14 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
     # Build -c config chain. mini-swe-agent merges configs in order, later overriding earlier.
     # When a condition has a config (e.g. OTRC's prompts), load it first, then layer the user's
     # --agent-config on top so the model section (model_name, api_base) wins.
-    config_chain = ["swebench_backticks.yaml"]
+    config_chain = []
     if config is not None:
         config_chain.append(str(config))
         if AGENT_CONFIG and Path(AGENT_CONFIG) != Path(config):
             config_chain.append(str(AGENT_CONFIG))
     else:
         config_chain.append(str(AGENT_CONFIG))
-    cmd = [
-        str(WORKSPACE_ROOT / "venv" / "bin" / "python"),
-        "-m", "minisweagent.run.benchmarks.swebench_single",
-        "--subset",   DATASET_SUBSET,
-        "--split",    DATASET_SPLIT,
-        "--instance", instance_id,
-    ]
-    for c in config_chain:
-        cmd += ["-c", c]
-    cmd += [
-        "-c", f"agent.step_limit={STEP_LIMIT}",
-        "-o", str(traj_file),
-        "-y",
-        "--exit-immediately",
-    ]
+    cmd = BENCHMARK.build_agent_command(instance_id, config_chain, traj_file, STEP_LIMIT)
 
     t0 = time.time()
     returncode = -1
@@ -274,16 +211,11 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
 
     e2e_latency = round(time.time() - t0, 2)
 
-    # ── Parse trajectory ──────────────────────────────────────────────────────
-    n_calls = 0; patch_generated = False; submission = ""; exit_status = ""
+    # The adapter translates its native trajectory into result fields.
+    outcome = BENCHMARK.empty_outcome()
     if traj_file.exists():
         try:
-            traj        = json.loads(traj_file.read_text())
-            info        = traj.get("info", {})
-            n_calls     = info.get("model_stats", {}).get("api_calls", 0)
-            exit_status = info.get("exit_status", "")
-            submission  = info.get("submission", "") or ""
-            patch_generated = bool(submission.strip())
+            outcome = BENCHMARK.parse_trajectory(traj_file)
         except Exception as exc:
             print(f"    ! Trajectory parse error: {exc}")
 
@@ -308,12 +240,6 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
         # process
         "returncode":    returncode,
         "e2e_latency_s": e2e_latency,
-        # agent metrics
-        "n_calls":        n_calls,
-        "exit_status":    exit_status,
-        "patch_generated": patch_generated,
-        "submission":     submission,
-        "resolved":       None,   # filled by SWE-bench eval
         # token log — cumulative totals
         "total_prompt_tokens":     tok.get("total_prompt_tokens", 0),
         "total_completion_tokens": tok.get("total_completion_tokens", 0),
@@ -337,12 +263,13 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
         "online_trc_clears":             tok.get("online_trc_clears", 0),
         "online_trc_flags":              tok.get("online_trc_flags", []),
     }
+    result.update(outcome)
 
-    icon = "P" if patch_generated else "x"
+    icon = "P" if outcome["submission_generated"] else "x"
     print(
-        f"    [{icon}] e2e={e2e_latency:.0f}s  calls={n_calls:3d}  "
+        f"    [{icon}] e2e={e2e_latency:.0f}s  calls={outcome['n_calls']:3d}  "
         f"comp_events={result['compression_events']:2d}  "
-        f"exit={exit_status}"
+        f"exit={outcome['exit_status']}"
     )
     return result
 
@@ -391,99 +318,6 @@ def run_all_agents(tasks: list[dict]) -> list[dict]:
     return results
 
 
-# ── SWE-bench evaluation ───────────────────────────────────────────────────────
-
-def _find_eval_output(predictions_stem: str, run_id: str) -> Path | None:
-    eval_dir = model_results_dir() / "eval"
-    candidates = [
-        eval_dir / f"{MODEL_TAG}.{run_id}.json",
-        eval_dir / f"{predictions_stem}.{run_id}.json",
-        eval_dir / f"{run_id}.json",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    for p in eval_dir.glob(f"*{run_id}*.json"):
-        return p
-    return None
-
-
-def evaluate_run(result: dict) -> bool | None:
-    iid  = result["instance_id"]
-    key  = result["key"]
-
-    preds_dir  = model_results_dir() / "preds"
-    preds_dir.mkdir(parents=True, exist_ok=True)
-    eval_dir   = model_results_dir() / "eval"
-    eval_dir.mkdir(parents=True, exist_ok=True)
-
-    preds_stem = f"preds_{key}"
-    preds_path = preds_dir / f"{preds_stem}.json"
-    preds_path.write_text(json.dumps({
-        iid: {
-            "model_name_or_path": MODEL_TAG,
-            "instance_id":        iid,
-            "model_patch":        result["submission"],
-        }
-    }, indent=2))
-
-    env = os.environ.copy()
-    env["DOCKER_HOST"] = DOCKER_HOST
-
-    cmd = [
-        str(SWE_BENCH_PYTHON), "-m", "swebench.harness.run_evaluation",
-        "--predictions_path", str(preds_path),
-        "--max_workers", "1",
-        "--instance_ids", iid,
-        "--run_id", key,
-        "--report_dir", str(eval_dir),
-        "--dataset_name", "princeton-nlp/SWE-bench_Verified",
-        "--split", DATASET_SPLIT,
-    ]
-    try:
-        subprocess.run(cmd, cwd=eval_dir, env=env, capture_output=True, text=True, timeout=600)
-    except subprocess.TimeoutExpired:
-        print(f"    ! Eval timeout for {key}")
-        return None
-    except Exception as exc:
-        print(f"    ! Eval error for {key}: {exc}")
-        return None
-
-    out_file = _find_eval_output(preds_stem, key)
-    if out_file is None:
-        print(f"    ! Eval output not found for {key}")
-        return None
-    try:
-        data = json.loads(out_file.read_text())
-        return iid in data.get("resolved_ids", [])
-    except Exception as exc:
-        print(f"    ! Could not parse eval output: {exc}")
-        return None
-
-
-def run_swebench_eval(results: list[dict]) -> list[dict]:
-    # Skip seeded stub entries — they lack patch_generated/resolved fields and
-    # their upstream eval JSONs are already symlinked into eval/ via p100_seed.py.
-    work = [r for r in results if "seeded_from" not in r]
-
-    to_eval  = [r for r in work if r["patch_generated"] and r["resolved"] is None]
-    no_patch = sum(1 for r in work if not r["patch_generated"])
-    print(f"\nSWE-bench evaluation: {len(to_eval)} runs to evaluate ({no_patch} had no patch); "
-          f"{len(results) - len(work)} seeded stubs skipped\n")
-
-    for i, r in enumerate(to_eval, 1):
-        print(f"  [{i:4d}/{len(to_eval)}] {r['key']}")
-        r["resolved"] = evaluate_run(r)
-        print(f"    → {'RESOLVED' if r['resolved'] else ('FAILED' if r['resolved'] is False else 'ERROR')}")
-        save_results(results)
-
-    for r in work:
-        if not r["patch_generated"]:
-            r["resolved"] = False
-
-    return results
-
-
 # ── Run metadata ───────────────────────────────────────────────────────────────
 
 def _write_run_info(n_tasks: int, total_runs: int, budget: int) -> None:
@@ -498,6 +332,7 @@ def _write_run_info(n_tasks: int, total_runs: int, budget: int) -> None:
         _model_name = AGENT_CONFIG.stem
 
     info = {
+        "benchmark":    BENCHMARK.name,
         "run_tag":      MODEL_TAG,
         "model":        _model_name,
         "agent_config": str(AGENT_CONFIG),
@@ -549,9 +384,11 @@ results/{MODEL_TAG}/
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS, RUNS_PER_TASK
+    global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS, RUNS_PER_TASK, BENCHMARK
 
     parser = argparse.ArgumentParser(description="Experiment runner")
+    parser.add_argument("--benchmark", choices=sorted(BENCHMARKS), default="swe-bench",
+                        help="Benchmark adapter to use (default: swe-bench)")
     parser.add_argument("--model-tag",    default="qwen35-a3b",
                         help="Short model identifier used as results subdirectory (default: qwen35-a3b)")
     parser.add_argument("--ablation",     default=None, metavar="NAME",
@@ -624,6 +461,12 @@ def main() -> None:
         CONDITIONS[:] = [c for c in CONDITIONS if c["condition"] in args.conditions]
 
     model_results_dir().mkdir(parents=True, exist_ok=True)
+    BENCHMARK = create_benchmark(
+        args.benchmark,
+        workspace_root=WORKSPACE_ROOT,
+        model_tag=MODEL_TAG,
+        results_dir=model_results_dir(),
+    )
     tasks = load_tasks()
 
     total  = len(tasks) * len(CONDITIONS) * RUNS_PER_TASK
@@ -631,6 +474,7 @@ def main() -> None:
 
     print("=" * 72)
     print("EXPERIMENT")
+    print(f"  Benchmark  : {BENCHMARK.name}")
     print(f"  Model tag  : {MODEL_TAG}")
     print(f"  Agent cfg  : {AGENT_CONFIG}")
     print(f"  Results dir: {model_results_dir()}")
@@ -654,7 +498,7 @@ def main() -> None:
             raise SystemExit(1)
 
     if args.eval_only or args.with_eval:
-        results = run_swebench_eval(results)
+        results = BENCHMARK.evaluate_results(results, save_results)
 
 
 if __name__ == "__main__":
