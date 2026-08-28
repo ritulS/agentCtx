@@ -20,7 +20,7 @@ import run_experiment as runner
 ROOT = Path(__file__).resolve().parent.parent
 ICLR_SWEBENCH = ROOT / "ICLR_results" / "swebench"
 CELL_RE = re.compile(r"^(d03|d05|d07|di)__(b(?:[1-9][0-9]*k|A|P|B|inf))__[a-z0-9+-]+$")
-MODELS = {"qwen35b", "devstral24b", "glm47flash"}
+MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 CONDITION_TO_PRIMITIVE = {
     "truncation": "tr",
     "summarization": "su-full",
@@ -36,17 +36,20 @@ CONDITION_TO_PRIMITIVE = {
     "full-context": "fc",
     "online-trc": "otrc",
 }
+INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc"}
 
 
 def parse_adapter_args() -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--iclr-section", required=True, choices=("main", "ablation"))
-    parser.add_argument("--iclr-model", required=True, choices=sorted(MODELS))
+    parser.add_argument("--iclr-model", required=True)
     parser.add_argument("--iclr-cell", required=True)
     return parser.parse_known_args()
 
 
 def canonical_cell(args: argparse.Namespace) -> Path:
+    if not MODEL_RE.fullmatch(args.iclr_model):
+        raise SystemExit("invalid --iclr-model; use lowercase letters, digits, and hyphens")
     if not CELL_RE.fullmatch(args.iclr_cell):
         raise SystemExit(
             "invalid --iclr-cell; expected {d03|d05|d07|di}__"
@@ -70,8 +73,21 @@ def option_value(argv: list[str], option: str) -> str:
 
 def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path) -> None:
     depth_tag, budget_tag, primitive = cell.split("__")
-    condition = option_value(runner_args, "--conditions")
+    try:
+        conditions_index = runner_args.index("--conditions")
+    except ValueError:
+        raise SystemExit("--conditions is required by the ICLR runner") from None
+    condition_values = []
+    for value in runner_args[conditions_index + 1:]:
+        if value.startswith("--"):
+            break
+        condition_values.append(value)
+    if len(condition_values) != 1:
+        raise SystemExit("ICLR cells require exactly one --conditions value")
+    condition = condition_values[0]
     expected_primitive = CONDITION_TO_PRIMITIVE.get(condition)
+    if expected_primitive is None:
+        raise SystemExit(f"condition {condition!r} has no canonical ICLR primitive")
     if primitive != expected_primitive:
         raise SystemExit(
             f"cell primitive {primitive!r} does not match condition {condition!r}"
@@ -88,6 +104,12 @@ def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path
     expected_depth = {"d03": 0.3, "d05": 0.5, "d07": 0.7}.get(depth_tag)
     if expected_depth is not None and depth != expected_depth:
         raise SystemExit(f"cell depth {depth_tag} does not match --depth {depth}")
+    if depth_tag == "di" and depth != 0.5:
+        raise SystemExit("depth-invariant cells require the canonical --depth 0.5")
+    if condition in INFINITE_BUDGET_CONDITIONS and budget_tag != "binf":
+        raise SystemExit(f"condition {condition!r} requires a binf cell")
+    if condition not in INFINITE_BUDGET_CONDITIONS and budget_tag == "binf":
+        raise SystemExit(f"condition {condition!r} requires a finite-budget cell")
     if budget_tag == "binf" and budget != 999_999_999:
         raise SystemExit("binf cells require --budget 999999999")
     numeric_match = re.fullmatch(r"b([1-9][0-9]*)k", budget_tag)
@@ -114,6 +136,8 @@ def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path
 
 def main() -> None:
     adapter_args, runner_args = parse_adapter_args()
+    if "--benchmark" in runner_args and option_value(runner_args, "--benchmark") != "swe-bench":
+        raise SystemExit("run_experiment_iclr.py only writes SWE-Bench cells")
     destination = canonical_cell(adapter_args)
     validate_cell_semantics(adapter_args.iclr_cell, runner_args, destination)
 

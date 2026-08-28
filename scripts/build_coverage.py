@@ -214,10 +214,16 @@ def main():
             expected[("swebench", MAIN_MODEL, prim, b, 0.5)] = "P100"
     for prim in ("FC", "OTRC"):
         expected[("swebench", MAIN_MODEL, prim, INF, 0.5)] = "P100"
-    # known model-expansion requirements (∞ baselines; see HANDOFF_COHERENCE.md)
-    for model in ("Devstral-Small-2-24B", "GLM-4.7-Flash", "Qwen2.5-Coder-32B", "Llama-3.3-70B"):
+    # Legacy model-expansion baselines that only used the ABL-30 cohort.
+    for model in ("Qwen2.5-Coder-32B", "Llama-3.3-70B"):
         for prim in ("FC", "OTRC"):
             expected[("swebench", model, prim, INF, 0.5)] = "ABL-30"
+
+    # FOLLOWUP_EXPERIMENTS 2.a/2.b use P100. Calibration FC trajectories in
+    # these canonical cells count as run_1 of the corresponding experiment.
+    for model in ("Devstral-Small-2-24B", "GLM-4.7-Flash"):
+        for prim in ("FC", "OTRC"):
+            expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
     # Concrete Devstral cells in FOLLOWUP_EXPERIMENTS.md.  This makes the
     # follow-up plan part of the same inventory as completed data, instead of

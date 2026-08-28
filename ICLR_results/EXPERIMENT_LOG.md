@@ -40,24 +40,30 @@ Experiment Plam → [exp_plans/FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EX
 
 ### Budget calibration protocol
 
-Calibrate each model independently from context growth in **60 uncompressed
-trajectories** (ABL-30 × 2 runs). For every trajectory, take
+Calibrate each model independently from context growth in **100 uncompressed
+trajectories** (SB:P100 × run_1). These are stored directly as the FC run_1
+portion of experiment 2.a/2.b, so calibration does not duplicate agent runs.
+For every trajectory, take
 `max(step_prompt_tokens)`, then choose `A/P/B` thresholds whose compression
 trigger rates match the Qwen3.5 reference rates `97% / 88% / 76%` within ±5pp.
 The calculation and 1K rounding are implemented in
-`Review1/calibrate_budgets.py`; patch evaluation is not required.
+`Review1/calibrate_budgets.py`.
 
 1. Start the model server and verify its `/v1/models` endpoint.
 2. Collect FC trajectories and calculate budgets (resumable):
 
    ```bash
-   # Devstral reproduction/verification
-   setsid bash scripts/run_model_budget_calibration.sh devstral \
+   # Devstral (also produces experiment 2.a FC run_1)
+   setsid venv/bin/python scripts/run_budget_calibration_sb.py \
+     --model-key devstral24b \
+     --agent-config configs/config-devstral-vllm.yaml \
      > logs/devstral_budget_calibration.nohup.log 2>&1 &
    echo $! > logs/devstral_budget_calibration.pid
 
-   # GLM calibration (after its configs and server launcher exist)
-   setsid bash scripts/run_model_budget_calibration.sh glm \
+   # GLM (also produces experiment 2.b FC run_1; after its config exists)
+   setsid venv/bin/python scripts/run_budget_calibration_sb.py \
+     --model-key glm47flash \
+     --agent-config configs/config-glm47flash-vllm.yaml \
      > logs/glm_budget_calibration.nohup.log 2>&1 &
    echo $! > logs/glm_budget_calibration.pid
    ```
@@ -65,20 +71,21 @@ The calculation and 1K rounding are implemented in
 3. Inspect the generated file and require `ALL_WITHIN_TOLERANCE=true`:
 
    ```bash
-   cat logs/devstral-2_calibrated_budgets.sh
-   cat logs/glm47-flash_calibrated_budgets.sh
+   cat ICLR_results/swebench/main/devstral24b/di__binf__fc/calibrated_budgets.sh
+   cat ICLR_results/swebench/main/glm47flash/di__binf__fc/calibrated_budgets.sh
    ```
 
-   Expected Devstral reproduction: `A/P/B = 15000/20000/24000`, corresponding
-   to approximately `98.3%/90.0%/75%` trigger rates. If a value collides after
-   rounding or falls outside tolerance, stop for manual review; do not silently
-   substitute Qwen budgets.
+   The earlier ABL-30 × 2 Devstral estimate was `A/P/B = 15000/20000/24000`.
+   Treat it as a comparison point, not a required result: the canonical P100 ×
+   run_1 distribution may differ. If a value collides after rounding or falls
+   outside tolerance, stop for manual review; do not silently substitute Qwen
+   budgets.
 
 4. Pass the approved values to the expansion launcher. Devstral already uses
    the calibrated values as defaults; GLM remains explicit:
 
    ```bash
-   source logs/glm47-flash_calibrated_budgets.sh
+   source ICLR_results/swebench/main/glm47flash/di__binf__fc/calibrated_budgets.sh
    GLM_A_BUDGET="$TIGHT_BUDGET" \
    GLM_P_BUDGET="$MEDIUM_BUDGET" \
    GLM_B_BUDGET="$LOOSE_BUDGET" \
@@ -89,9 +96,10 @@ The calculation and 1K rounding are implemented in
 
 Artifacts to retain for provenance:
 
-- `results/ablations/<model-tag>-inf/experiment_results.json`
-- `logs/<model-tag>_budget_calibration.log`
-- `logs/<model-tag>_calibrated_budgets.sh`
+- `ICLR_results/swebench/main/<model>/di__binf__fc/experiment_results.json`
+- `ICLR_results/swebench/main/<model>/di__binf__fc/<instance>/full-context/run_1/`
+- `ICLR_results/swebench/main/<model>/di__binf__fc/fc_context_distribution.json`
+- `ICLR_results/swebench/main/<model>/di__binf__fc/{calibration_report.txt,calibrated_budgets.sh}`
 - the launch PID, code version, model ID, context-window setting, and approval
   decision recorded below
 
@@ -101,31 +109,34 @@ the percentile report and rebuilds `COVERAGE.csv` and `DASHBOARD.html`.
 
 ```bash
 # SWE-Bench P100 (counts as the FC run_1 portion of 2.a or 2.b)
-venv/bin/python scripts/run_budget_calibration.py \
-  --benchmark swebench \
+venv/bin/python scripts/run_budget_calibration_sb.py \
   --model-key devstral24b \
   --agent-config configs/config-devstral-vllm.yaml \
   --tasks-file task_lists/p100_all_100_tasks.json
 
-# Terminal-Bench (counts as 3.a only when this file is the frozen P80 cohort)
-venv/bin/python scripts/run_budget_calibration.py \
-  --benchmark terminalbench \
-  --model-key devstral24b \
-  --agent-config configs/config-devstral-vllm.yaml \
-  --tasks-file task_lists/<frozen-p80-tasks>.json
+# GLM (after adding its model config)
+venv/bin/python scripts/run_budget_calibration_sb.py \
+  --model-key glm47flash \
+  --agent-config configs/config-glm47flash-vllm.yaml \
+  --tasks-file task_lists/p100_all_100_tasks.json
 ```
 
 Outputs are stored under
-`ICLR_results/{swebench|terminalbench}/main/<model>/di__binf__fc/`, including
+`ICLR_results/swebench/main/<model>/di__binf__fc/`, including
 `experiment_results.json` (all per-step prompt-token arrays), raw per-task
-artifacts, `calibration_report.txt`, and `calibrated_budgets.sh`. FC never
+artifacts, `fc_context_distribution.json`, `calibration_report.txt`, and
+`calibrated_budgets.sh`. FC never
 invokes a summarizer, so only the agent model is configured for this stage.
-The currently checked-in `task_lists/tbench_tasks.json` contains the older
-20-task cohort; it is useful for calibration but does not by itself satisfy
-the planned TB:P80 coverage for 3.a.
+The calibration report explicitly filters `run_num == 1`, so adding run_2 and
+run_3 to the same canonical FC cell later cannot change the saved calibration
+distribution.
+SWE-Bench patch evaluation is enabled by default so these are complete
+experimental run_1 records; pass `--skip-eval` only when evaluation will be
+resumed separately later.
 
 - [TODO] Start Devstral: `bash scripts/start_vllm_devstral.sh`.
-- [TODO] Run the Devstral calibration reproduction and confirm `A/P/B = 15K/20K/24K`.
+- [TODO] Run the Devstral P100/run_1 calibration, compare it with the earlier
+  `15K/20K/24K` estimate, and record the reviewed decision.
 - [TODO] Launch Devstral: `setsid bash scripts/run_agent_models_expansion.sh devstral > logs/agent_models_devstral.out 2>&1 &`.
 - [TODO] Create the GLM agent/OTRC configs and vLLM launcher, then calibrate its `A/P/B` budgets with the protocol above.
 - [TODO] Start and verify the GLM vLLM server on the configured endpoint.

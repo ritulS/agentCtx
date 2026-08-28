@@ -67,7 +67,7 @@ host-specific serving caveats.
 | `scripts/run_experiment.py` | Main run harness. Conditions in the `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--max-workers`. |
 | `scripts/build_coverage.py` | Regenerates `COVERAGE.csv` from disk + CSVs. |
 | `scripts/build_dashboard.py` | Renders `DASHBOARD.html` from `COVERAGE.csv`. |
-| `scripts/run_tbench.py`, `tbench/` | Terminal-Bench orchestrator and agent adapter. |
+| `scripts/run_experiment_expansion.py`, `tbench/` | Unified SWE-Bench/Terminal-Bench orchestrator and Terminal-Bench agent adapter. |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task JSONs — `p100_all_100_tasks.json` (P100), `ablation_30tasks.json` (ABL-30), tbench sets. |

@@ -13,7 +13,7 @@
 # Stop:   kill $(cat logs/vllm_devstral.pid)
 set -euo pipefail
 
-WS="$HOME/projects/agentCtx"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$WS"
 mkdir -p logs
 
