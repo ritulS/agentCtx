@@ -92,7 +92,7 @@ swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,dep
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__trc-su;p100-trc-20000;stacked-20000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.7,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-70;p100-depth70-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Devstral-Small-2-24B,FC,inf,0.5,in-scope,P100,PARTIAL,100,100,1,P100,0,ICLR_results/swebench/main/devstral24b/di__binf__fc,only 1/3 runs/task,30,30,30,30,30,30,100,100,100,100,100,100
-swebench,GLM-4.7-Flash,FC,inf,0.5,in-scope,P100,PARTIAL,60,60,0,ABL-30 (+30),0,ICLR_results/swebench/main/glm47flash/di__binf__fc,,30,30,30,30,30,30,60,60,60,60,60,60
+swebench,GLM-4.7-Flash,FC,inf,0.5,in-scope,P100,PARTIAL,95,95,0,ABL-30 (+65),0,ICLR_results/swebench/main/glm47flash/di__binf__fc,,30,30,30,30,30,30,95,95,95,95,95,95
 swebench,Llama-3.3-70B,FC,inf,0.5,in-scope,ABL-30,PARTIAL,30,60,2,ABL-30,0,llama33-70b-inf;llama33-70b-pilot,only 2/3 runs/task,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen2.5-7B,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,0,ABL-30,60,,csv only (raw data on Albus),30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen2.5-7B,OTRC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,0,ABL-30,60,,csv only (raw data on Albus),30,30,60,60,60,60,30,30,60,60,60,60
