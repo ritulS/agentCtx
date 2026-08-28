@@ -26,7 +26,15 @@ Experiment Plam → [exp_plans/FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EX
       `qwen3.5-35B-A3B_15k_Fullrun`, and `qwen35-a3b_online-trc`
 - Runtime logs: `logs/run3_expansion.log` and
   `logs/run3_expansion.nohup.log` (local, gitignored)
-- [TODO] After the experiment completes, run `scripts/archive_and_organize_qwen35b_swebench.py` to copy the result files under `ICLR_results/`.
+- [DONE] 2026-08-28: Ran `scripts/archive_and_organize_qwen35b_swebench.py`
+  (HEAD `cb5d3771791cbca0e05f1ff1f71177ec4e902051`, script last changed in
+  `8f9a50bf8fe7943059148af11cc09525453a0eed`) to copy the result files under
+  `ICLR_results/`:
+  ```bash
+  python3 scripts/archive_and_organize_qwen35b_swebench.py \
+    --backup-root /home/ak58925/agentCtx_backups/run3-complete-2026-08-28
+  ```
+  All 65 cells (`main/qwen35b`: 35, `ablation/qwen35b`: 30) reported COMPLETE.
 
 ## Follow-up 2 — Agent model expansion
 
@@ -86,6 +94,35 @@ Artifacts to retain for provenance:
 - `logs/<model-tag>_calibrated_budgets.sh`
 - the launch PID, code version, model ID, context-window setting, and approval
   decision recorded below
+
+The reusable FC launcher below collects exactly `run_1` for every selected
+task and writes it directly into the canonical ICLR cell. It then calculates
+the percentile report and rebuilds `COVERAGE.csv` and `DASHBOARD.html`.
+
+```bash
+# SWE-Bench P100 (counts as the FC run_1 portion of 2.a or 2.b)
+venv/bin/python scripts/run_budget_calibration.py \
+  --benchmark swebench \
+  --model-key devstral24b \
+  --agent-config configs/config-devstral-vllm.yaml \
+  --tasks-file task_lists/p100_all_100_tasks.json
+
+# Terminal-Bench (counts as 3.a only when this file is the frozen P80 cohort)
+venv/bin/python scripts/run_budget_calibration.py \
+  --benchmark terminalbench \
+  --model-key devstral24b \
+  --agent-config configs/config-devstral-vllm.yaml \
+  --tasks-file task_lists/<frozen-p80-tasks>.json
+```
+
+Outputs are stored under
+`ICLR_results/{swebench|terminalbench}/main/<model>/di__binf__fc/`, including
+`experiment_results.json` (all per-step prompt-token arrays), raw per-task
+artifacts, `calibration_report.txt`, and `calibrated_budgets.sh`. FC never
+invokes a summarizer, so only the agent model is configured for this stage.
+The currently checked-in `task_lists/tbench_tasks.json` contains the older
+20-task cohort; it is useful for calibration but does not by itself satisfy
+the planned TB:P80 coverage for 3.a.
 
 - [TODO] Start Devstral: `bash scripts/start_vllm_devstral.sh`.
 - [TODO] Run the Devstral calibration reproduction and confirm `A/P/B = 15K/20K/24K`.

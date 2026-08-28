@@ -1,95 +1,95 @@
 benchmark,model,primitive,budget,depth,scope,required_cohort,status,tasks_on_disk,runs_on_disk,runs_per_task_min,cohort_covered,rows_in_csv,source_dirs,notes,tasks_covered_abl30,runs_capped_1_abl30,runs_capped_2_abl30,runs_capped_3_abl30,runs_capped_4_abl30,runs_capped_5_abl30,tasks_covered_p100,runs_capped_1_p100,runs_capped_2_p100,runs_capped_3_p100,runs_capped_4_p100,runs_capped_5_p100
-swebench,Qwen3.5-35B-A3B,FC,inf,0.5,in-scope,P100,PARTIAL,100,200,2,P100,200,p100-inf;qwen3.5-35B-A3B_15k_Fullrun,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC,inf,0.5,in-scope,P100,PARTIAL,100,200,2,P100,200,p100-inf;qwen35-a3b_online-trc,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,10k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,otrc-stacked-10000;p100-otrc-10000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,FC,inf,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__binf__fc;p100-inf;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,OTRC,inf,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__binf__otrc;p100-inf;qwen35-a3b_online-trc,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b10k__otrc-ss-partial;otrc-stacked-10000;p100-otrc-10000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.3,out-of-scope,,EXTRA,100,200,0,P100,200,p100-depth30-otrc-15000,,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,otrc-stacked-15000;p100-otrc-15000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b15k__otrc-ss-partial;otrc-stacked-15000;p100-otrc-15000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,15k,0.7,out-of-scope,,EXTRA,100,200,0,P100,200,p100-depth70-otrc-15000,,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,20k,0.5,in-scope,P100,PARTIAL,100,220,2,P100,200,otrc-stacked-20000;p100-otrc-20000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,220,220,220
-swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,10k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,otrc-stacked-10000;p100-otrc-10000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,OTRC+SS-partial,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__otrc-ss-partial;otrc-stacked-20000;p100-otrc-20000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b10k__otrc-su-partial;otrc-stacked-10000;p100-otrc-10000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,15k,0.3,out-of-scope,,EXTRA,100,200,0,P100,200,p100-depth30-otrc-15000,,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,15k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,otrc-stacked-15000;p100-otrc-15000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b15k__otrc-su-partial;otrc-stacked-15000;p100-otrc-15000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,15k,0.7,out-of-scope,,EXTRA,100,200,0,P100,200,p100-depth70-otrc-15000,,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,20k,0.5,in-scope,P100,PARTIAL,100,221,2,P100,200,otrc-stacked-20000;p100-otrc-20000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,221,221,221
-swebench,Qwen3.5-35B-A3B,OTRC+TR,10k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,otrc-stacked-10000;p100-otrc-10000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,OTRC+SU-partial,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__otrc-su-partial;otrc-stacked-20000;p100-otrc-20000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,OTRC+TR,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b10k__otrc-tr;otrc-stacked-10000;p100-otrc-10000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,OTRC+TR,15k,0.3,out-of-scope,,EXTRA,100,200,0,P100,200,p100-depth30-otrc-15000,,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC+TR,15k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,otrc-stacked-15000;p100-otrc-15000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,OTRC+TR,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b15k__otrc-tr;otrc-stacked-15000;p100-otrc-15000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,OTRC+TR,15k,0.7,out-of-scope,,EXTRA,100,200,0,P100,200,p100-depth70-otrc-15000,,30,30,60,60,60,60,100,100,200,200,200,200
-swebench,Qwen3.5-35B-A3B,OTRC+TR,20k,0.5,in-scope,P100,PARTIAL,100,219,2,P100,200,otrc-stacked-20000;p100-otrc-20000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,219,219,219
-swebench,Qwen3.5-35B-A3B,SS,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SS,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-10000;partial-10000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SS,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SS,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SS,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-singles-15000;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SS,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SS,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SS,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-20000;partial-20000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SS,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SS-partial,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SS-partial,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-10000;partial-10000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SS-partial,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SS-partial,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SS-partial,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-singles-15000;partial-15000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SS-partial,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SS-partial,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SS-partial,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-20000;partial-20000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SS-partial,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,OTRC+TR,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__otrc-tr;otrc-stacked-20000;p100-otrc-20000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SS,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b10k__ss;p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SS,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b10k__ss;p100-singles-10000;partial-10000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SS,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,ICLR_results/swebench/ablation/qwen35b/d07__b10k__ss;p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SS,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b15k__ss;p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SS,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b15k__ss;p100-singles-15000;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SS,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d07__b15k__ss;p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SS,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d03__b20k__ss;depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SS,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b20k__ss;p100-singles-20000;partial-20000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SS,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d07__b20k__ss;depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SS-partial,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b10k__ss-partial;p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SS-partial,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b10k__ss-partial;p100-singles-10000;partial-10000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SS-partial,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,ICLR_results/swebench/ablation/qwen35b/d07__b10k__ss-partial;p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SS-partial,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b15k__ss-partial;p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SS-partial,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b15k__ss-partial;p100-singles-15000;partial-15000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SS-partial,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d07__b15k__ss-partial;p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SS-partial,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d03__b20k__ss-partial;depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SS-partial,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b20k__ss-partial;p100-singles-20000;partial-20000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SS-partial,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d07__b20k__ss-partial;depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
 swebench,Qwen3.5-35B-A3B,STAG-alt,10k,0.5,out-of-scope,,EXTRA,6,12,0,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-10000,,6,6,12,12,12,12,6,6,12,12,12,12
 swebench,Qwen3.5-35B-A3B,STAG-alt,15k,0.5,out-of-scope,,EXTRA,6,12,0,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-15000,,6,6,12,12,12,12,6,6,12,12,12,12
 swebench,Qwen3.5-35B-A3B,STAG-alt,20k,0.5,out-of-scope,,EXTRA,6,12,0,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-20000,,6,6,12,12,12,12,6,6,12,12,12,12
 swebench,Qwen3.5-35B-A3B,STAG-rand,10k,0.5,out-of-scope,,EXTRA,6,12,0,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-10000,,6,6,12,12,12,12,6,6,12,12,12,12
 swebench,Qwen3.5-35B-A3B,STAG-rand,15k,0.5,out-of-scope,,EXTRA,6,12,0,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-15000,,6,6,12,12,12,12,6,6,12,12,12,12
 swebench,Qwen3.5-35B-A3B,STAG-rand,20k,0.5,out-of-scope,,EXTRA,6,12,0,"partial (6/30 ABL-30, 6 total)",12,staggered-pilot-20000,,6,6,12,12,12,12,6,6,12,12,12,12
-swebench,Qwen3.5-35B-A3B,SU-full,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SU-full,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-10000;timing-10k,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SU-full,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SU-full,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SU-full,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-singles-15000;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SU-full,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SU-full,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SU-full,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b10k__su-full;p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SU-full,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b10k__su-full;p100-singles-10000;timing-10k,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SU-full,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,ICLR_results/swebench/ablation/qwen35b/d07__b10k__su-full;p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SU-full,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b15k__su-full;p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SU-full,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b15k__su-full;p100-singles-15000;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SU-full,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d07__b15k__su-full;p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SU-full,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d03__b20k__su-full;depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
 swebench,Qwen3.5-35B-A3B,SU-full,20k,0.4,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-40,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,SU-full,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,depth-50;p100-singles-20000;timing-20k,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SU-full,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b20k__su-full;depth-50;p100-singles-20000;timing-20k,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,SU-full,20k,0.6,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-60,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,SU-full,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SU-partial,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SU-partial,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-10000;partial-10000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SU-partial,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SU-partial,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SU-partial,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-singles-15000;partial-15000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SU-partial,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,SU-partial,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,SU-partial,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-20000;partial-20000,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,SU-partial,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,TR,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,TR,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,p100-singles-10000;timing-10k,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,TR,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
-swebench,Qwen3.5-35B-A3B,TR,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,TR,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-singles-15000;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Qwen3.5-35B-A3B,TR,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
-swebench,Qwen3.5-35B-A3B,TR,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SU-full,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d07__b20k__su-full;depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SU-partial,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b10k__su-partial;p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SU-partial,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b10k__su-partial;p100-singles-10000;partial-10000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SU-partial,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,ICLR_results/swebench/ablation/qwen35b/d07__b10k__su-partial;p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SU-partial,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b15k__su-partial;p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SU-partial,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b15k__su-partial;p100-singles-15000;partial-15000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SU-partial,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d07__b15k__su-partial;p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,SU-partial,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d03__b20k__su-partial;depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,SU-partial,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b20k__su-partial;p100-singles-20000;partial-20000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,SU-partial,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d07__b20k__su-partial;depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,TR,10k,0.3,in-scope,ABL-30,COMPLETE,100,230,3,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b10k__tr;p100-depth30-singles-10000,,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,TR,10k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b10k__tr;p100-singles-10000;timing-10k,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,TR,10k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,60,ICLR_results/swebench/ablation/qwen35b/d07__b10k__tr;p100-depth70-singles-10000,,30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,TR,15k,0.3,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d03__b15k__tr;p100-depth30-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,TR,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b15k__tr;p100-singles-15000;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,TR,15k,0.7,in-scope,P100,PARTIAL,100,230,2,P100,200,ICLR_results/swebench/ablation/qwen35b/d07__b15k__tr;p100-depth70-singles-15000,only 2/3 runs/task,30,30,60,90,90,90,100,100,200,230,230,230
+swebench,Qwen3.5-35B-A3B,TR,20k,0.3,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d03__b20k__tr;depth-30;p100-depth30-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
 swebench,Qwen3.5-35B-A3B,TR,20k,0.4,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-40,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,TR,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,depth-50;p100-singles-20000;timing-20k,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,TR,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/d05__b20k__tr;depth-50;p100-singles-20000;timing-20k,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TR,20k,0.6,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-60,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,TR,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
+swebench,Qwen3.5-35B-A3B,TR,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,ICLR_results/swebench/ablation/qwen35b/d07__b20k__tr;depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
 swebench,Qwen3.5-35B-A3B,TRC,10k,0.3,out-of-scope,,EXTRA,69,137,0,ABL-30 (+39),0,p100-depth30-trc-10000,,30,30,60,60,60,60,69,69,137,137,137,137
-swebench,Qwen3.5-35B-A3B,TRC,10k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-10000;timing-10k,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
-swebench,Qwen3.5-35B-A3B,TRC,15k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-15000;qwen3.5-35B-A3B_15k_Fullrun,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b10k__trc;p100-trc-10000;timing-10k,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,TRC,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b15k__trc;p100-trc-15000;qwen3.5-35B-A3B_15k_Fullrun,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-30;p100-depth30-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TRC,20k,0.4,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-40,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,TRC,20k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,depth-50;p100-trc-20000;timing-20k,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__trc;depth-50;p100-trc-20000;timing-20k,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC,20k,0.6,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-60,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TRC,20k,0.7,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-70;p100-depth70-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TRC+SS,10k,0.3,out-of-scope,,EXTRA,71,139,0,ABL-30 (+41),0,p100-depth30-trc-10000,,30,30,60,60,60,60,71,71,139,139,139,139
-swebench,Qwen3.5-35B-A3B,TRC+SS,10k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-10000;stacked-10000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
-swebench,Qwen3.5-35B-A3B,TRC+SS,15k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-15000;stacked-15000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC+SS,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b10k__trc-ss;p100-trc-10000;stacked-10000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,TRC+SS,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b15k__trc-ss;p100-trc-15000;stacked-15000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-30;p100-depth30-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-20000;stacked-20000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__trc-ss;p100-trc-20000;stacked-20000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.7,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-70;p100-depth70-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TRC+SU,10k,0.3,out-of-scope,,EXTRA,71,142,0,ABL-30 (+41),0,p100-depth30-trc-10000,,30,30,60,60,60,60,71,71,142,142,142,142
-swebench,Qwen3.5-35B-A3B,TRC+SU,10k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-10000;stacked-10000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
-swebench,Qwen3.5-35B-A3B,TRC+SU,15k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-15000;stacked-15000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC+SU,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b10k__trc-su;p100-trc-10000;stacked-10000,,30,30,60,90,90,90,100,100,200,300,300,300
+swebench,Qwen3.5-35B-A3B,TRC+SU,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b15k__trc-su;p100-trc-15000;stacked-15000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-30;p100-depth30-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-20000;stacked-20000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__trc-su;p100-trc-20000;stacked-20000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.7,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-70;p100-depth70-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Llama-3.3-70B,FC,inf,0.5,in-scope,ABL-30,PARTIAL,30,60,2,ABL-30,0,llama33-70b-inf;llama33-70b-pilot,only 2/3 runs/task,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen2.5-7B,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,0,ABL-30,60,,csv only (raw data on Albus),30,30,60,60,60,60,30,30,60,60,60,60

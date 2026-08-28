@@ -24,6 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ABLATIONS = ROOT / "data/swebench/ablations"
 TB_RESULTS = ROOT / "data/swebench/tbench/experiment_results.json"
+ICLR_RESULTS = ROOT / "ICLR_results"
 DEFAULT_OUT = ROOT / "COVERAGE.csv"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
@@ -67,6 +68,13 @@ def model_for_dir(name: str) -> str:
     if name.startswith("llama33-70b"):
         return "Llama-3.3-70B"
     return MAIN_MODEL
+
+
+ICLR_MODEL_LABELS = {
+    "qwen35b": MAIN_MODEL,
+    "devstral24b": "Devstral-Small-2-24B",
+    "glm47flash": "GLM-4.7-Flash",
+}
 
 
 def model_for_record(record: dict, source_name: str) -> str:
@@ -125,17 +133,30 @@ def main():
     # cell key: (benchmark, model, primitive, budget, depth) -> coverage data.
     # Some dirs are copies of other dirs' runs (see seed_depth_dirs.py) — dedupe
     # by (cell, instance_id, run_num) so copies don't inflate run counts.
+    #
+    # ICLR_results/ holds the canonical, deduped, run-complete copies built by
+    # archive_and_organize_qwen35b_swebench.py (see ICLR_CELL_MANIFEST.json in
+    # each cell). Scan those first so their rows win the dedup below; raw
+    # ABLATIONS/tbench dirs are then only a fallback for cells not yet
+    # archived (other models, pilots, depth points outside the 3-point grid).
     disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set(), "task_runs": Counter()})
     seen_runs = set()
-    disk_sources = []
-    disk_sources.extend(
+    iclr_sources = [
+        ("swebench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
+        for meta in ICLR_RESULTS.glob("swebench/*/*/*/experiment_results.json")
+    ] + [
+        ("terminal-bench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
+        for meta in ICLR_RESULTS.glob("terminalbench/*/*/*/experiment_results.json")
+    ]
+    raw_sources = [
         ("swebench", p.parent.name, p)
         for p in ABLATIONS.glob("*/experiment_results.json")
-    )
+    ]
     if TB_RESULTS.exists():
-        disk_sources.append(("terminal-bench", "tbench", TB_RESULTS))
+        raw_sources.append(("terminal-bench", "tbench", TB_RESULTS))
+    disk_sources = sorted(iclr_sources) + sorted(raw_sources)
 
-    for benchmark, source_name, meta in sorted(disk_sources):
+    for benchmark, source_name, meta in disk_sources:
         records = load_records(meta)
         for r in records:
             cond = r.get("condition")
@@ -144,7 +165,10 @@ def main():
                 continue
             budget = r.get("budget")
             depth = r.get("compression_ratio", 0.5) or 0.5
+            model_key = meta.parents[1].name if ICLR_RESULTS in meta.parents else ""
             model = model_for_record(r, source_name)
+            if model == MAIN_MODEL and model_key in ICLR_MODEL_LABELS:
+                model = ICLR_MODEL_LABELS[model_key]
             cell_key = (benchmark, model, prim, budget, round(float(depth), 1))
             cell = disk[cell_key]
             iid = r.get("instance_id")
@@ -191,7 +215,7 @@ def main():
     for prim in ("FC", "OTRC"):
         expected[("swebench", MAIN_MODEL, prim, INF, 0.5)] = "P100"
     # known model-expansion requirements (∞ baselines; see HANDOFF_COHERENCE.md)
-    for model in ("Devstral-Small-2-24B", "Qwen2.5-Coder-32B", "Llama-3.3-70B"):
+    for model in ("Devstral-Small-2-24B", "GLM-4.7-Flash", "Qwen2.5-Coder-32B", "Llama-3.3-70B"):
         for prim in ("FC", "OTRC"):
             expected[("swebench", model, prim, INF, 0.5)] = "ABL-30"
 
@@ -214,7 +238,7 @@ def main():
     # Concrete Terminal-Bench follow-up cells.  Planned cells are emitted as
     # MISSING before the first run, then filled automatically from the runner's
     # aggregate.  The current frozen TB cohort has 20 tasks.
-    for model in (MAIN_MODEL, "Devstral-Small-2-24B"):
+    for model in (MAIN_MODEL, "Devstral-Small-2-24B", "GLM-4.7-Flash"):
         for prim in DEPTH_TUNABLE:
             expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-20"
         for prim in DEPTH_INVARIANT:
