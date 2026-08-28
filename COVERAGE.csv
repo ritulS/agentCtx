@@ -72,7 +72,7 @@ swebench,Qwen3.5-35B-A3B,TR,20k,0.5,in-scope,ABL-30,COMPLETE,100,300,3,P100,200,
 swebench,Qwen3.5-35B-A3B,TR,20k,0.6,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-60,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TR,20k,0.7,in-scope,ABL-30,COMPLETE,30,90,3,ABL-30,0,depth-70;p100-depth70-singles-20000,"on disk, NOT in Review1.csv",30,30,60,90,90,90,30,30,60,90,90,90
 swebench,Qwen3.5-35B-A3B,TRC,10k,0.3,out-of-scope,,EXTRA,69,137,0,ABL-30 (+39),0,p100-depth30-trc-10000,,30,30,60,60,60,60,69,69,137,137,137,137
-swebench,Qwen3.5-35B-A3B,TRC,10k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-10000;timing-10k,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC,10k,0.5,in-scope,P100,PARTIAL,100,297,2,P100,200,p100-trc-10000;timing-10k,only 2/3 runs/task,30,30,60,87,87,87,100,100,200,297,297,297
 swebench,Qwen3.5-35B-A3B,TRC,15k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-15000;qwen3.5-35B-A3B_15k_Fullrun,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
 swebench,Qwen3.5-35B-A3B,TRC,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-30;p100-depth30-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TRC,20k,0.4,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-40,,30,30,60,60,60,60,30,30,60,60,60,60
