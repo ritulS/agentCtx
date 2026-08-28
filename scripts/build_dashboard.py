@@ -7,14 +7,19 @@ writes a self-contained HTML page at the repo root. Re-run after every completed
     python scripts/build_coverage.py && python scripts/build_dashboard.py
 """
 
+import argparse
 import csv
+import json
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "DASHBOARD.html"
+HISTORY = ROOT / "dashboard_progress_history.jsonl"
+RATE_WINDOW_HOURS = 3
+HISTORY_RETENTION_DAYS = 14
 
 MAIN = "Qwen3.5-35B-A3B"
 
@@ -234,15 +239,65 @@ def tracking_table(rows):
     )
 
 
-def progress_bar(rows):
+def load_progress_history():
+    """Load valid progress snapshots, tolerating a partial final JSONL line."""
+    snapshots = []
+    if not HISTORY.exists():
+        return snapshots
+    for line in HISTORY.read_text().splitlines():
+        try:
+            item = json.loads(line)
+            item["when"] = datetime.fromisoformat(item["timestamp"].replace("Z", "+00:00"))
+            if isinstance(item.get("progress"), dict):
+                snapshots.append(item)
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            continue
+    return sorted(snapshots, key=lambda item: item["when"])
+
+
+def recent_rate(history, key, actual, now, hours=RATE_WINDOW_HOURS):
+    """Return average runs/hour using the sample closest to the window start."""
+    candidates = [item for item in history if key in item["progress"] and item["when"] < now]
+    if not candidates:
+        return None
+    cutoff = now - timedelta(hours=hours)
+    baseline = min(candidates, key=lambda item: abs((item["when"] - cutoff).total_seconds()))
+    elapsed_hours = (now - baseline["when"]).total_seconds() / 3600
+    delta = actual - _int(baseline["progress"][key])
+    if elapsed_hours <= 0 or delta < 0:
+        return None
+    return delta / elapsed_hours
+
+
+def write_progress_history(history, progress, now):
+    """Append this build's snapshot and keep the tracked file compact."""
+    cutoff = now - timedelta(days=HISTORY_RETENTION_DAYS)
+    kept = [item for item in history if item["when"] >= cutoff]
+    kept.append({"timestamp": now.isoformat().replace("+00:00", "Z"), "progress": progress})
+    lines = []
+    for item in kept:
+        lines.append(json.dumps({
+            "timestamp": item["timestamp"],
+            "progress": item["progress"],
+        }, sort_keys=True, separators=(",", ":")))
+    HISTORY.write_text("\n".join(lines) + "\n")
+
+
+def progress_bar(rows, key, history, now, snapshot):
     """Horizontal aggregate progress bar for one plan section."""
     actual = sum(row[6][1] for row in rows)
     target = sum(row[6][2] for row in rows)
+    snapshot[key] = actual
     percent = min(100, (actual / target * 100) if target else 0)
+    rate = recent_rate(history, key, actual, now)
+    rate_text = "— runs/hour" if rate is None else f"{rate:,.1f} runs/hour"
     return (
         '<div class="section-progress">'
         '<div class="progress-meta"><span>Progress</span>'
-        f'<strong>{actual:,} / {target:,} runs</strong></div>'
+        '<span class="progress-numbers">'
+        f'<span class="progress-rate" title="Average over the last {RATE_WINDOW_HOURS} hours">'
+        f'last {RATE_WINDOW_HOURS}h: {rate_text}</span>'
+        f'<strong>{actual:,} / {target:,} runs</strong></span></div>'
         '<div class="progress-track" role="progressbar" '
         f'aria-valuenow="{actual}" aria-valuemin="0" aria-valuemax="{target}">'
         f'<span style="width:{percent:.1f}%"></span></div></div>'
@@ -278,7 +333,17 @@ def summarizer_tracking_table(rows):
     )
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--record-history", action="store_true",
+        help="append progress totals used for runs/hour calculations",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     cells, tb_cells = load_cells()
     rows = list(cells.values())
     tb_rows = list(tb_cells.values())
@@ -567,16 +632,21 @@ def main():
         ])
     p4_tracking = summarizer_tracking_table(p4_display_rows)
 
-    p1_progress = progress_bar(p1_tracking_rows)
-    p2a_progress = progress_bar(p2a_rows)
-    p2b_progress = progress_bar(p2b_rows)
-    p2c_progress = progress_bar(p2c_rows)
-    p2d_progress = progress_bar(p2d_rows)
-    p2_progress = progress_bar(p2a_rows + p2b_rows + p2c_rows + p2d_rows)
-    p3a_progress = progress_bar(p3a_rows)
-    p3b_progress = progress_bar(p3b_rows)
-    p3_progress = progress_bar(p3a_rows + p3b_rows)
-    p4_progress = progress_bar(p4_tracking_rows)
+    history = load_progress_history()
+    now_utc = datetime.now(timezone.utc)
+    snapshot = {}
+    p1_progress = progress_bar(p1_tracking_rows, "p1", history, now_utc, snapshot)
+    p2a_progress = progress_bar(p2a_rows, "p2a", history, now_utc, snapshot)
+    p2b_progress = progress_bar(p2b_rows, "p2b", history, now_utc, snapshot)
+    p2c_progress = progress_bar(p2c_rows, "p2c", history, now_utc, snapshot)
+    p2d_progress = progress_bar(p2d_rows, "p2d", history, now_utc, snapshot)
+    p2_progress = progress_bar(p2a_rows + p2b_rows + p2c_rows + p2d_rows, "p2", history, now_utc, snapshot)
+    p3a_progress = progress_bar(p3a_rows, "p3a", history, now_utc, snapshot)
+    p3b_progress = progress_bar(p3b_rows, "p3b", history, now_utc, snapshot)
+    p3_progress = progress_bar(p3a_rows + p3b_rows, "p3", history, now_utc, snapshot)
+    p4_progress = progress_bar(p4_tracking_rows, "p4", history, now_utc, snapshot)
+    if args.record_history:
+        write_progress_history(history, snapshot, now_utc)
 
     html = f"""<title>agentCtx Follow-up Experiments</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
@@ -704,6 +774,10 @@ ul.attn li {{ background:var(--surface); border:1px solid var(--line); border-ra
   color:var(--muted); font-size:.82rem; }}
 .progress-meta strong {{ color:var(--ink); font-family:"IBM Plex Mono",monospace;
   font-size:.8rem; font-weight:500; }}
+.progress-numbers {{ display:flex; flex-wrap:wrap; justify-content:flex-end;
+  gap:3px 14px; align-items:baseline; }}
+.progress-rate {{ color:var(--accent-ink); font-family:"IBM Plex Mono",monospace;
+  font-size:.76rem; white-space:nowrap; }}
 .progress-track {{ height:9px; margin-top:5px; overflow:hidden; border-radius:999px;
   background:var(--pending-bg); border:1px solid var(--line); }}
 .progress-track > span {{ display:block; height:100%; border-radius:inherit; background:var(--have); }}

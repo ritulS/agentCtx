@@ -6,6 +6,7 @@ on:
       - akiho-expansion-data
     paths:
       - COVERAGE.csv
+      - dashboard_progress_history.jsonl
       - scripts/build_dashboard.py
       - .github/workflows/dashboard-pages.yml
   workflow_dispatch:
