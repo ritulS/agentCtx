@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_WORKTREE = ROOT.with_name(f"{ROOT.name}-data")
 PUBLISHED_FILES = (
     Path("COVERAGE.csv"),
+    Path("dashboard_progress_history.jsonl"),
     Path("scripts/build_dashboard.py"),
     Path(".github/workflows/dashboard-pages.yml"),
 )
@@ -101,13 +102,17 @@ def main() -> None:
             cwd=ROOT,
         )
 
-    for relative in PUBLISHED_FILES[1:]:
+    for relative in PUBLISHED_FILES[2:]:
         source = ROOT / relative
         if not source.is_file():
             raise SystemExit(f"required source file is missing: {source}")
         destination = worktree / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
+
+    # Record after COVERAGE.csv and the current builder are in the data worktree.
+    # GitHub Actions only reads this history, so deployments do not create noise.
+    run(sys.executable, "scripts/build_dashboard.py", "--record-history", cwd=worktree)
 
     run("git", "add", "--", *(str(path) for path in PUBLISHED_FILES), cwd=worktree)
     changed = subprocess.run(

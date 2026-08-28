@@ -64,6 +64,9 @@ path if this checkout uses a different virtual environment):
 
 The script runs `scripts/build_coverage.py` against the source worktree's local
 data while writing `COVERAGE.csv` directly into the data worktree. It then
+records each progress bar's timestamped run count in
+`dashboard_progress_history.jsonl`, retaining 14 days. The dashboard uses those
+hourly snapshots to show average throughput over the last three hours. It then
 copies the builder and workflow, and commits and pushes only if their content
 changed. `flock` prevents two runs from overlapping.
 
