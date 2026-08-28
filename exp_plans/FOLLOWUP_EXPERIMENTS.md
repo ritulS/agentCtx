@@ -37,8 +37,8 @@ Last update: August 24 by Akiho
 
 | Experiment | Model<br>(agent & summarizer) |Dataset | Notes | Runs |ETA |
 |---|---|---|---|---|---|
-| [(2.a) Devstral-24B Main](#exp-models-devstral-main) | Devstral-Small-2-24B|SB:P-100| Depth: 0.5 or depth-invariant / Budget: 15K or *P*K (or ∞) | 3900|1.3-3.3 days|
-| [(2.b) GLM Main](#exp-models-glm-main) | GLM-4.7-Flash (30B-A3B MoE)|SB:P-100 | Depth: 0.5 or depth-invariant / Budget: 15K or *P*K (or ∞) | 3900|TBD|
+| [(2.a) Devstral-24B Main](#exp-models-devstral-main) | Devstral-Small-2-24B|SB:P-100| Depth: 0.5 or depth-invariant / Budget: 20K (or ∞) | 3900|1.3-3.3 days|
+| [(2.b) GLM Main](#exp-models-glm-main) | GLM-4.7-Flash (30B-A3B MoE)|SB:P-100 | Depth: 0.5 or depth-invariant / Budget: *P*K (or ∞) | 3900|TBD|
 | [(2.c) Devstral-24B Ablation](#exp-models-devstral-abl) | Devstral-Small-2-24B|SB:ABL-30 |depth & budget ablation|4680|1.6-3.9 days|
 | [(2.d) GLM Ablation](#exp-models-glm-abl) | GLM-4.7-Flash (30B-A3B MoE)|SB:ABL-30 | depth & budget ablation |4680|TBD|
 
@@ -47,8 +47,8 @@ Last update: August 24 by Akiho
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | 15K  | SB:P100 | 1500 |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |15K | SB:P100 | 1800 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | 20K  | SB:P100 | 1500 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |20K | SB:P100 | 1800 |
 | FC, OTRC | depth invariant | ∞ | SB:P100 |600 |
 
 <a id="exp-models-glm-main"></a>
@@ -66,9 +66,9 @@ Last update: August 24 by Akiho
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 10K / 15K / 20K | SB:ABL-30 | 2700 |
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 20K | SB:ABL-30 | 900 |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 20K | SB:ABL-30 | 1080 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 15K / 20K / 24K | SB:ABL-30 | 2700 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K / 24K | SB:ABL-30 | 900 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |15K / 24K | SB:ABL-30 | 1080 |
 
 <a id="exp-models-glm-abl"></a>
 ### (2.d) GLM Ablation
@@ -87,29 +87,36 @@ Last update: August 24 by Akiho
 
 | Experiment | Dataset | Notes | Runs | ETA |
 |---|---|---|---|---|
-| [(3.a) TB Main](#exp-tb-main) | TB:P-80| Depth: 0.5 or depth-invariant / Budget: 15K or *P*K(or ∞) | 15600|TBD|
+| [(3.a) TB Main](#exp-tb-main) | TB:P-80| Depth: 0.5 or depth-invariant / Budget: model-calibrated primary (or ∞) | 15600|TBD|
 | [(3.b) TB Ablation](#exp-tb-abl) | TB:ABL-20 |depth & budget ablation|15600|TBD|
 
 <a id="exp-tb-main"></a>
 ### (3.a) TB Main
-| Models| Primitives | Depths | Budget | Tasks | Runs |
-|---|---|---|---|---|---|
-| Qwen-35B-A3B/<br>Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K |TB:P-80 | 4000 |
-| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | *P*K |TB:P-80 | 2000 |
-| Qwen-35B-A3B/<br>Devstral-24B |TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial |  depth invariant | 15K | TB:P-80 |4800|
-| GLM |TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial |  depth invariant | *P*K | TB:P-80 |2400|
-| Qwen-35B-A3B/<br>Devstral-24B/<br>GLM |FC, OTRC |  depth invariant | ∞ | TB:P-80 | 2400|
+
+| Models | Primitives | Depths | Budget | Tasks | Runs |
+|---|---|---|---|---|---:|
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K | TB:P-80 | 2000 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 20K | TB:P-80 | 2000 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | *P*K | TB:P-80 | 2000 |
+| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 15K | TB:P-80 | 2400 |
+| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 20K | TB:P-80 | 2400 |
+| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | *P*K | TB:P-80 | 2400 |
+| Qwen-35B-A3B/<br>Devstral-24B/<br>GLM | FC, OTRC | depth invariant | ∞ | TB:P-80 | 2400 |
 
 <a id="exp-tb-abl"></a>
 ### (3.b) TB Ablation
-| Models| Primitives | Depths | Budget | Tasks | Runs |
-|---|---|---|---|---|---|
-| Qwen-35B-A3B/<br>Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K/20K |TB:ALB-20 | 2000|
-| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | *A*K/*B*K |TB:ALB-20 | 1000|
-| Qwen-35B-A3B/<br>Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 10K/15K/20K |TB:ALB-20 | 6000|
-| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | *A*K/*P*K/*B*K |TB:ALB-20 | 3000|
-| Qwen-35B-A3B/<br>Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 10K/20K | TB:ALB-20 |2400|
-| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | *A*K/*B*K | TB:ALB-20 |1200|
+
+| Models | Primitives | Depths | Budget | Tasks | Runs |
+|---|---|---|---|---|---:|
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K/20K | TB:ABL-20 | 1000 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K/24K | TB:ABL-20 | 1000 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | *A*K/*B*K | TB:ABL-20 | 1000 |
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 10K/15K/20K | TB:ABL-20 | 3000 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 15K/20K/24K | TB:ABL-20 | 3000 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | *A*K/*P*K/*B*K | TB:ABL-20 | 3000 |
+| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 10K/20K | TB:ABL-20 | 1200 |
+| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 15K/24K | TB:ABL-20 | 1200 |
+| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | *A*K/*B*K | TB:ABL-20 | 1200 |
 
 <a id="exp-summarizer"></a>
 ## 4. [Priority] Summarizer Ablation

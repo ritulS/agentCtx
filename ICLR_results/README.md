@@ -42,9 +42,9 @@ ICLR_results/
 
 **Budget**
 - `b{N}k`: numeric budget of N thousand tokens (used for Devstral)
-- `b10k`: 10K
 - `b15k`: 15K
 - `b20k`: 20K
+- `b24k`: 24K
 - `bA`: GLM lower ablation budget
 - `bP`: GLM primary budget
 - `bB`: GLM upper ablation budget
@@ -53,17 +53,17 @@ ICLR_results/
 ### Example
 ```
 swebench/ablation/devstral24b/
-├── d03__b10k__tr/
-├── d03__b10k__su-full/
-├── d03__b10k__su-partial/
-├── d03__b10k__ss/
-├── d03__b10k__ss-partial/
+├── d03__b15k__tr/
+├── d03__b15k__su-full/
+├── d03__b15k__su-partial/
+├── d03__b15k__ss/
+├── d03__b15k__ss-partial/
 ├── ...
 ├── d05__b20k__su-full/
 ├── ...
-├── d07__b20k__ss-partial/
-├── di__b10k__trc/
-├── di__b10k__trc-su/
+├── d07__b24k__ss-partial/
+├── di__b15k__trc/
+├── di__b15k__trc-su/
 ├── ...
-└── di__b20k__otrc-ss-partial/
+└── di__b24k__otrc-ss-partial/
 ```

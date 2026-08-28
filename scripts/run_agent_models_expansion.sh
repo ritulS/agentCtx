@@ -37,12 +37,12 @@ MAX_WORKERS="${MAX_WORKERS:-32}"
 RUN_EVAL="${RUN_EVAL:-1}"
 INF_BUDGET=999999999
 
-# TODO(Devstral calibration): update these defaults if the primary/ablation
-# budgets are recalibrated. They can also be overridden without editing:
+# Calibrated from the n=60 full-context peak distribution (trigger rates:
+# A=98.3%, P=90.0%, B~=75%). They can also be overridden without editing:
 #   DEVSTRAL_A_BUDGET=... DEVSTRAL_P_BUDGET=... DEVSTRAL_B_BUDGET=... bash ...
-DEVSTRAL_A_BUDGET="${DEVSTRAL_A_BUDGET:-10000}"
-DEVSTRAL_P_BUDGET="${DEVSTRAL_P_BUDGET:-15000}"
-DEVSTRAL_B_BUDGET="${DEVSTRAL_B_BUDGET:-20000}"
+DEVSTRAL_A_BUDGET="${DEVSTRAL_A_BUDGET:-15000}"
+DEVSTRAL_P_BUDGET="${DEVSTRAL_P_BUDGET:-20000}"
+DEVSTRAL_B_BUDGET="${DEVSTRAL_B_BUDGET:-24000}"
 
 # TODO(GLM calibration): replace these three placeholders with calibrated token
 # budgets. A < P < B is validated before any GLM experiment is launched.
