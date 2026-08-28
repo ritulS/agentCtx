@@ -41,6 +41,7 @@ ICLR_results/
 - `di`: depth invariant
 
 **Budget**
+- `b{N}k`: numeric budget of N thousand tokens (used for Devstral)
 - `b10k`: 10K
 - `b15k`: 15K
 - `b20k`: 20K
