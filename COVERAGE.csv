@@ -83,13 +83,13 @@ swebench,Qwen3.5-35B-A3B,TRC+SS,10k,0.3,out-of-scope,,EXTRA,71,139,0,ABL-30 (+41
 swebench,Qwen3.5-35B-A3B,TRC+SS,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-trc-10000;stacked-10000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SS,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-trc-15000;stacked-15000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-30;p100-depth30-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-20000;stacked-20000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.5,in-scope,P100,PARTIAL,100,288,2,P100,200,p100-trc-20000;stacked-20000,only 2/3 runs/task,30,30,60,78,78,78,100,100,200,288,288,288
 swebench,Qwen3.5-35B-A3B,TRC+SS,20k,0.7,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-70;p100-depth70-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TRC+SU,10k,0.3,out-of-scope,,EXTRA,71,142,0,ABL-30 (+41),0,p100-depth30-trc-10000,,30,30,60,60,60,60,71,71,142,142,142,142
 swebench,Qwen3.5-35B-A3B,TRC+SU,10k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-trc-10000;stacked-10000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SU,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,p100-trc-15000;stacked-15000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-30;p100-depth30-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.5,in-scope,P100,PARTIAL,100,270,2,P100,200,p100-trc-20000;stacked-20000,only 2/3 runs/task,30,30,60,60,60,60,100,100,200,270,270,270
+swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.5,in-scope,P100,PARTIAL,100,289,2,P100,200,p100-trc-20000;stacked-20000,only 2/3 runs/task,30,30,60,79,79,79,100,100,200,289,289,289
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.7,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-70;p100-depth70-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Llama-3.3-70B,FC,inf,0.5,in-scope,ABL-30,PARTIAL,30,60,2,ABL-30,0,llama33-70b-inf;llama33-70b-pilot,only 2/3 runs/task,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen2.5-7B,FC,inf,0.5,model-expansion,,HAVE (csv-only),0,0,0,ABL-30,60,,csv only (raw data on Albus),30,30,60,60,60,60,30,30,60,60,60,60
