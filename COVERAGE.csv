@@ -91,7 +91,7 @@ swebench,Qwen3.5-35B-A3B,TRC+SU,15k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,20
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.3,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-30;p100-depth30-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,200,ICLR_results/swebench/main/qwen35b/di__b20k__trc-su;p100-trc-20000;stacked-20000,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Qwen3.5-35B-A3B,TRC+SU,20k,0.7,out-of-scope,,EXTRA,30,60,0,ABL-30,0,depth-70;p100-depth70-trc-20000,,30,30,60,60,60,60,30,30,60,60,60,60
-swebench,Devstral-Small-2-24B,FC,inf,0.5,in-scope,P100,PARTIAL,100,286,1,P100,0,ICLR_results/swebench/main/devstral24b/di__binf__fc,only 1/3 runs/task,30,30,60,90,90,90,100,100,196,286,286,286
+swebench,Devstral-Small-2-24B,FC,inf,0.5,in-scope,P100,COMPLETE,100,300,3,P100,0,ICLR_results/swebench/main/devstral24b/di__binf__fc,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Devstral-Small-2-24B,OTRC,inf,0.5,in-scope,P100,COMPLETE,100,300,3,P100,0,ICLR_results/swebench/main/devstral24b/di__binf__otrc,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Devstral-Small-2-24B,OTRC+SS-partial,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/di__b43k__otrc-ss-partial,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Devstral-Small-2-24B,OTRC+SU-partial,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/di__b43k__otrc-su-partial,,30,30,60,90,90,90,100,100,200,300,300,300
@@ -100,7 +100,7 @@ swebench,Devstral-Small-2-24B,SS,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,
 swebench,Devstral-Small-2-24B,SS-partial,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/d05__b43k__ss-partial,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Devstral-Small-2-24B,SU-full,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/d05__b43k__su-full,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Devstral-Small-2-24B,SU-partial,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/d05__b43k__su-partial,,30,30,60,90,90,90,100,100,200,300,300,300
-swebench,Devstral-Small-2-24B,TR,38k,0.3,model-expansion,,HAVE,24,64,0,"partial (24/30 ABL-30, 24 total)",0,ICLR_results/swebench/ablation/devstral24b/d03__b38k__tr,,24,24,45,64,64,64,24,24,45,64,64,64
+swebench,Devstral-Small-2-24B,TR,38k,0.3,model-expansion,,HAVE,30,90,0,ABL-30,0,ICLR_results/swebench/ablation/devstral24b/d03__b38k__tr,,30,30,60,90,90,90,30,30,60,90,90,90
 swebench,Devstral-Small-2-24B,TR,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/d05__b43k__tr,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Devstral-Small-2-24B,TRC,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/di__b43k__trc,,30,30,60,90,90,90,100,100,200,300,300,300
 swebench,Devstral-Small-2-24B,TRC+SS,43k,0.5,model-expansion,,HAVE,100,300,0,P100,0,ICLR_results/swebench/main/devstral24b/di__b43k__trc-ss,,30,30,60,90,90,90,100,100,200,300,300,300
