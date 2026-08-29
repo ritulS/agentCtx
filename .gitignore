@@ -44,6 +44,8 @@ Thumbs.db
 
 # ── Heavy / scratch dirs (regeneratable or one-machine artifacts) ─────────────
 archive/
+!scripts/archive/
+!scripts/archive/**
 temp/
 Review1/raw/
 Review1/raw
@@ -66,3 +68,4 @@ ICLR_results/swebench
 ICLR_results/terminalbench/main/qwen35b-smoke
 ICLR_results/terminalbench
 .tools
+venv-glm/
