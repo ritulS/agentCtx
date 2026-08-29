@@ -30,7 +30,11 @@ FAMILIES = [
 ]
 DEPTHS = ["0.3", "0.5", "0.7"]
 
-BUDGET_ORDER = {"4k": 4, "8k": 8, "10k": 10, "12k": 12, "15k": 15, "20k": 20, "24k": 24, "inf": 999}
+BUDGET_ORDER = {
+    "4k": 4, "8k": 8, "10k": 10, "12k": 12, "15k": 15,
+    "20k": 20, "24k": 24, "38k": 38, "43k": 43, "49k": 49,
+    "inf": 999,
+}
 
 
 def load_cells():
@@ -479,10 +483,10 @@ def main():
                   for p in ("FC", "OTRC")]
         return planned_matrix(budgets, rows_)
 
-    p2_devstral = model_plan_matrix(["15K", "20K", "24K", "∞"], "SB:P-100", "SB:ABL-30")
+    p2_devstral = model_plan_matrix(["38K", "43K", "49K", "∞"], "SB:P-100", "SB:ABL-30")
     p2_glm = model_plan_matrix(["AK", "PK", "BK", "∞"], "SB:P-100", "SB:ABL-30", calibration=True)
     p3_qwen = model_plan_matrix(["10K", "15K", "20K", "∞"], "TB:P-80", "TB:ABL-20")
-    p3_devstral = model_plan_matrix(["15K", "20K", "24K", "∞"], "TB:P-80", "TB:ABL-20")
+    p3_devstral = model_plan_matrix(["38K", "43K", "49K", "∞"], "TB:P-80", "TB:ABL-20")
     p3_glm = model_plan_matrix(["AK", "PK", "BK", "∞"], "TB:P-80", "TB:ABL-20", calibration=True)
 
     roadmap_overview = """
@@ -550,8 +554,8 @@ def main():
     p1_tracking = tracking_table(p1_tracking_rows)
 
     p2a_rows = [
-        swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "20K", "SB:P-100", 100, 3),
-        swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "20K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "43K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "43K", "SB:P-100", 100, 3),
         swe_track("Devstral-Small-2-24B", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
     ]
     p2a_tracking = tracking_table(p2a_rows)
@@ -575,13 +579,13 @@ def main():
                                          "SB:ABL-30", 30, 3))
         return rows_
 
-    p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["15K", "20K", "24K"])
+    p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["38K", "43K", "49K"])
     p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["AK", "PK", "BK"])
     p2c_tracking = tracking_table(p2c_rows)
     p2d_tracking = tracking_table(p2d_rows)
 
     p3a_rows = []
-    for model, primary_budget in ((MAIN, "15k"), ("Devstral-Small-2-24B", "20k")):
+    for model, primary_budget in ((MAIN, "15k"), ("Devstral-Small-2-24B", "43k")):
         p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5))
         p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5))
         p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5))
@@ -594,7 +598,7 @@ def main():
 
     p3b_rows = []
     for model, budgets in ((MAIN, ["10k", "15k", "20k"]),
-                           ("Devstral-Small-2-24B", ["15k", "20k", "24k"]),
+                           ("Devstral-Small-2-24B", ["38k", "43k", "49k"]),
                            ("GLM-4.7-Flash", ["ak", "pk", "bk"])):
         for depth in ("0.3", "0.7"):
             for budget in budgets:
@@ -849,7 +853,7 @@ alternative is excluded.</p>
 <div class="tablewrap"><table>
 <thead><tr><th>experiment</th><th>model (agent &amp; summarizer)</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead>
 <tbody>
-<tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 20K (or ∞)</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 43K (or ∞)</td><td>3,900</td></tr>
 <tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: <em>P</em>K or ∞</td><td>3,900</td></tr>
 <tr><td><a href="#exp-models-devstral-abl">(2.c) Devstral-24B Ablation</a></td><td>Devstral-Small-2-24B</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 <tr><td><a href="#exp-models-glm-abl">(2.d) GLM Ablation</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
