@@ -63,3 +63,4 @@ DASHBOARD.html
 scripts/notify_slack.py
 Review1/archived_experiment_data/
 ICLR_results/swebench
+venv-glm/

@@ -37,12 +37,13 @@ MAX_WORKERS="${MAX_WORKERS:-32}"
 RUN_EVAL="${RUN_EVAL:-1}"
 INF_BUDGET=999999999
 
-# Calibrated from the n=60 full-context peak distribution (trigger rates:
-# A=98.3%, P=90.0%, B~=75%). They can also be overridden without editing:
+# Calibrated from the SWE-Bench P100 FC run_1 peak step-prompt-token
+# distribution (n=100): A/P/B use P75/P85/P95, rounded to the nearest 1K.
+# They can also be overridden without editing:
 #   DEVSTRAL_A_BUDGET=... DEVSTRAL_P_BUDGET=... DEVSTRAL_B_BUDGET=... bash ...
-DEVSTRAL_A_BUDGET="${DEVSTRAL_A_BUDGET:-15000}"
-DEVSTRAL_P_BUDGET="${DEVSTRAL_P_BUDGET:-20000}"
-DEVSTRAL_B_BUDGET="${DEVSTRAL_B_BUDGET:-24000}"
+DEVSTRAL_A_BUDGET="${DEVSTRAL_A_BUDGET:-38000}"
+DEVSTRAL_P_BUDGET="${DEVSTRAL_P_BUDGET:-43000}"
+DEVSTRAL_B_BUDGET="${DEVSTRAL_B_BUDGET:-49000}"
 
 # TODO(GLM calibration): replace these three placeholders with calibrated token
 # budgets. A < P < B is validated before any GLM experiment is launched.
