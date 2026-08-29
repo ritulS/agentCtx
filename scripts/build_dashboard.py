@@ -513,7 +513,7 @@ def main():
     # ---- progress tables at model × family × depth × budget granularity ----
     tunable_label = "Depth-tunable (5 primitives)"
     invariant_label = "Depth-invariant (6 primitives)"
-    baseline_label = "FC + OTRC (2 baselines)"
+    baseline_label = "FC, OTRC (2 baselines)"
 
     def swe_track(
         model, label, primitives, depth_label, budget_label, dataset, tasks, rpt,
