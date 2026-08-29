@@ -44,6 +44,8 @@ Thumbs.db
 
 # ── Heavy / scratch dirs (regeneratable or one-machine artifacts) ─────────────
 archive/
+!scripts/archive/
+!scripts/archive/**
 temp/
 Review1/raw/
 Review1/raw
