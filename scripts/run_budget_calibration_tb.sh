@@ -3,9 +3,13 @@
 #
 # Usage:
 #   bash scripts/run_budget_calibration_tb.sh qwen
+#   bash scripts/run_budget_calibration_tb.sh qwen-rootless
 #   bash scripts/run_budget_calibration_tb.sh devstral
+#   bash scripts/run_budget_calibration_tb.sh devstral-rootless
 #   bash scripts/run_budget_calibration_tb.sh glm
+#   bash scripts/run_budget_calibration_tb.sh glm-rootless
 #   bash scripts/run_budget_calibration_tb.sh all  # sequential
+#   bash scripts/run_budget_calibration_tb.sh all-rootless  # sequential
 #
 # Prerequisites:
 #   1. Start the selected model's vLLM server.
@@ -23,6 +27,7 @@ N_CONCURRENT="${N_CONCURRENT:-4}"
 DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
 LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
 LOG_DIR="$WORKSPACE/logs"
+P80_ROOTLESS_TASKS_FILE="${P80_ROOTLESS_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_rootless.json}"
 
 export DOCKER_HOST
 mkdir -p "$LOG_DIR"
@@ -45,7 +50,9 @@ check_common_prerequisites() {
 
 run_one() {
     local model="$1"
-    local model_key model_label agent_config health_url log_file
+    local phase="${2:-all}"
+    local model_key model_label agent_config health_url log_file job_name task_scope
+    local -a subset_args=()
 
     case "$model" in
         qwen)
@@ -72,6 +79,29 @@ run_one() {
             ;;
     esac
 
+    case "$phase" in
+        all)
+            task_scope="P-80"
+            job_name="tb1-${model_key}-fc-run1"
+            ;;
+        rootless)
+            if [[ ! -f "$P80_ROOTLESS_TASKS_FILE" ]]; then
+                echo "[ERROR] P-80-rootless task list not found: $P80_ROOTLESS_TASKS_FILE" >&2
+                return 1
+            fi
+            task_scope="P-80-rootless"
+            job_name="tb1-${model_key}-p80-rootless-fc-run1"
+            subset_args+=(
+                --tasks-file "$P80_ROOTLESS_TASKS_FILE"
+                --result-scope p80_rootless
+            )
+            ;;
+        *)
+            echo "[ERROR] Unknown task scope: $phase" >&2
+            return 2
+            ;;
+    esac
+
     if [[ ! -f "$agent_config" ]]; then
         echo "[ERROR] Agent config not found: $agent_config" >&2
         echo "Override it with the corresponding *_AGENT_CONFIG environment variable." >&2
@@ -83,7 +113,7 @@ run_one() {
     fi
 
     log_file="$LOG_DIR/${model_key}_tb1_fc_run1.log"
-    echo "[$(date)] === $model_label: Terminal-Bench 1.0, 80 tasks, FC@infinity, run_1 ===" \
+    echo "[$(date)] === $model_label: Terminal-Bench 1.0, $task_scope, FC@infinity, run_1 ===" \
         | tee -a "$log_file"
 
     "$PYTHON_BIN" "$LAUNCHER" \
@@ -93,6 +123,8 @@ run_one() {
         --harbor-bin "$HARBOR_BIN" \
         --n-concurrent "$N_CONCURRENT" \
         --docker-host "$DOCKER_HOST" \
+        --job-name "$job_name" \
+        "${subset_args[@]}" \
         2>&1 | tee -a "$log_file"
 
     echo "[$(date)] === $model_label DONE ===" | tee -a "$log_file"
@@ -105,13 +137,21 @@ case "$selection" in
     qwen|devstral|glm)
         run_one "$selection"
         ;;
+    qwen-rootless|devstral-rootless|glm-rootless)
+        run_one "${selection%-rootless}" rootless
+        ;;
     all)
         run_one qwen
         run_one devstral
         run_one glm
         ;;
+    all-rootless)
+        run_one qwen rootless
+        run_one devstral rootless
+        run_one glm rootless
+        ;;
     *)
-        echo "Usage: $0 {qwen|devstral|glm|all}" >&2
+        echo "Usage: $0 {qwen|qwen-rootless|devstral|devstral-rootless|glm|glm-rootless|all|all-rootless}" >&2
         exit 2
         ;;
 esac
