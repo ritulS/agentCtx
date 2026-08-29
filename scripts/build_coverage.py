@@ -4,8 +4,11 @@ primitive, budget, depth) cell: which cells the paper scope requires, which we
 have data for on disk, and which are ingested into the analysis CSVs.
 
 Sources of truth:
-  - disk:  data/swebench/ablations/<exp>/experiment_results.json
-           data/swebench/tbench/experiment_results.json
+  - disk:  ICLR_results/swebench/<track>/<model>/<cell>/experiment_results.json
+           ICLR_results/terminalbench/<track>/[<namespace>/]<model>/<cell>/
+             experiment_results.json
+           data/swebench/ablations/<exp>/experiment_results.json (fallback)
+           data/swebench/tbench/experiment_results.json (fallback)
            (per-record condition, budget, compression_ratio, instance_id)
   - CSVs:  Review1/Review1.csv (main model),
            Review1/Review1_qwen25-7b.csv, Review1/Review1_qwen3-30b-a3b-quant.csv
@@ -125,7 +128,7 @@ def parse_args():
 def main():
     args = parse_args()
     out = args.output if args.output.is_absolute() else ROOT / args.output
-    abl30 = load_task_list(ABLATIONS / "tasks.json")
+    abl30 = load_task_list(ROOT / "task_lists/ablation_30tasks.json")
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
 
@@ -146,7 +149,10 @@ def main():
         for meta in ICLR_RESULTS.glob("swebench/*/*/*/experiment_results.json")
     ] + [
         ("terminal-bench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
-        for meta in ICLR_RESULTS.glob("terminalbench/*/*/*/experiment_results.json")
+        # Terminal-Bench tracks may contain an additional result namespace,
+        # e.g. main/p80_rootless/<model>/<cell>.  Match recursively so adding
+        # such a namespace does not silently remove live runs from coverage.
+        for meta in ICLR_RESULTS.glob("terminalbench/**/experiment_results.json")
     ]
     raw_sources = [
         ("swebench", p.parent.name, p)
@@ -241,16 +247,16 @@ def main():
     for prim in ("FC", "OTRC"):
         expected[("swebench", devstral, prim, INF, 0.5)] = "P100"
 
-    # Concrete Terminal-Bench follow-up cells.  Planned cells are emitted as
-    # MISSING before the first run, then filled automatically from the runner's
-    # aggregate.  The current frozen TB cohort has 20 tasks.
+    # Concrete Terminal-Bench follow-up cells.  Primary depth/budget cells and
+    # the unlimited baselines use all 80 tasks; the remaining grid uses the
+    # frozen 20-task ablation cohort.
     for model in (MAIN_MODEL, "Devstral-Small-2-24B", "GLM-4.7-Flash"):
         for prim in DEPTH_TUNABLE:
-            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-20"
+            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-80"
         for prim in DEPTH_INVARIANT:
-            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-20"
+            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-80"
         for prim in ("FC", "OTRC"):
-            expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-20"
+            expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-80"
         for prim in DEPTH_TUNABLE:
             for b in (10_000, 20_000):
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
@@ -295,7 +301,9 @@ def main():
             return sum(min(cap, max(d_runs.get(t, 0), c_runs.get(t, 0))) for t in tasks)
 
         cohort_counts = {}
-        for cohort_name, cohort_tasks in (("abl30", abl30), ("p100", p100)):
+        for cohort_name, cohort_tasks in (
+            ("abl30", abl30), ("p100", p100), ("tb20", tb20)
+        ):
             cohort_counts[f"tasks_covered_{cohort_name}"] = sum(
                 max(d_runs.get(t, 0), c_runs.get(t, 0)) > 0 for t in cohort_tasks
             )
@@ -303,6 +311,15 @@ def main():
                 cohort_counts[f"runs_capped_{cap}_{cohort_name}"] = capped_runs(
                     cohort_tasks, cap
                 )
+        # TB:P-80 progress can include provisional/rootless subsets.  Counting
+        # every observed task directly avoids proportionally scaling a 42-task
+        # subset up to 80 tasks in the dashboard.
+        all_observed_tasks = set(d_runs) | set(c_runs)
+        cohort_counts["tasks_covered_all"] = len(all_observed_tasks)
+        for cap in range(1, 6):
+            cohort_counts[f"runs_capped_{cap}_all"] = capped_runs(
+                all_observed_tasks, cap
+            )
 
         if req is None:
             scope = "out-of-scope" if model == MAIN_MODEL else "model-expansion"
@@ -314,12 +331,17 @@ def main():
             if not covered:
                 status = "MISSING"
             else:
-                have_cohort = (covered >= tb20 if req == "TB-20" else
-                               cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100")))
+                have_cohort = (
+                    covered >= tb20 if req == "TB-20" else
+                    len(covered) >= 80 if req == "TB-80" else
+                    cohort.startswith(req) or
+                    (req == "ABL-30" and cohort.startswith("P100"))
+                )
                 if not have_cohort:
                     status = "PARTIAL"
                 else:
                     required_tasks = (tb20 if req == "TB-20" else
+                                      covered if req == "TB-80" else
                                       p100 if req == "P100" else abl30)
                     runs_per_task_min = min(
                         (max(d_runs.get(t, 0), c_runs.get(t, 0)) for t in required_tasks),
@@ -331,9 +353,12 @@ def main():
             notes.append("on disk, NOT in Review1.csv")
         if d is None and n_csv:
             notes.append("csv only (raw data on Albus)")
-        has_required_cohort = (covered >= tb20 if req == "TB-20" else
-                               bool(req) and (cohort.startswith(req) or
-                                              (req == "ABL-30" and cohort.startswith("P100"))))
+        has_required_cohort = (
+            covered >= tb20 if req == "TB-20" else
+            len(covered) >= 80 if req == "TB-80" else
+            bool(req) and (cohort.startswith(req) or
+                           (req == "ABL-30" and cohort.startswith("P100")))
+        )
         if status == "PARTIAL" and covered and has_required_cohort:
             notes.append(f"only {runs_per_task_min}/{required_runs} runs/task")
 
