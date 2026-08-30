@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build COVERAGE.csv — the single sheet tracking every (benchmark, model,
+"""Build COVERAGE.csv and COVERAGE_TB.csv — sheets tracking every (model,
 primitive, budget, depth) cell: which cells the paper scope requires, which we
 have data for on disk, and which are ingested into the analysis CSVs.
 
@@ -15,7 +15,8 @@ Sources of truth:
 
 Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 
-Usage:  python scripts/build_coverage.py        # writes COVERAGE.csv at repo root
+Usage:  python scripts/build_coverage.py
+        # writes COVERAGE.csv and COVERAGE_TB.csv at the repository root
 """
 
 import argparse
@@ -29,6 +30,7 @@ ABLATIONS = ROOT / "data/swebench/ablations"
 TB_RESULTS = ROOT / "data/swebench/tbench/experiment_results.json"
 ICLR_RESULTS = ROOT / "ICLR_results"
 DEFAULT_OUT = ROOT / "COVERAGE.csv"
+DEFAULT_TB_OUT = ROOT / "COVERAGE_TB.csv"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
 INF = 999_999_999
@@ -122,12 +124,19 @@ def parse_args():
         default=DEFAULT_OUT,
         help="output CSV path (default: COVERAGE.csv at the repository root)",
     )
+    parser.add_argument(
+        "--tb-output",
+        type=Path,
+        default=DEFAULT_TB_OUT,
+        help="Terminal-Bench output CSV path (default: COVERAGE_TB.csv at the repository root)",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     out = args.output if args.output.is_absolute() else ROOT / args.output
+    tb_out = args.tb_output if args.tb_output.is_absolute() else ROOT / args.tb_output
     abl30 = load_task_list(ROOT / "task_lists/ablation_30tasks.json")
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
@@ -268,7 +277,7 @@ def main():
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
 
     # ---- 4. merge into sheet rows --------------------------------------------
-    # COVERAGE.csv is an inventory of data that actually exists.  ``expected``
+    # The coverage CSVs inventory data that actually exists.  ``expected``
     # only annotates the scope/status of observed cells; planned-but-unrun
     # follow-ups must not create rows of their own.
     all_keys = sorted(set(disk) | set(csv_rows),
@@ -381,21 +390,32 @@ def main():
             **cohort_counts,
         })
 
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()), lineterminator="\n")
-        w.writeheader()
-        w.writerows(rows)
+    swe_rows = [r for r in rows if r["benchmark"] == "swebench"]
+    tb_rows = [r for r in rows if r["benchmark"] == "terminal-bench"]
+
+    def write_rows(path, output_rows):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = list(rows[0].keys())
+        with open(path, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
+            w.writeheader()
+            w.writerows(output_rows)
+
+    write_rows(out, swe_rows)
+    write_rows(tb_out, tb_rows)
 
     # ---- 5. console summary ---------------------------------------------------
     n = defaultdict(int)
     for r in rows:
         n[r["status"]] += 1
-    try:
-        display_out = out.relative_to(ROOT)
-    except ValueError:
-        display_out = out
-    print(f"Wrote {display_out} — {len(rows)} cells")
+    def display_path(path):
+        try:
+            return path.relative_to(ROOT)
+        except ValueError:
+            return path
+
+    print(f"Wrote {display_path(out)} — {len(swe_rows)} SWE-Bench cells")
+    print(f"Wrote {display_path(tb_out)} — {len(tb_rows)} Terminal-Bench cells")
     for status in ("COMPLETE", "PARTIAL", "MISSING", "EXTRA", "HAVE", "HAVE (csv-only)"):
         if n[status]:
             print(f"  {status}: {n[status]}")
