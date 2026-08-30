@@ -154,7 +154,13 @@ def coverage_progress(
         disk_runs = _int(cell.get("runs_on_disk"))
         csv_runs = _int(cell.get("rows_in_csv"))
         min_runs = _int(cell.get("runs_per_task_min"))
-        cohort = "p100" if tasks == 100 else "abl30" if tasks == 30 else None
+        cohort = (
+            "p100" if tasks == 100 else
+            "abl30" if tasks == 30 else
+            "tb20" if tasks == 20 else
+            "all" if tasks == 80 else
+            None
+        )
         capped_key = f"runs_capped_{runs_per_task}_{cohort}" if cohort else None
         baseline_key = f"runs_capped_{baseline_runs}_{cohort}" if cohort and baseline_runs else None
         has_exact_counts = capped_key and cell.get(capped_key, "") != ""
