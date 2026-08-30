@@ -61,22 +61,18 @@ def load_cells():
 
 
 def chip(cell, depth):
-    """One depth chip. State drives color: filled=have, amber=not ingested,
-    red=missing, grey=out-of-scope extra, dashed=csv-only (raw on Albus)."""
+    """One depth chip. State drives color: filled=have, red=missing,
+    grey=out-of-scope extra."""
     if cell is None:
         return f'<span class="chip none">{depth}</span>'
     status, notes = cell["status"], cell["notes"]
     title = (f'{cell["model"]} · {cell["primitive"]} · {cell["budget"]} · d={cell["depth"]} — '
              f'{cell["status"]}; {cell["tasks_on_disk"]} tasks / {cell["runs_on_disk"]} runs on disk; '
-             f'{cell["rows_in_csv"]} CSV rows; min {cell.get("runs_per_task_min", "?")} runs/task; '
+             f'min {cell.get("runs_per_task_min", "?")} runs/task; '
              f'cohort {cell["cohort_covered"] or "—"}'
              + (f'; {notes}' if notes else ''))
     if status == "MISSING":
         cls = "missing"
-    elif "NOT in Review1.csv" in notes:
-        cls = "pending"
-    elif status == "HAVE (csv-only)":
-        cls = "csvonly"
     elif status == "EXTRA":
         cls = "extra"
     else:  # COMPLETE / HAVE / PARTIAL
@@ -157,7 +153,6 @@ def coverage_progress(
             continue
         disk_tasks = _int(cell.get("tasks_on_disk"))
         disk_runs = _int(cell.get("runs_on_disk"))
-        csv_runs = _int(cell.get("rows_in_csv"))
         min_runs = _int(cell.get("runs_per_task_min"))
         cohort = (
             "p100" if tasks == 100 else
@@ -185,16 +180,15 @@ def coverage_progress(
             total_progress = disk_progress
             incremental_progress = max(0, total_progress - tasks * baseline_runs)
         else:
-            total_progress = csv_runs
-            incremental_progress = max(0, total_progress - tasks * baseline_runs)
+            total_progress = 0
+            incremental_progress = 0
         actual_total += min(target_each, incremental_progress)
         exact_done = has_exact_counts and total_progress >= total_required_each
         disk_done = exact_done or (not has_exact_counts and disk_tasks >= tasks and (
             min_runs >= runs_per_task
             or (min_runs == 0 and disk_runs >= disk_tasks * runs_per_task)
         ))
-        csv_done = disk_tasks == 0 and csv_runs >= total_required_each
-        complete = complete and (disk_done or csv_done)
+        complete = complete and disk_done
     return complete, actual_total, target_each * len(primitives)
 
 
@@ -368,12 +362,9 @@ def main():
 
     # ---- headline stats -----------------------------------------------------
     disk_runs = sum(int(r["runs_on_disk"]) for r in rows)
-    albus_rows = sum(int(r["rows_in_csv"]) for r in rows if r["runs_on_disk"] == "0")
     n_missing = sum(r["status"] == "MISSING" for r in rows)
-    n_pending = sum("NOT in Review1.csv" in r["notes"] for r in rows)
 
-    tb_runs = sum(max(_int(r.get("runs_on_disk")), _int(r.get("rows_in_csv")))
-                  for r in tb_rows)
+    tb_runs = sum(_int(r.get("runs_on_disk")) for r in tb_rows)
 
     covered = [r for r in rows if r["cohort_covered"]]
     n_p100 = sum(r["cohort_covered"].startswith("P100") for r in covered)
@@ -386,7 +377,6 @@ def main():
         ("11 + 2", "primitives + baselines"),
         (f"{n_p100} / {n_abl}", "cells at full P100 / ABL-30 only"),
         (f"{disk_runs:,}", "trajectories on this disk"),
-        (f"{albus_rows:,}", "runs in CSVs (raw on Albus)"),
         (f"{tb_runs:,}", "valid Terminal-Bench runs in COVERAGE_TB.csv"),
     ]
     stat_html = "".join(
@@ -400,19 +390,12 @@ def main():
             attention.append(f'<li><span class="dot missing"></span><strong>{r["model"]} · '
                              f'{r["primitive"]} @ {"∞" if r["budget"] == "inf" else r["budget"]}'
                              f'</strong> — not run yet (required: {r["required_cohort"]}).</li>')
-    if n_pending:
-        attention.append(f'<li><span class="dot pending"></span><strong>{n_pending} cells on disk '
-                         'but not in Review1.csv</strong> — the 20k tail-depth runs '
-                         '(d=0.3 / 0.7, all five depth-tunable primitives, plus TRC variants). '
-                         'One <code>build_review1.py</code> pass away.</li>')
-
     # ---- expansion model cards ----------------------------------------------
     exp_cards = []
     for model, note in [
         ("Devstral-Small-2-24B", "Albus. Own calibrated budgets. Shows the −33.4pp clearing reversal at ∞."),
         ("Qwen2.5-Coder-32B", "Albus. FC = OTRC = 10.0% at ∞ — floor-limited, uninformative."),
         ("Llama-3.3-70B", "Albus. FC@∞ done; OTRC@∞ is the one missing arm."),
-        ("Qwen2.5-7B", "Albus only — cells live in Review1_qwen25-7b.csv; raw trajectories not on this disk."),
     ]:
         exp_cards.append(
             f'<div class="card"><h3>{model}</h3><p class="note">{note}</p>'
