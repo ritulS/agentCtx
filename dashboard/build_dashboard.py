@@ -32,7 +32,8 @@ FAMILIES = [
 DEPTHS = ["0.3", "0.5", "0.7"]
 
 BUDGET_ORDER = {
-    "4k": 4, "8k": 8, "10k": 10, "12k": 12, "13k": 13,
+    "2k": 2, "3k": 3, "4k": 4, "5k": 5, "7k": 7,
+    "8k": 8, "10k": 10, "12k": 12, "13k": 13,
     "15k": 15, "17k": 17, "20k": 20, "21k": 21, "24k": 24,
     "35k": 35, "38k": 38, "43k": 43, "45k": 45, "49k": 49,
     "58k": 58,
@@ -481,15 +482,15 @@ def main():
     p2_devstral = model_plan_matrix(["17K", "21K", "24K", "∞"], "SB:P-100", "SB:ABL-30")
     p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-30")
     p3_qwen = model_plan_matrix(
-        ["<em>QA</em>K", "<em>QP</em>K", "<em>QB</em>K", "∞"],
+        ["2K", "3K", "4K", "∞"],
         "TB:P-80", "TB:ABL-20", calibration=True,
     )
     p3_devstral = model_plan_matrix(
-        ["<em>DA</em>K", "<em>DP</em>K", "<em>DB</em>K", "∞"],
+        ["3K", "4K", "7K", "∞"],
         "TB:P-80", "TB:ABL-20", calibration=True,
     )
     p3_glm = model_plan_matrix(
-        ["<em>GA</em>K", "<em>GP</em>K", "<em>GB</em>K", "∞"],
+        ["2K", "3K", "5K", "∞"],
         "TB:P-80", "TB:ABL-20", calibration=True,
     )
 
@@ -593,25 +594,21 @@ def main():
     p2d_tracking = tracking_table(p2d_rows)
 
     p3a_rows = []
-    for model, primary_budget, display_budget in (
-        (MAIN, "qpk", "<em>QP</em>K"),
-        ("Devstral-Small-2-24B", "dpk", "<em>DP</em>K"),
+    for model, primary_budget in (
+        (MAIN, "3k"),
+        ("Devstral-Small-2-24B", "4k"),
+        ("GLM-4.7-Flash", "3k"),
     ):
-        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5, display_budget))
-        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5, display_budget))
+        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5))
+        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5))
         p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5))
-    p3a_rows += [
-        tb_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
-        tb_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
-        tb_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5),
-    ]
     p3a_tracking = tracking_table(p3a_rows)
 
     p3b_rows = []
     for model, budgets in (
-        (MAIN, [("qak", "<em>QA</em>K"), ("qpk", "<em>QP</em>K"), ("qbk", "<em>QB</em>K")]),
-        ("Devstral-Small-2-24B", [("dak", "<em>DA</em>K"), ("dpk", "<em>DP</em>K"), ("dbk", "<em>DB</em>K")]),
-        ("GLM-4.7-Flash", [("gak", "<em>GA</em>K"), ("gpk", "<em>GP</em>K"), ("gbk", "<em>GB</em>K")]),
+        (MAIN, [("2k", "2K"), ("3k", "3K"), ("4k", "4K")]),
+        ("Devstral-Small-2-24B", [("3k", "3K"), ("4k", "4K"), ("7k", "7K")]),
+        ("GLM-4.7-Flash", [("2k", "2K"), ("3k", "3K"), ("5k", "5K")]),
     ):
         for depth in ("0.3", "0.7"):
             for budget, display_budget in budgets:
@@ -633,7 +630,7 @@ def main():
     ]
     p4_display_rows = []
     for exp_id, summarizer, dataset, tasks, rpt in p4_specs:
-        budget = "<em>QP</em>K" if dataset == "TB:ABL-20" else "15K"
+        budget = "3K" if dataset == "TB:ABL-20" else "15K"
         target = tasks * rpt * 2
         # No summarizer-specific run source exists yet. Missing data is zero;
         # once those results are recorded, replace this with automatic discovery.
@@ -895,6 +892,7 @@ alternative is excluded.</p>
 <li>Terminal-Bench 1.0 (80 tasks)</li>
 <li>Runs/task: 5</li>
 <li>Models (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct, Devstral-Small-2-24B, GLM-4.7-Flash (30B-A3B MoE)</li>
+<li><strong>Model budgets (A/P/B):</strong> Qwen 2K/3K/4K; Devstral 3K/4K/7K; GLM 2K/3K/5K.</li>
 </ul>
 <div class="tablewrap"><table><thead><tr><th>experiment</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead><tbody>
 <tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-80</td><td>Depth: 0.5 or DI / Budget: model-calibrated primary (or ∞)</td><td>15,600</td></tr>
