@@ -33,34 +33,31 @@ RUNNER="$WS/scripts/run_experiment_iclr.py"
 P100="$WS/task_lists/p100_all_100_tasks.json"
 ABL30="$WS/task_lists/ablation_30tasks.json"
 RUNS_PER_TASK=3
-MAX_WORKERS="${MAX_WORKERS:-32}"
+MAX_WORKERS="${MAX_WORKERS:-16}"
 RUN_EVAL="${RUN_EVAL:-1}"
 INF_BUDGET=999999999
 
 # Calibrated from the SWE-Bench P100 FC run_1 peak step-prompt-token
-# distribution (n=100): A/P/B use P75/P85/P95, rounded to the nearest 1K.
+# distribution (n=100): A/P/B use P5/P15/P25, rounded to the nearest 1K.
 # They can also be overridden without editing:
 #   DEVSTRAL_A_BUDGET=... DEVSTRAL_P_BUDGET=... DEVSTRAL_B_BUDGET=... bash ...
-DEVSTRAL_A_BUDGET="${DEVSTRAL_A_BUDGET:-38000}"
-DEVSTRAL_P_BUDGET="${DEVSTRAL_P_BUDGET:-43000}"
-DEVSTRAL_B_BUDGET="${DEVSTRAL_B_BUDGET:-49000}"
+DEVSTRAL_A_BUDGET="${DEVSTRAL_A_BUDGET:-17000}"
+DEVSTRAL_P_BUDGET="${DEVSTRAL_P_BUDGET:-21000}"
+DEVSTRAL_B_BUDGET="${DEVSTRAL_B_BUDGET:-24000}"
 
-# TODO(GLM calibration): replace these three placeholders with calibrated token
-# budgets. A < P < B is validated before any GLM experiment is launched.
-GLM_A_BUDGET="${GLM_A_BUDGET:-__TODO_A__}"
-GLM_P_BUDGET="${GLM_P_BUDGET:-__TODO_P__}"
-GLM_B_BUDGET="${GLM_B_BUDGET:-__TODO_B__}"
+# Calibrated GLM budgets. Override via GLM_{A,P,B}_BUDGET if needed.
+GLM_A_BUDGET="${GLM_A_BUDGET:-10000}"
+GLM_P_BUDGET="${GLM_P_BUDGET:-13000}"
+GLM_B_BUDGET="${GLM_B_BUDGET:-15000}"
 
 DEVSTRAL_TAG="devstral-2"
 DEVSTRAL_CONFIG="$WS/configs/config-devstral-vllm.yaml"
-DEVSTRAL_OTRC_CONFIG="$WS/configs/config-online-trc-devstral.yaml"
+DEVSTRAL_OTRC_CONFIG="${DEVSTRAL_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 DEVSTRAL_HEALTH_URL="http://localhost:8002/v1/models"
 
-# TODO(GLM serving): create these two configs after the GLM model ID, endpoint,
-# and chat/template behavior have been verified. Override any value via env.
 GLM_TAG="${GLM_TAG:-glm47-flash}"
-GLM_CONFIG="${GLM_CONFIG:-$WS/configs/config-glm47-flash-vllm.yaml}"
-GLM_OTRC_CONFIG="${GLM_OTRC_CONFIG:-$WS/configs/config-online-trc-glm47-flash.yaml}"
+GLM_CONFIG="${GLM_CONFIG:-$WS/configs/config-glm47flash-vllm.yaml}"
+GLM_OTRC_CONFIG="${GLM_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 GLM_HEALTH_URL="${GLM_HEALTH_URL:-http://localhost:8003/v1/models}"
 
 LOG="$WS/logs/followup_agent_models_${MODEL}.log"
@@ -103,20 +100,6 @@ log() { echo "[$(date)] $*" | tee -a "$LOG"; }
 require_file() {
     if [[ ! -f "$1" ]]; then
         echo "[ERROR] Required file not found: $1" >&2
-        exit 1
-    fi
-}
-
-validate_glm_todos() {
-    local value
-    for value in "$GLM_A_BUDGET" "$GLM_P_BUDGET" "$GLM_B_BUDGET"; do
-        if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
-            echo "[ERROR] Fill GLM_A_BUDGET, GLM_P_BUDGET, and GLM_B_BUDGET TODOs in $0 first." >&2
-            exit 1
-        fi
-    done
-    if ! (( GLM_A_BUDGET < GLM_P_BUDGET && GLM_P_BUDGET < GLM_B_BUDGET )); then
-        echo "[ERROR] Expected calibrated GLM budgets to satisfy A < P < B." >&2
         exit 1
     fi
 }
@@ -246,7 +229,6 @@ if [[ "$MODEL" == devstral ]]; then
 fi
 
 if [[ "$MODEL" == glm ]]; then
-    validate_glm_todos
     validate_ordered_budgets "GLM" "$GLM_A_BUDGET" "$GLM_P_BUDGET" "$GLM_B_BUDGET"
     run_model "GLM-4.7-Flash" "$GLM_TAG" glm47flash "$GLM_CONFIG" \
         "$GLM_OTRC_CONFIG" "$GLM_HEALTH_URL" \
