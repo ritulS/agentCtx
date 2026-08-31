@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Render DASHBOARD.html — the human-friendly coverage dashboard.
 
-Reads COVERAGE.csv (regenerate that first with scripts/build_coverage.py) and
+Reads COVERAGE.csv and COVERAGE_TB.csv (regenerate them first with
+dashboard/build_coverage.py) and
 writes a self-contained HTML page at the repo root. Re-run after every completed run:
 
-    python scripts/build_coverage.py && python scripts/build_dashboard.py
+    python dashboard/build_coverage.py && python dashboard/build_dashboard.py
 """
 
 import argparse
@@ -32,7 +33,8 @@ DEPTHS = ["0.3", "0.5", "0.7"]
 
 BUDGET_ORDER = {
     "4k": 4, "8k": 8, "10k": 10, "12k": 12, "15k": 15,
-    "20k": 20, "24k": 24, "38k": 38, "43k": 43, "49k": 49,
+    "20k": 20, "24k": 24, "35k": 35, "38k": 38, "43k": 43,
+    "45k": 45, "49k": 49, "58k": 58,
     "inf": 999,
 }
 
@@ -44,34 +46,33 @@ def load_cells():
         "FC", "OTRC", "TRC", "TRC+SU", "TRC+SS",
         "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial",
     }
-    for r in csv.DictReader(open(ROOT / "COVERAGE.csv")):
-        benchmark = (r.get("benchmark") or "swebench").strip().lower()
-        budget = r["budget"].lower()
-        if benchmark in {"terminal-bench", "terminal_bench", "tbench", "tb"}:
-            depth = "DI" if r["primitive"] in invariant else r["depth"]
-            tb_cells[(r["model"], r["primitive"], budget, depth)] = r
-        else:
-            swe_cells[(r["model"], r["primitive"], budget, r["depth"])] = r
+    for path, benchmark in (
+        (ROOT / "COVERAGE.csv", "swebench"),
+        (ROOT / "COVERAGE_TB.csv", "terminal-bench"),
+    ):
+        for r in csv.DictReader(open(path)):
+            budget = r["budget"].lower()
+            if benchmark == "terminal-bench":
+                depth = "DI" if r["primitive"] in invariant else r["depth"]
+                tb_cells[(r["model"], r["primitive"], budget, depth)] = r
+            else:
+                swe_cells[(r["model"], r["primitive"], budget, r["depth"])] = r
     return swe_cells, tb_cells
 
 
 def chip(cell, depth):
-    """One depth chip. State drives color: filled=have, amber=not ingested,
-    red=missing, grey=out-of-scope extra, dashed=csv-only (raw on Albus)."""
+    """One depth chip. State drives color: filled=have, red=missing,
+    grey=out-of-scope extra."""
     if cell is None:
         return f'<span class="chip none">{depth}</span>'
     status, notes = cell["status"], cell["notes"]
     title = (f'{cell["model"]} · {cell["primitive"]} · {cell["budget"]} · d={cell["depth"]} — '
              f'{cell["status"]}; {cell["tasks_on_disk"]} tasks / {cell["runs_on_disk"]} runs on disk; '
-             f'{cell["rows_in_csv"]} CSV rows; min {cell.get("runs_per_task_min", "?")} runs/task; '
+             f'min {cell.get("runs_per_task_min", "?")} runs/task; '
              f'cohort {cell["cohort_covered"] or "—"}'
              + (f'; {notes}' if notes else ''))
     if status == "MISSING":
         cls = "missing"
-    elif "NOT in Review1.csv" in notes:
-        cls = "pending"
-    elif status == "HAVE (csv-only)":
-        cls = "csvonly"
     elif status == "EXTRA":
         cls = "extra"
     else:  # COMPLETE / HAVE / PARTIAL
@@ -152,7 +153,6 @@ def coverage_progress(
             continue
         disk_tasks = _int(cell.get("tasks_on_disk"))
         disk_runs = _int(cell.get("runs_on_disk"))
-        csv_runs = _int(cell.get("rows_in_csv"))
         min_runs = _int(cell.get("runs_per_task_min"))
         cohort = (
             "p100" if tasks == 100 else
@@ -180,16 +180,15 @@ def coverage_progress(
             total_progress = disk_progress
             incremental_progress = max(0, total_progress - tasks * baseline_runs)
         else:
-            total_progress = csv_runs
-            incremental_progress = max(0, total_progress - tasks * baseline_runs)
+            total_progress = 0
+            incremental_progress = 0
         actual_total += min(target_each, incremental_progress)
         exact_done = has_exact_counts and total_progress >= total_required_each
         disk_done = exact_done or (not has_exact_counts and disk_tasks >= tasks and (
             min_runs >= runs_per_task
             or (min_runs == 0 and disk_runs >= disk_tasks * runs_per_task)
         ))
-        csv_done = disk_tasks == 0 and csv_runs >= total_required_each
-        complete = complete and (disk_done or csv_done)
+        complete = complete and disk_done
     return complete, actual_total, target_each * len(primitives)
 
 
@@ -363,12 +362,9 @@ def main():
 
     # ---- headline stats -----------------------------------------------------
     disk_runs = sum(int(r["runs_on_disk"]) for r in rows)
-    albus_rows = sum(int(r["rows_in_csv"]) for r in rows if r["runs_on_disk"] == "0")
     n_missing = sum(r["status"] == "MISSING" for r in rows)
-    n_pending = sum("NOT in Review1.csv" in r["notes"] for r in rows)
 
-    tb_runs = sum(max(_int(r.get("runs_on_disk")), _int(r.get("rows_in_csv")))
-                  for r in tb_rows)
+    tb_runs = sum(_int(r.get("runs_on_disk")) for r in tb_rows)
 
     covered = [r for r in rows if r["cohort_covered"]]
     n_p100 = sum(r["cohort_covered"].startswith("P100") for r in covered)
@@ -381,8 +377,7 @@ def main():
         ("11 + 2", "primitives + baselines"),
         (f"{n_p100} / {n_abl}", "cells at full P100 / ABL-30 only"),
         (f"{disk_runs:,}", "trajectories on this disk"),
-        (f"{albus_rows:,}", "runs in CSVs (raw on Albus)"),
-        (f"{tb_runs:,}", "valid Terminal-Bench runs in COVERAGE.csv"),
+        (f"{tb_runs:,}", "valid Terminal-Bench runs in COVERAGE_TB.csv"),
     ]
     stat_html = "".join(
         f'<div class="stat"><div class="n">{n}</div><div class="l">{l}</div></div>'
@@ -395,19 +390,12 @@ def main():
             attention.append(f'<li><span class="dot missing"></span><strong>{r["model"]} · '
                              f'{r["primitive"]} @ {"∞" if r["budget"] == "inf" else r["budget"]}'
                              f'</strong> — not run yet (required: {r["required_cohort"]}).</li>')
-    if n_pending:
-        attention.append(f'<li><span class="dot pending"></span><strong>{n_pending} cells on disk '
-                         'but not in Review1.csv</strong> — the 20k tail-depth runs '
-                         '(d=0.3 / 0.7, all five depth-tunable primitives, plus TRC variants). '
-                         'One <code>build_review1.py</code> pass away.</li>')
-
     # ---- expansion model cards ----------------------------------------------
     exp_cards = []
     for model, note in [
         ("Devstral-Small-2-24B", "Albus. Own calibrated budgets. Shows the −33.4pp clearing reversal at ∞."),
         ("Qwen2.5-Coder-32B", "Albus. FC = OTRC = 10.0% at ∞ — floor-limited, uninformative."),
         ("Llama-3.3-70B", "Albus. FC@∞ done; OTRC@∞ is the one missing arm."),
-        ("Qwen2.5-7B", "Albus only — cells live in Review1_qwen25-7b.csv; raw trajectories not on this disk."),
     ]:
         exp_cards.append(
             f'<div class="card"><h3>{model}</h3><p class="note">{note}</p>'
@@ -490,10 +478,19 @@ def main():
         return planned_matrix(budgets, rows_)
 
     p2_devstral = model_plan_matrix(["38K", "43K", "49K", "∞"], "SB:P-100", "SB:ABL-30")
-    p2_glm = model_plan_matrix(["AK", "PK", "BK", "∞"], "SB:P-100", "SB:ABL-30", calibration=True)
-    p3_qwen = model_plan_matrix(["10K", "15K", "20K", "∞"], "TB:P-80", "TB:ABL-20")
-    p3_devstral = model_plan_matrix(["38K", "43K", "49K", "∞"], "TB:P-80", "TB:ABL-20")
-    p3_glm = model_plan_matrix(["AK", "PK", "BK", "∞"], "TB:P-80", "TB:ABL-20", calibration=True)
+    p2_glm = model_plan_matrix(["35K", "45K", "58K", "∞"], "SB:P-100", "SB:ABL-30")
+    p3_qwen = model_plan_matrix(
+        ["<em>QA</em>K", "<em>QP</em>K", "<em>QB</em>K", "∞"],
+        "TB:P-80", "TB:ABL-20", calibration=True,
+    )
+    p3_devstral = model_plan_matrix(
+        ["<em>DA</em>K", "<em>DP</em>K", "<em>DB</em>K", "∞"],
+        "TB:P-80", "TB:ABL-20", calibration=True,
+    )
+    p3_glm = model_plan_matrix(
+        ["<em>GA</em>K", "<em>GP</em>K", "<em>GB</em>K", "∞"],
+        "TB:P-80", "TB:ABL-20", calibration=True,
+    )
 
     roadmap_overview = """
 <div class="tablewrap roadmap-overview"><table>
@@ -536,12 +533,16 @@ def main():
         return [model, label, depth_label, budget_label, dataset, target_text,
                 status_badge(done, actual, target)]
 
-    def tb_track(model, label, primitives, depth, budget, dataset, tasks, rpt):
+    def tb_track(
+        model, label, primitives, depth, budget, dataset, tasks, rpt,
+        display_budget=None,
+    ):
         done, actual, target = coverage_progress(
             tb_cells, model, primitives, budget, depth, tasks, rpt
         )
         target_text = f"{tasks} tasks × {rpt} runs × {len(primitives)}"
-        return [model, label, depth, budget.upper() if budget != "inf" else "∞", dataset,
+        shown_budget = display_budget or (budget.upper() if budget != "inf" else "∞")
+        return [model, label, depth, shown_budget, dataset,
                 target_text, status_badge(done, actual, target)]
 
     p1_tracking_rows = []
@@ -566,8 +567,8 @@ def main():
     ]
     p2a_tracking = tracking_table(p2a_rows)
     p2b_rows = [
-        swe_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "PK", "SB:P-100", 100, 3),
-        swe_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "PK", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "45K", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "45K", "SB:P-100", 100, 3),
         swe_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
     ]
     p2b_tracking = tracking_table(p2b_rows)
@@ -586,35 +587,40 @@ def main():
         return rows_
 
     p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["38K", "43K", "49K"])
-    p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["AK", "PK", "BK"])
+    p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["35K", "45K", "58K"])
     p2c_tracking = tracking_table(p2c_rows)
     p2d_tracking = tracking_table(p2d_rows)
 
     p3a_rows = []
-    for model, primary_budget in ((MAIN, "15k"), ("Devstral-Small-2-24B", "43k")):
-        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5))
-        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5))
+    for model, primary_budget, display_budget in (
+        (MAIN, "qpk", "<em>QP</em>K"),
+        ("Devstral-Small-2-24B", "dpk", "<em>DP</em>K"),
+    ):
+        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5, display_budget))
+        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5, display_budget))
         p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5))
     p3a_rows += [
-        tb_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "pk", "TB:P-80", 80, 5),
-        tb_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "pk", "TB:P-80", 80, 5),
+        tb_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
+        tb_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
         tb_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5),
     ]
     p3a_tracking = tracking_table(p3a_rows)
 
     p3b_rows = []
-    for model, budgets in ((MAIN, ["10k", "15k", "20k"]),
-                           ("Devstral-Small-2-24B", ["38k", "43k", "49k"]),
-                           ("GLM-4.7-Flash", ["ak", "pk", "bk"])):
+    for model, budgets in (
+        (MAIN, [("qak", "<em>QA</em>K"), ("qpk", "<em>QP</em>K"), ("qbk", "<em>QB</em>K")]),
+        ("Devstral-Small-2-24B", [("dak", "<em>DA</em>K"), ("dpk", "<em>DP</em>K"), ("dbk", "<em>DB</em>K")]),
+        ("GLM-4.7-Flash", [("gak", "<em>GA</em>K"), ("gpk", "<em>GP</em>K"), ("gbk", "<em>GB</em>K")]),
+    ):
         for depth in ("0.3", "0.7"):
-            for budget in budgets:
+            for budget, display_budget in budgets:
                 p3b_rows.append(tb_track(model, tunable_label, tunable, depth, budget,
-                                               "TB:ABL-20", 20, 5))
-        for budget in (budgets[0], budgets[-1]):
+                                               "TB:ABL-20", 20, 5, display_budget))
+        for budget, display_budget in (budgets[0], budgets[-1]):
             p3b_rows.append(tb_track(model, tunable_label, tunable, "0.5", budget,
-                                           "TB:ABL-20", 20, 5))
+                                           "TB:ABL-20", 20, 5, display_budget))
             p3b_rows.append(tb_track(model, invariant_label, invariant, "DI", budget,
-                                           "TB:ABL-20", 20, 5))
+                                           "TB:ABL-20", 20, 5, display_budget))
     p3b_tracking = tracking_table(p3b_rows)
 
     p4_tracking_rows = []
@@ -626,19 +632,20 @@ def main():
     ]
     p4_display_rows = []
     for exp_id, summarizer, dataset, tasks, rpt in p4_specs:
+        budget = "<em>QP</em>K" if dataset == "TB:ABL-20" else "15K"
         target = tasks * rpt * 2
         # No summarizer-specific run source exists yet. Missing data is zero;
         # once those results are recorded, replace this with automatic discovery.
         actual = 0
         status = status_badge(actual >= target, min(actual, target), target)
         p4_tracking_rows.append([
-            MAIN, "SU-full (0.5), TRC+SU (DI)", "mixed", "15K", dataset,
+            MAIN, "SU-full (0.5), TRC+SU (DI)", "mixed", budget, dataset,
             f"{tasks} tasks × {rpt} runs × 2",
             status,
         ])
         p4_display_rows.append([
             f"({exp_id})", dataset, MAIN, summarizer,
-            "SU-full (0.5), TRC+SU (DI)", "15K", status,
+            "SU-full (0.5), TRC+SU (DI)", budget, status,
         ])
     p4_tracking = summarizer_tracking_table(p4_display_rows)
 
@@ -853,14 +860,14 @@ alternative is excluded.</p>
 <h2 id="exp-models">2. [Priority] SWE-Bench: Add 2 agent models</h2>
 {p2_progress}
 <ul>
-<li><strong>GLM budget calibration (required before launch):</strong> determine the model-appropriate primary budget <em>P</em>K and ablation budgets <em>A</em>K/<em>B</em>K.</li>
+<li><strong>GLM calibrated budgets:</strong> primary 45K; ablation 35K/58K.</li>
 <li>Runs/task: 3</li>
 </ul>
 <div class="tablewrap"><table>
 <thead><tr><th>experiment</th><th>model (agent &amp; summarizer)</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead>
 <tbody>
 <tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 43K (or ∞)</td><td>3,900</td></tr>
-<tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: <em>P</em>K or ∞</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 45K (or ∞)</td><td>3,900</td></tr>
 <tr><td><a href="#exp-models-devstral-abl">(2.c) Devstral-24B Ablation</a></td><td>Devstral-Small-2-24B</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 <tr><td><a href="#exp-models-glm-abl">(2.d) GLM Ablation</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 </tbody></table></div>
