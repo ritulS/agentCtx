@@ -280,6 +280,28 @@ def recent_rate(history, key, actual, now, hours=RATE_WINDOW_HOURS):
     return delta / elapsed_hours
 
 
+def since_previous(history, key, actual, now):
+    """Return run growth and elapsed time since the latest prior snapshot."""
+    candidates = [item for item in history if key in item["progress"] and item["when"] < now]
+    if not candidates:
+        return None
+    previous = max(candidates, key=lambda item: item["when"])
+    elapsed_seconds = (now - previous["when"]).total_seconds()
+    delta = actual - _int(previous["progress"][key])
+    if elapsed_seconds <= 0 or delta < 0:
+        return None
+    return delta, elapsed_seconds
+
+
+def format_elapsed(seconds):
+    """Format a snapshot interval compactly for the progress header."""
+    minutes = max(0, round(seconds / 60))
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m" if minutes else f"{hours}h"
+    return f"{minutes}m"
+
+
 def write_progress_history(history, progress, now):
     """Append this build's snapshot and keep the tracked file compact."""
     cutoff = now - timedelta(days=HISTORY_RETENTION_DAYS)
@@ -302,12 +324,20 @@ def progress_bar(rows, key, history, now, snapshot):
     percent = min(100, (actual / target * 100) if target else 0)
     rate = recent_rate(history, key, actual, now)
     rate_text = "— runs/hour" if rate is None else f"{rate:,.1f} runs/hour"
+    previous = since_previous(history, key, actual, now)
+    previous_text = (
+        "since last: — runs / —"
+        if previous is None else
+        f"since last: +{previous[0]:,} runs / {format_elapsed(previous[1])}"
+    )
     return (
         '<div class="section-progress">'
         '<div class="progress-meta"><span>Progress</span>'
         '<span class="progress-numbers">'
         f'<span class="progress-rate" title="Average over the last {RATE_WINDOW_HOURS} hours">'
         f'last {RATE_WINDOW_HOURS}h: {rate_text}</span>'
+        f'<span class="progress-since" title="Increase and elapsed time since the previous snapshot">'
+        f'{previous_text}</span>'
         f'<strong>{actual:,} / {target:,} runs</strong></span></div>'
         '<div class="progress-track" role="progressbar" '
         f'aria-valuenow="{actual}" aria-valuemin="0" aria-valuemax="{target}">'
@@ -793,6 +823,8 @@ ul.attn li {{ background:var(--surface); border:1px solid var(--line); border-ra
   gap:3px 14px; align-items:baseline; }}
 .progress-rate {{ color:var(--accent-ink); font-family:"IBM Plex Mono",monospace;
   font-size:.76rem; white-space:nowrap; }}
+.progress-since {{ color:var(--muted); font-family:"IBM Plex Mono",monospace;
+  font-size:.76rem; white-space:nowrap; }}
 .progress-track {{ height:9px; margin-top:5px; overflow:hidden; border-radius:999px;
   background:var(--pending-bg); border:1px solid var(--line); }}
 .progress-track > span {{ display:block; height:100%; border-radius:inherit; background:var(--have); }}
@@ -834,7 +866,8 @@ a {{ color:var(--accent-ink); }}
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
 </tbody></table></div>
 <ul>
-<li>Experiments env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
+<li>SWE-Bench env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
+<li>Terminal-Bench env: <strong>Albus (GPU: gpu0-3)</strong></li>
 <li>Metrics: resolve rate (SWE-Bench), accuracy (Terminal-Bench), token cost, latency, compression behavior</li>
 </ul>
 <div class="plan-legend">
