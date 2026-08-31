@@ -200,40 +200,52 @@ def main():
         for prim in ("FC", "OTRC"):
             expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
-    # Concrete Devstral cells in FOLLOWUP_EXPERIMENTS.md.  This makes the
-    # follow-up plan part of the same inventory as completed data, instead of
-    # showing only whichever archived cells happen to exist today.
-    devstral = "Devstral-Small-2-24B"
-    for prim in DEPTH_TUNABLE:
-        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
-        for b in BUDGETS:
-            for d in DEPTH_GRID:
-                expected.setdefault(("swebench", devstral, prim, b, d), "ABL-30")
-    for prim in DEPTH_INVARIANT:
-        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
-        for b in (10_000, 20_000):
-            expected[("swebench", devstral, prim, b, 0.5)] = "ABL-30"
-    for prim in ("FC", "OTRC"):
-        expected[("swebench", devstral, prim, INF, 0.5)] = "P100"
-
-    # Concrete Terminal-Bench follow-up cells.  Primary depth/budget cells and
-    # the unlimited baselines use all 80 tasks; the remaining grid uses the
-    # frozen 20-task ablation cohort.
-    for model in (MAIN_MODEL, "Devstral-Small-2-24B", "GLM-4.7-Flash"):
+    # Concrete model-expansion cells in FOLLOWUP_EXPERIMENTS.md. A/P/B are
+    # the rounded P5/P15/P25 values of each model's P100 FC run_1 peak-context
+    # distribution. The primary (P) arm uses P100; budget/depth ablations use
+    # ABL-30.
+    expansion_budgets = {
+        "Devstral-Small-2-24B": (17_000, 21_000, 24_000),
+        "GLM-4.7-Flash": (10_000, 13_000, 15_000),
+    }
+    for model, (a_budget, p_budget, b_budget) in expansion_budgets.items():
         for prim in DEPTH_TUNABLE:
-            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-80"
+            expected[("swebench", model, prim, p_budget, 0.5)] = "P100"
+            for budget in (a_budget, p_budget, b_budget):
+                for depth in (0.3, 0.7):
+                    expected[("swebench", model, prim, budget, depth)] = "ABL-30"
+            for budget in (a_budget, b_budget):
+                expected[("swebench", model, prim, budget, 0.5)] = "ABL-30"
         for prim in DEPTH_INVARIANT:
-            expected[("terminal-bench", model, prim, 15_000, 0.5)] = "TB-80"
+            expected[("swebench", model, prim, p_budget, 0.5)] = "P100"
+            for budget in (a_budget, b_budget):
+                expected[("swebench", model, prim, budget, 0.5)] = "ABL-30"
+        for prim in ("FC", "OTRC"):
+            expected[("swebench", model, prim, INF, 0.5)] = "P100"
+
+    # Concrete Terminal-Bench follow-up cells. A/P/B are model-specific. The
+    # primary (P) depth/budget cells and unlimited baselines use all 80 tasks;
+    # the remaining grid uses the frozen 20-task ablation cohort.
+    tb_expansion_budgets = {
+        MAIN_MODEL: (2_000, 3_000, 4_000),
+        "Devstral-Small-2-24B": (3_000, 4_000, 7_000),
+        "GLM-4.7-Flash": (2_000, 3_000, 5_000),
+    }
+    for model, (a_budget, p_budget, b_budget) in tb_expansion_budgets.items():
+        for prim in DEPTH_TUNABLE:
+            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-80"
+        for prim in DEPTH_INVARIANT:
+            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-80"
         for prim in ("FC", "OTRC"):
             expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-80"
         for prim in DEPTH_TUNABLE:
-            for b in (10_000, 20_000):
+            for b in (a_budget, b_budget):
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
-            for b in BUDGETS:
+            for b in (a_budget, p_budget, b_budget):
                 for d in (0.3, 0.7):
                     expected[("terminal-bench", model, prim, b, d)] = "TB-20"
         for prim in DEPTH_INVARIANT:
-            for b in (10_000, 20_000):
+            for b in (a_budget, b_budget):
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
 
     # ---- 3. merge into sheet rows --------------------------------------------

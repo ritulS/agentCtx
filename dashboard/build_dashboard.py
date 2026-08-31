@@ -32,9 +32,11 @@ FAMILIES = [
 DEPTHS = ["0.3", "0.5", "0.7"]
 
 BUDGET_ORDER = {
-    "4k": 4, "8k": 8, "10k": 10, "12k": 12, "15k": 15,
-    "20k": 20, "24k": 24, "35k": 35, "38k": 38, "43k": 43,
-    "45k": 45, "49k": 49, "58k": 58,
+    "2k": 2, "3k": 3, "4k": 4, "5k": 5, "7k": 7,
+    "8k": 8, "10k": 10, "12k": 12, "13k": 13,
+    "15k": 15, "17k": 17, "20k": 20, "21k": 21, "24k": 24,
+    "35k": 35, "38k": 38, "43k": 43, "45k": 45, "49k": 49,
+    "58k": 58,
     "inf": 999,
 }
 
@@ -278,6 +280,28 @@ def recent_rate(history, key, actual, now, hours=RATE_WINDOW_HOURS):
     return delta / elapsed_hours
 
 
+def since_previous(history, key, actual, now):
+    """Return run growth and elapsed time since the latest prior snapshot."""
+    candidates = [item for item in history if key in item["progress"] and item["when"] < now]
+    if not candidates:
+        return None
+    previous = max(candidates, key=lambda item: item["when"])
+    elapsed_seconds = (now - previous["when"]).total_seconds()
+    delta = actual - _int(previous["progress"][key])
+    if elapsed_seconds <= 0 or delta < 0:
+        return None
+    return delta, elapsed_seconds
+
+
+def format_elapsed(seconds):
+    """Format a snapshot interval compactly for the progress header."""
+    minutes = max(0, round(seconds / 60))
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m" if minutes else f"{hours}h"
+    return f"{minutes}m"
+
+
 def write_progress_history(history, progress, now):
     """Append this build's snapshot and keep the tracked file compact."""
     cutoff = now - timedelta(days=HISTORY_RETENTION_DAYS)
@@ -300,12 +324,20 @@ def progress_bar(rows, key, history, now, snapshot):
     percent = min(100, (actual / target * 100) if target else 0)
     rate = recent_rate(history, key, actual, now)
     rate_text = "— runs/hour" if rate is None else f"{rate:,.1f} runs/hour"
+    previous = since_previous(history, key, actual, now)
+    previous_text = (
+        "since last: — runs / —"
+        if previous is None else
+        f"since last: +{previous[0]:,} runs / {format_elapsed(previous[1])}"
+    )
     return (
         '<div class="section-progress">'
         '<div class="progress-meta"><span>Progress</span>'
         '<span class="progress-numbers">'
         f'<span class="progress-rate" title="Average over the last {RATE_WINDOW_HOURS} hours">'
         f'last {RATE_WINDOW_HOURS}h: {rate_text}</span>'
+        f'<span class="progress-since" title="Increase and elapsed time since the previous snapshot">'
+        f'{previous_text}</span>'
         f'<strong>{actual:,} / {target:,} runs</strong></span></div>'
         '<div class="progress-track" role="progressbar" '
         f'aria-valuenow="{actual}" aria-valuemin="0" aria-valuemax="{target}">'
@@ -477,18 +509,18 @@ def main():
                   for p in ("FC", "OTRC")]
         return planned_matrix(budgets, rows_)
 
-    p2_devstral = model_plan_matrix(["38K", "43K", "49K", "∞"], "SB:P-100", "SB:ABL-30")
-    p2_glm = model_plan_matrix(["35K", "45K", "58K", "∞"], "SB:P-100", "SB:ABL-30")
+    p2_devstral = model_plan_matrix(["17K", "21K", "24K", "∞"], "SB:P-100", "SB:ABL-30")
+    p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-30")
     p3_qwen = model_plan_matrix(
-        ["<em>QA</em>K", "<em>QP</em>K", "<em>QB</em>K", "∞"],
+        ["2K", "3K", "4K", "∞"],
         "TB:P-80", "TB:ABL-20", calibration=True,
     )
     p3_devstral = model_plan_matrix(
-        ["<em>DA</em>K", "<em>DP</em>K", "<em>DB</em>K", "∞"],
+        ["3K", "4K", "7K", "∞"],
         "TB:P-80", "TB:ABL-20", calibration=True,
     )
     p3_glm = model_plan_matrix(
-        ["<em>GA</em>K", "<em>GP</em>K", "<em>GB</em>K", "∞"],
+        ["2K", "3K", "5K", "∞"],
         "TB:P-80", "TB:ABL-20", calibration=True,
     )
 
@@ -561,14 +593,14 @@ def main():
     p1_tracking = tracking_table(p1_tracking_rows)
 
     p2a_rows = [
-        swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "43K", "SB:P-100", 100, 3),
-        swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "43K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "21K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "21K", "SB:P-100", 100, 3),
         swe_track("Devstral-Small-2-24B", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
     ]
     p2a_tracking = tracking_table(p2a_rows)
     p2b_rows = [
-        swe_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "45K", "SB:P-100", 100, 3),
-        swe_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "45K", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "13K", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "13K", "SB:P-100", 100, 3),
         swe_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
     ]
     p2b_tracking = tracking_table(p2b_rows)
@@ -586,31 +618,27 @@ def main():
                                          "SB:ABL-30", 30, 3))
         return rows_
 
-    p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["38K", "43K", "49K"])
-    p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["35K", "45K", "58K"])
+    p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["17K", "21K", "24K"])
+    p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["10K", "13K", "15K"])
     p2c_tracking = tracking_table(p2c_rows)
     p2d_tracking = tracking_table(p2d_rows)
 
     p3a_rows = []
-    for model, primary_budget, display_budget in (
-        (MAIN, "qpk", "<em>QP</em>K"),
-        ("Devstral-Small-2-24B", "dpk", "<em>DP</em>K"),
+    for model, primary_budget in (
+        (MAIN, "3k"),
+        ("Devstral-Small-2-24B", "4k"),
+        ("GLM-4.7-Flash", "3k"),
     ):
-        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5, display_budget))
-        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5, display_budget))
+        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5))
+        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5))
         p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5))
-    p3a_rows += [
-        tb_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
-        tb_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
-        tb_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5),
-    ]
     p3a_tracking = tracking_table(p3a_rows)
 
     p3b_rows = []
     for model, budgets in (
-        (MAIN, [("qak", "<em>QA</em>K"), ("qpk", "<em>QP</em>K"), ("qbk", "<em>QB</em>K")]),
-        ("Devstral-Small-2-24B", [("dak", "<em>DA</em>K"), ("dpk", "<em>DP</em>K"), ("dbk", "<em>DB</em>K")]),
-        ("GLM-4.7-Flash", [("gak", "<em>GA</em>K"), ("gpk", "<em>GP</em>K"), ("gbk", "<em>GB</em>K")]),
+        (MAIN, [("2k", "2K"), ("3k", "3K"), ("4k", "4K")]),
+        ("Devstral-Small-2-24B", [("3k", "3K"), ("4k", "4K"), ("7k", "7K")]),
+        ("GLM-4.7-Flash", [("2k", "2K"), ("3k", "3K"), ("5k", "5K")]),
     ):
         for depth in ("0.3", "0.7"):
             for budget, display_budget in budgets:
@@ -632,7 +660,7 @@ def main():
     ]
     p4_display_rows = []
     for exp_id, summarizer, dataset, tasks, rpt in p4_specs:
-        budget = "<em>QP</em>K" if dataset == "TB:ABL-20" else "15K"
+        budget = "3K" if dataset == "TB:ABL-20" else "15K"
         target = tasks * rpt * 2
         # No summarizer-specific run source exists yet. Missing data is zero;
         # once those results are recorded, replace this with automatic discovery.
@@ -795,6 +823,8 @@ ul.attn li {{ background:var(--surface); border:1px solid var(--line); border-ra
   gap:3px 14px; align-items:baseline; }}
 .progress-rate {{ color:var(--accent-ink); font-family:"IBM Plex Mono",monospace;
   font-size:.76rem; white-space:nowrap; }}
+.progress-since {{ color:var(--muted); font-family:"IBM Plex Mono",monospace;
+  font-size:.76rem; white-space:nowrap; }}
 .progress-track {{ height:9px; margin-top:5px; overflow:hidden; border-radius:999px;
   background:var(--pending-bg); border:1px solid var(--line); }}
 .progress-track > span {{ display:block; height:100%; border-radius:inherit; background:var(--have); }}
@@ -836,7 +866,8 @@ a {{ color:var(--accent-ink); }}
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
 </tbody></table></div>
 <ul>
-<li>Experiments env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
+<li>SWE-Bench env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
+<li>Terminal-Bench env: <strong>Albus (GPU: gpu0-3)</strong></li>
 <li>Metrics: resolve rate (SWE-Bench), accuracy (Terminal-Bench), token cost, latency, compression behavior</li>
 </ul>
 <div class="plan-legend">
@@ -860,14 +891,14 @@ alternative is excluded.</p>
 <h2 id="exp-models">2. [Priority] SWE-Bench: Add 2 agent models</h2>
 {p2_progress}
 <ul>
-<li><strong>GLM calibrated budgets:</strong> primary 45K; ablation 35K/58K.</li>
+<li><strong>Calibrated budgets (FC@∞ run_1 P5/P15/P25):</strong> Devstral 17K/21K/24K; GLM 10K/13K/15K.</li>
 <li>Runs/task: 3</li>
 </ul>
 <div class="tablewrap"><table>
 <thead><tr><th>experiment</th><th>model (agent &amp; summarizer)</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead>
 <tbody>
-<tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 43K (or ∞)</td><td>3,900</td></tr>
-<tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 45K (or ∞)</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 21K (or ∞)</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 13K (or ∞)</td><td>3,900</td></tr>
 <tr><td><a href="#exp-models-devstral-abl">(2.c) Devstral-24B Ablation</a></td><td>Devstral-Small-2-24B</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 <tr><td><a href="#exp-models-glm-abl">(2.d) GLM Ablation</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 </tbody></table></div>
@@ -894,6 +925,7 @@ alternative is excluded.</p>
 <li>Terminal-Bench 1.0 (80 tasks)</li>
 <li>Runs/task: 5</li>
 <li>Models (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct, Devstral-Small-2-24B, GLM-4.7-Flash (30B-A3B MoE)</li>
+<li><strong>Model budgets (A/P/B):</strong> Qwen 2K/3K/4K; Devstral 3K/4K/7K; GLM 2K/3K/5K.</li>
 </ul>
 <div class="tablewrap"><table><thead><tr><th>experiment</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead><tbody>
 <tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-80</td><td>Depth: 0.5 or DI / Budget: model-calibrated primary (or ∞)</td><td>15,600</td></tr>
