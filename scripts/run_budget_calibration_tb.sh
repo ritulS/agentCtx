@@ -4,12 +4,16 @@
 # Usage:
 #   bash scripts/run_budget_calibration_tb.sh qwen
 #   bash scripts/run_budget_calibration_tb.sh qwen-rootless
+#   bash scripts/run_budget_calibration_tb.sh qwen-subuid
 #   bash scripts/run_budget_calibration_tb.sh devstral
 #   bash scripts/run_budget_calibration_tb.sh devstral-rootless
+#   bash scripts/run_budget_calibration_tb.sh devstral-subuid
 #   bash scripts/run_budget_calibration_tb.sh glm
 #   bash scripts/run_budget_calibration_tb.sh glm-rootless
+#   bash scripts/run_budget_calibration_tb.sh glm-subuid
 #   bash scripts/run_budget_calibration_tb.sh all  # sequential
 #   bash scripts/run_budget_calibration_tb.sh all-rootless  # sequential
+#   bash scripts/run_budget_calibration_tb.sh all-subuid  # sequential
 #
 # Prerequisites:
 #   1. Start the selected model's vLLM server.
@@ -28,6 +32,7 @@ DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
 LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
 LOG_DIR="$WORKSPACE/logs"
 P80_ROOTLESS_TASKS_FILE="${P80_ROOTLESS_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_rootless.json}"
+P80_SUBUID_TASKS_FILE="${P80_SUBUID_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_subuid_required.json}"
 
 export DOCKER_HOST
 mkdir -p "$LOG_DIR"
@@ -74,7 +79,7 @@ run_one() {
             health_url="${GLM_HEALTH_URL:-http://localhost:8003/v1/models}"
             ;;
         *)
-            echo "Usage: $0 {qwen|devstral|glm|all}" >&2
+            echo "[ERROR] Unknown model: $model" >&2
             return 2
             ;;
     esac
@@ -94,6 +99,18 @@ run_one() {
             subset_args+=(
                 --tasks-file "$P80_ROOTLESS_TASKS_FILE"
                 --result-scope p80_rootless
+            )
+            ;;
+        subuid)
+            if [[ ! -f "$P80_SUBUID_TASKS_FILE" ]]; then
+                echo "[ERROR] P-80-subuid-required task list not found: $P80_SUBUID_TASKS_FILE" >&2
+                return 1
+            fi
+            task_scope="P-80-subuid-required"
+            job_name="tb1-${model_key}-p80-subuid-required-fc-run1"
+            subset_args+=(
+                --tasks-file "$P80_SUBUID_TASKS_FILE"
+                --result-scope p80_subuid_required
             )
             ;;
         *)
@@ -140,6 +157,9 @@ case "$selection" in
     qwen-rootless|devstral-rootless|glm-rootless)
         run_one "${selection%-rootless}" rootless
         ;;
+    qwen-subuid|devstral-subuid|glm-subuid)
+        run_one "${selection%-subuid}" subuid
+        ;;
     all)
         run_one qwen
         run_one devstral
@@ -150,8 +170,13 @@ case "$selection" in
         run_one devstral rootless
         run_one glm rootless
         ;;
+    all-subuid)
+        run_one qwen subuid
+        run_one devstral subuid
+        run_one glm subuid
+        ;;
     *)
-        echo "Usage: $0 {qwen|qwen-rootless|devstral|devstral-rootless|glm|glm-rootless|all|all-rootless}" >&2
+        echo "Usage: $0 {qwen|qwen-rootless|qwen-subuid|devstral|devstral-rootless|devstral-subuid|glm|glm-rootless|glm-subuid|all|all-rootless|all-subuid}" >&2
         exit 2
         ;;
 esac

@@ -8,6 +8,7 @@ The full 80-task, one-attempt Harbor job is stored in the canonical ICLR cell:
 Named subsets can be kept separate beneath the track directory, for example:
 
   ICLR_results/terminalbench/main/p80_rootless/<model-key>/di__binf__fc/
+  ICLR_results/terminalbench/main/p80_subuid_required/<model-key>/di__binf__fc/
 
 Harbor's raw job is retained outside ``ICLR_results`` under ``logs/harbor_jobs``.
 Each trial's canonical artifacts are normalized to
@@ -214,7 +215,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--job-name", default=None)
     parser.add_argument(
         "--result-scope",
-        choices=("p80_rootless",),
+        choices=("p80_rootless", "p80_subuid_required"),
         default=None,
         help="optional result namespace beneath ICLR_results/terminalbench/main",
     )
@@ -418,8 +419,8 @@ def main() -> None:
     )
 
     if not args.skip_postprocess:
-        run([sys.executable, str(ROOT / "scripts/build_coverage.py")])
-        run([sys.executable, str(ROOT / "scripts/build_dashboard.py")])
+        run([sys.executable, str(ROOT / "dashboard/build_coverage.py")])
+        run([sys.executable, str(ROOT / "dashboard/build_dashboard.py")])
 
     print(f"Aggregate: {destination / 'experiment_results.json'}")
     print(f"Raw Harbor job: {job_dir}")
