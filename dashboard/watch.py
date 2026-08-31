@@ -3,7 +3,7 @@
 
 Run from anywhere in the repository with:
 
-    venv/bin/python scripts/watch_dashboard.py
+    venv/bin/python dashboard/watch.py
 
 Use ``--interval-seconds 10`` for a quick test, or ``--interval-hours 2``
 to rebuild every two hours.
@@ -28,14 +28,14 @@ def rebuild() -> bool:
     print(f"\n[{stamp}] Rebuilding coverage dashboard...", flush=True)
 
     coverage = subprocess.run(
-        [sys.executable, "scripts/build_coverage.py"], cwd=ROOT, check=False
+        [sys.executable, "dashboard/build_coverage.py"], cwd=ROOT, check=False
     )
     if coverage.returncode != 0:
         print("Coverage build failed; keeping the previous dashboard.", flush=True)
         return False
 
     dashboard = subprocess.run(
-        [sys.executable, "scripts/build_dashboard.py"], cwd=ROOT, check=False
+        [sys.executable, "dashboard/build_dashboard.py"], cwd=ROOT, check=False
     )
     if dashboard.returncode != 0:
         print("Dashboard build failed.", flush=True)

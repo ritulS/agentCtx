@@ -4,7 +4,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname -- "$SCRIPT_DIR")"
 PYTHON="$PROJECT_DIR/venv/bin/python"
-PUBLISHER="$SCRIPT_DIR/publish_dashboard.py"
+PUBLISHER="$SCRIPT_DIR/publish.py"
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/dashboard-pages.log"
 LOCK_FILE="/tmp/agentctx-dashboard-pages.lock"
