@@ -32,13 +32,13 @@ Last update: August 24 by Akiho
 
 <a id="exp-models"></a>
 ## 2. [Priority] SWE-Bench: Add 2 agent models
-- **GLM budget calibration (required before launch):** determine the model-appropriate primary budget *P*K (and ablation budgets *A*K/*B*K)
+- **Model budgets (A/P/B):** Devstral: 17K / 21K / 24K; GLM: 10K / 13K / 15K
 - Runs/task : 3
 
 | Experiment | Model<br>(agent & summarizer) |Dataset | Notes | Runs |ETA |
 |---|---|---|---|---|---|
-| [(2.a) Devstral-24B Main](#exp-models-devstral-main) | Devstral-Small-2-24B|SB:P-100| Depth: 0.5 or depth-invariant / Budget: 20K (or ∞) | 3900|1.3-3.3 days|
-| [(2.b) GLM Main](#exp-models-glm-main) | GLM-4.7-Flash (30B-A3B MoE)|SB:P-100 | Depth: 0.5 or depth-invariant / Budget: *P*K (or ∞) | 3900|TBD|
+| [(2.a) Devstral-24B Main](#exp-models-devstral-main) | Devstral-Small-2-24B|SB:P-100| Depth: 0.5 or depth-invariant / Budget: 21K (or ∞) | 3900|1.3-3.3 days|
+| [(2.b) GLM Main](#exp-models-glm-main) | GLM-4.7-Flash (30B-A3B MoE)|SB:P-100 | Depth: 0.5 or depth-invariant / Budget: 13K (or ∞) | 3900|TBD|
 | [(2.c) Devstral-24B Ablation](#exp-models-devstral-abl) | Devstral-Small-2-24B|SB:ABL-30 |depth & budget ablation|4680|1.6-3.9 days|
 | [(2.d) GLM Ablation](#exp-models-glm-abl) | GLM-4.7-Flash (30B-A3B MoE)|SB:ABL-30 | depth & budget ablation |4680|TBD|
 
@@ -47,8 +47,8 @@ Last update: August 24 by Akiho
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | 20K  | SB:P100 | 1500 |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |20K | SB:P100 | 1800 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | 21K  | SB:P100 | 1500 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |21K | SB:P100 | 1800 |
 | FC, OTRC | depth invariant | ∞ | SB:P100 |600 |
 
 <a id="exp-models-glm-main"></a>
@@ -56,8 +56,8 @@ Last update: August 24 by Akiho
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | *P*K  | SB:P100 |1500 |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | *P*K | SB:P100 |1800 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | 13K  | SB:P100 |1500 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 13K | SB:P100 |1800 |
 | FC, OTRC | depth invariant | ∞ | SB:P100 | 600|
 
 
@@ -66,57 +66,58 @@ Last update: August 24 by Akiho
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 15K / 20K / 24K | SB:ABL-30 | 2700 |
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K / 24K | SB:ABL-30 | 900 |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |15K / 24K | SB:ABL-30 | 1080 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 17K / 21K / 24K | SB:ABL-30 | 2700 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 17K / 24K | SB:ABL-30 | 900 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |17K / 24K | SB:ABL-30 | 1080 |
 
 <a id="exp-models-glm-abl"></a>
 ### (2.d) GLM Ablation
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | *A*K / *P*K / *B*K | SB:ABL-30 | 2700 |
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | *A*K / *B*K | SB:ABL-30 | 900|
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |*A*K / *B*K | SB:ABL-30 | 1080|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 10K / 13K / 15K | SB:ABL-30 | 2700 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 15K | SB:ABL-30 | 900|
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K | SB:ABL-30 | 1080|
 
 <a id="exp-tb"></a>
 ## 3. [Priority] Terminal-Bench Evaluation
 - Terminal-Bench 1.0 (80 tasks)
-- Runs/task : 5
+- Runs/task : 3
 - Models (agent & summarizer): Qwen3.5-35B-A3B-Instruct, Devstral-Small-2-24B, GLM-4.7-Flash (30B-A3B MoE)
+- Model budgets (A/P/B): Qwen: 2K / 3K / 4K; Devstral: 3K / 4K / 7K; GLM: 2K / 3K / 5K
 
 | Experiment | Dataset | Notes | Runs | ETA |
 |---|---|---|---|---|
-| [(3.a) TB Main](#exp-tb-main) | TB:P-80| Depth: 0.5 or depth-invariant / Budget: model-calibrated primary (or ∞) | 15600|TBD|
-| [(3.b) TB Ablation](#exp-tb-abl) | TB:ABL-20 |depth & budget ablation|15600|TBD|
+| [(3.a) TB Main](#exp-tb-main) | TB:P-40| Depth: 0.5 or depth-invariant / Budget: model-calibrated primary (or ∞) | 4680|TBD|
+| [(3.b) TB Ablation](#exp-tb-abl) | TB:P-15 |depth & budget ablation|7020|TBD|
 
 <a id="exp-tb-main"></a>
 ### (3.a) TB Main
 
 | Models | Primitives | Depths | Budget | Tasks | Runs |
 |---|---|---|---|---|---:|
-| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K | TB:P-80 | 2000 |
-| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 20K | TB:P-80 | 2000 |
-| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | *P*K | TB:P-80 | 2000 |
-| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 15K | TB:P-80 | 2400 |
-| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 20K | TB:P-80 | 2400 |
-| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | *P*K | TB:P-80 | 2400 |
-| Qwen-35B-A3B/<br>Devstral-24B/<br>GLM | FC, OTRC | depth invariant | ∞ | TB:P-80 | 2400 |
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 3K | TB:P-40 | 600 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 4K | TB:P-40 | 600 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 3K | TB:P-40 | 600 |
+| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 3K | TB:P-40 | 720 |
+| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 4K | TB:P-40 | 720 |
+| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 3K | TB:P-40 | 720 |
+| Qwen-35B-A3B/<br>Devstral-24B/<br>GLM | FC, OTRC | depth invariant | ∞ | TB:P-40 | 720 |
 
 <a id="exp-tb-abl"></a>
 ### (3.b) TB Ablation
 
 | Models | Primitives | Depths | Budget | Tasks | Runs |
 |---|---|---|---|---|---:|
-| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K/20K | TB:ABL-20 | 1000 |
-| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K/24K | TB:ABL-20 | 1000 |
-| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | *A*K/*B*K | TB:ABL-20 | 1000 |
-| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 10K/15K/20K | TB:ABL-20 | 3000 |
-| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 15K/20K/24K | TB:ABL-20 | 3000 |
-| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | *A*K/*P*K/*B*K | TB:ABL-20 | 3000 |
-| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 10K/20K | TB:ABL-20 | 1200 |
-| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 15K/24K | TB:ABL-20 | 1200 |
-| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | *A*K/*B*K | TB:ABL-20 | 1200 |
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 2K/4K | TB:P-15 | 450 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 3K/7K | TB:P-15 | 450 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 2K/5K | TB:P-15 | 450 |
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 2K/3K/4K | TB:P-15 | 1350 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 3K/4K/7K | TB:P-15 | 1350 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 2K/3K/5K | TB:P-15 | 1350 |
+| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 2K/4K | TB:P-15 | 540 |
+| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 3K/7K | TB:P-15 | 540 |
+| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 2K/5K | TB:P-15 | 540 |
 
 <a id="exp-summarizer"></a>
 ## 4. [Priority] Summarizer Ablation
