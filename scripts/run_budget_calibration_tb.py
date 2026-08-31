@@ -246,8 +246,8 @@ def main() -> None:
         )
     write_calibration_report(args.model_key, destination)
     if not args.skip_postprocess:
-        run([sys.executable, str(ROOT / "scripts/build_coverage.py")])
-        run([sys.executable, str(ROOT / "scripts/build_dashboard.py")])
+        run([sys.executable, str(ROOT / "dashboard/build_coverage.py")])
+        run([sys.executable, str(ROOT / "dashboard/build_dashboard.py")])
 
     print(f"Aggregate: {destination / 'experiment_results.json'}")
     print(f"Context summary: {destination / 'fc_context_distribution.json'}")
