@@ -281,12 +281,27 @@ def recent_rate(history, key, actual, now, hours=RATE_WINDOW_HOURS):
 
 
 def since_previous(history, key, actual, now):
-    """Return run growth and elapsed time since the latest prior snapshot."""
-    candidates = [item for item in history if key in item["progress"] and item["when"] < now]
+    """Return growth since the preceding published snapshot.
+
+    The publisher records the current coverage before GitHub Actions rebuilds
+    the page.  In that rebuild, compare the matching latest snapshot with its
+    predecessor instead of comparing timestamps from two different machines.
+    """
+    candidates = [item for item in history if key in item["progress"]]
     if not candidates:
         return None
-    previous = max(candidates, key=lambda item: item["when"])
-    elapsed_seconds = (now - previous["when"]).total_seconds()
+
+    latest = max(candidates, key=lambda item: item["when"])
+    if _int(latest["progress"][key]) == actual:
+        predecessors = [item for item in candidates if item["when"] < latest["when"]]
+        if not predecessors:
+            return None
+        previous = max(predecessors, key=lambda item: item["when"])
+        elapsed_seconds = (latest["when"] - previous["when"]).total_seconds()
+    else:
+        previous = latest
+        elapsed_seconds = (now - previous["when"]).total_seconds()
+
     delta = actual - _int(previous["progress"][key])
     if elapsed_seconds <= 0 or delta < 0:
         return None
