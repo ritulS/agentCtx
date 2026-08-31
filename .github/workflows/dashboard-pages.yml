@@ -6,8 +6,9 @@ on:
       - akiho-expansion-data
     paths:
       - COVERAGE.csv
+      - COVERAGE_TB.csv
       - dashboard_progress_history.jsonl
-      - scripts/build_dashboard.py
+      - dashboard/build_dashboard.py
       - .github/workflows/dashboard-pages.yml
   workflow_dispatch:
 
@@ -33,7 +34,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build dashboard from tracked coverage data
-        run: python scripts/build_dashboard.py
+        run: python dashboard/build_dashboard.py
 
       - name: Prepare Pages site
         env:

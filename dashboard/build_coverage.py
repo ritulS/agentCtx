@@ -10,7 +10,7 @@ Sources of truth:
            (per-record condition, budget, compression_ratio, instance_id)
 Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 
-Usage:  python scripts/build_coverage.py
+Usage:  python dashboard/build_coverage.py
         # writes COVERAGE.csv and COVERAGE_TB.csv at the repository root
 """
 

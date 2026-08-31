@@ -2,10 +2,10 @@
 """Render DASHBOARD.html — the human-friendly coverage dashboard.
 
 Reads COVERAGE.csv and COVERAGE_TB.csv (regenerate them first with
-scripts/build_coverage.py) and
+dashboard/build_coverage.py) and
 writes a self-contained HTML page at the repo root. Re-run after every completed run:
 
-    python scripts/build_coverage.py && python scripts/build_dashboard.py
+    python dashboard/build_coverage.py && python dashboard/build_dashboard.py
 """
 
 import argparse
