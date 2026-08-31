@@ -477,8 +477,8 @@ def main():
                   for p in ("FC", "OTRC")]
         return planned_matrix(budgets, rows_)
 
-    p2_devstral = model_plan_matrix(["38K", "43K", "49K", "∞"], "SB:P-100", "SB:ABL-30")
-    p2_glm = model_plan_matrix(["35K", "45K", "58K", "∞"], "SB:P-100", "SB:ABL-30")
+    p2_devstral = model_plan_matrix(["17K", "21K", "24K", "∞"], "SB:P-100", "SB:ABL-30")
+    p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-30")
     p3_qwen = model_plan_matrix(
         ["<em>QA</em>K", "<em>QP</em>K", "<em>QB</em>K", "∞"],
         "TB:P-80", "TB:ABL-20", calibration=True,
@@ -561,14 +561,14 @@ def main():
     p1_tracking = tracking_table(p1_tracking_rows)
 
     p2a_rows = [
-        swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "43K", "SB:P-100", 100, 3),
-        swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "43K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "21K", "SB:P-100", 100, 3),
+        swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "21K", "SB:P-100", 100, 3),
         swe_track("Devstral-Small-2-24B", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
     ]
     p2a_tracking = tracking_table(p2a_rows)
     p2b_rows = [
-        swe_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "45K", "SB:P-100", 100, 3),
-        swe_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "45K", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "13K", "SB:P-100", 100, 3),
+        swe_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "13K", "SB:P-100", 100, 3),
         swe_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
     ]
     p2b_tracking = tracking_table(p2b_rows)
@@ -586,8 +586,8 @@ def main():
                                          "SB:ABL-30", 30, 3))
         return rows_
 
-    p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["38K", "43K", "49K"])
-    p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["35K", "45K", "58K"])
+    p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["17K", "21K", "24K"])
+    p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["10K", "13K", "15K"])
     p2c_tracking = tracking_table(p2c_rows)
     p2d_tracking = tracking_table(p2d_rows)
 
@@ -860,14 +860,14 @@ alternative is excluded.</p>
 <h2 id="exp-models">2. [Priority] SWE-Bench: Add 2 agent models</h2>
 {p2_progress}
 <ul>
-<li><strong>GLM calibrated budgets:</strong> primary 45K; ablation 35K/58K.</li>
+<li><strong>Calibrated budgets (FC@∞ run_1 P5/P15/P25):</strong> Devstral 17K/21K/24K; GLM 10K/13K/15K.</li>
 <li>Runs/task: 3</li>
 </ul>
 <div class="tablewrap"><table>
 <thead><tr><th>experiment</th><th>model (agent &amp; summarizer)</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead>
 <tbody>
-<tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 43K (or ∞)</td><td>3,900</td></tr>
-<tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 45K (or ∞)</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 21K (or ∞)</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 13K (or ∞)</td><td>3,900</td></tr>
 <tr><td><a href="#exp-models-devstral-abl">(2.c) Devstral-24B Ablation</a></td><td>Devstral-Small-2-24B</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 <tr><td><a href="#exp-models-glm-abl">(2.d) GLM Ablation</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
 </tbody></table></div>
