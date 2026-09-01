@@ -32,7 +32,8 @@ FAMILIES = [
 DEPTHS = ["0.3", "0.5", "0.7"]
 
 BUDGET_ORDER = {
-    "4k": 4, "8k": 8, "10k": 10, "12k": 12, "15k": 15,
+    "2k": 2, "3k": 3, "4k": 4, "5k": 5, "7k": 7, "8k": 8,
+    "10k": 10, "12k": 12, "15k": 15,
     "20k": 20, "24k": 24, "35k": 35, "38k": 38, "43k": 43,
     "45k": 45, "49k": 49, "58k": 58,
     "inf": 999,
@@ -157,7 +158,9 @@ def coverage_progress(
         cohort = (
             "p100" if tasks == 100 else
             "abl30" if tasks == 30 else
+            "tb15" if tasks == 15 else
             "tb20" if tasks == 20 else
+            "tb40" if tasks == 40 else
             "all" if tasks == 80 else
             None
         )
@@ -480,16 +483,13 @@ def main():
     p2_devstral = model_plan_matrix(["38K", "43K", "49K", "∞"], "SB:P-100", "SB:ABL-30")
     p2_glm = model_plan_matrix(["35K", "45K", "58K", "∞"], "SB:P-100", "SB:ABL-30")
     p3_qwen = model_plan_matrix(
-        ["<em>QA</em>K", "<em>QP</em>K", "<em>QB</em>K", "∞"],
-        "TB:P-80", "TB:ABL-20", calibration=True,
+        ["2K", "3K", "4K", "∞"], "TB:P-40", "TB:P-15"
     )
     p3_devstral = model_plan_matrix(
-        ["<em>DA</em>K", "<em>DP</em>K", "<em>DB</em>K", "∞"],
-        "TB:P-80", "TB:ABL-20", calibration=True,
+        ["3K", "4K", "7K", "∞"], "TB:P-40", "TB:P-15"
     )
     p3_glm = model_plan_matrix(
-        ["<em>GA</em>K", "<em>GP</em>K", "<em>GB</em>K", "∞"],
-        "TB:P-80", "TB:ABL-20", calibration=True,
+        ["2K", "3K", "5K", "∞"], "TB:P-40", "TB:P-15"
     )
 
     roadmap_overview = """
@@ -498,7 +498,7 @@ def main():
 <tbody>
 <tr><td class="priority">P1</td><td><a href="#priority-1">Increase runs/task: 2 → 3</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400 additional</td></tr>
 <tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
-<tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-80 + TB:ABL-20</td><td>31,200</td></tr>
+<tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
 </tbody></table></div>"""
 
@@ -592,35 +592,31 @@ def main():
     p2d_tracking = tracking_table(p2d_rows)
 
     p3a_rows = []
-    for model, primary_budget, display_budget in (
-        (MAIN, "qpk", "<em>QP</em>K"),
-        ("Devstral-Small-2-24B", "dpk", "<em>DP</em>K"),
+    for model, primary_budget in (
+        (MAIN, "3k"),
+        ("Devstral-Small-2-24B", "4k"),
+        ("GLM-4.7-Flash", "3k"),
     ):
-        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5, display_budget))
-        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5, display_budget))
-        p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5))
-    p3a_rows += [
-        tb_track("GLM-4.7-Flash", tunable_label, tunable, "0.5", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
-        tb_track("GLM-4.7-Flash", invariant_label, invariant, "DI", "gpk", "TB:P-80", 80, 5, "<em>GP</em>K"),
-        tb_track("GLM-4.7-Flash", baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5),
-    ]
+        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-40", 40, 3))
+        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-40", 40, 3))
+        p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-40", 40, 3))
     p3a_tracking = tracking_table(p3a_rows)
 
     p3b_rows = []
     for model, budgets in (
-        (MAIN, [("qak", "<em>QA</em>K"), ("qpk", "<em>QP</em>K"), ("qbk", "<em>QB</em>K")]),
-        ("Devstral-Small-2-24B", [("dak", "<em>DA</em>K"), ("dpk", "<em>DP</em>K"), ("dbk", "<em>DB</em>K")]),
-        ("GLM-4.7-Flash", [("gak", "<em>GA</em>K"), ("gpk", "<em>GP</em>K"), ("gbk", "<em>GB</em>K")]),
+        (MAIN, [("2k", "2K"), ("3k", "3K"), ("4k", "4K")]),
+        ("Devstral-Small-2-24B", [("3k", "3K"), ("4k", "4K"), ("7k", "7K")]),
+        ("GLM-4.7-Flash", [("2k", "2K"), ("3k", "3K"), ("5k", "5K")]),
     ):
         for depth in ("0.3", "0.7"):
             for budget, display_budget in budgets:
                 p3b_rows.append(tb_track(model, tunable_label, tunable, depth, budget,
-                                               "TB:ABL-20", 20, 5, display_budget))
+                                               "TB:P-15", 15, 3, display_budget))
         for budget, display_budget in (budgets[0], budgets[-1]):
             p3b_rows.append(tb_track(model, tunable_label, tunable, "0.5", budget,
-                                           "TB:ABL-20", 20, 5, display_budget))
+                                           "TB:P-15", 15, 3, display_budget))
             p3b_rows.append(tb_track(model, invariant_label, invariant, "DI", budget,
-                                           "TB:ABL-20", 20, 5, display_budget))
+                                           "TB:P-15", 15, 3, display_budget))
     p3b_tracking = tracking_table(p3b_rows)
 
     p4_tracking_rows = []
@@ -632,7 +628,7 @@ def main():
     ]
     p4_display_rows = []
     for exp_id, summarizer, dataset, tasks, rpt in p4_specs:
-        budget = "<em>QP</em>K" if dataset == "TB:ABL-20" else "15K"
+        budget = "3K" if dataset == "TB:ABL-20" else "15K"
         target = tasks * rpt * 2
         # No summarizer-specific run source exists yet. Missing data is zero;
         # once those results are recorded, replace this with automatic discovery.
@@ -832,7 +828,7 @@ a {{ color:var(--accent-ink); }}
 <tbody>
 <tr><td class="priority">1</td><td><a href="#exp-runs">Increase runs/task</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400</td></tr>
 <tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
-<tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-80 + TB:ABL-20</td><td>31,200</td></tr>
+<tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
 </tbody></table></div>
 <ul>
@@ -892,12 +888,13 @@ alternative is excluded.</p>
 {p3_progress}
 <ul>
 <li>Terminal-Bench 1.0 (80 tasks)</li>
-<li>Runs/task: 5</li>
+<li>Runs/task: 3</li>
 <li>Models (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct, Devstral-Small-2-24B, GLM-4.7-Flash (30B-A3B MoE)</li>
+<li>Model budgets (A/P/B): Qwen 2K/3K/4K; Devstral 3K/4K/7K; GLM 2K/3K/5K</li>
 </ul>
 <div class="tablewrap"><table><thead><tr><th>experiment</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead><tbody>
-<tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-80</td><td>Depth: 0.5 or DI / Budget: model-calibrated primary (or ∞)</td><td>15,600</td></tr>
-<tr><td><a href="#exp-tb-abl">(3.b) TB Ablation</a></td><td>TB:ABL-20</td><td>Depth &amp; budget ablation</td><td>15,600</td></tr>
+<tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-40</td><td>Depth: 0.5 or DI / Budget: model-calibrated primary (or ∞)</td><td>4,680</td></tr>
+<tr><td><a href="#exp-tb-abl">(3.b) TB Ablation</a></td><td>TB:P-15</td><td>Depth &amp; budget ablation</td><td>7,020</td></tr>
 </tbody></table></div>
 
 <h3 id="exp-tb-main">(3.a) TB Main</h3>
