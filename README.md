@@ -65,8 +65,8 @@ host-specific serving caveats.
 | `memory.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. |
 | `mini-swe-agent/` | Submodule — agent loop; primitives dispatched in `src/minisweagent/agents/default.py` via the `MSWEA_PRIMITIVE` env var. |
 | `scripts/run_experiment.py` | Main run harness. Conditions in the `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--max-workers`. |
-| `scripts/build_coverage.py` | Regenerates `COVERAGE.csv` from disk + CSVs. |
-| `scripts/build_dashboard.py` | Renders `DASHBOARD.html` from `COVERAGE.csv`. |
+| `dashboard/build_coverage.py` | Regenerates the coverage CSVs from experiment results. |
+| `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
 | `scripts/run_experiment_expansion.py`, `tbench/` | Unified SWE-Bench/Terminal-Bench orchestrator and Terminal-Bench agent adapter. |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
@@ -110,7 +110,7 @@ disk, never hand-edited:
 After any run completes (or `Review1.csv` is rebuilt):
 
 ```bash
-python scripts/build_coverage.py && python scripts/build_dashboard.py
+python dashboard/build_coverage.py && python dashboard/build_dashboard.py
 ```
 
 then republish the dashboard to keep the link current.
