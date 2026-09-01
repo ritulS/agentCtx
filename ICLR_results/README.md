@@ -18,9 +18,14 @@ ICLR_results/
 │
 └── terminalbench/
     ├── main/
-    │   ├── qwen35b/
-    │   ├── devstral24b/
-    │   └── glm47flash/
+    │   ├── qwen35b/                  # Complete P-80 results
+    │   ├── devstral24b/             # Complete P-80 results
+    │   ├── glm47flash/              # Complete P-80 results
+    │   └── p80_rootless/            # Rootless-buildable P-80 subset
+    │       ├── qwen35b/
+    │       │   └── di__binf__fc/
+    │       ├── devstral24b/
+    │       └── glm47flash/
     ├── ablation/
     │   ├── qwen35b/
     │   ├── devstral24b/
