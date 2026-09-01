@@ -4,7 +4,7 @@ set -euo pipefail
 # Publish the generated Terminal-Bench coverage CSV from the main worktree to
 # the dedicated data worktree/branch. Intended to be run from cron.
 readonly SOURCE_WORKTREE="/home/ak58925/agentCtx"
-readonly COVERAGE_BUILDER="${SOURCE_WORKTREE}/scripts/build_coverage.py"
+readonly COVERAGE_BUILDER="${SOURCE_WORKTREE}/dashboard/build_coverage.py"
 readonly SOURCE="${SOURCE_WORKTREE}/COVERAGE_TB.csv"
 readonly DATA_WORKTREE="/home/ak58925/agentCtx-data"
 readonly DATA_BRANCH="akiho-expansion-terminalbench-0829-data"
