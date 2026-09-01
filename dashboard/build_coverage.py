@@ -30,7 +30,7 @@ INF = 999_999_999
 
 # Expansion 1 (see exp_plans/SWE_EXPANSION.md): runs/task 2->3.
 REQUIRED_RUNS_PER_TASK = 3
-TB_REQUIRED_RUNS_PER_TASK = 5
+TB_REQUIRED_RUNS_PER_TASK = 3
 
 CONDITION_TO_PRIMITIVE = {
     "truncation": "TR",
@@ -224,8 +224,8 @@ def main():
             expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
     # Concrete Terminal-Bench follow-up cells. A/P/B are model-specific. The
-    # primary (P) depth/budget cells and unlimited baselines use all 80 tasks;
-    # the remaining grid uses the frozen 20-task ablation cohort.
+    # primary (P) depth/budget cells and unlimited baselines use 40 tasks;
+    # the remaining grid uses the 15-task cohort.
     tb_expansion_budgets = {
         MAIN_MODEL: (2_000, 3_000, 4_000),
         "Devstral-Small-2-24B": (3_000, 4_000, 7_000),
@@ -233,20 +233,20 @@ def main():
     }
     for model, (a_budget, p_budget, b_budget) in tb_expansion_budgets.items():
         for prim in DEPTH_TUNABLE:
-            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-80"
+            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-40"
         for prim in DEPTH_INVARIANT:
-            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-80"
+            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-40"
         for prim in ("FC", "OTRC"):
-            expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-80"
+            expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-40"
         for prim in DEPTH_TUNABLE:
             for b in (a_budget, b_budget):
-                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
+                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
             for b in (a_budget, p_budget, b_budget):
                 for d in (0.3, 0.7):
-                    expected[("terminal-bench", model, prim, b, d)] = "TB-20"
+                    expected[("terminal-bench", model, prim, b, d)] = "TB-15"
         for prim in DEPTH_INVARIANT:
             for b in (a_budget, b_budget):
-                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-20"
+                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
 
     # ---- 3. merge into sheet rows --------------------------------------------
     # The coverage CSVs inventory data that actually exists.  ``expected``
@@ -286,9 +286,9 @@ def main():
                 cohort_counts[f"runs_capped_{cap}_{cohort_name}"] = capped_runs(
                     cohort_tasks, cap
                 )
-        # TB:P-80 progress can include provisional/rootless subsets.  Counting
-        # every observed task directly avoids proportionally scaling a 42-task
-        # subset up to 80 tasks in the dashboard.
+        # TB:P-15/P-40 progress can include provisional/rootless subsets.
+        # Counting every observed task directly avoids proportionally scaling
+        # a partial subset up to the planned cohort size in the dashboard.
         all_observed_tasks = set(d_runs)
         cohort_counts["tasks_covered_all"] = len(all_observed_tasks)
         for cap in range(1, 6):
@@ -305,16 +305,14 @@ def main():
                 status = "MISSING"
             else:
                 have_cohort = (
-                    covered >= tb20 if req == "TB-20" else
-                    len(covered) >= 80 if req == "TB-80" else
+                    len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
                     cohort.startswith(req) or
                     (req == "ABL-30" and cohort.startswith("P100"))
                 )
                 if not have_cohort:
                     status = "PARTIAL"
                 else:
-                    required_tasks = (tb20 if req == "TB-20" else
-                                      covered if req == "TB-80" else
+                    required_tasks = (covered if req and req.startswith("TB-") else
                                       p100 if req == "P100" else abl30)
                     runs_per_task_min = min(
                         (d_runs.get(t, 0) for t in required_tasks),
@@ -323,8 +321,7 @@ def main():
 
         notes = []
         has_required_cohort = (
-            covered >= tb20 if req == "TB-20" else
-            len(covered) >= 80 if req == "TB-80" else
+            len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
             bool(req) and (cohort.startswith(req) or
                            (req == "ABL-30" and cohort.startswith("P100")))
         )

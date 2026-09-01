@@ -159,6 +159,10 @@ def coverage_progress(
         cohort = (
             "p100" if tasks == 100 else
             "abl30" if tasks == 30 else
+            # No frozen P-15/P-40 task-list files exist yet. Terminal-Bench
+            # progress therefore uses the observed-task capped counts, while
+            # the target below still caps credit at the planned task count.
+            "all" if tasks in (15, 40) else
             "tb20" if tasks == 20 else
             "all" if tasks == 80 else
             None
@@ -281,12 +285,27 @@ def recent_rate(history, key, actual, now, hours=RATE_WINDOW_HOURS):
 
 
 def since_previous(history, key, actual, now):
-    """Return run growth and elapsed time since the latest prior snapshot."""
-    candidates = [item for item in history if key in item["progress"] and item["when"] < now]
+    """Return growth since the preceding published snapshot.
+
+    The publisher records the current coverage before GitHub Actions rebuilds
+    the page.  In that rebuild, compare the matching latest snapshot with its
+    predecessor instead of comparing timestamps from two different machines.
+    """
+    candidates = [item for item in history if key in item["progress"]]
     if not candidates:
         return None
-    previous = max(candidates, key=lambda item: item["when"])
-    elapsed_seconds = (now - previous["when"]).total_seconds()
+
+    latest = max(candidates, key=lambda item: item["when"])
+    if _int(latest["progress"][key]) == actual:
+        predecessors = [item for item in candidates if item["when"] < latest["when"]]
+        if not predecessors:
+            return None
+        previous = max(predecessors, key=lambda item: item["when"])
+        elapsed_seconds = (latest["when"] - previous["when"]).total_seconds()
+    else:
+        previous = latest
+        elapsed_seconds = (now - previous["when"]).total_seconds()
+
     delta = actual - _int(previous["progress"][key])
     if elapsed_seconds <= 0 or delta < 0:
         return None
@@ -513,15 +532,15 @@ def main():
     p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-30")
     p3_qwen = model_plan_matrix(
         ["2K", "3K", "4K", "∞"],
-        "TB:P-80", "TB:ABL-20", calibration=True,
+        "TB:P-40", "TB:P-15", calibration=True,
     )
     p3_devstral = model_plan_matrix(
         ["3K", "4K", "7K", "∞"],
-        "TB:P-80", "TB:ABL-20", calibration=True,
+        "TB:P-40", "TB:P-15", calibration=True,
     )
     p3_glm = model_plan_matrix(
         ["2K", "3K", "5K", "∞"],
-        "TB:P-80", "TB:ABL-20", calibration=True,
+        "TB:P-40", "TB:P-15", calibration=True,
     )
 
     roadmap_overview = """
@@ -530,7 +549,7 @@ def main():
 <tbody>
 <tr><td class="priority">P1</td><td><a href="#priority-1">Increase runs/task: 2 → 3</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400 additional</td></tr>
 <tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
-<tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-80 + TB:ABL-20</td><td>31,200</td></tr>
+<tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
 </tbody></table></div>"""
 
@@ -629,9 +648,9 @@ def main():
         ("Devstral-Small-2-24B", "4k"),
         ("GLM-4.7-Flash", "3k"),
     ):
-        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-80", 80, 5))
-        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-80", 80, 5))
-        p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-80", 80, 5))
+        p3a_rows.append(tb_track(model, tunable_label, tunable, "0.5", primary_budget, "TB:P-40", 40, 3))
+        p3a_rows.append(tb_track(model, invariant_label, invariant, "DI", primary_budget, "TB:P-40", 40, 3))
+        p3a_rows.append(tb_track(model, baseline_label, ["FC", "OTRC"], "DI", "inf", "TB:P-40", 40, 3))
     p3a_tracking = tracking_table(p3a_rows)
 
     p3b_rows = []
@@ -643,12 +662,12 @@ def main():
         for depth in ("0.3", "0.7"):
             for budget, display_budget in budgets:
                 p3b_rows.append(tb_track(model, tunable_label, tunable, depth, budget,
-                                               "TB:ABL-20", 20, 5, display_budget))
+                                               "TB:P-15", 15, 3, display_budget))
         for budget, display_budget in (budgets[0], budgets[-1]):
             p3b_rows.append(tb_track(model, tunable_label, tunable, "0.5", budget,
-                                           "TB:ABL-20", 20, 5, display_budget))
+                                           "TB:P-15", 15, 3, display_budget))
             p3b_rows.append(tb_track(model, invariant_label, invariant, "DI", budget,
-                                           "TB:ABL-20", 20, 5, display_budget))
+                                           "TB:P-15", 15, 3, display_budget))
     p3b_tracking = tracking_table(p3b_rows)
 
     p4_tracking_rows = []
@@ -862,7 +881,7 @@ a {{ color:var(--accent-ink); }}
 <tbody>
 <tr><td class="priority">1</td><td><a href="#exp-runs">Increase runs/task</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400</td></tr>
 <tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
-<tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-80 + TB:ABL-20</td><td>31,200</td></tr>
+<tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
 </tbody></table></div>
 <ul>
@@ -923,13 +942,13 @@ alternative is excluded.</p>
 {p3_progress}
 <ul>
 <li>Terminal-Bench 1.0 (80 tasks)</li>
-<li>Runs/task: 5</li>
+<li>Runs/task: 3</li>
 <li>Models (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct, Devstral-Small-2-24B, GLM-4.7-Flash (30B-A3B MoE)</li>
 <li><strong>Model budgets (A/P/B):</strong> Qwen 2K/3K/4K; Devstral 3K/4K/7K; GLM 2K/3K/5K.</li>
 </ul>
 <div class="tablewrap"><table><thead><tr><th>experiment</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead><tbody>
-<tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-80</td><td>Depth: 0.5 or DI / Budget: model-calibrated primary (or ∞)</td><td>15,600</td></tr>
-<tr><td><a href="#exp-tb-abl">(3.b) TB Ablation</a></td><td>TB:ABL-20</td><td>Depth &amp; budget ablation</td><td>15,600</td></tr>
+<tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-40</td><td>Depth: 0.5 or DI / Budget: model-calibrated primary (or ∞)</td><td>4,680</td></tr>
+<tr><td><a href="#exp-tb-abl">(3.b) TB Ablation</a></td><td>TB:P-15</td><td>Depth &amp; budget ablation</td><td>7,020</td></tr>
 </tbody></table></div>
 
 <h3 id="exp-tb-main">(3.a) TB Main</h3>
