@@ -5,7 +5,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import threading
+import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
@@ -19,7 +23,6 @@ class SweBench:
     """
 
     name = "swe-bench"
-
     REPOS = {
         "django/django": "django",
         "sympy/sympy": "sympy",
@@ -140,6 +143,205 @@ class SweBench:
             "submission": "",
             "resolved": None,
         }
+
+    def run_experiments(
+        self,
+        *,
+        tasks: list[dict],
+        conditions: list[dict],
+        runs_per_task: int,
+        existing_results: list[dict],
+        save: Callable[[list[dict]], None],
+        agent_config: Path,
+        step_limit: int,
+        agent_timeout: int,
+        max_workers: int,
+        compression_ratio: float,
+    ) -> list[dict]:
+        """Run the SWE-bench task × condition × repetition grid."""
+        results = existing_results
+        existing_keys = {result["key"] for result in results}
+        needed = []
+        for task in tasks:
+            for condition in conditions:
+                for run_num in range(1, runs_per_task + 1):
+                    key = self._run_key(
+                        task["instance_id"], condition["condition"], run_num
+                    )
+                    if key not in existing_keys:
+                        needed.append((task["instance_id"], condition, run_num))
+
+        total = len(tasks) * len(conditions) * runs_per_task
+        done = total - len(needed)
+        print(f"\nAgent runs: {total} total ({done} done, {len(needed)} remaining)")
+
+        lock = threading.Lock()
+        completed = [done]
+
+        def run_one(item):
+            instance_id, condition, run_num = item
+            return self._run_agent(
+                instance_id=instance_id,
+                condition=condition["condition"],
+                primitive=condition["primitive"],
+                budget=condition["budget"],
+                run_num=run_num,
+                agent_config=agent_config,
+                step_limit=step_limit,
+                agent_timeout=agent_timeout,
+                config=condition.get("config"),
+                compression_ratio=compression_ratio,
+            )
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(run_one, item): item for item in needed}
+            for future in as_completed(futures):
+                result = future.result()
+                with lock:
+                    completed[0] += 1
+                    results.append(result)
+                    existing_keys.add(result["key"])
+                    save(results)
+                    print(
+                        f"  [{completed[0]:4d}/{total}]  "
+                        f"{result['condition']:<14} r{result['run_num']} | "
+                        f"{result['instance_id']}  calls={result['n_calls']} "
+                        f"exit={result['exit_status']}"
+                    )
+        return results
+
+    @staticmethod
+    def _run_key(instance_id: str, condition: str, run_num: int) -> str:
+        return f"{instance_id}__{condition}__r{run_num}"
+
+    def _run_agent(
+        self,
+        *,
+        instance_id: str,
+        condition: str,
+        primitive: str,
+        budget: int,
+        run_num: int,
+        agent_config: Path,
+        step_limit: int,
+        agent_timeout: int,
+        config: Path | None = None,
+        compression_ratio: float = 0.5,
+    ) -> dict:
+        """Run mini-swe-agent for one task, condition, and repetition."""
+        key = self._run_key(instance_id, condition, run_num)
+        output_dir = self.results_dir / instance_id / condition / f"run_{run_num}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        trajectory_file = output_dir / "trajectory.json"
+        token_log_file = output_dir / "token_log.json"
+        log_file = output_dir / "agent.log"
+
+        env = os.environ.copy()
+        env.update({
+            "MSWEA_COST_TRACKING": "ignore_errors",
+            "MSWEA_PRIMITIVE": primitive,
+            "MSWEA_TOKEN_BUDGET": str(budget),
+            "MSWEA_COMPRESSION_RATIO": str(compression_ratio),
+            "MSWEA_TOKEN_LOG_PATH": str(token_log_file),
+            "MSWEA_RUN_KEY": key,
+        })
+        env.update(self.agent_environment())
+
+        local_bin = str(Path.home() / ".local" / "bin")
+        if local_bin not in env.get("PATH", ""):
+            env["PATH"] = local_bin + ":" + env.get("PATH", "")
+        env["PYTHONPATH"] = str(self.workspace_root) + (
+            ":" + env["PYTHONPATH"] if "PYTHONPATH" in env else ""
+        )
+
+        config_chain = []
+        if config is not None:
+            config_chain.append(str(config))
+            if Path(agent_config) != Path(config):
+                config_chain.append(str(agent_config))
+        else:
+            config_chain.append(str(agent_config))
+        command = self.build_agent_command(
+            instance_id, config_chain, trajectory_file, step_limit
+        )
+
+        started = time.time()
+        returncode = -1
+        process = None
+        try:
+            with log_file.open("w") as log:
+                process = subprocess.Popen(
+                    command,
+                    cwd=self.workspace_root / "mini-swe-agent",
+                    env=env,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
+                process.wait(timeout=agent_timeout)
+                returncode = process.returncode
+        except subprocess.TimeoutExpired:
+            if process is not None:
+                process.kill()
+            print(f"    ! Timeout after {agent_timeout}s")
+        except Exception as exc:
+            print(f"    ! Launch error: {exc}")
+
+        e2e_latency = round(time.time() - started, 2)
+        outcome = self.empty_outcome()
+        if trajectory_file.exists():
+            try:
+                outcome = self.parse_trajectory(trajectory_file)
+            except Exception as exc:
+                print(f"    ! Trajectory parse error: {exc}")
+
+        token_log = {}
+        if token_log_file.exists():
+            try:
+                token_log = json.loads(token_log_file.read_text())
+            except Exception:
+                pass
+
+        result = {
+            "key": key,
+            "instance_id": instance_id,
+            "condition": condition,
+            "primitive": primitive,
+            "budget": budget,
+            "compression_ratio": compression_ratio,
+            "is_baseline": budget == 999_999_999,
+            "run_num": run_num,
+            "timestamp": datetime.now().isoformat(),
+            "returncode": returncode,
+            "e2e_latency_s": e2e_latency,
+            "total_prompt_tokens": token_log.get("total_prompt_tokens", 0),
+            "total_completion_tokens": token_log.get("total_completion_tokens", 0),
+            "total_tokens": token_log.get("total_tokens", 0),
+            "llm_latency_s": token_log.get("total_latency_s", 0.0),
+            "mean_latency_s": token_log.get("mean_latency_s", 0.0),
+            "step_prompt_tokens": token_log.get("step_prompt_tokens", []),
+            "compression_events": token_log.get("compression_events", 0),
+            "compression_event_steps": token_log.get("compression_event_steps", []),
+            "context_tokens_at_compression": token_log.get("context_tokens_at_compression", []),
+            "context_tokens_after_compression": token_log.get("context_tokens_after_compression", []),
+            "total_tokens_saved": token_log.get("total_tokens_saved", 0),
+            "mean_compression_ratio": token_log.get("mean_compression_ratio", 1.0),
+            "summarization_prompt_tokens": token_log.get("summarization_prompt_tokens", 0),
+            "summarization_latency_s": token_log.get("summarization_latency_s", 0.0),
+            "trc_truncation_fallback_events": token_log.get("trc_truncation_fallback_events", 0),
+            "online_trc_total_tokens_saved": token_log.get("online_trc_total_tokens_saved", 0),
+            "online_trc_clears": token_log.get("online_trc_clears", 0),
+            "online_trc_flags": token_log.get("online_trc_flags", []),
+        }
+        result.update(outcome)
+
+        icon = "P" if outcome["submission_generated"] else "x"
+        print(
+            f"    [{icon}] e2e={e2e_latency:.0f}s  calls={outcome['n_calls']:3d}  "
+            f"comp_events={result['compression_events']:2d}  "
+            f"exit={outcome['exit_status']}"
+        )
+        return result
 
     def evaluate_results(self, results: list[dict], save: Callable[[list[dict]], None]) -> list[dict]:
         """Evaluate all unevaluated patches with the SWE-bench harness."""
