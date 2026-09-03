@@ -7,9 +7,9 @@ Terminal-Bench result tree from another machine beneath ``ICLR_results/`` is
 therefore sufficient; re-run this script to refresh its CSV.
 
 Usage:
-    python3 analysis/build_outcomes.py
-    python3 analysis/build_outcomes.py --benchmark swebench
-    python3 analysis/build_outcomes.py --source-root /path/to/terminalbench \
+    python3 analysis/aggregate_benchmark_results.py
+    python3 analysis/aggregate_benchmark_results.py --benchmark swebench
+    python3 analysis/aggregate_benchmark_results.py --source-root /path/to/terminalbench \
         --benchmark terminalbench
 """
 
@@ -50,6 +50,8 @@ FIELDNAMES = [
     "benchmark", "experiment_section", "model_key", "model", "cell",
     "source_file", "task_name", "condition", "primitive", "raw_primitive",
     "token_budget", "depth", "run_num", "resolved", "failure_mode",
+    "execution_state", "agent_started", "pre_agent_failure", "returncode",
+    "seeded_from",
     "exit_status", "patch_generated", "submission_generated", "reward",
     "step_count", "total_tokens", "total_prompt_tokens",
     "total_completion_tokens", "latency_e2e_s", "latency_llm_s",
@@ -80,6 +82,26 @@ def failure_mode(row: dict[str, Any]) -> str:
     return "other"
 
 
+def execution_state(row: dict[str, Any]) -> str:
+    """Classify whether this row represents an actual agent attempt."""
+    n_calls = row.get("n_calls") or 0
+    total_tokens = row.get("total_tokens") or 0
+    try:
+        no_agent_activity = float(n_calls) == 0 and float(total_tokens) == 0
+    except (TypeError, ValueError):
+        no_agent_activity = False
+
+    # ``seeded_from`` is a pointer to a source record absent from this cell,
+    # not evidence that an agent run failed.
+    if no_agent_activity and row.get("seeded_from"):
+        return "seeded_placeholder"
+    if no_agent_activity and row.get("returncode") not in (None, 0):
+        return "pre_agent_failure"
+    if no_agent_activity:
+        return "zero_step_unknown"
+    return "agent_started"
+
+
 def metadata(path: Path, source_root: Path) -> tuple[str, str, str]:
     """Extract section/model/cell without assuming a fixed TB nesting depth."""
     parts = path.relative_to(source_root).parts[:-1]
@@ -96,6 +118,7 @@ def normalized_row(
     section, model_key, cell = metadata(source, source_root)
     condition = row.get("condition") or ""
     budget = row.get("budget")
+    state = execution_state(row)
     return {
         "benchmark": benchmark,
         "experiment_section": section,
@@ -112,6 +135,11 @@ def normalized_row(
         "run_num": row.get("run_num"),
         "resolved": row.get("resolved"),
         "failure_mode": failure_mode(row),
+        "execution_state": state,
+        "agent_started": state == "agent_started",
+        "pre_agent_failure": state == "pre_agent_failure",
+        "returncode": row.get("returncode"),
+        "seeded_from": row.get("seeded_from") or "",
         "exit_status": row.get("exit_status") or "",
         "patch_generated": row.get("patch_generated"),
         "submission_generated": row.get("submission_generated"),
