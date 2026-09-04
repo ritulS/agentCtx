@@ -419,7 +419,7 @@ def main() -> None:
     )
 
     if not args.skip_postprocess:
-        run([sys.executable, str(ROOT / "dashboard/build_coverage.py")])
+        run([sys.executable, str(ROOT / "dashboard/build_coverage_tb.py")])
         run([sys.executable, str(ROOT / "dashboard/build_dashboard.py")])
 
     print(f"Aggregate: {destination / 'experiment_results.json'}")

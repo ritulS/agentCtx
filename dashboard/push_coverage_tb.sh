@@ -4,7 +4,7 @@ set -euo pipefail
 # Publish the generated Terminal-Bench coverage CSV from the main worktree to
 # the dedicated data worktree/branch. Intended to be run from cron.
 readonly SOURCE_WORKTREE="/home/ak58925/agentCtx"
-readonly COVERAGE_BUILDER="${SOURCE_WORKTREE}/dashboard/build_coverage.py"
+readonly COVERAGE_BUILDER="${SOURCE_WORKTREE}/dashboard/build_coverage_tb.py"
 readonly SOURCE="${SOURCE_WORKTREE}/COVERAGE_TB.csv"
 readonly DATA_WORKTREE="/home/ak58925/agentCtx-data"
 readonly DATA_BRANCH="akiho-expansion-terminalbench-0829-data"
@@ -37,7 +37,7 @@ if [[ "${current_branch}" != "${DATA_BRANCH}" ]]; then
     exit 1
 fi
 
-# Rebuild both coverage files from the latest experiment results. With
+# Rebuild Terminal-Bench coverage from the latest experiment results. With
 # `set -e`, a build failure stops the script before copying or publishing.
 echo "Rebuilding COVERAGE_TB.csv from the latest experiment results..."
 (

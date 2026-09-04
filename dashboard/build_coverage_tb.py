@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Build COVERAGE.csv and COVERAGE_TB.csv — sheets tracking every (model,
-primitive, budget, depth) cell found in the canonical ICLR_results tree and
-annotating its paper scope and completion status.
+"""Build COVERAGE_TB.csv for Terminal-Bench experiment coverage.
 
 Sources of truth:
-  - disk:  ICLR_results/swebench/<track>/<model>/<cell>/experiment_results.json
-           ICLR_results/terminalbench/<track>/[<namespace>/]<model>/<cell>/
+  - disk:  ICLR_results/terminalbench/<track>/[<namespace>/]<model>/<cell>/
              experiment_results.json
            (per-record condition, budget, compression_ratio, instance_id)
 Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 
-Usage:  python dashboard/build_coverage.py
-        # writes COVERAGE.csv and COVERAGE_TB.csv at the repository root
+Does not read or write COVERAGE.csv.
+
+Usage:  python dashboard/build_coverage_tb.py
+        # writes COVERAGE_TB.csv at the repository root
 """
 
 import argparse
@@ -24,15 +23,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ICLR_RESULTS = ROOT / "ICLR_results"
-DEFAULT_OUT = ROOT / "COVERAGE.csv"
 DEFAULT_TB_OUT = ROOT / "COVERAGE_TB.csv"
 TB_HARBOR_JOBS = ROOT / "logs" / "harbor_jobs" / "terminalbench"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
 INF = 999_999_999
 
-# Expansion 1 (see exp_plans/SWE_EXPANSION.md): runs/task 2->3.
-REQUIRED_RUNS_PER_TASK = 3
 TB_REQUIRED_RUNS_PER_TASK = 3
 
 CONDITION_TO_PRIMITIVE = {
@@ -55,8 +51,19 @@ CONDITION_TO_PRIMITIVE = {
 
 DEPTH_TUNABLE = ["TR", "SU-full", "SU-partial", "SS", "SS-partial"]
 DEPTH_INVARIANT = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial"]
-BUDGETS = [10_000, 15_000, 20_000]
-DEPTH_GRID = [0.3, 0.5, 0.7]
+
+COHORT_GROUPS = ["tb15", "tb20", "tb40", "all"]
+COVERAGE_FIELDNAMES = [
+    "benchmark", "model", "primitive", "budget", "depth", "scope",
+    "required_cohort", "status", "tasks_on_disk", "runs_on_disk",
+    "runs_per_task_min", "cohort_covered", "rows_in_csv", "source_dirs", "notes",
+] + [
+    field
+    for name in COHORT_GROUPS
+    for field in (
+        [f"tasks_covered_{name}"] + [f"runs_capped_{cap}_{name}" for cap in range(1, 6)]
+    )
+]
 
 def model_for_dir(name: str) -> str:
     if name.startswith("devstral-2"):
@@ -102,8 +109,8 @@ def terminalbench_harbor_fallbacks() -> list[tuple[str, str, dict]]:
     ``run_info.json`` is written before a cell starts, so it provides the
     budget/condition metadata missing from Harbor's per-trial result files.
     Job timestamps bound each launch and prevent an older launch of the same
-    model/condition (for example 27k followed by 3k) from being mixed in.
-    Canonical records still win later through the normal deduplication key.
+    model/condition from being mixed in. Canonical records are processed first
+    and therefore win later through the normal deduplication key.
     """
     launches = []
     for info_path in ICLR_RESULTS.glob("terminalbench/**/run_info.json"):
@@ -136,8 +143,6 @@ def terminalbench_harbor_fallbacks() -> list[tuple[str, str, dict]]:
             "source": f"logs/harbor_jobs/terminalbench/{model_key}",
         })
 
-    # A later launch of the same model/condition closes the previous launch's
-    # job window. Harbor job names contain creation epoch milliseconds.
     groups = defaultdict(list)
     for launch in launches:
         groups[(launch["model_key"], launch["condition"])].append(launch)
@@ -188,23 +193,8 @@ def budget_label(b) -> str:
     return "inf" if b == INF else f"{b // 1000}k"
 
 
-def classify_cohort(tasks: set, abl30: set, p100: set) -> str:
-    if tasks >= p100:
-        return "P100"
-    if tasks >= abl30:
-        extra = len(tasks - abl30)
-        return "ABL-30" if extra == 0 else f"ABL-30 (+{extra})"
-    return f"partial ({len(tasks & abl30)}/30 ABL-30, {len(tasks)} total)"
-
-
 def parse_args():
-    parser = argparse.ArgumentParser(description="Build the experiment coverage CSV")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=DEFAULT_OUT,
-        help="output CSV path (default: COVERAGE.csv at the repository root)",
-    )
+    parser = argparse.ArgumentParser(description="Build the Terminal-Bench experiment coverage CSV")
     parser.add_argument(
         "--tb-output",
         type=Path,
@@ -216,10 +206,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    out = args.output if args.output.is_absolute() else ROOT / args.output
     tb_out = args.tb_output if args.tb_output.is_absolute() else ROOT / args.tb_output
-    abl30 = load_task_list(ROOT / "task_lists/ablation_30tasks.json")
-    p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
     tb15 = load_task_list(ROOT / "task_lists/tbench_abl15.json")
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
     tb40 = load_task_list(ROOT / "task_lists/tbench_p40.json")
@@ -229,15 +216,12 @@ def main():
     # Some dirs are copies of other dirs' runs (see seed_depth_dirs.py) — dedupe
     # by (cell, instance_id, run_num) so copies don't inflate run counts.
     #
-    # ICLR_results/ holds the canonical, deduped copies built by the archive
-    # scripts. Live Terminal-Bench Harbor results are considered afterward as
-    # a fallback only for (cell, task, run_num) records not present here.
+    # ICLR_results/terminalbench holds the canonical, deduped copies built by
+    # the archive scripts. Live Harbor results are added afterward only as a
+    # fallback for (cell, task, run_num) records not present in canonical data.
     disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set(), "task_runs": Counter()})
     seen_runs = set()
     iclr_sources = [
-        ("swebench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
-        for meta in ICLR_RESULTS.glob("swebench/*/*/*/experiment_results.json")
-    ] + [
         ("terminal-bench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
         # Terminal-Bench tracks may contain an additional result namespace,
         # e.g. main/p80_rootless/<model>/<cell>.  Match recursively so adding
@@ -245,9 +229,9 @@ def main():
         for meta in ICLR_RESULTS.glob("terminalbench/**/experiment_results.json")
     ]
     sources = [
-        (benchmark, source_name, r, meta)
+        (benchmark, source_name, record, meta)
         for benchmark, source_name, meta in sorted(iclr_sources)
-        for r in load_records(meta)
+        for record in load_records(meta)
     ]
     sources += [
         (benchmark, source_name, record, None)
@@ -283,42 +267,6 @@ def main():
 
     # ---- 2. enumerate the in-scope cells (main model) ------------------------
     expected = {}  # cell key -> required cohort
-    for prim in DEPTH_TUNABLE:
-        for b in BUDGETS:
-            for d in DEPTH_GRID:
-                expected[("swebench", MAIN_MODEL, prim, b, d)] = "P100" if b == 15_000 else "ABL-30"
-    for prim in DEPTH_INVARIANT:
-        for b in BUDGETS:
-            expected[("swebench", MAIN_MODEL, prim, b, 0.5)] = "P100"
-    for prim in ("FC", "OTRC"):
-        expected[("swebench", MAIN_MODEL, prim, INF, 0.5)] = "P100"
-    # Legacy model-expansion baselines that only used the ABL-30 cohort.
-    for model in ("Qwen2.5-Coder-32B", "Llama-3.3-70B"):
-        for prim in ("FC", "OTRC"):
-            expected[("swebench", model, prim, INF, 0.5)] = "ABL-30"
-
-    # FOLLOWUP_EXPERIMENTS 2.a/2.b use P100. Calibration FC trajectories in
-    # these canonical cells count as run_1 of the corresponding experiment.
-    for model in ("Devstral-Small-2-24B", "GLM-4.7-Flash"):
-        for prim in ("FC", "OTRC"):
-            expected[("swebench", model, prim, INF, 0.5)] = "P100"
-
-    # Concrete Devstral cells in FOLLOWUP_EXPERIMENTS.md.  This makes the
-    # follow-up plan part of the same inventory as completed data, instead of
-    # showing only whichever archived cells happen to exist today.
-    devstral = "Devstral-Small-2-24B"
-    for prim in DEPTH_TUNABLE:
-        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
-        for b in BUDGETS:
-            for d in DEPTH_GRID:
-                expected.setdefault(("swebench", devstral, prim, b, d), "ABL-30")
-    for prim in DEPTH_INVARIANT:
-        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
-        for b in (10_000, 20_000):
-            expected[("swebench", devstral, prim, b, 0.5)] = "ABL-30"
-    for prim in ("FC", "OTRC"):
-        expected[("swebench", devstral, prim, INF, 0.5)] = "P100"
-
     # FOLLOWUP_EXPERIMENTS 3.a/3.b: main cells use the frozen P-40 cohort and
     # primary budget; ablation cells use the frozen P-15 cohort and A/P/B
     # budgets calibrated separately for each model.
@@ -355,12 +303,8 @@ def main():
         benchmark, model, prim, budget, depth = key
         d = disk.get(key)
         req = expected.get(key)
-        required_runs = (TB_REQUIRED_RUNS_PER_TASK
-                         if benchmark == "terminal-bench"
-                         else REQUIRED_RUNS_PER_TASK)
         covered = d["tasks"] if d else set()
-        cohort = (f"TB-{len(covered)}" if benchmark == "terminal-bench" else
-                  classify_cohort(covered, abl30, p100)) if covered else ""
+        cohort = f"TB-{len(covered)}" if covered else ""
 
         runs_per_task_min = 0
         # Cohort-specific capped run counts let downstream consumers answer
@@ -373,8 +317,7 @@ def main():
 
         cohort_counts = {}
         for cohort_name, cohort_tasks in (
-            ("abl30", abl30), ("p100", p100), ("tb15", tb15),
-            ("tb20", tb20), ("tb40", tb40)
+            ("tb15", tb15), ("tb20", tb20), ("tb40", tb40)
         ):
             cohort_counts[f"tasks_covered_{cohort_name}"] = sum(
                 d_runs.get(t, 0) > 0 for t in cohort_tasks
@@ -401,30 +344,25 @@ def main():
             else:
                 have_cohort = (
                     covered >= tb15 if req == "TB-15" else
-                    covered >= tb40 if req == "TB-40" else
-                    cohort.startswith(req) or
-                    (req == "ABL-30" and cohort.startswith("P100"))
+                    covered >= tb40 if req == "TB-40" else False
                 )
                 if not have_cohort:
                     status = "PARTIAL"
                 else:
                     required_tasks = (tb15 if req == "TB-15" else
-                                      tb40 if req == "TB-40" else
-                                      p100 if req == "P100" else abl30)
+                                      tb40)
                     runs_per_task_min = min(
                         (d_runs.get(t, 0) for t in required_tasks),
                         default=0)
-                    status = "COMPLETE" if runs_per_task_min >= required_runs else "PARTIAL"
+                    status = "COMPLETE" if runs_per_task_min >= TB_REQUIRED_RUNS_PER_TASK else "PARTIAL"
 
         notes = []
         has_required_cohort = (
             covered >= tb15 if req == "TB-15" else
-            covered >= tb40 if req == "TB-40" else
-            bool(req) and (cohort.startswith(req) or
-                           (req == "ABL-30" and cohort.startswith("P100")))
+            covered >= tb40 if req == "TB-40" else False
         )
         if status == "PARTIAL" and covered and has_required_cohort:
-            notes.append(f"only {runs_per_task_min}/{required_runs} runs/task")
+            notes.append(f"only {runs_per_task_min}/{TB_REQUIRED_RUNS_PER_TASK} runs/task")
 
         rows.append({
             "benchmark": benchmark,
@@ -447,19 +385,20 @@ def main():
             **cohort_counts,
         })
 
-    swe_rows = [r for r in rows if r["benchmark"] == "swebench"]
-    tb_rows = [r for r in rows if r["benchmark"] == "terminal-bench"]
+    if not rows:
+        raise SystemExit(
+            f"No Terminal-Bench experiment results found under "
+            f"{ICLR_RESULTS / 'terminalbench'}; refusing to overwrite {tb_out}"
+        )
 
     def write_rows(path, output_rows):
         path.parent.mkdir(parents=True, exist_ok=True)
-        fieldnames = list(rows[0].keys())
         with open(path, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
+            w = csv.DictWriter(f, fieldnames=COVERAGE_FIELDNAMES, lineterminator="\n")
             w.writeheader()
             w.writerows(output_rows)
 
-    write_rows(out, swe_rows)
-    write_rows(tb_out, tb_rows)
+    write_rows(tb_out, rows)
 
     # ---- 4. console summary ---------------------------------------------------
     n = defaultdict(int)
@@ -471,8 +410,7 @@ def main():
         except ValueError:
             return path
 
-    print(f"Wrote {display_path(out)} — {len(swe_rows)} SWE-Bench cells")
-    print(f"Wrote {display_path(tb_out)} — {len(tb_rows)} Terminal-Bench cells")
+    print(f"Wrote {display_path(tb_out)} — {len(rows)} Terminal-Bench cells")
     for status in ("COMPLETE", "PARTIAL", "MISSING", "EXTRA", "HAVE"):
         if n[status]:
             print(f"  {status}: {n[status]}")

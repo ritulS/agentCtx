@@ -14,7 +14,6 @@ import argparse
 import shutil
 import subprocess
 import sys
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -115,16 +114,13 @@ def main() -> None:
     if args.skip_coverage_build:
         shutil.copy2(ROOT / "COVERAGE.csv", coverage_destination)
     else:
-        with tempfile.TemporaryDirectory(prefix="agentctx-coverage-") as temporary_dir:
-            run(
-                sys.executable,
-                "dashboard/build_coverage.py",
-                "--output",
-                str(coverage_destination),
-                "--tb-output",
-                str(Path(temporary_dir) / "COVERAGE_TB.csv"),
-                cwd=ROOT,
-            )
+        run(
+            sys.executable,
+            "dashboard/build_coverage_sb.py",
+            "--output",
+            str(coverage_destination),
+            cwd=ROOT,
+        )
 
     copy_remote_file(
         args.remote,

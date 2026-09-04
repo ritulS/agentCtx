@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Render DASHBOARD.html — the human-friendly coverage dashboard.
 
-Reads COVERAGE.csv and COVERAGE_TB.csv (regenerate them first with
-dashboard/build_coverage.py) and
-writes a self-contained HTML page at the repo root. Re-run after every completed run:
+Reads COVERAGE.csv and COVERAGE_TB.csv (regenerate them first with the
+benchmark-specific coverage builders) and writes a self-contained HTML page
+at the repo root. Re-run after every completed run:
 
-    python dashboard/build_coverage.py && python dashboard/build_dashboard.py
+    python dashboard/build_coverage_sb.py
+    python dashboard/build_coverage_tb.py
+    python dashboard/build_dashboard.py
 """
 
 import argparse
@@ -159,10 +161,8 @@ def coverage_progress(
         cohort = (
             "p100" if tasks == 100 else
             "abl30" if tasks == 30 else
-            # No frozen P-15/P-40 task-list files exist yet. Terminal-Bench
-            # progress therefore uses the observed-task capped counts, while
-            # the target below still caps credit at the planned task count.
-            "all" if tasks in (15, 40) else
+            "tb15" if tasks == 15 else
+            "tb40" if tasks == 40 else
             "tb20" if tasks == 20 else
             "all" if tasks == 80 else
             None
@@ -172,7 +172,8 @@ def coverage_progress(
         has_exact_counts = capped_key and cell.get(capped_key, "") != ""
 
         if has_exact_counts:
-            # These counts are constructed task-by-task in build_coverage.py.
+            # These counts are constructed task-by-task in the benchmark's
+            # coverage builder.
             # Subtracting two capped totals exactly counts runs in
             # (baseline_runs, runs_per_task], without cohort scaling or
             # over-counting tasks that happen to have extra retries.

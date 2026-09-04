@@ -6,9 +6,11 @@ The dashboard uses two branches:
 - `akiho-expansion-data` receives the generated `COVERAGE.csv`,
   `COVERAGE_TB.csv`, dashboard builder, and Pages workflow.
 
-The local machine can see the gitignored SWE-Bench experiment results, so it
-generates `COVERAGE.csv` directly in the data worktree. Terminal-Bench runs on
-another machine; the publisher fetches the latest commit of
+The local machine can see the gitignored SWE-Bench experiment results, so the
+publisher runs `dashboard/build_coverage_sb.py` to generate `COVERAGE.csv`
+directly in the data worktree. Terminal-Bench runs on another machine, where
+`dashboard/build_coverage_tb.py` generates `COVERAGE_TB.csv`; the publisher
+fetches the latest commit of
 `origin/akiho-expansion-terminalbench-0829-data` and takes `COVERAGE_TB.csv`
 from that commit. The normal `akiho-expansion` worktree is not modified. GitHub
 Actions only renders and deploys the inputs from the combined data branch.
@@ -65,7 +67,7 @@ path if this checkout uses a different virtual environment):
 ```
 
 The wrapper writes to `logs/dashboard-pages.log` and uses `flock` to prevent
-overlapping publications. The publisher runs `dashboard/build_coverage.py`
+overlapping publications. The publisher runs `dashboard/build_coverage_sb.py`
 against this machine's local data to create `COVERAGE.csv`, then fetches
 `COVERAGE_TB.csv` from the Terminal-Bench data branch. It records each progress
 bar's timestamped run count in `dashboard_progress_history.jsonl`, retaining 14

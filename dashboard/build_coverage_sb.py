@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Build COVERAGE.csv and COVERAGE_TB.csv — sheets tracking every (model,
-primitive, budget, depth) cell found in the canonical ICLR_results tree and
-annotating its paper scope and completion status.
+"""Build COVERAGE.csv — a sheet tracking every (model, primitive, budget,
+depth) cell found in the canonical ICLR_results/swebench tree and annotating
+its paper scope and completion status.
 
 Sources of truth:
   - disk:  ICLR_results/swebench/<track>/<model>/<cell>/experiment_results.json
-           ICLR_results/terminalbench/<track>/[<namespace>/]<model>/<cell>/
-             experiment_results.json
            (per-record condition, budget, compression_ratio, instance_id)
 Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 
-Usage:  python dashboard/build_coverage.py
-        # writes COVERAGE.csv and COVERAGE_TB.csv at the repository root
+Does not read or write COVERAGE_TB.csv — that sheet is built separately from
+the Terminal-Bench result tree.
+
+Usage:  python dashboard/build_coverage_sb.py
+        # writes COVERAGE.csv at the repository root
 """
 
 import argparse
@@ -23,14 +24,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ICLR_RESULTS = ROOT / "ICLR_results"
 DEFAULT_OUT = ROOT / "COVERAGE.csv"
-DEFAULT_TB_OUT = ROOT / "COVERAGE_TB.csv"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
 INF = 999_999_999
 
 # Expansion 1 (see exp_plans/SWE_EXPANSION.md): runs/task 2->3.
 REQUIRED_RUNS_PER_TASK = 3
-TB_REQUIRED_RUNS_PER_TASK = 3
 
 CONDITION_TO_PRIMITIVE = {
     "truncation": "TR",
@@ -54,6 +53,21 @@ DEPTH_TUNABLE = ["TR", "SU-full", "SU-partial", "SS", "SS-partial"]
 DEPTH_INVARIANT = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial"]
 BUDGETS = [10_000, 15_000, 20_000]
 DEPTH_GRID = [0.3, 0.5, 0.7]
+
+# Fixed CSV column order, matching the keys assembled per row in main().
+COHORT_GROUPS = ["abl30", "p100"]
+COVERAGE_FIELDNAMES = [
+    "benchmark", "model", "primitive", "budget", "depth", "scope",
+    "required_cohort", "status", "tasks_on_disk", "runs_on_disk",
+    "runs_per_task_min", "cohort_covered", "rows_in_csv", "source_dirs", "notes",
+] + [
+    field
+    for name in COHORT_GROUPS
+    for field in (
+        [f"tasks_covered_{name}"] + [f"runs_capped_{cap}_{name}" for cap in range(1, 6)]
+    )
+]
+
 
 def model_for_dir(name: str) -> str:
     if name.startswith("devstral-2"):
@@ -107,18 +121,12 @@ def classify_cohort(tasks: set, abl30: set, p100: set) -> str:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Build the experiment coverage CSV")
+    parser = argparse.ArgumentParser(description="Build the SWE-Bench experiment coverage CSV")
     parser.add_argument(
         "--output",
         type=Path,
         default=DEFAULT_OUT,
         help="output CSV path (default: COVERAGE.csv at the repository root)",
-    )
-    parser.add_argument(
-        "--tb-output",
-        type=Path,
-        default=DEFAULT_TB_OUT,
-        help="Terminal-Bench output CSV path (default: COVERAGE_TB.csv at the repository root)",
     )
     return parser.parse_args()
 
@@ -126,10 +134,8 @@ def parse_args():
 def main():
     args = parse_args()
     out = args.output if args.output.is_absolute() else ROOT / args.output
-    tb_out = args.tb_output if args.tb_output.is_absolute() else ROOT / args.tb_output
     abl30 = load_task_list(ROOT / "task_lists/ablation_30tasks.json")
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
-    tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
 
     # ---- 1. scan disk -------------------------------------------------------
     # cell key: (benchmark, model, primitive, budget, depth) -> coverage data.
@@ -145,12 +151,6 @@ def main():
     iclr_sources = [
         ("swebench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
         for meta in ICLR_RESULTS.glob("swebench/*/*/*/experiment_results.json")
-    ] + [
-        ("terminal-bench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
-        # Terminal-Bench tracks may contain an additional result namespace,
-        # e.g. main/p80_rootless/<model>/<cell>.  Match recursively so adding
-        # such a namespace does not silently remove live runs from coverage.
-        for meta in ICLR_RESULTS.glob("terminalbench/**/experiment_results.json")
     ]
     for benchmark, source_name, meta in sorted(iclr_sources):
         records = load_records(meta)
@@ -223,31 +223,6 @@ def main():
         for prim in ("FC", "OTRC"):
             expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
-    # Concrete Terminal-Bench follow-up cells. A/P/B are model-specific. The
-    # primary (P) depth/budget cells and unlimited baselines use 40 tasks;
-    # the remaining grid uses the 15-task cohort.
-    tb_expansion_budgets = {
-        MAIN_MODEL: (2_000, 3_000, 4_000),
-        "Devstral-Small-2-24B": (3_000, 4_000, 7_000),
-        "GLM-4.7-Flash": (2_000, 3_000, 5_000),
-    }
-    for model, (a_budget, p_budget, b_budget) in tb_expansion_budgets.items():
-        for prim in DEPTH_TUNABLE:
-            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-40"
-        for prim in DEPTH_INVARIANT:
-            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-40"
-        for prim in ("FC", "OTRC"):
-            expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-40"
-        for prim in DEPTH_TUNABLE:
-            for b in (a_budget, b_budget):
-                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
-            for b in (a_budget, p_budget, b_budget):
-                for d in (0.3, 0.7):
-                    expected[("terminal-bench", model, prim, b, d)] = "TB-15"
-        for prim in DEPTH_INVARIANT:
-            for b in (a_budget, b_budget):
-                expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
-
     # ---- 3. merge into sheet rows --------------------------------------------
     # The coverage CSVs inventory data that actually exists.  ``expected``
     # only annotates the scope/status of observed cells; planned-but-unrun
@@ -259,12 +234,8 @@ def main():
         benchmark, model, prim, budget, depth = key
         d = disk.get(key)
         req = expected.get(key)
-        required_runs = (TB_REQUIRED_RUNS_PER_TASK
-                         if benchmark == "terminal-bench"
-                         else REQUIRED_RUNS_PER_TASK)
         covered = d["tasks"] if d else set()
-        cohort = (f"TB-{len(covered)}" if benchmark == "terminal-bench" else
-                  classify_cohort(covered, abl30, p100)) if covered else ""
+        cohort = classify_cohort(covered, abl30, p100) if covered else ""
 
         runs_per_task_min = 0
         # Cohort-specific capped run counts let downstream consumers answer
@@ -276,9 +247,7 @@ def main():
             return sum(min(cap, d_runs.get(t, 0)) for t in tasks)
 
         cohort_counts = {}
-        for cohort_name, cohort_tasks in (
-            ("abl30", abl30), ("p100", p100), ("tb20", tb20)
-        ):
+        for cohort_name, cohort_tasks in (("abl30", abl30), ("p100", p100)):
             cohort_counts[f"tasks_covered_{cohort_name}"] = sum(
                 d_runs.get(t, 0) > 0 for t in cohort_tasks
             )
@@ -286,16 +255,6 @@ def main():
                 cohort_counts[f"runs_capped_{cap}_{cohort_name}"] = capped_runs(
                     cohort_tasks, cap
                 )
-        # TB:P-15/P-40 progress can include provisional/rootless subsets.
-        # Counting every observed task directly avoids proportionally scaling
-        # a partial subset up to the planned cohort size in the dashboard.
-        all_observed_tasks = set(d_runs)
-        cohort_counts["tasks_covered_all"] = len(all_observed_tasks)
-        for cap in range(1, 6):
-            cohort_counts[f"runs_capped_{cap}_all"] = capped_runs(
-                all_observed_tasks, cap
-            )
-
         if req is None:
             scope = "out-of-scope" if model == MAIN_MODEL else "model-expansion"
             status = "EXTRA" if model == MAIN_MODEL else "HAVE"
@@ -305,28 +264,24 @@ def main():
                 status = "MISSING"
             else:
                 have_cohort = (
-                    len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
                     cohort.startswith(req) or
                     (req == "ABL-30" and cohort.startswith("P100"))
                 )
                 if not have_cohort:
                     status = "PARTIAL"
                 else:
-                    required_tasks = (covered if req and req.startswith("TB-") else
-                                      p100 if req == "P100" else abl30)
+                    required_tasks = p100 if req == "P100" else abl30
                     runs_per_task_min = min(
                         (d_runs.get(t, 0) for t in required_tasks),
                         default=0)
-                    status = "COMPLETE" if runs_per_task_min >= required_runs else "PARTIAL"
+                    status = "COMPLETE" if runs_per_task_min >= REQUIRED_RUNS_PER_TASK else "PARTIAL"
 
         notes = []
-        has_required_cohort = (
-            len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
-            bool(req) and (cohort.startswith(req) or
-                           (req == "ABL-30" and cohort.startswith("P100")))
+        has_required_cohort = bool(req) and (
+            cohort.startswith(req) or (req == "ABL-30" and cohort.startswith("P100"))
         )
         if status == "PARTIAL" and covered and has_required_cohort:
-            notes.append(f"only {runs_per_task_min}/{required_runs} runs/task")
+            notes.append(f"only {runs_per_task_min}/{REQUIRED_RUNS_PER_TASK} runs/task")
 
         rows.append({
             "benchmark": benchmark,
@@ -349,19 +304,20 @@ def main():
             **cohort_counts,
         })
 
-    swe_rows = [r for r in rows if r["benchmark"] == "swebench"]
-    tb_rows = [r for r in rows if r["benchmark"] == "terminal-bench"]
+    if not rows:
+        raise SystemExit(
+            f"No SWE-Bench experiment results found under {ICLR_RESULTS / 'swebench'}; "
+            f"refusing to overwrite {out}"
+        )
 
     def write_rows(path, output_rows):
         path.parent.mkdir(parents=True, exist_ok=True)
-        fieldnames = list(rows[0].keys())
         with open(path, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
+            w = csv.DictWriter(f, fieldnames=COVERAGE_FIELDNAMES, lineterminator="\n")
             w.writeheader()
             w.writerows(output_rows)
 
-    write_rows(out, swe_rows)
-    write_rows(tb_out, tb_rows)
+    write_rows(out, rows)
 
     # ---- 4. console summary ---------------------------------------------------
     n = defaultdict(int)
@@ -373,8 +329,7 @@ def main():
         except ValueError:
             return path
 
-    print(f"Wrote {display_path(out)} — {len(swe_rows)} SWE-Bench cells")
-    print(f"Wrote {display_path(tb_out)} — {len(tb_rows)} Terminal-Bench cells")
+    print(f"Wrote {display_path(out)} — {len(rows)} SWE-Bench cells")
     for status in ("COMPLETE", "PARTIAL", "MISSING", "EXTRA", "HAVE"):
         if n[status]:
             print(f"  {status}: {n[status]}")

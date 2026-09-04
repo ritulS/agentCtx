@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild COVERAGE.csv and DASHBOARD.html at a regular interval.
+"""Rebuild both coverage CSVs and DASHBOARD.html at a regular interval.
 
 Run from anywhere in the repository with:
 
@@ -27,12 +27,16 @@ def rebuild() -> bool:
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\n[{stamp}] Rebuilding coverage dashboard...", flush=True)
 
-    coverage = subprocess.run(
-        [sys.executable, "dashboard/build_coverage.py"], cwd=ROOT, check=False
-    )
-    if coverage.returncode != 0:
-        print("Coverage build failed; keeping the previous dashboard.", flush=True)
-        return False
+    for builder in ("build_coverage_sb.py", "build_coverage_tb.py"):
+        coverage = subprocess.run(
+            [sys.executable, f"dashboard/{builder}"], cwd=ROOT, check=False
+        )
+        if coverage.returncode != 0:
+            print(
+                f"Coverage build failed ({builder}); keeping the previous dashboard.",
+                flush=True,
+            )
+            return False
 
     dashboard = subprocess.run(
         [sys.executable, "dashboard/build_dashboard.py"], cwd=ROOT, check=False

@@ -138,7 +138,7 @@ def main() -> None:
     write_calibration_report(args.model_key, destination)
 
     if not args.skip_postprocess:
-        run([sys.executable, str(ROOT / "dashboard" / "build_coverage.py")])
+        run([sys.executable, str(ROOT / "dashboard" / "build_coverage_sb.py")])
         run([sys.executable, str(ROOT / "dashboard" / "build_dashboard.py")])
 
     print(f"Raw distribution: {destination / 'experiment_results.json'}")
