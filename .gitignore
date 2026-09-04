@@ -65,4 +65,7 @@ DASHBOARD.html
 scripts/notify_slack.py
 Review1/archived_experiment_data/
 ICLR_results/swebench
+ICLR_results/terminalbench/main/qwen35b-smoke
+ICLR_results/terminalbench
+.tools
 venv-glm/

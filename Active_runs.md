@@ -60,8 +60,9 @@ need rebuilding for serving/tbench.
 - **What:** TB-core 0.1.1 (80 tasks), 4 conditions (full-context@∞,
   truncation/tool-result-clear/structured-summarize @15k), pilot 25 tasks →
   main grid 15 tasks × 4 cond × 3 runs = 180 runs. Custom adapter
-  `tbench/agent_adapter.py` reuses fork's DefaultAgent (compression path
-  identical to SWE-bench); orchestrator `scripts/run_tbench.py`.
+  `scripts/bench_adapters/harbor_adapter.py` reuses fork's DefaultAgent
+  (compression path identical to SWE-bench); orchestrator
+  `scripts/run_experiment.py`.
 - **Host:** Dobby. vLLM Qwen3.5-35B-A3B on :8000 (TP=4, PID in
   `logs/vllm_qwen35_a3b.pid`). Podman API service on rootless socket
   (`podman system service`, started manually — restart after reboot).

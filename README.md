@@ -65,9 +65,10 @@ host-specific serving caveats.
 | `memory.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. |
 | `mini-swe-agent/` | Submodule — agent loop; primitives dispatched in `src/minisweagent/agents/default.py` via the `MSWEA_PRIMITIVE` env var. |
 | `scripts/run_experiment.py` | Main run harness. Conditions in the `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--max-workers`. |
-| `dashboard/build_coverage.py` | Regenerates the coverage CSVs from experiment results. |
+| `dashboard/build_coverage_sb.py` | Regenerates `COVERAGE.csv` from SWE-Bench experiment results. |
+| `dashboard/build_coverage_tb.py` | Regenerates `COVERAGE_TB.csv` from Terminal-Bench experiment results. |
 | `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
-| `scripts/run_experiment_expansion.py`, `tbench/` | Unified SWE-Bench/Terminal-Bench orchestrator and Terminal-Bench agent adapter. |
+| `scripts/run_experiment.py`, `scripts/bench_adapters/` | Unified SWE-Bench/Terminal-Bench orchestrator and benchmark adapters. |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task JSONs — `p100_all_100_tasks.json` (P100), `ablation_30tasks.json` (ABL-30), tbench sets. |
@@ -94,13 +95,14 @@ Data flow: `results/ablations/<exp>/<task>/<condition>/run_<n>/trajectory.json`
 
 ## Coverage tracking
 
-Two generated artifacts keep "what runs exist" honest — they are derived from
+Three generated artifacts keep "what runs exist" honest — they are derived from
 disk, never hand-edited:
 
-- **`COVERAGE.csv`** (git-tracked) — one row per (benchmark, model, primitive,
-  budget, depth) cell that has actual data: scope, status, tasks/runs on disk, and CSV
-  ingest state. Dirty/archived experiment data is intentionally excluded;
-  fresh Terminal-Bench results are included from their canonical data path.
+- **`COVERAGE.csv`** (git-tracked) — SWE-Bench coverage, with one row per
+  (model, primitive, budget, depth) cell that has actual data.
+- **`COVERAGE_TB.csv`** (git-tracked on the Terminal-Bench data branch) — the
+  equivalent Terminal-Bench coverage, including fixed P-15/P-40 cohort counts.
+  Both CSVs record scope, status, tasks/runs on disk, and source directories.
 - **`DASHBOARD.html`** (gitignored, regenerable) — the human-friendly view,
   published at
   **https://claude.ai/code/artifact/5952fe5d-6a12-4ae4-b9b2-0032b7e11fc0**.
@@ -110,10 +112,15 @@ disk, never hand-edited:
 After any run completes (or `Review1.csv` is rebuilt):
 
 ```bash
-python dashboard/build_coverage.py && python dashboard/build_dashboard.py
+python dashboard/build_coverage_sb.py
+python dashboard/build_coverage_tb.py
+python dashboard/build_dashboard.py
 ```
 
-then republish the dashboard to keep the link current.
+`dashboard/watch.py` runs the same three steps periodically. To publish the
+combined dashboard data branch, use `python dashboard/publish.py`; the publisher
+builds SWE-Bench coverage locally and fetches Terminal-Bench coverage from its
+dedicated data branch.
 
 ## Running experiments
 

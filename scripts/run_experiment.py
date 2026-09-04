@@ -33,11 +33,6 @@ Usage
 
 import argparse
 import json
-import os
-import subprocess
-import threading
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -46,7 +41,6 @@ from bench_adapters import BENCHMARKS, create_benchmark
 # ── Configuration ──────────────────────────────────────────────────────────────
 
 WORKSPACE_ROOT       = Path(__file__).parent.parent
-MINI_SWE_AGENT       = WORKSPACE_ROOT / "mini-swe-agent"
 AGENT_CONFIG         = WORKSPACE_ROOT / "configs/config-qwen-vllm.yaml"
 TASKS_FILE           = WORKSPACE_ROOT / "task_lists" / "selected_tasks.json"
 TASKS_FILE_EXPLICIT  = False
@@ -110,14 +104,6 @@ BENCHMARK = None
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def run_key(instance_id: str, condition: str, run_num: int) -> str:
-    return f"{instance_id}__{condition}__r{run_num}"
-
-
-def run_dir(instance_id: str, condition: str, run_num: int) -> Path:
-    return model_results_dir() / instance_id / condition / f"run_{run_num}"
-
-
 def results_file_path() -> Path:
     return model_results_dir() / "experiment_results.json"
 
@@ -143,179 +129,6 @@ def save_results(results: list[dict]) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(results, indent=2))
 
-
-# ── Agent run ──────────────────────────────────────────────────────────────────
-
-def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run_num: int,
-              config: Path | None = None, compression_ratio: float = 0.5) -> dict:
-    """
-    Run mini-swe-agent for one (task, condition, run) combination.
-
-    condition = "full-context" | "truncation" | "summarization" | "online-trc"
-    primitive = MSWEA_PRIMITIVE value
-    budget    = MSWEA_TOKEN_BUDGET value (999999999 = never fires)
-    config    = agent config YAML; defaults to global AGENT_CONFIG
-    """
-    key = run_key(instance_id, condition, run_num)
-    out = run_dir(instance_id, condition, run_num)
-    out.mkdir(parents=True, exist_ok=True)
-
-    traj_file      = out / "trajectory.json"
-    token_log_file = out / "token_log.json"
-    log_file       = out / "agent.log"
-
-    env = os.environ.copy()
-    env["MSWEA_COST_TRACKING"]      = "ignore_errors"
-    env["MSWEA_PRIMITIVE"]          = primitive
-    env["MSWEA_TOKEN_BUDGET"]       = str(budget)
-    env["MSWEA_COMPRESSION_RATIO"]  = str(compression_ratio)
-    env["MSWEA_TOKEN_LOG_PATH"]     = str(token_log_file)
-    env["MSWEA_RUN_KEY"]            = key   # used by staggered_random for reproducible seeding
-    env.update(BENCHMARK.agent_environment())
-
-    local_bin = str(Path.home() / ".local" / "bin")
-    if local_bin not in env.get("PATH", ""):
-        env["PATH"] = local_bin + ":" + env.get("PATH", "")
-
-    # memory.py lives in the repo root; add it to PYTHONPATH so default.py can
-    # `import memory` regardless of the cwd the subprocess starts in.
-    env["PYTHONPATH"] = str(WORKSPACE_ROOT) + (":" + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
-
-    # Build -c config chain. mini-swe-agent merges configs in order, later overriding earlier.
-    # When a condition has a config (e.g. OTRC's prompts), load it first, then layer the user's
-    # --agent-config on top so the model section (model_name, api_base) wins.
-    config_chain = []
-    if config is not None:
-        config_chain.append(str(config))
-        if AGENT_CONFIG and Path(AGENT_CONFIG) != Path(config):
-            config_chain.append(str(AGENT_CONFIG))
-    else:
-        config_chain.append(str(AGENT_CONFIG))
-    cmd = BENCHMARK.build_agent_command(instance_id, config_chain, traj_file, STEP_LIMIT)
-
-    t0 = time.time()
-    returncode = -1
-    try:
-        with open(log_file, "w") as log:
-            proc = subprocess.Popen(
-                cmd, cwd=MINI_SWE_AGENT, env=env,
-                stdout=log, stderr=subprocess.STDOUT,
-            )
-            proc.wait(timeout=AGENT_TIMEOUT)
-            returncode = proc.returncode
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        print(f"    ! Timeout after {AGENT_TIMEOUT}s")
-    except Exception as exc:
-        print(f"    ! Launch error: {exc}")
-
-    e2e_latency = round(time.time() - t0, 2)
-
-    # The adapter translates its native trajectory into result fields.
-    outcome = BENCHMARK.empty_outcome()
-    if traj_file.exists():
-        try:
-            outcome = BENCHMARK.parse_trajectory(traj_file)
-        except Exception as exc:
-            print(f"    ! Trajectory parse error: {exc}")
-
-    # ── Parse token log ───────────────────────────────────────────────────────
-    tok: dict = {}
-    if token_log_file.exists():
-        try:
-            tok = json.loads(token_log_file.read_text())
-        except Exception:
-            pass
-
-    result = {
-        "key":          key,
-        "instance_id":  instance_id,
-        "condition":    condition,
-        "primitive":    primitive,
-        "budget":             budget,
-        "compression_ratio":  compression_ratio,
-        "is_baseline":        budget == 999_999_999,
-        "run_num":      run_num,
-        "timestamp":    datetime.now().isoformat(),
-        # process
-        "returncode":    returncode,
-        "e2e_latency_s": e2e_latency,
-        # token log — cumulative totals
-        "total_prompt_tokens":     tok.get("total_prompt_tokens", 0),
-        "total_completion_tokens": tok.get("total_completion_tokens", 0),
-        "total_tokens":            tok.get("total_tokens", 0),
-        "llm_latency_s":           tok.get("total_latency_s", 0.0),
-        "mean_latency_s":          tok.get("mean_latency_s", 0.0),
-        # per-step context window sizes
-        "step_prompt_tokens":      tok.get("step_prompt_tokens", []),
-        # compression
-        "compression_events":             tok.get("compression_events", 0),
-        "compression_event_steps":        tok.get("compression_event_steps", []),
-        "context_tokens_at_compression":  tok.get("context_tokens_at_compression", []),
-        "context_tokens_after_compression": tok.get("context_tokens_after_compression", []),
-        "total_tokens_saved":             tok.get("total_tokens_saved", 0),
-        "mean_compression_ratio":         tok.get("mean_compression_ratio", 1.0),
-        "summarization_prompt_tokens":    tok.get("summarization_prompt_tokens", 0),
-        "summarization_latency_s":        tok.get("summarization_latency_s", 0.0),
-        "trc_truncation_fallback_events": tok.get("trc_truncation_fallback_events", 0),
-        # online-trc specific
-        "online_trc_total_tokens_saved": tok.get("online_trc_total_tokens_saved", 0),
-        "online_trc_clears":             tok.get("online_trc_clears", 0),
-        "online_trc_flags":              tok.get("online_trc_flags", []),
-    }
-    result.update(outcome)
-
-    icon = "P" if outcome["submission_generated"] else "x"
-    print(
-        f"    [{icon}] e2e={e2e_latency:.0f}s  calls={outcome['n_calls']:3d}  "
-        f"comp_events={result['compression_events']:2d}  "
-        f"exit={outcome['exit_status']}"
-    )
-    return result
-
-
-# ── All agent runs ─────────────────────────────────────────────────────────────
-
-def run_all_agents(tasks: list[dict]) -> list[dict]:
-    results      = load_existing_results()
-    existing_keys = {r["key"] for r in results}
-
-    # Build the full work list: tasks × conditions × runs
-    needed = []
-    for t in tasks:
-        for cond in CONDITIONS:
-            for rn in range(1, RUNS_PER_TASK + 1):
-                k = run_key(t["instance_id"], cond["condition"], rn)
-                if k not in existing_keys:
-                    needed.append((t["instance_id"], cond, rn))
-
-    total = len(tasks) * len(CONDITIONS) * RUNS_PER_TASK
-    done  = total - len(needed)
-    print(f"\nAgent runs: {total} total ({done} done, {len(needed)} remaining)")
-
-    lock      = threading.Lock()
-    completed = [done]
-
-    def _run_one(args):
-        iid, cond, rn = args
-        return run_agent(iid, cond["condition"], cond["primitive"], cond["budget"], rn,
-                         config=cond.get("config"), compression_ratio=COMPRESSION_RATIO)
-
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        futures = {pool.submit(_run_one, item): item for item in needed}
-        for fut in as_completed(futures):
-            r = fut.result()
-            with lock:
-                completed[0] += 1
-                results.append(r)
-                existing_keys.add(r["key"])
-                save_results(results)
-                print(
-                    f"  [{completed[0]:4d}/{total}]  {r['condition']:<14} r{r['run_num']} | "
-                    f"{r['instance_id']}  calls={r['n_calls']} exit={r['exit_status']}"
-                )
-
-    return results
 
 
 # ── Run metadata ───────────────────────────────────────────────────────────────
@@ -490,7 +303,18 @@ def main() -> None:
     _write_run_info(len(tasks), total, budget)
 
     if not args.eval_only:
-        results = run_all_agents(tasks)
+        results = BENCHMARK.run_experiments(
+            tasks=tasks,
+            conditions=CONDITIONS,
+            runs_per_task=RUNS_PER_TASK,
+            existing_results=load_existing_results(),
+            save=save_results,
+            agent_config=AGENT_CONFIG,
+            step_limit=STEP_LIMIT,
+            agent_timeout=AGENT_TIMEOUT,
+            max_workers=MAX_WORKERS,
+            compression_ratio=COMPRESSION_RATIO,
+        )
     else:
         results = load_existing_results()
         if not results:
