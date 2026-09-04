@@ -675,9 +675,9 @@ def write_token_log(agent) -> None:
 def token_log_dict(agent) -> dict:
     """Build the token-log dict from an agent's _mem_* accumulators.
 
-    Used by write_token_log (env-var path, SWE-bench harness) and by
-    tbench/agent_adapter.py, which writes per-task logs to explicit paths
-    because the terminal-bench harness runs concurrent tasks in one process.
+    Used by write_token_log (env-var path, SWE-bench harness) and by the
+    Terminal-Bench Harbor adapter, which writes per-task logs to explicit
+    paths because the harness runs concurrent tasks in one process.
     """
     n = len(agent._mem_call_latencies)
     data = {

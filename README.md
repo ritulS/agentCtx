@@ -68,7 +68,7 @@ host-specific serving caveats.
 | `dashboard/build_coverage_sb.py` | Regenerates `COVERAGE.csv` from SWE-Bench experiment results. |
 | `dashboard/build_coverage_tb.py` | Regenerates `COVERAGE_TB.csv` from Terminal-Bench experiment results. |
 | `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
-| `scripts/run_experiment_expansion.py`, `tbench/` | Unified SWE-Bench/Terminal-Bench orchestrator and Terminal-Bench agent adapter. |
+| `scripts/run_experiment.py`, `scripts/bench_adapters/` | Unified SWE-Bench/Terminal-Bench orchestrator and benchmark adapters. |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task JSONs — `p100_all_100_tasks.json` (P100), `ablation_30tasks.json` (ABL-30), tbench sets. |

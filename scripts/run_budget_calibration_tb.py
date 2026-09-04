@@ -343,7 +343,7 @@ def main() -> None:
     print(f"Output: {destination}")
     cmd = [
         str(harbor), "run",
-        "--agent", "tbench.harbor_adapter:CompressionAgent",
+        "--agent", "scripts.bench_adapters.harbor_adapter:CompressionAgent",
         "--model", model_name,
         "--path", str(dataset_path),
         "--n-attempts", "1",
