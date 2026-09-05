@@ -6,6 +6,9 @@ By default, the P-40 main and ABL-15 ablation result cells below
 ``analysis/outcomes/terminalbench_outcomes.csv``.  The recursive search also
 supports namespaced result trees such as ``main/p80_rootless/<model>/<cell>``.
 
+Per-step prompt and completion token arrays are stored as JSON in CSV cells;
+missing or null arrays produce empty cells.
+
 Usage:
     python3 analysis/aggregate_terminalbench_results.py
     python3 analysis/aggregate_terminalbench_results.py --source-root /path/to/results
@@ -61,7 +64,8 @@ FIELDNAMES = [
     "resolved", "reward", "failure_mode", "execution_state", "agent_started",
     "pre_agent_failure", "returncode", "exit_status", "submission_generated",
     "step_count", "total_tokens", "total_prompt_tokens",
-    "total_completion_tokens", "latency_e2e_s", "latency_agent_s",
+    "total_completion_tokens", "step_prompt_tokens", "step_completion_tokens",
+    "latency_e2e_s", "latency_agent_s",
     "latency_llm_s", "compression_events", "trc_fallback_events",
     "online_trc_clears", "total_tokens_saved", "online_trc_tokens_saved",
     "summarization_prompt_tokens", "summarization_latency_s",
@@ -173,6 +177,14 @@ def normalized_row(
         "total_tokens": row.get("total_tokens"),
         "total_prompt_tokens": row.get("total_prompt_tokens"),
         "total_completion_tokens": row.get("total_completion_tokens"),
+        "step_prompt_tokens": (
+            json.dumps(row["step_prompt_tokens"])
+            if row.get("step_prompt_tokens") is not None else ""
+        ),
+        "step_completion_tokens": (
+            json.dumps(row["step_completion_tokens"])
+            if row.get("step_completion_tokens") is not None else ""
+        ),
         "latency_e2e_s": row.get("e2e_latency_s"),
         "latency_agent_s": row.get("agent_latency_s"),
         "latency_llm_s": row.get("llm_latency_s"),
