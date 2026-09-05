@@ -6,6 +6,9 @@ and ``ICLR_results/terminalbench/**/experiment_results.json``.  Copying a
 Terminal-Bench result tree from another machine beneath ``ICLR_results/`` is
 therefore sufficient; re-run this script to refresh its CSV.
 
+Per-step prompt and completion token arrays are stored as JSON in CSV cells;
+missing or null arrays produce empty cells.
+
 Usage:
     python3 analysis/aggregate_benchmark_results.py
     python3 analysis/aggregate_benchmark_results.py --benchmark swebench
@@ -54,7 +57,8 @@ FIELDNAMES = [
     "seeded_from",
     "exit_status", "patch_generated", "submission_generated", "reward",
     "step_count", "total_tokens", "total_prompt_tokens",
-    "total_completion_tokens", "latency_e2e_s", "latency_llm_s",
+    "total_completion_tokens", "step_prompt_tokens", "step_completion_tokens",
+    "latency_e2e_s", "latency_llm_s",
     "compression_events", "trc_fallback_events", "online_trc_clears",
 ]
 
@@ -153,6 +157,16 @@ def normalized_row(
         "compression_events": row.get("compression_events", 0),
         "trc_fallback_events": row.get("trc_truncation_fallback_events", 0),
         "online_trc_clears": row.get("online_trc_clears", 0),
+        # Preserve every recorded step in a JSON array inside one CSV cell.
+        # Missing/null sequences stay blank, distinct from a recorded [].
+        "step_prompt_tokens": (
+            json.dumps(row["step_prompt_tokens"])
+            if row.get("step_prompt_tokens") is not None else ""
+        ),
+        "step_completion_tokens": (
+            json.dumps(row["step_completion_tokens"])
+            if row.get("step_completion_tokens") is not None else ""
+        ),
     }
 
 
