@@ -241,7 +241,44 @@ class TerminalBench:
             f"\nHarbor batch: {condition_name} r{run_num}, "
             f"{len(task_names)} tasks"
         )
-        subprocess.run(command, cwd=self.workspace_root, env=env, check=True)
+        if os.environ.get("TB_REAP_FINISHED_HARBOR") != "1":
+            subprocess.run(command, cwd=self.workspace_root, env=env, check=True)
+        else:
+            proc = subprocess.Popen(command, cwd=self.workspace_root, env=env)
+            reaped = False
+            while proc.poll() is None:
+                time.sleep(10)
+                try:
+                    summary = json.loads((job_dir / "result.json").read_text())
+                    paths = self._trial_result_paths(job_dir)
+                    trials = [json.loads(p.read_text()) for p in paths]
+                    complete = (
+                        summary.get("finished_at")
+                        and len(trials) == len(task_names)
+                        and {t["task_name"] for t in trials} == set(task_names)
+                        and all(t.get("finished_at") for t in trials)
+                    )
+                    if not complete:
+                        continue
+                    latest = max(
+                        p.stat().st_mtime
+                        for p in job_dir.rglob("*") if p.is_file()
+                    )
+                    if time.time() - latest < 120:
+                        continue
+                except (OSError, ValueError, KeyError, TypeError):
+                    continue
+                print(f"Reaping finished Harbor process: {job_dir}", flush=True)
+                proc.terminate()
+                try:
+                    proc.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+                reaped = True
+                break
+            if not reaped and proc.returncode:
+                raise subprocess.CalledProcessError(proc.returncode, command)
         rows = [
             self._normalize_trial(path.parent, condition, run_num, compression_ratio)
             for path in self._trial_result_paths(job_dir)
