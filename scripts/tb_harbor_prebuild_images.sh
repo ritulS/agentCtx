@@ -27,9 +27,10 @@ PODMAN="${TB_PODMAN:-/home/rs67788/.local/bin/podman}"
 PYTHON_BIN="${TB_PYTHON_BIN:-$WS/venv-harbor/bin/python}"
 UV_BIN="${TB_UV_BIN:-$WS/.tools/uv}"
 LOG="${TB_PREBUILD_LOG:-$WS/logs/tb1_harbor_prebuild.log}"
+IMAGE_PREFIX="${TB_IMAGE_PREFIX:-tb1}"
 FORCE="${FORCE:-0}"
 ROOTLESS_CHOWN_WORKAROUND="${ROOTLESS_CHOWN_WORKAROUND:-0}"
-SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/tb1-harbor-prebuild.XXXXXX")"
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/${IMAGE_PREFIX}-harbor-prebuild.XXXXXX")"
 trap 'rm -rf "$SCRATCH"' EXIT
 
 mkdir -p "$WS/logs"
@@ -216,7 +217,7 @@ for task in "${TASKS[@]}"; do
         continue
     fi
 
-    main_image="localhost/tb1-${task}-main:latest"
+    main_image="localhost/${IMAGE_PREFIX}-${task}-main:latest"
     service_args=()
     task_failed=0
 
@@ -228,7 +229,7 @@ for task in "${TASKS[@]}"; do
     if [[ -f "$compose" ]]; then
         while IFS=$'\t' read -r service context dockerfile; do
             [[ -n "$service" ]] || continue
-            service_image="localhost/tb1-${task}-${service}:latest"
+            service_image="localhost/${IMAGE_PREFIX}-${task}-${service}:latest"
             if ! build_context "$task" "$service" "$env_dir/$context" "$dockerfile" "$service_image" 0; then
                 task_failed=1
             else

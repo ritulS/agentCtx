@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 INF = 999_999_999
 EXPECTED_TASKS = 80
 DATASET = "terminal-bench-core@0.1.1"
+BENCHMARK_VERSION = "1.0"
 DEFAULT_DATASET_PATH = ROOT / "data" / "tb1-harbor-0.1.1"
 MODEL_LABELS = {
     "qwen35b": "Qwen3.5-35B-A3B",
@@ -107,7 +108,7 @@ def normalize_trial(
     row = {
         "key": f"{task}__full-context__r{run_num}",
         "benchmark": "terminal-bench",
-        "benchmark_version": "1.0",
+        "benchmark_version": BENCHMARK_VERSION,
         "dataset": DATASET,
         "instance_id": task,
         "condition": "full-context",
@@ -189,6 +190,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--n-concurrent", type=int, default=4)
     parser.add_argument(
+        "--agent-timeout-multiplier",
+        type=float,
+        default=1.0,
+        help="multiply each task's agent timeout without changing verifier timeouts",
+    )
+    parser.add_argument(
         "--n-tasks",
         type=int,
         default=None,
@@ -222,13 +229,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--docker-host", default=None,
                         help="rootless Podman API socket (default: /run/user/<uid>/podman/podman.sock)")
     parser.add_argument("--skip-postprocess", action="store_true")
+    parser.add_argument("--expected-tasks", type=int, default=EXPECTED_TASKS)
+    parser.add_argument("--benchmark-version", default=BENCHMARK_VERSION)
+    parser.add_argument("--dataset-name", default=DATASET)
+    parser.add_argument("--result-benchmark", default="terminalbench")
+    parser.add_argument("--job-benchmark", default="terminalbench")
+    parser.add_argument("--job-prefix", default="tb1")
+    parser.add_argument("--display-name", default="Terminal-Bench 1.0")
     return parser.parse_args()
 
 
 def main() -> None:
+    global BENCHMARK_VERSION, DATASET
     args = parse_args()
+    if args.expected_tasks < 1:
+        raise SystemExit("--expected-tasks must be positive")
+    BENCHMARK_VERSION = args.benchmark_version
+    DATASET = args.dataset_name
     if not 1 <= args.run_num <= 5:
         raise SystemExit("--run-num must be between 1 and 5")
+    if args.agent_timeout_multiplier <= 0:
+        raise SystemExit("--agent-timeout-multiplier must be positive")
     config = args.agent_config.resolve()
     harbor = args.harbor_bin.resolve()
     dataset_path = args.dataset_path.resolve()
@@ -240,11 +261,14 @@ def main() -> None:
         raise SystemExit(
             f"Harbor-format Terminal-Bench dataset not found: {dataset_path}"
         )
-    dataset_tasks = [path for path in dataset_path.iterdir() if path.is_dir()]
-    if len(dataset_tasks) != EXPECTED_TASKS:
+    dataset_tasks = [
+        path for path in dataset_path.iterdir()
+        if path.is_dir() and (path / "task.toml").is_file()
+    ]
+    if len(dataset_tasks) != args.expected_tasks:
         raise SystemExit(
             f"Terminal-Bench dataset has {len(dataset_tasks)} tasks, "
-            f"expected {EXPECTED_TASKS}: {dataset_path}"
+            f"expected {args.expected_tasks}: {dataset_path}"
         )
 
     tasks_file = args.tasks_file.resolve() if args.tasks_file else None
@@ -266,13 +290,13 @@ def main() -> None:
             raise SystemExit("every entry in the task list must be a non-empty string")
         args.task_name = task_names
 
-    selected_task_count = len(args.task_name) if args.task_name else EXPECTED_TASKS
+    selected_task_count = len(args.task_name) if args.task_name else args.expected_tasks
     if args.exclude_task_name:
-        selected_task_count = EXPECTED_TASKS - len(set(args.exclude_task_name))
+        selected_task_count = args.expected_tasks - len(set(args.exclude_task_name))
     if args.n_tasks is None:
         args.n_tasks = selected_task_count
-    if not 1 <= args.n_tasks <= EXPECTED_TASKS:
-        raise SystemExit("--n-tasks must be between 1 and 80")
+    if not 1 <= args.n_tasks <= args.expected_tasks:
+        raise SystemExit(f"--n-tasks must be between 1 and {args.expected_tasks}")
     if args.task_name and args.exclude_task_name:
         raise SystemExit("--task-name and --exclude-task-name cannot be combined")
     if len(set(args.task_name)) != len(args.task_name):
@@ -285,7 +309,7 @@ def main() -> None:
     for task_name in args.exclude_task_name:
         if not (dataset_path / task_name).is_dir():
             raise SystemExit(f"excluded task not found in dataset: {task_name}")
-    expected_after_exclusions = EXPECTED_TASKS - len(set(args.exclude_task_name))
+    expected_after_exclusions = args.expected_tasks - len(set(args.exclude_task_name))
     if args.exclude_task_name and args.n_tasks != expected_after_exclusions:
         raise SystemExit(
             "--n-tasks must equal the dataset size after exclusions: "
@@ -296,7 +320,7 @@ def main() -> None:
         raise SystemExit("unknown --model-key: provide --model-label explicitly")
 
     model_name, api_base = load_model_config(config)
-    result_root = ROOT / "ICLR_results/terminalbench/main"
+    result_root = ROOT / "ICLR_results" / args.result_benchmark / "main"
     if args.result_scope:
         result_root /= args.result_scope
     destination = result_root / args.model_key / "di__binf__fc"
@@ -304,10 +328,10 @@ def main() -> None:
     # Keep infrastructure-specific Harbor state out of the canonical ICLR
     # results hierarchy documented in ICLR_results/README.md.
     jobs_dir = (
-        ROOT / "logs" / "harbor_jobs" / "terminalbench" / "main"
+        ROOT / "logs" / "harbor_jobs" / args.job_benchmark / "main"
         / args.model_key / "di__binf__fc"
     )
-    job_name = args.job_name or f"tb1-{args.model_key}-fc-run{args.run_num}"
+    job_name = args.job_name or f"{args.job_prefix}-{args.model_key}-fc-run{args.run_num}"
     job_dir = jobs_dir / job_name
     docker_host = args.docker_host or f"unix:///run/user/{os.getuid()}/podman/podman.sock"
 
@@ -337,7 +361,7 @@ def main() -> None:
 
     phase = "FC calibration" if args.run_num == 1 else "FC repetition"
     print(
-        f"{phase}: Terminal-Bench 1.0, {label}, "
+        f"{phase}: {args.display_name}, {label}, "
         f"run_{args.run_num}, {args.n_tasks} tasks"
     )
     print(f"Output: {destination}")
@@ -349,6 +373,7 @@ def main() -> None:
         "--n-attempts", "1",
         "--n-tasks", str(args.n_tasks),
         "--n-concurrent", str(args.n_concurrent),
+        "--agent-timeout-multiplier", str(args.agent_timeout_multiplier),
         "--env", "docker",
         "--cpus", "ignore",
         "--jobs-dir", str(jobs_dir),
@@ -374,9 +399,8 @@ def main() -> None:
             f"Harbor produced {len(current_rows)} trial results, expected {args.n_tasks}; "
             f"raw job retained at {job_dir}"
         )
-    run_rows = [
-        row for row in aggregate_rows if int(row.get("run_num", 1)) == args.run_num
-    ]
+    current_names = {str(row["instance_id"]) for row in current_rows}
+    run_rows = [row for row in aggregate_rows if int(row.get("run_num", 1)) == args.run_num]
     aggregate_names = {str(row["instance_id"]) for row in run_rows}
     dataset_names = {path.name for path in dataset_tasks}
     if args.task_name:
@@ -385,24 +409,29 @@ def main() -> None:
         expected_names = dataset_names - set(args.exclude_task_name)
     else:
         expected_names = dataset_names
-    unexpected_names = sorted(aggregate_names - expected_names)
+    unexpected_names = sorted(current_names - expected_names)
     if unexpected_names:
         raise SystemExit(
-            "aggregate contains tasks outside the selected result scope: "
+            "Harbor job contains tasks outside the selected task scope: "
             + ", ".join(unexpected_names)
         )
-    missing_names = sorted(expected_names - aggregate_names)
+    missing_current_names = sorted(expected_names - current_names)
+    if missing_current_names:
+        raise SystemExit(
+            "Harbor job is missing selected tasks: " + ", ".join(missing_current_names)
+        )
+    missing_names = sorted(dataset_names - aggregate_names)
     manifest = {
         "dataset": DATASET,
-        "benchmark": "terminalbench",
+        "benchmark": args.result_benchmark,
         "track": "main",
         "result_scope": args.result_scope,
         "model_key": args.model_key,
         "cell": "di__binf__fc",
         "run_num": args.run_num,
-        "completed_tasks": len(aggregate_names),
-        "expected_tasks": len(expected_names),
-        "dataset_tasks": EXPECTED_TASKS,
+        "completed_tasks": len(aggregate_names & dataset_names),
+        "expected_tasks": len(dataset_names),
+        "dataset_tasks": args.expected_tasks,
         "complete": not missing_names,
         "missing_tasks": missing_names,
         "tasks_file": str(tasks_file.relative_to(ROOT)) if tasks_file and tasks_file.is_relative_to(ROOT) else (str(tasks_file) if tasks_file else None),
@@ -414,7 +443,7 @@ def main() -> None:
     )
     print(
         f"Collected this phase: {len(current_rows)}; "
-        f"result-scope run_{args.run_num}: {len(aggregate_names)}/{len(expected_names)}; "
+        f"dataset run_{args.run_num}: {len(aggregate_names & dataset_names)}/{len(dataset_names)}; "
         f"all runs aggregate: {len(aggregate_rows)}"
     )
 
