@@ -7,7 +7,8 @@ Terminal-Bench result tree from another machine beneath ``ICLR_results/`` is
 therefore sufficient; re-run this script to refresh its CSV.
 
 Per-step prompt and completion token arrays are stored as JSON in CSV cells;
-missing or null arrays produce empty cells.
+missing or null arrays are filled from the run's token_log.json when available,
+and otherwise produce empty cells.
 
 Usage:
     python3 analysis/aggregate_benchmark_results.py
@@ -123,6 +124,30 @@ def normalized_row(
     condition = row.get("condition") or ""
     budget = row.get("budget")
     state = execution_state(row)
+    token_fields = ("step_prompt_tokens", "step_completion_tokens")
+    step_tokens = {field: row.get(field) for field in token_fields}
+    task = row.get("instance_id") or row.get("task_name")
+    run_num = row.get("run_num")
+    if (any(value is None for value in step_tokens.values())
+            and task and condition and run_num is not None
+            and not row.get("seeded_from")):
+        token_log = source.parent / task / condition / f"run_{run_num}" / "token_log.json"
+        try:
+            tokens = json.loads(token_log.read_text())
+            if not isinstance(tokens, dict):
+                raise ValueError("expected a token log object")
+            # A rerun may have replaced the log while the result still refers
+            # to an earlier attempt. Do not combine different step sequences.
+            if any(step_tokens[field] is not None and tokens.get(field) is not None
+                   and step_tokens[field] != tokens[field] for field in token_fields):
+                raise ValueError("recorded step tokens differ from token log; skipping fallback")
+            for field in token_fields:
+                if step_tokens[field] is None:
+                    step_tokens[field] = tokens.get(field)
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError) as exc:
+            print(f"WARNING: could not read {token_log}: {exc}")
     return {
         "benchmark": benchmark,
         "experiment_section": section,
@@ -160,12 +185,12 @@ def normalized_row(
         # Preserve every recorded step in a JSON array inside one CSV cell.
         # Missing/null sequences stay blank, distinct from a recorded [].
         "step_prompt_tokens": (
-            json.dumps(row["step_prompt_tokens"])
-            if row.get("step_prompt_tokens") is not None else ""
+            json.dumps(step_tokens["step_prompt_tokens"])
+            if step_tokens["step_prompt_tokens"] is not None else ""
         ),
         "step_completion_tokens": (
-            json.dumps(row["step_completion_tokens"])
-            if row.get("step_completion_tokens") is not None else ""
+            json.dumps(step_tokens["step_completion_tokens"])
+            if step_tokens["step_completion_tokens"] is not None else ""
         ),
     }
 
