@@ -3,8 +3,13 @@
 
 By default, the P-40 main and ABL-15 ablation result cells below
 ``ICLR_results/terminalbench`` are aggregated into
-``analysis/outcomes/terminalbench_outcomes.csv``.  The recursive search also
-supports namespaced result trees such as ``main/p80_rootless/<model>/<cell>``.
+``analysis/outcomes/terminalbench_outcomes.csv``.  Namespaced result trees
+such as ``main/p80_rootless/<model>/<cell>`` and
+``main/p80_subuid_required/<model>/<cell>`` are also collected; each section
+is filtered by its own task list (see ``SECTION_TASK_LISTS``) and the
+``experiment_section`` column records the full section path, so the P-40
+runs under ``main/<model>`` and the P-80 re-runs of the same tasks stay
+distinguishable.
 
 Per-step prompt and completion token arrays are stored as JSON in CSV cells;
 missing or null arrays produce empty cells.
@@ -13,6 +18,7 @@ Usage:
     python3 analysis/aggregate_terminalbench_results.py
     python3 analysis/aggregate_terminalbench_results.py --source-root /path/to/results
     python3 analysis/aggregate_terminalbench_results.py --output /tmp/tb.csv
+    python3 analysis/aggregate_terminalbench_results.py --max-runs 5
 """
 
 from __future__ import annotations
@@ -29,7 +35,18 @@ DEFAULT_SOURCE_ROOT = ROOT / "ICLR_results" / "terminalbench"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "outcomes" / "terminalbench_outcomes.csv"
 DEFAULT_P40_TASKS = ROOT / "task_lists" / "tbench_p40.json"
 DEFAULT_ABL15_TASKS = ROOT / "task_lists" / "tbench_abl15.json"
+DEFAULT_P80_ROOTLESS_TASKS = ROOT / "task_lists" / "tbench_p80_rootless.json"
+DEFAULT_P80_SUBUID_TASKS = ROOT / "task_lists" / "tbench_p80_subuid_required.json"
 RUNS_PER_TASK = 3
+
+# experiment_section (path below the source root, minus <model>/<cell>) ->
+# task list that selects which instances of that section are aggregated.
+SECTION_TASK_LISTS = {
+    "main": DEFAULT_P40_TASKS,
+    "ablation": DEFAULT_ABL15_TASKS,
+    "main/p80_rootless": DEFAULT_P80_ROOTLESS_TASKS,
+    "main/p80_subuid_required": DEFAULT_P80_SUBUID_TASKS,
+}
 
 MODEL_BUDGETS = {
     "qwen35b": ("b2k", "b3k", "b4k"),
@@ -227,40 +244,59 @@ def expected_cells(section: str, model: str) -> set[str]:
     return cells
 
 
-def result_files(source_root: Path) -> Iterable[Path]:
-    """Yield only direct P-40 main and ABL-15 ablation grid cells."""
-    for section in ("main", "ablation"):
-        for path in sorted((source_root / section).glob("*/*/experiment_results.json")):
-            model, cell = path.parts[-3:-1]
-            if cell in expected_cells(section, model):
-                yield path
+def result_files(
+    source_root: Path, sections: Iterable[str]
+) -> Iterable[tuple[str, Path]]:
+    """Yield (section, path) for grid cells in each known section.
+
+    Sections are matched on the full path below the source root, so
+    ``main/<model>/<cell>`` and ``main/p80_rootless/<model>/<cell>`` are
+    distinct sections.  The grid of expected cells is taken from the section's
+    top-level directory (``main`` or ``ablation``).
+    """
+    known = set(sections)
+    for path in sorted(source_root.rglob("experiment_results.json")):
+        section, model, cell = path_metadata(path, source_root)
+        if section not in known:
+            continue
+        if cell in expected_cells(section.split("/", 1)[0], model):
+            yield section, path
 
 
 def build(
-    source_root: Path, output: Path, p40_tasks_path: Path, abl15_tasks_path: Path
+    source_root: Path,
+    output: Path,
+    section_task_lists: dict[str, Path],
+    max_runs: int = RUNS_PER_TASK,
 ) -> int:
     if not source_root.is_dir():
         raise SystemExit(f"input directory does not exist: {source_root}")
 
     task_names = {
-        "main": load_task_names(p40_tasks_path),
-        "ablation": load_task_names(abl15_tasks_path),
+        section: load_task_names(path)
+        for section, path in section_task_lists.items()
     }
-    sources = list(result_files(source_root))
+    sources = list(result_files(source_root, task_names))
     rows: list[dict[str, Any]] = []
     bad_sources: list[str] = []
-    for source in sources:
+    dropped_runs: dict[str, int] = {}
+    for section, source in sources:
         try:
-            section = source.relative_to(source_root).parts[0]
-            selected = (
-                row for row in load_records(source)
-                if (row.get("instance_id") or row.get("task_name")) in task_names[section]
-                and isinstance(row.get("run_num"), int)
-                and 1 <= row["run_num"] <= RUNS_PER_TASK
-            )
-            rows.extend(normalized_row(row, source_root, source) for row in selected)
+            records = load_records(source)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             bad_sources.append(f"{source}: {exc}")
+            continue
+        for row in records:
+            if (row.get("instance_id") or row.get("task_name")) not in task_names[section]:
+                continue
+            run_num = row.get("run_num")
+            if not isinstance(run_num, int) or run_num < 1:
+                continue
+            if run_num > max_runs:
+                key = display_path(source)
+                dropped_runs[key] = dropped_runs.get(key, 0) + 1
+                continue
+            rows.append(normalized_row(row, source_root, source))
 
     rows.sort(key=lambda row: (
         row["experiment_section"], row["model_key"], row["cell"],
@@ -273,6 +309,8 @@ def build(
         writer.writerows(rows)
 
     print(f"terminalbench: wrote {len(rows):,} runs from {len(sources):,} files to {output}")
+    for source_name, count in sorted(dropped_runs.items()):
+        print(f"NOTE: dropped {count} runs with run_num > {max_runs} from {source_name}")
     for message in bad_sources:
         print(f"WARNING: skipped {message}")
     return len(bad_sources)
@@ -284,14 +322,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--p40-tasks", type=Path, default=DEFAULT_P40_TASKS)
     parser.add_argument("--abl15-tasks", type=Path, default=DEFAULT_ABL15_TASKS)
+    parser.add_argument(
+        "--p80-rootless-tasks", type=Path, default=DEFAULT_P80_ROOTLESS_TASKS
+    )
+    parser.add_argument(
+        "--p80-subuid-tasks", type=Path, default=DEFAULT_P80_SUBUID_TASKS
+    )
+    parser.add_argument(
+        "--max-runs", type=int, default=RUNS_PER_TASK,
+        help="keep run_num 1..N per task (default %(default)s)",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    section_task_lists = {
+        "main": args.p40_tasks.resolve(),
+        "ablation": args.abl15_tasks.resolve(),
+        "main/p80_rootless": args.p80_rootless_tasks.resolve(),
+        "main/p80_subuid_required": args.p80_subuid_tasks.resolve(),
+    }
     if build(
         args.source_root.resolve(), args.output.resolve(),
-        args.p40_tasks.resolve(), args.abl15_tasks.resolve(),
+        section_task_lists, args.max_runs,
     ):
         raise SystemExit(1)
 
