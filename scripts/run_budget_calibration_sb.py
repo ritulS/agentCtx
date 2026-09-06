@@ -21,7 +21,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-INF = 999_999_999
+AGENTCTX_SRC = ROOT / "src"
+if str(AGENTCTX_SRC) not in sys.path:
+    sys.path.insert(0, str(AGENTCTX_SRC))
+
+from agentctx import INFINITE_BUDGET  # noqa: E402
+
 DEFAULT_TASKS = ROOT / "task_lists" / "p100_all_100_tasks.json"
 MODEL_LABELS = {
     "qwen35b": "Qwen3.5-35B-A3B",
@@ -123,7 +128,7 @@ def main() -> None:
         "--agent-config", str(config),
         "--tasks-file", str(tasks),
         "--conditions", "full-context",
-        "--budget", str(INF),
+        "--budget", str(INFINITE_BUDGET),
         "--depth", "0.5",
         "--runs-per-task", "1",
         "--max-workers", str(args.max_workers),

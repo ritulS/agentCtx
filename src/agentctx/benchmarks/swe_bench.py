@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from agentctx import INFINITE_BUDGET
+
 from .results import run_key
 
 
@@ -310,7 +312,7 @@ class SweBench:
             "primitive": primitive,
             "budget": budget,
             "compression_ratio": compression_ratio,
-            "is_baseline": budget == 999_999_999,
+            "is_baseline": budget == INFINITE_BUDGET,
             "run_num": run_num,
             "timestamp": datetime.now().isoformat(),
             "returncode": returncode,

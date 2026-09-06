@@ -37,7 +37,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from agentctx import WORKSPACE_ROOT
+from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
 from agentctx.benchmarks import BENCHMARKS, create_benchmark
 from agentctx.experiments.conditions import default_conditions
 
@@ -233,7 +233,7 @@ def main() -> None:
         RUNS_PER_TASK = args.runs_per_task
     if args.budget is not None:
         for c in conditions:
-            if c["budget"] != 999_999_999:
+            if c["budget"] != INFINITE_BUDGET:
                 c["budget"] = args.budget
     if args.depth is not None:
         global COMPRESSION_RATIO
@@ -256,7 +256,7 @@ def main() -> None:
     tasks = load_tasks()
 
     total  = len(tasks) * len(conditions) * RUNS_PER_TASK
-    budget = next((c["budget"] for c in conditions if c["budget"] != 999_999_999), conditions[0]["budget"])
+    budget = next((c["budget"] for c in conditions if c["budget"] != INFINITE_BUDGET), conditions[0]["budget"])
 
     print("=" * 72)
     print("EXPERIMENT")

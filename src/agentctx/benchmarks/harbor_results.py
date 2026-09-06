@@ -8,9 +8,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from agentctx import INFINITE_BUDGET
+
 from .results import run_key
 
-INF = 999_999_999
 DATASET = "terminal-bench-core@0.1.1"
 
 
@@ -96,7 +97,7 @@ def normalize_trial(
         "primitive": condition["primitive"],
         "budget": condition["budget"],
         "compression_ratio": compression_ratio,
-        "is_baseline": condition["budget"] == INF,
+        "is_baseline": condition["budget"] == INFINITE_BUDGET,
         "run_num": run_num,
         "model": label,
         "agent_model": label,
@@ -129,7 +130,11 @@ def collect_results(
     current_rows = [
         normalize_trial(
             path.parent, destination, label, run_num,
-            condition={"condition": "full-context", "primitive": "truncation", "budget": INF},
+            condition={
+                "condition": "full-context",
+                "primitive": "truncation",
+                "budget": INFINITE_BUDGET,
+            },
             compression_ratio=0.5,
         )
         for path in trial_result_paths(job_dir)

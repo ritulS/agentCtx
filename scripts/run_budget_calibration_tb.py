@@ -34,7 +34,8 @@ AGENTCTX_SRC = ROOT / "src"
 if str(AGENTCTX_SRC) not in sys.path:
     sys.path.insert(0, str(AGENTCTX_SRC))
 
-from agentctx.benchmarks.harbor_results import DATASET, INF, collect_results  # noqa: E402
+from agentctx import INFINITE_BUDGET  # noqa: E402
+from agentctx.benchmarks.harbor_results import DATASET, collect_results  # noqa: E402
 
 EXPECTED_TASKS = 80
 DEFAULT_DATASET_PATH = ROOT / "data" / "tb1-harbor-0.1.1"
@@ -208,7 +209,7 @@ def main() -> None:
             str(ROOT / "src"), str(ROOT), str(ROOT / "mini-swe-agent/src")
         )),
         "MSWEA_PRIMITIVE": "truncation",
-        "MSWEA_TOKEN_BUDGET": str(INF),
+        "MSWEA_TOKEN_BUDGET": str(INFINITE_BUDGET),
         "MSWEA_COMPRESSION_RATIO": "0.5",
         "MSWEA_COST_TRACKING": "ignore_errors",
         "MSWEA_TB_CONFIGS": os.pathsep.join((str(config), str(ROOT / "configs/config-tbench.yaml"))),

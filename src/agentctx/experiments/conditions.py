@@ -2,20 +2,20 @@
 
 import copy
 
-from agentctx import WORKSPACE_ROOT
+from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
 
 # Experimental conditions.
 # "condition" is used as directory name and result key component.
 # primitive   = value passed to MSWEA_PRIMITIVE env var
 # budget      = value passed to MSWEA_TOKEN_BUDGET env var (context window tokens)
 CONDITIONS = [
-    {"condition": "full-context",         "primitive": "truncation",           "budget": 999_999_999},
+    {"condition": "full-context",         "primitive": "truncation",           "budget": INFINITE_BUDGET},
     {"condition": "truncation",           "primitive": "truncation",           "budget": 15_000},
     {"condition": "summarization",        "primitive": "summarization",        "budget": 15_000},
     {"condition": "structured-summarize", "primitive": "structured_summarize", "budget": 15_000},
     {"condition": "tool-result-clear",    "primitive": "tool_result_clear",    "budget": 15_000},
     # online-trc: freeze-window clearing (k=4), no budget gate
-    {"condition": "online-trc", "primitive": "online_trc", "budget": 999_999_999,
+    {"condition": "online-trc", "primitive": "online_trc", "budget": INFINITE_BUDGET,
      "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
     # Stacked primitives: TRC (KEEP_RECENT=3) fires first; second primitive is fallback
     {"condition": "trc-su",  "primitive": "trc_summarize",           "budget": 15_000},

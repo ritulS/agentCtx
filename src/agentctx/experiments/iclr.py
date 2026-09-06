@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-from agentctx import WORKSPACE_ROOT
+from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
 
 
 ICLR_ROOTS = {
@@ -100,8 +100,8 @@ def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path
         raise SystemExit(f"condition {condition!r} requires a binf cell")
     if condition not in INFINITE_BUDGET_CONDITIONS and budget_tag == "binf":
         raise SystemExit(f"condition {condition!r} requires a finite-budget cell")
-    if budget_tag == "binf" and budget != 999_999_999:
-        raise SystemExit("binf cells require --budget 999999999")
+    if budget_tag == "binf" and budget != INFINITE_BUDGET:
+        raise SystemExit(f"binf cells require --budget {INFINITE_BUDGET}")
     numeric_match = re.fullmatch(r"b([1-9][0-9]*)k", budget_tag)
     if numeric_match and budget != int(numeric_match.group(1)) * 1000:
         raise SystemExit(f"cell budget {budget_tag} does not match --budget {budget}")
