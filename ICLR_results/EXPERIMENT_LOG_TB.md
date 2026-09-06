@@ -364,3 +364,33 @@ HEAD alone. No full Main completion line is recorded.
 
 For the broader command chronology, including TB2 prebuild and FC trials,
 see [EXPERIMENT_TIMELINE_20260830.md](EXPERIMENT_TIMELINE_20260830.md).
+
+### (d) September 6 — GPU correction, archive, and restart
+
+All times below are **CDT (UTC−05:00)**. The September 5 afternoon runs
+(approximately 14:55) used the wrong GPU assignment: **Devstral 0–3 / GLM 4–7**.
+Results from the following starts were withdrawn from the canonical aggregates
+and archived for re-execution:
+
+| Model | Withdrawn from | Archived results | Archive directory / notes |
+|---|---|---|---|
+| Devstral | 2026-09-05 14:56:30 | 680 task-condition-run results | [archives/devstral_since_20260905_145630_CDT](../archives/devstral_since_20260905_145630_CDT/README.md) |
+| GLM | 2026-09-05 14:57:12 | 240 results + 11 unaggregated trials | [archives/glm_since_20260905_145712_CDT](../archives/glm_since_20260905_145712_CDT/README.md) |
+
+Both Main launchers restarted at **2026-09-06 14:46:19**, with the corrected
+assignment **Devstral 4–7 / GLM 0–3**:
+
+| Model | Re-execution starts at | Previously completed results retained |
+|---|---|---|
+| Devstral | `trc-ss`, run 2 (cell entered at 14:46:24) | 880 |
+| GLM | `summarization-partial`, run 1 (cell entered at 14:46:20) | 240 |
+
+Archived tasks restart from the beginning; retained results are skipped.
+The restart-time workspace HEAD was **`3fe6fc4`** (inferred from the local
+Git reflog), including the timeout/worker cancellation fix **`93f7409`**.
+This identifies HEAD, not a snapshot of uncommitted changes.
+Archive READMEs and task lists were committed afterward as **`103a011`**
+(2026-09-06 15:05:17).
+
+Evidence: [Devstral launcher log](../logs/followup_tb_devstral_main.nohup.log),
+[GLM launcher log](../logs/followup_tb_glm_main.nohup.log), and the archive notes above.
