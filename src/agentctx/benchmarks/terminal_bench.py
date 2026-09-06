@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Any
 
 import yaml
+
+from .harbor_results import normalize_trial, trial_result_paths
+from .results import run_key
 
 
 class TerminalBench:
@@ -113,7 +114,7 @@ class TerminalBench:
                 missing_tasks = [
                     task["instance_id"]
                     for task in tasks
-                    if self._run_key(
+                    if run_key(
                         task["instance_id"], condition["condition"], run_num
                     ) not in existing_keys
                 ]
@@ -245,7 +246,7 @@ class TerminalBench:
         subprocess.run(command, cwd=self.workspace_root, env=env, check=True)
         rows = [
             self._normalize_trial(path.parent, condition, run_num, compression_ratio)
-            for path in self._trial_result_paths(job_dir)
+            for path in trial_result_paths(job_dir)
         ]
         if len(rows) != len(task_names):
             raise RuntimeError(
@@ -254,15 +255,6 @@ class TerminalBench:
             )
         return sorted(rows, key=lambda row: row["instance_id"])
 
-    @staticmethod
-    def _trial_result_paths(job_dir: Path) -> list[Path]:
-        for root in (job_dir / "trials", job_dir):
-            for filename in ("result.json", "results.json"):
-                paths = sorted(root.glob(f"*/{filename}"))
-                if paths:
-                    return paths
-        return []
-
     def _normalize_trial(
         self,
         trial_dir: Path,
@@ -270,90 +262,12 @@ class TerminalBench:
         run_num: int,
         compression_ratio: float,
     ) -> dict[str, Any]:
-        result_path = trial_dir / "result.json"
-        if not result_path.exists():
-            result_path = trial_dir / "results.json"
-        harbor_result = json.loads(result_path.read_text())
-        task = harbor_result["task_name"]
-        condition_name = condition["condition"]
-        output = self.results_dir / task / condition_name / f"run_{run_num}"
-        output.mkdir(parents=True, exist_ok=True)
-
-        for source, target in (
-            (trial_dir / "agent" / "trajectory.json", output / "trajectory.json"),
-            (trial_dir / "agent" / "token_log.json", output / "token_log.json"),
-            (trial_dir / "agent" / "exit_info.json", output / "exit_info.json"),
-            (trial_dir / "trial.log", output / "agent.log"),
-            (result_path, output / "harbor_result.json"),
-        ):
-            if source.exists():
-                shutil.copy2(source, target)
-
-        token_log_path = trial_dir / "agent" / "token_log.json"
-        token_log = (
-            json.loads(token_log_path.read_text()) if token_log_path.exists() else {}
+        return normalize_trial(
+            trial_dir, self.results_dir, self.model_tag, run_num,
+            condition=condition,
+            compression_ratio=compression_ratio,
+            benchmark=self.name,
+            benchmark_version=self.benchmark_version,
+            dataset=self.dataset_name,
+            fill_missing_timestamp=True,
         )
-        exit_info_path = trial_dir / "agent" / "exit_info.json"
-        exit_info = (
-            json.loads(exit_info_path.read_text()) if exit_info_path.exists() else {}
-        )
-        reward = self._reward_value(harbor_result)
-        timing = harbor_result.get("agent_execution") or {}
-        row = {
-            "key": self._run_key(task, condition_name, run_num),
-            "benchmark": self.name,
-            "benchmark_version": self.benchmark_version,
-            "dataset": self.dataset_name,
-            "instance_id": task,
-            "condition": condition_name,
-            "primitive": condition["primitive"],
-            "budget": condition["budget"],
-            "compression_ratio": compression_ratio,
-            "is_baseline": condition["budget"] == 999_999_999,
-            "run_num": run_num,
-            "model": self.model_tag,
-            "agent_model": self.model_tag,
-            "timestamp": harbor_result.get("started_at") or datetime.now().isoformat(),
-            "returncode": 0 if harbor_result.get("exception_info") is None else -1,
-            "e2e_latency_s": self._seconds_between(
-                harbor_result.get("started_at"), harbor_result.get("finished_at")
-            ),
-            "agent_latency_s": self._seconds_between(
-                timing.get("started_at"), timing.get("finished_at")
-            ),
-            "resolved": bool(reward is not None and reward > 0),
-            "reward": reward,
-            "exit_status": exit_info.get("exit_status", "missing_exit_info"),
-            "n_calls": exit_info.get("n_calls"),
-            "submission_generated": exit_info.get("exit_status") == "Submitted",
-            "patch_generated": exit_info.get("exit_status") == "Submitted",
-        }
-        row.update(token_log)
-        row["llm_latency_s"] = token_log.get("total_latency_s", 0.0)
-        return row
-
-    @staticmethod
-    def _run_key(instance_id: str, condition: str, run_num: int) -> str:
-        return f"{instance_id}__{condition}__r{run_num}"
-
-    @staticmethod
-    def _reward_value(result: dict[str, Any]) -> float | None:
-        rewards = (result.get("verifier_result") or {}).get("rewards")
-        if not isinstance(rewards, dict) or not rewards:
-            return None
-        value = rewards.get("reward")
-        if value is None and len(rewards) == 1:
-            value = next(iter(rewards.values()))
-        return float(value) if isinstance(value, (int, float)) else None
-
-    @staticmethod
-    def _seconds_between(start: str | None, finish: str | None) -> float | None:
-        if not start or not finish:
-            return None
-        try:
-            return round(
-                (datetime.fromisoformat(finish) - datetime.fromisoformat(start)).total_seconds(),
-                2,
-            )
-        except ValueError:
-            return None

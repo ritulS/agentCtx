@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from .results import run_key
+
 
 class SweBench:
     """Adapter between the generic experiment runner and SWE-bench.
@@ -165,7 +167,7 @@ class SweBench:
         for task in tasks:
             for condition in conditions:
                 for run_num in range(1, runs_per_task + 1):
-                    key = self._run_key(
+                    key = run_key(
                         task["instance_id"], condition["condition"], run_num
                     )
                     if key not in existing_keys:
@@ -210,10 +212,6 @@ class SweBench:
                     )
         return results
 
-    @staticmethod
-    def _run_key(instance_id: str, condition: str, run_num: int) -> str:
-        return f"{instance_id}__{condition}__r{run_num}"
-
     def _run_agent(
         self,
         *,
@@ -229,7 +227,7 @@ class SweBench:
         compression_ratio: float = 0.5,
     ) -> dict:
         """Run mini-swe-agent for one task, condition, and repetition."""
-        key = self._run_key(instance_id, condition, run_num)
+        key = run_key(instance_id, condition, run_num)
         output_dir = self.results_dir / instance_id / condition / f"run_{run_num}"
         output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -13,7 +13,8 @@ Named subsets can be kept separate beneath the track directory, for example:
 Harbor's raw job is retained outside ``ICLR_results`` under ``logs/harbor_jobs``.
 Each trial's canonical artifacts are normalized to
 ``<task>/full-context/run_<N>``.  The aggregate keeps the same token fields as
-the SWE-Bench runner, including ``step_prompt_tokens``.
+the SWE-Bench runner, including ``step_prompt_tokens``. Conversion and result
+merging live in ``agentctx.benchmarks.harbor_results``.
 """
 
 from __future__ import annotations
@@ -21,20 +22,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import yaml
 
 
 ROOT = Path(__file__).resolve().parent.parent
-INF = 999_999_999
+AGENTCTX_SRC = ROOT / "src"
+if str(AGENTCTX_SRC) not in sys.path:
+    sys.path.insert(0, str(AGENTCTX_SRC))
+
+from agentctx.benchmarks.harbor_results import DATASET, INF, collect_results  # noqa: E402
+
 EXPECTED_TASKS = 80
-DATASET = "terminal-bench-core@0.1.1"
 DEFAULT_DATASET_PATH = ROOT / "data" / "tb1-harbor-0.1.1"
 MODEL_LABELS = {
     "qwen35b": "Qwen3.5-35B-A3B",
@@ -57,122 +59,6 @@ def load_model_config(path: Path) -> tuple[str, str]:
         raise SystemExit("--agent-config must define model.model_name and model.model_kwargs.api_base")
     return str(name), str(base_url)
 
-
-def reward_value(result: dict[str, Any]) -> float | None:
-    rewards = (result.get("verifier_result") or {}).get("rewards")
-    if not isinstance(rewards, dict) or not rewards:
-        return None
-    value = rewards.get("reward")
-    if value is None and len(rewards) == 1:
-        value = next(iter(rewards.values()))
-    return float(value) if isinstance(value, (int, float)) else None
-
-
-def seconds_between(start: str | None, finish: str | None) -> float | None:
-    if not start or not finish:
-        return None
-    try:
-        return round((datetime.fromisoformat(finish) - datetime.fromisoformat(start)).total_seconds(), 2)
-    except ValueError:
-        return None
-
-
-def normalize_trial(
-    trial_dir: Path, destination: Path, label: str, run_num: int
-) -> dict[str, Any]:
-    result_path = trial_dir / "result.json"
-    if not result_path.exists():
-        result_path = trial_dir / "results.json"
-    result = json.loads(result_path.read_text())
-    task = result["task_name"]
-    output = destination / task / "full-context" / f"run_{run_num}"
-    output.mkdir(parents=True, exist_ok=True)
-
-    for source, target in (
-        (trial_dir / "agent" / "trajectory.json", output / "trajectory.json"),
-        (trial_dir / "agent" / "token_log.json", output / "token_log.json"),
-        (trial_dir / "agent" / "exit_info.json", output / "exit_info.json"),
-        (trial_dir / "trial.log", output / "agent.log"),
-        (result_path, output / "harbor_result.json"),
-    ):
-        if source.exists():
-            shutil.copy2(source, target)
-
-    token_log_path = trial_dir / "agent" / "token_log.json"
-    token_log = json.loads(token_log_path.read_text()) if token_log_path.exists() else {}
-    exit_path = trial_dir / "agent" / "exit_info.json"
-    exit_info = json.loads(exit_path.read_text()) if exit_path.exists() else {}
-    reward = reward_value(result)
-    timing = result.get("agent_execution") or {}
-    row = {
-        "key": f"{task}__full-context__r{run_num}",
-        "benchmark": "terminal-bench",
-        "benchmark_version": "1.0",
-        "dataset": DATASET,
-        "instance_id": task,
-        "condition": "full-context",
-        "primitive": "truncation",
-        "budget": INF,
-        "compression_ratio": 0.5,
-        "is_baseline": True,
-        "run_num": run_num,
-        "model": label,
-        "agent_model": label,
-        "timestamp": result.get("started_at"),
-        "returncode": 0 if result.get("exception_info") is None else -1,
-        "e2e_latency_s": seconds_between(result.get("started_at"), result.get("finished_at")),
-        "agent_latency_s": seconds_between(timing.get("started_at"), timing.get("finished_at")),
-        "resolved": bool(reward is not None and reward > 0),
-        "reward": reward,
-        "exit_status": exit_info.get("exit_status", "missing_exit_info"),
-        "n_calls": exit_info.get("n_calls"),
-        "submission_generated": exit_info.get("exit_status") == "Submitted",
-        "patch_generated": exit_info.get("exit_status") == "Submitted",
-    }
-    row.update(token_log)
-    row["llm_latency_s"] = token_log.get("total_latency_s", 0.0)
-    return row
-
-
-def collect_results(
-    job_dir: Path, destination: Path, label: str, run_num: int
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    trial_results = sorted((job_dir / "trials").glob("*/result.json"))
-    if not trial_results:
-        trial_results = sorted((job_dir / "trials").glob("*/results.json"))
-    # Harbor 0.20 stores trial directories directly below the job directory;
-    # older releases used a ``trials/`` intermediate directory.
-    if not trial_results:
-        trial_results = sorted(job_dir.glob("*/result.json"))
-    if not trial_results:
-        trial_results = sorted(job_dir.glob("*/results.json"))
-    current_rows = [
-        normalize_trial(path.parent, destination, label, run_num)
-        for path in trial_results
-    ]
-    current_rows.sort(key=lambda row: row["instance_id"])
-
-    # A canonical run may be collected in multiple infrastructure phases (for
-    # example, tasks whose images are already available followed by images
-    # built later). Preserve prior runs and replace only the matching
-    # (task, run_num) rows.
-    aggregate_path = destination / "experiment_results.json"
-    previous_rows: list[dict[str, Any]] = []
-    if aggregate_path.exists():
-        payload = json.loads(aggregate_path.read_text())
-        if not isinstance(payload, list):
-            raise SystemExit(f"expected a JSON list in {aggregate_path}")
-        previous_rows = payload
-    merged = {
-        (str(row["instance_id"]), int(row.get("run_num", 1))): row
-        for row in previous_rows
-    }
-    merged.update({(str(row["instance_id"]), run_num): row for row in current_rows})
-    aggregate_rows = sorted(
-        merged.values(), key=lambda row: (int(row.get("run_num", 1)), row["instance_id"])
-    )
-    aggregate_path.write_text(json.dumps(aggregate_rows, indent=2))
-    return current_rows, aggregate_rows
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
