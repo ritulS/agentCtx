@@ -6,19 +6,19 @@
 #   ICLR_results/terminalbench/main/p80_rootless/<model>/di__binf__fc/
 #
 # Usage:
-#   bash scripts/run_terminalbench_rootless_fc_expansion.sh qwen
-#   bash scripts/run_terminalbench_rootless_fc_expansion.sh devstral
-#   bash scripts/run_terminalbench_rootless_fc_expansion.sh glm
-#   bash scripts/run_terminalbench_rootless_fc_expansion.sh all
+#   bash scripts/expansions/run_terminalbench_rootless_fc_expansion.sh qwen
+#   bash scripts/expansions/run_terminalbench_rootless_fc_expansion.sh devstral
+#   bash scripts/expansions/run_terminalbench_rootless_fc_expansion.sh glm
+#   bash scripts/expansions/run_terminalbench_rootless_fc_expansion.sh all
 #
 # Optional overrides:
 #   START_RUN=2 END_RUN=5 N_CONCURRENT=4 RUN_POSTPROCESS=1 bash ...
 set -euo pipefail
 
-WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PYTHON_BIN="${TB_PYTHON_BIN:-$WORKSPACE/venv-harbor/bin/python}"
 HARBOR_BIN="${HARBOR_BIN:-$WORKSPACE/venv-harbor/bin/harbor}"
-LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
+LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_tb.py"
 TASKS_FILE="${P80_ROOTLESS_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_rootless.json}"
 N_CONCURRENT="${N_CONCURRENT:-4}"
 START_RUN="${START_RUN:-2}"

@@ -2,8 +2,8 @@
 # Collect 60 full-context trajectories and calibrate A/P/B token budgets.
 #
 # Usage:
-#   bash scripts/run_model_budget_calibration.sh devstral
-#   bash scripts/run_model_budget_calibration.sh glm
+#   bash scripts/calibration/run_model_budget_calibration.sh devstral
+#   bash scripts/calibration/run_model_budget_calibration.sh glm
 #
 # The run is resumable: run_experiment.py skips completed keys. Calibration
 # uses each trajectory's peak step_prompt_tokens and matches Qwen3.5's
@@ -11,7 +11,7 @@
 # needed because only context-growth measurements are used.
 set -euo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 
 MODEL="${1:-}"

@@ -2,7 +2,7 @@
 # Run the Qwen Terminal-Bench expansion and report its lifecycle to Slack.
 set -uo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 LOG_FILE="${QWEN_TB_LOG_FILE:-$WS/logs/followup_tb_qwen_main.nohup.log}"
 NOTIFIER="$WS/dashboard/notify_slack.py"
 UNIT="qwen-terminal-bench-expansion"
@@ -28,4 +28,4 @@ fi
 
 notify start "$UNIT"
 cd "$WS"
-bash scripts/run_agent_models_expansion_tb.sh qwen both >>"$LOG_FILE" 2>&1
+bash scripts/expansions/run_agent_models_expansion_tb.sh qwen both >>"$LOG_FILE" 2>&1

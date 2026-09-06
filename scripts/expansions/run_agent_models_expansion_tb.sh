@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # FOLLOWUP_EXPERIMENTS.md (3.a/3.b): Terminal-Bench P-40 main and P-15 ablation grids.
-# Usage: bash scripts/run_agent_models_expansion_tb.sh {qwen|devstral|glm|all} [main|ablation|both]
+# Usage: bash scripts/expansions/run_agent_models_expansion_tb.sh {qwen|devstral|glm|all} [main|ablation|both]
 # The section defaults to both. Completed task/condition/run keys are skipped on rerun.
 set -euo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 PY="${TB_PYTHON_BIN:-$WS/venv-harbor/bin/python}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"

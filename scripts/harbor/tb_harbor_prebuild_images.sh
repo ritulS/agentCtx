@@ -14,14 +14,14 @@
 # modify either Python environment.
 #
 # Usage:
-#   bash scripts/tb_harbor_prebuild_images.sh                 # all 80 tasks
-#   bash scripts/tb_harbor_prebuild_images.sh hello-world     # selected tasks
-#   FORCE=1 bash scripts/tb_harbor_prebuild_images.sh         # rebuild images
+#   bash scripts/harbor/tb_harbor_prebuild_images.sh                 # all 80 tasks
+#   bash scripts/harbor/tb_harbor_prebuild_images.sh hello-world     # selected tasks
+#   FORCE=1 bash scripts/harbor/tb_harbor_prebuild_images.sh         # rebuild images
 #   ROOTLESS_CHOWN_WORKAROUND=1 FORCE=1 \
-#     bash scripts/tb_harbor_prebuild_images.sh <task>         # last resort
+#     bash scripts/harbor/tb_harbor_prebuild_images.sh <task>         # last resort
 set -uo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 DATASET="${TB_HARBOR_DATASET:-$WS/data/tb1-harbor-0.1.1}"
 PODMAN="${TB_PODMAN:-/home/rs67788/.local/bin/podman}"
 PYTHON_BIN="${TB_PYTHON_BIN:-$WS/venv-harbor/bin/python}"
@@ -252,7 +252,7 @@ PY
     fi
 
     if [[ "$task_failed" == "0" ]]; then
-        "$PYTHON_BIN" "$WS/scripts/configure_tb_harbor_prebuilt.py" \
+        "$PYTHON_BIN" "$WS/scripts/harbor/configure_tb_harbor_prebuilt.py" \
             --task-dir "$task_dir" --main-image "$main_image" "${service_args[@]}"
         OK+=("$task")
     else

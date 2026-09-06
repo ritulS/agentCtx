@@ -3,12 +3,12 @@
 # TP=4 across GPUs 0-3. The 102400-token context matches the prior
 # Terminal-Bench full-context serving setup used in this repository.
 #
-# Usage:  bash scripts/start_vllm_qwen35.sh
+# Usage:  bash scripts/serving/start_vllm_qwen35.sh
 # Tail:   tail -f logs/vllm_qwen35.log
 # Stop:   kill "$(cat logs/vllm_qwen35.pid)"
 set -euo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 mkdir -p logs
 

@@ -6,11 +6,11 @@
 #
 # Usage:
 #   nohup env MAX_WORKERS=16 RUN_EVAL=1 \
-#     bash scripts/run_agent_models_expansion_notified.sh glm \
+#     bash scripts/expansions/run_agent_models_expansion_notified.sh glm \
 #     > logs/followup_agent_models_glm_launcher.log 2>&1 &
 set -uo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 
 MODEL="${1:-}"
@@ -21,7 +21,7 @@ esac
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
 NOTIFIER="$WS/dashboard/notify_slack.py"
-RUNNER="$WS/scripts/run_agent_models_expansion.sh"
+RUNNER="$WS/scripts/expansions/run_agent_models_expansion.sh"
 UNIT="agent-model-expansion/$MODEL"
 LOG_PATH="logs/followup_agent_models_${MODEL}_launcher.log"
 

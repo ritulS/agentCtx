@@ -5,22 +5,22 @@
 # SWE-Bench calibration launcher. mini-swe-agent uses raw text generation,
 # so vLLM tool-call/reasoning parsers are intentionally not enabled here.
 #
-# Usage:  bash scripts/start_vllm_glm47flash.sh
+# Usage:  bash scripts/serving/start_vllm_glm47flash.sh
 # Tail:   tail -f logs/vllm_glm47flash.log
 # Stop:   kill -TERM "$(cat logs/vllm_glm47flash.pid)"
 set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    echo "Usage: bash scripts/start_vllm_glm47flash.sh"
+    echo "Usage: bash scripts/serving/start_vllm_glm47flash.sh"
     exit 0
 fi
 if (( $# != 0 )); then
     echo "[ERROR] This script takes no arguments." >&2
-    echo "Usage: bash scripts/start_vllm_glm47flash.sh" >&2
+    echo "Usage: bash scripts/serving/start_vllm_glm47flash.sh" >&2
     exit 2
 fi
 
-WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PORT="${GLM_VLLM_PORT:-8003}"
 MODEL="${GLM_MODEL:-zai-org/GLM-4.7-Flash}"
 CUDA_DEVICES="${GLM_CUDA_VISIBLE_DEVICES:-0,1,2,3}"
@@ -76,4 +76,4 @@ echo "When startup completes, verify the server with:"
 echo "  curl -s http://localhost:${PORT}/v1/models | python3 -m json.tool"
 echo
 echo "Then start the SWE-Bench FC@infinity calibration with:"
-echo "  bash scripts/run_budget_calibration_sb.sh glm"
+echo "  bash scripts/calibration/run_budget_calibration_sb.sh glm"

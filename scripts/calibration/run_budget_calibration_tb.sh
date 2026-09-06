@@ -2,18 +2,18 @@
 # Run the canonical Terminal-Bench 1.0 FC@infinity run_1 calibration.
 #
 # Usage:
-#   bash scripts/run_budget_calibration_tb.sh qwen
-#   bash scripts/run_budget_calibration_tb.sh qwen-rootless
-#   bash scripts/run_budget_calibration_tb.sh qwen-subuid
-#   bash scripts/run_budget_calibration_tb.sh devstral
-#   bash scripts/run_budget_calibration_tb.sh devstral-rootless
-#   bash scripts/run_budget_calibration_tb.sh devstral-subuid
-#   bash scripts/run_budget_calibration_tb.sh glm
-#   bash scripts/run_budget_calibration_tb.sh glm-rootless
-#   bash scripts/run_budget_calibration_tb.sh glm-subuid
-#   bash scripts/run_budget_calibration_tb.sh all  # sequential
-#   bash scripts/run_budget_calibration_tb.sh all-rootless  # sequential
-#   bash scripts/run_budget_calibration_tb.sh all-subuid  # sequential
+#   bash scripts/calibration/run_budget_calibration_tb.sh qwen
+#   bash scripts/calibration/run_budget_calibration_tb.sh qwen-rootless
+#   bash scripts/calibration/run_budget_calibration_tb.sh qwen-subuid
+#   bash scripts/calibration/run_budget_calibration_tb.sh devstral
+#   bash scripts/calibration/run_budget_calibration_tb.sh devstral-rootless
+#   bash scripts/calibration/run_budget_calibration_tb.sh devstral-subuid
+#   bash scripts/calibration/run_budget_calibration_tb.sh glm
+#   bash scripts/calibration/run_budget_calibration_tb.sh glm-rootless
+#   bash scripts/calibration/run_budget_calibration_tb.sh glm-subuid
+#   bash scripts/calibration/run_budget_calibration_tb.sh all  # sequential
+#   bash scripts/calibration/run_budget_calibration_tb.sh all-rootless  # sequential
+#   bash scripts/calibration/run_budget_calibration_tb.sh all-subuid  # sequential
 #
 # Prerequisites:
 #   1. Start the selected model's vLLM server.
@@ -24,12 +24,12 @@
 # resumes the same run_1 job instead of intentionally creating run_2.
 set -euo pipefail
 
-WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PYTHON_BIN="${TB_PYTHON_BIN:-$WORKSPACE/venv-harbor/bin/python}"
 HARBOR_BIN="${HARBOR_BIN:-$WORKSPACE/venv-harbor/bin/harbor}"
 N_CONCURRENT="${N_CONCURRENT:-4}"
 DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
-LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
+LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_tb.py"
 LOG_DIR="$WORKSPACE/logs"
 P80_ROOTLESS_TASKS_FILE="${P80_ROOTLESS_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_rootless.json}"
 P80_SUBUID_TASKS_FILE="${P80_SUBUID_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_subuid_required.json}"

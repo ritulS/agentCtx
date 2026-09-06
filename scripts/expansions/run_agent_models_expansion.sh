@@ -12,14 +12,14 @@
 # wait for an existing experiment automatically.
 #
 # Usage:
-#   bash scripts/run_agent_models_expansion.sh devstral
-#   bash scripts/run_agent_models_expansion.sh glm
+#   bash scripts/expansions/run_agent_models_expansion.sh devstral
+#   bash scripts/expansions/run_agent_models_expansion.sh glm
 #
 # Optional environment overrides:
 #   AGENTCTX_WS=/path/to/agentCtx MAX_WORKERS=16 RUN_EVAL=0 bash ...
 set -euo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 
 MODEL="${1:-}"

@@ -8,12 +8,12 @@
 # litellm_textbased (raw completions), not OpenAI function-calling. Adding
 # the parser flag changes generation behavior even in textbased mode.
 #
-# Usage:  bash scripts/start_vllm_devstral.sh
+# Usage:  bash scripts/serving/start_vllm_devstral.sh
 # Tail:   tail -f logs/vllm_devstral.log
 # Stop:   kill $(cat logs/vllm_devstral.pid)
 set -euo pipefail
 
-WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 mkdir -p logs
 

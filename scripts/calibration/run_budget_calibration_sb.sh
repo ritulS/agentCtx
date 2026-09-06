@@ -2,19 +2,19 @@
 # Run the canonical SWE-Bench P100 FC@infinity run_1 calibration.
 #
 # Usage:
-#   bash scripts/run_budget_calibration_sb.sh devstral
-#   bash scripts/run_budget_calibration_sb.sh glm
-#   bash scripts/run_budget_calibration_sb.sh all  # sequential
+#   bash scripts/calibration/run_budget_calibration_sb.sh devstral
+#   bash scripts/calibration/run_budget_calibration_sb.sh glm
+#   bash scripts/calibration/run_budget_calibration_sb.sh all  # sequential
 #
 # Prerequisite: start the selected model's vLLM server before this script.
 # The Python launcher is resumable and skips run_1 records already on disk.
 set -euo pipefail
 
-WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PYTHON_BIN="${PYTHON_BIN:-$WORKSPACE/venv/bin/python}"
 TASKS_FILE="${TASKS_FILE:-$WORKSPACE/task_lists/p100_all_100_tasks.json}"
 MAX_WORKERS="${MAX_WORKERS:-16}"
-LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_sb.py"
+LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_sb.py"
 LOG_DIR="$WORKSPACE/logs"
 
 mkdir -p "$LOG_DIR"
