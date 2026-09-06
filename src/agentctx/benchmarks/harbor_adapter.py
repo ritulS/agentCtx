@@ -15,10 +15,12 @@ import sys
 from pathlib import Path
 from typing import Any, override
 
+# Harbor loads this module as ``agentctx.benchmarks.harbor_adapter``, so the
+# agentctx package is always initialized before this line runs.
+from agentctx import WORKSPACE_ROOT
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-AGENTCTX_SRC = REPO_ROOT / "src"
-MINI_SWE_AGENT_SRC = REPO_ROOT / "mini-swe-agent" / "src"
+AGENTCTX_SRC = WORKSPACE_ROOT / "src"
+MINI_SWE_AGENT_SRC = WORKSPACE_ROOT / "mini-swe-agent" / "src"
 for import_root in (AGENTCTX_SRC, MINI_SWE_AGENT_SRC):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
@@ -35,8 +37,8 @@ from minisweagent.utils.serialize import recursive_merge  # noqa: E402
 
 
 DEFAULT_CONFIG_SPECS = [
-    str(REPO_ROOT / "configs" / "config-qwen-vllm.yaml"),
-    str(REPO_ROOT / "configs" / "config-tbench.yaml"),
+    str(WORKSPACE_ROOT / "configs" / "config-qwen-vllm.yaml"),
+    str(WORKSPACE_ROOT / "configs" / "config-tbench.yaml"),
 ]
 DEFAULT_EXEC_TIMEOUT = 60
 
