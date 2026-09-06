@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run context-compression experiments across tasks and conditions.
 
-Benchmark-specific behavior lives in ``scripts/datasets/``. This module owns
+Benchmark-specific behavior lives in ``src/agentctx/benchmarks/``. This module owns
 only experiment expansion, parallel execution, metrics, and result persistence.
 
 Conditions
@@ -26,21 +26,26 @@ Directory layout
 
 Usage
 -----
-  python scripts/run_experiment_expansion.py
-  python scripts/run_experiment_expansion.py --with-eval
-  python scripts/run_experiment_expansion.py --eval-only
+  python scripts/run_experiment.py
+  python scripts/run_experiment.py --with-eval
+  python scripts/run_experiment.py --eval-only
 """
 
 import argparse
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
-from bench_adapters import BENCHMARKS, create_benchmark
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+AGENTCTX_SRC = WORKSPACE_ROOT / "src"
+if str(AGENTCTX_SRC) not in sys.path:
+    sys.path.insert(0, str(AGENTCTX_SRC))
+
+from agentctx.benchmarks import BENCHMARKS, create_benchmark  # noqa: E402
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
-WORKSPACE_ROOT       = Path(__file__).parent.parent
 AGENT_CONFIG         = WORKSPACE_ROOT / "configs/config-qwen-vllm.yaml"
 TASKS_FILE           = WORKSPACE_ROOT / "task_lists" / "selected_tasks.json"
 TASKS_FILE_EXPLICIT  = False

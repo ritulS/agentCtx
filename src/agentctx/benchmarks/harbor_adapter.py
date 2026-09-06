@@ -1,7 +1,6 @@
 """Harbor bridge for the repository's compression-aware mini-swe-agent.
 
-This is intentionally independent of ``scripts.bench_adapters.agent_adapter``. Harbor owns
-the task environment; the repository's DefaultAgent runs on the host and uses
+Harbor owns the task environment; the repository's DefaultAgent runs on the host and uses
 this small synchronous wrapper to execute commands through Harbor's async
 environment API.
 """
@@ -17,7 +16,7 @@ from pathlib import Path
 from typing import Any, override
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 AGENTCTX_SRC = REPO_ROOT / "src"
 MINI_SWE_AGENT_SRC = REPO_ROOT / "mini-swe-agent" / "src"
 for import_root in (AGENTCTX_SRC, MINI_SWE_AGENT_SRC):

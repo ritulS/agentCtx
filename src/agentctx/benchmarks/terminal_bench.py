@@ -21,7 +21,7 @@ class TerminalBench:
     benchmark_version = "1.0"
     dataset_name = "terminal-bench-core@0.1.1"
     agent_import_path = (
-        "scripts.bench_adapters.harbor_adapter:CompressionAgent"
+        "agentctx.benchmarks.harbor_adapter:CompressionAgent"
     )
 
     def __init__(self, workspace_root: Path, model_tag: str, results_dir: Path):

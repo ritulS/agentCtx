@@ -345,7 +345,7 @@ def main() -> None:
     print(f"Output: {destination}")
     cmd = [
         str(harbor), "run",
-        "--agent", "scripts.bench_adapters.harbor_adapter:CompressionAgent",
+        "--agent", "agentctx.benchmarks.harbor_adapter:CompressionAgent",
         "--model", model_name,
         "--path", str(dataset_path),
         "--n-attempts", "1",
