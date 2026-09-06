@@ -207,6 +207,7 @@ class TerminalBench:
             "DOCKER_HOST": self.docker_host,
             "COMPOSE_BAKE": "false",
             "PYTHONPATH": os.pathsep.join((
+                str(self.workspace_root / "src"),
                 str(self.workspace_root),
                 str(self.workspace_root / "mini-swe-agent" / "src"),
             )),

@@ -18,12 +18,13 @@ from typing import Any, override
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+AGENTCTX_SRC = REPO_ROOT / "src"
 MINI_SWE_AGENT_SRC = REPO_ROOT / "mini-swe-agent" / "src"
-for import_root in (REPO_ROOT, MINI_SWE_AGENT_SRC):
+for import_root in (AGENTCTX_SRC, MINI_SWE_AGENT_SRC):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-import memory  # noqa: E402
+from agentctx.compression import primitives as memory  # noqa: E402
 from harbor.agents.base import BaseAgent  # noqa: E402
 from harbor.environments.base import BaseEnvironment  # noqa: E402
 from harbor.models.agent.context import AgentContext  # noqa: E402

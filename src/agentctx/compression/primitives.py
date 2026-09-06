@@ -1,7 +1,8 @@
 """Context-window memory primitives for mini-swe-agent.
 
 Imported from mini-swe-agent/src/minisweagent/agents/default.py via a late
-import (PYTHONPATH includes the agentCtx repo root, set by run_experiment.py).
+import (PYTHONPATH includes the agentCtx ``src`` directory, set by the
+experiment runners).
 
 Parameters
 ----------

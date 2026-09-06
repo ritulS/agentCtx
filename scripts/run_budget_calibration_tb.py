@@ -318,7 +318,9 @@ def main() -> None:
         # container.  That container cannot create /sys/fs/cgroup/docker under
         # rootless Podman; use Podman's Docker-compatible build API directly.
         "COMPOSE_BAKE": "false",
-        "PYTHONPATH": os.pathsep.join((str(ROOT), str(ROOT / "mini-swe-agent/src"))),
+        "PYTHONPATH": os.pathsep.join((
+            str(ROOT / "src"), str(ROOT), str(ROOT / "mini-swe-agent/src")
+        )),
         "MSWEA_PRIMITIVE": "truncation",
         "MSWEA_TOKEN_BUDGET": str(INF),
         "MSWEA_COMPRESSION_RATIO": "0.5",

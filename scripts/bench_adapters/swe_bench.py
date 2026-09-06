@@ -251,7 +251,10 @@ class SweBench:
         local_bin = str(Path.home() / ".local" / "bin")
         if local_bin not in env.get("PATH", ""):
             env["PATH"] = local_bin + ":" + env.get("PATH", "")
-        env["PYTHONPATH"] = str(self.workspace_root) + (
+        env["PYTHONPATH"] = ":".join((
+            str(self.workspace_root / "src"),
+            str(self.workspace_root),
+        )) + (
             ":" + env["PYTHONPATH"] if "PYTHONPATH" in env else ""
         )
 
