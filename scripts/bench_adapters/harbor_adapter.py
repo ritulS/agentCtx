@@ -2,8 +2,7 @@
 
 This is intentionally independent of ``scripts.bench_adapters.agent_adapter``. Harbor owns
 the task environment; the repository's DefaultAgent runs on the host and uses
-this small synchronous wrapper to execute commands through Harbor's async
-environment API.
+a killable child process, forwarding commands to Harbor in the parent process.
 """
 
 from __future__ import annotations
@@ -12,7 +11,9 @@ import asyncio
 import json
 import os
 import platform
+import socket
 import sys
+import traceback
 from pathlib import Path
 from typing import Any, override
 
@@ -32,6 +33,7 @@ from minisweagent.config import get_config_from_spec  # noqa: E402
 from minisweagent.exceptions import Submitted  # noqa: E402
 from minisweagent.models import get_model  # noqa: E402
 from minisweagent.utils.serialize import recursive_merge  # noqa: E402
+from scripts.bench_adapters.harbor_process import run_worker, write_json  # noqa: E402
 
 
 DEFAULT_CONFIG_SPECS = [
@@ -46,40 +48,31 @@ class HarborContainerEnvironment:
 
     def __init__(
         self,
-        environment: BaseEnvironment,
-        loop: asyncio.AbstractEventLoop,
+        connection: Any,
         *,
         timeout: int = DEFAULT_EXEC_TIMEOUT,
         env: dict[str, str] | None = None,
     ) -> None:
-        self._environment = environment
-        self._loop = loop
+        self._connection = connection
         self._timeout = timeout
         self._env = env or {}
 
     def execute(
         self, action: dict, cwd: str = "", *, timeout: int | None = None
     ) -> dict[str, Any]:
-        coro = self._environment.exec(
-            command=action.get("command", ""),
-            cwd=cwd or None,
-            env=self._env or None,
-            timeout_sec=timeout or self._timeout,
-        )
-        try:
-            result = asyncio.run_coroutine_threadsafe(coro, self._loop).result()
-            output = {
-                "output": (result.stdout or "") + (result.stderr or ""),
-                "returncode": result.return_code,
-                "exception_info": "",
-            }
-        except Exception as exc:
-            output = {
-                "output": "",
-                "returncode": -1,
-                "exception_info": f"An error occurred while executing the command: {exc}",
-                "extra": {"exception_type": type(exc).__name__, "exception": str(exc)},
-            }
+        request = {"type": "exec", "kwargs": {
+            "command": action.get("command", ""),
+            "cwd": cwd or None,
+            "env": self._env or None,
+            "timeout_sec": timeout or self._timeout,
+        }}
+        self._connection.write(json.dumps(request).encode() + b"\n")
+        self._connection.flush()
+        line = self._connection.readline()
+        if not line:
+            # Do not let the agent retry after its owner disappears.
+            raise SystemExit("Harbor parent disconnected")
+        output = json.loads(line)
         self._check_finished(output)
         return output
 
@@ -125,7 +118,7 @@ class CompressionAgent(BaseAgent):
 
     @override
     def version(self) -> str | None:
-        return "1.0.0"
+        return "1.1.0"
 
     def __init__(
         self, logs_dir: Path, model_name: str | None = None, **kwargs: Any
@@ -146,39 +139,88 @@ class CompressionAgent(BaseAgent):
         environment: BaseEnvironment,
         context: AgentContext,
     ) -> None:
-        loop = asyncio.get_running_loop()
-        env_wrapper = HarborContainerEnvironment(environment, loop)
-        agent = None
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        write_json(self.logs_dir / "worker_checkpoint.json", {})
         exit_info: dict = {}
         try:
+            exit_info = await run_worker(environment, self.logs_dir, {
+                "config_specs": self._config_specs,
+                "logs_dir": str(self.logs_dir.resolve()),
+                "instruction": instruction,
+            })
+        except asyncio.CancelledError:
+            exit_info = {"exit_status": "CancelledError"}
+            raise  # Harbor converts its own deadline cancellation to AgentTimeoutError.
+        except Exception as exc:
+            exit_info = {"exit_status": type(exc).__name__, "error": str(exc)}
+            raise
+        finally:
+            # The worker has been reaped. It cannot overwrite these final logs.
+            checkpoint = self.logs_dir / "worker_checkpoint.json"
+            state = json.loads(checkpoint.read_text()) if checkpoint.exists() else {}
+            tokens = state.get("token_log", {})
+            context.n_input_tokens = tokens.get("total_prompt_tokens", 0)
+            context.n_output_tokens = tokens.get("total_completion_tokens", 0)
+            write_json(self.logs_dir / "token_log.json", tokens)
+            write_json(self.logs_dir / "exit_info.json", {
+                "exit_status": exit_info.get("exit_status", ""),
+                "n_calls": state.get("n_calls"),
+                "primitive": os.environ.get("MSWEA_PRIMITIVE", ""),
+                "token_budget": os.environ.get("MSWEA_TOKEN_BUDGET", ""),
+                "compression_ratio": os.environ.get("MSWEA_COMPRESSION_RATIO", ""),
+                "error": exit_info.get("error"),
+                "stats_scope": "last_checkpoint; in-flight inference may be uncounted",
+            })
+
+
+class CheckpointAgent(DefaultAgent):
+    """Keep valid partial logs even when killed inside a synchronous model call."""
+
+    def checkpoint(self) -> None:
+        path = self.config.output_path
+        write_json(path.parent / "worker_checkpoint.json", {
+            "n_calls": self.n_calls,
+            "token_log": memory.token_log_dict(self),
+        })
+
+    def query(self) -> dict:
+        # Save the initial state too, in case the first model call hangs.
+        self.save(self.config.output_path)
+        try:
+            return super().query()
+        finally:
+            self.save(self.config.output_path)
+
+    def save(self, path: Path | None, *extra_dicts) -> dict:
+        data = self.serialize(*extra_dicts)
+        if path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            write_json(path, data)
+            self.checkpoint()
+        return data
+
+
+def worker_main(fd: int) -> None:
+    with socket.socket(fileno=fd) as sock, sock.makefile("rwb") as connection:
+        payload = json.loads(connection.readline())
+        try:
             config = recursive_merge(
-                *[get_config_from_spec(spec) for spec in self._config_specs]
+                *[get_config_from_spec(spec) for spec in payload["config_specs"]]
             )
             model = get_model(config=config.get("model", {}))
             agent_config = dict(config.get("agent", {}))
-            agent_config["output_path"] = self.logs_dir / "trajectory.json"
-            agent = DefaultAgent(model, env_wrapper, **agent_config)
-            exit_info = await asyncio.to_thread(agent.run, instruction)
-        except Exception as exc:
-            exit_info = {"exit_status": type(exc).__name__, "submission": ""}
-        finally:
-            if agent is not None:
-                context.n_input_tokens = agent._mem_prompt_tokens
-                context.n_output_tokens = agent._mem_completion_tokens
-                (self.logs_dir / "token_log.json").write_text(
-                    json.dumps(memory.token_log_dict(agent), indent=2)
-                )
-            (self.logs_dir / "exit_info.json").write_text(
-                json.dumps(
-                    {
-                        "exit_status": exit_info.get("exit_status", ""),
-                        "n_calls": agent.n_calls if agent is not None else None,
-                        "primitive": os.environ.get("MSWEA_PRIMITIVE", ""),
-                        "token_budget": os.environ.get("MSWEA_TOKEN_BUDGET", ""),
-                        "compression_ratio": os.environ.get(
-                            "MSWEA_COMPRESSION_RATIO", ""
-                        ),
-                    },
-                    indent=2,
-                )
-            )
+            agent_config["output_path"] = Path(payload["logs_dir"]) / "trajectory.json"
+            agent = CheckpointAgent(model, HarborContainerEnvironment(connection), **agent_config)
+            result = agent.run(payload["instruction"])
+            message = {"type": "done", "exit_info": result}
+        except BaseException as exc:
+            traceback.print_exc()
+            message = {"type": "error", "error": f"{type(exc).__name__}: {exc}"}
+        connection.write(json.dumps(message).encode() + b"\n")
+        connection.flush()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3 or sys.argv[1] != "--worker":
+        raise SystemExit("This module is launched by the Harbor adapter")
+    worker_main(int(sys.argv[2]))
