@@ -14,11 +14,11 @@ behave exactly like the versions on the reference branches
 No virtualenv is needed; `uv` is enough:
 
 ```bash
-uvx --with pyyaml pytest              # fetches origin/<branch> first, then compares
-AGENTCTX_TEST_NO_FETCH=1 uvx --with pyyaml pytest   # offline: use the refs already fetched
-uvx --with pyyaml pytest -k "iclr and tb"                                # subset of scenarios
-uvx --with pyyaml pytest --reference-branch akiho-expansion              # one reference branch only
-uvx --with pyyaml pytest --reference-branch some-other-branch            # any branch on origin
+uvx --with pyyaml pytest tests/test_runner_equivalence.py              # fetches origin/<branch> first, then compares
+AGENTCTX_TEST_NO_FETCH=1 uvx --with pyyaml pytest tests/test_runner_equivalence.py   # offline: use the refs already fetched
+uvx --with pyyaml pytest tests/test_runner_equivalence.py -k "iclr and tb"                                # subset of scenarios
+uvx --with pyyaml pytest tests/test_runner_equivalence.py --reference-branch akiho-expansion              # one reference branch only
+uvx --with pyyaml pytest tests/test_runner_equivalence.py --reference-branch some-other-branch            # any branch on origin
 ```
 
 `--reference-branch` is repeatable and replaces the default list. `-k` also
@@ -93,3 +93,20 @@ Append a `scenario(...)` to `SCENARIOS` in `test_runner_equivalence.py`. Use
 `requires=TB` if it needs the Terminal-Bench adapter. Fixture task ids drive
 the fakes: SWE-bench ids ending in `-crash` / `-nopatch`, Terminal-Bench names
 ending in `-fail` / `-timeout` (see `harness.py`).
+
+## Summary regression tests
+
+`test_summary_query.py` covers the fix ported from
+`cd1716ff194f69871b6665d0e0d9e0a4d4773b0c`: all four summary variants
+accept prose and preserve token usage, commands quoted in summaries are not
+parsed as actions, and regular agent queries still require commands.
+
+With the runtime dependencies installed, run from the repository root:
+
+```bash
+python -m pytest tests/test_summary_query.py
+```
+
+The source paths for `agentctx` and the local `mini-swe-agent` submodule are
+configured in `pytest.ini`. The lightweight runner environment above does
+not include the model dependencies required for these tests.

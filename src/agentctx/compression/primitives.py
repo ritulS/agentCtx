@@ -36,6 +36,7 @@ Token log (MSWEA_TOKEN_LOG_PATH)
     compression_events, total_tokens_saved, mean_compression_ratio
 """
 
+import copy
 import json
 import os
 import re
@@ -68,6 +69,22 @@ def count_tokens(messages: list[dict]) -> int:
         else:
             total += len(_ENCODER.encode(str(content)))
     return max(total, 0)
+
+
+def query_summary(model, messages: list[dict]) -> dict:
+    """Query for prose without interpreting the summary as an agent action.
+
+    mini-swe-agent v2 model.query() also calls _parse_actions(), which rejects
+    ordinary summaries for text-based models. Use a separate shallow copy so
+    disabling that parser cannot affect agent calls when the same model is
+    used for summarization. Keep query()'s API preparation, retries, usage
+    metadata and cost tracking intact. Models without this parser hook retain
+    their existing query behavior.
+    """
+    if callable(getattr(model, "_parse_actions", None)):
+        model = copy.copy(model)
+        model._parse_actions = lambda response: []
+    return model.query(messages)
 
 
 # ── Primitives ─────────────────────────────────────────────────────────────────
@@ -160,7 +177,7 @@ def summarize(
     ]
 
     _t0          = time.time()
-    response     = model.query(summary_prompt)
+    response     = query_summary(model, summary_prompt)
     latency_s    = time.time() - _t0
     summary_text = response.get("content") or ""
     if isinstance(summary_text, list):
@@ -265,7 +282,7 @@ def structured_summarize(
     ]
 
     _t0       = time.time()
-    response  = model.query(summary_prompt)
+    response  = query_summary(model, summary_prompt)
     latency_s = time.time() - _t0
 
     summary_text = response.get("content") or ""
