@@ -2,6 +2,15 @@
 
 Experiment Plan → [FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EXPERIMENTS.md)
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. scripts have since moved under
+> `scripts/{calibration,expansions,serving,harbor}/` and shared code into
+> `src/agentctx/`). For present-day paths see `scripts/README.md` and
+> `CLAUDE.md`; for the code as it was at a given entry, check out the commit
+> hash recorded there.
+
 ## Follow-up 4 — Terminal-Bench 1.0 evaluation
 
 ### Qwen budget-calibration infrastructure and image prebuild
@@ -59,7 +68,7 @@ Image build time is excluded from `agent_latency_s`, `llm_latency_s`, and
 
 The complete host setup, subordinate-ID mapping, validation, and rollback
 procedure for the 38-task phase is documented in
-[tb_prebuild.md](./tb_prebuild.md).
+[TB_PREBUILD_LOG.md](./TB_PREBUILD_LOG.md).
 
 #### Reproduce or validate
 

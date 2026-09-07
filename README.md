@@ -60,15 +60,20 @@ host-specific serving caveats.
 
 ## Code map
 
+See [scripts/README.md](scripts/README.md) for experiment launchers, calibration,
+model serving, and Harbor setup commands.
+
 | Path | What |
 |------|------|
-| `memory.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. |
+| `src/agentctx/compression/primitives.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. |
 | `mini-swe-agent/` | Submodule — agent loop; primitives dispatched in `src/minisweagent/agents/default.py` via the `MSWEA_PRIMITIVE` env var. |
-| `scripts/run_experiment.py` | Main run harness. Conditions in the `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--max-workers`. |
+| `scripts/run_experiment.py` | CLI entry point for `src/agentctx/experiments/runner.py`. Conditions in `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--max-workers`. |
 | `dashboard/build_coverage_sb.py` | Regenerates `COVERAGE.csv` from SWE-Bench experiment results. |
 | `dashboard/build_coverage_tb.py` | Regenerates `COVERAGE_TB.csv` from Terminal-Bench experiment results. |
 | `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
-| `scripts/run_experiment.py`, `scripts/bench_adapters/` | Unified SWE-Bench/Terminal-Bench orchestrator and benchmark adapters. |
+| `scripts/run_experiment.py`, `src/agentctx/benchmarks/` | Unified SWE-Bench/Terminal-Bench orchestrator and benchmark adapters. |
+| `scripts/run_experiment_iclr.py` | Runs one cell of the canonical `ICLR_results/` tree (wraps `src/agentctx/experiments/iclr.py`). |
+| `src/agentctx/__init__.py` | `WORKSPACE_ROOT` and the shared `INFINITE_BUDGET` sentinel used by uncompressed baselines. |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task JSONs — `p100_all_100_tasks.json` (P100), `ablation_30tasks.json` (ABL-30), tbench sets. |

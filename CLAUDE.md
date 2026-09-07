@@ -40,15 +40,23 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 
 ## Where things live
 
-- `memory.py` — compression primitive functions (`truncate`, `summarize`,
+- `src/agentctx/compression/primitives.py` — compression primitive functions (`truncate`, `summarize`,
   `summarize_partial`, `structured_summarize`, `tool_result_clear`, etc.).
 - `mini-swe-agent/` — submodule, fork at `github.com/ritulS/mini-swe-agent`,
   branch `agentctx-customizations`. The dispatch chain in
   `src/minisweagent/agents/default.py` calls primitives based on
   `MSWEA_PRIMITIVE` env var.
-- `scripts/run_experiment.py` — main run harness. Conditions defined in the
-  `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`
-  control a single sweep.
+- `src/agentctx/` — shared Python package. `compression/` (primitives),
+  `benchmarks/` (SWE-Bench and Terminal-Bench/Harbor adapters plus result
+  conversion), `experiments/` (`conditions.py`, `runner.py`, `iclr.py`).
+  `WORKSPACE_ROOT` and the `INFINITE_BUDGET` sentinel for uncompressed
+  baselines are defined once in `src/agentctx/__init__.py`.
+- `scripts/run_experiment.py` — CLI entry point for
+  `src/agentctx/experiments/runner.py`. Conditions defined in
+  `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`, `--tasks-file`, `--conditions`
+  control a single sweep. `scripts/run_experiment_iclr.py` runs one cell of
+  the canonical ICLR results tree. Launchers are grouped under
+  `scripts/{calibration,expansions,serving,harbor}/`; see `scripts/README.md`.
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,
@@ -64,8 +72,8 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   observed benchmark × model × primitive × budget × depth, with scope and
   status. Dirty/archived data is excluded; fresh Terminal-Bench data is read
   from its canonical path. Regenerate with
-  `python scripts/build_coverage.py` after any run completes or Review1.csv
-  is rebuilt.
+  `python dashboard/build_coverage_sb.py` (then `build_coverage_tb.py` and
+  `build_dashboard.py`) after any run completes or Review1.csv is rebuilt.
 
 ## Vocabulary
 

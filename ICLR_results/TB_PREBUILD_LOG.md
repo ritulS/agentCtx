@@ -1,5 +1,12 @@
 # Terminal-Bench 1.0 Full Prebuild on Albus
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. `scripts/tb_harbor_prebuild_images.sh` now
+> lives at `scripts/harbor/tb_harbor_prebuild_images.sh`). For present-day
+> paths see `scripts/README.md` and `CLAUDE.md`.
+
 ## Outcome
 
 On 2026-08-30 CDT, all 80 tasks from `terminal-bench-core@0.1.1` were
