@@ -394,3 +394,46 @@ Archive READMEs and task lists were committed afterward as **`103a011`**
 
 Evidence: [Devstral launcher log](../logs/followup_tb_devstral_main.nohup.log),
 [GLM launcher log](../logs/followup_tb_glm_main.nohup.log), and the archive notes above.
+
+### (e) September 7 — Summary bug fix and rerun
+
+Summary calls in mini-swe-agent 2.2.6 passed through `_parse_actions`, so a
+summary response without a bash command raised a `FormatError`. Affected
+results with reason `summary_marker_error` were archived and removed from
+the canonical aggregates for rerun: **324 Devstral Main, 396 Qwen Main,
+157 Qwen ablation, and 224 GLM Main runs**. The normal launcher skips retained
+results and re-executes the archived runs as it reaches them.
+
+Devstral Main and Qwen Main restarted at **2026-09-07 17:49:54 CDT** in
+`/home/ak58925/agentCtx`. The restart-time workspace HEAD was
+**`6b45448`** (`fix: fix requiring command in summary`), confirmed by the local reflog.
+This includes the `query_summary` fix originating in `agentCtx-summarization`
+commit `cd1716f`. HEAD identifies the committed code, not a snapshot of any
+uncommitted changes.
+
+Rerun launcher invocations recorded in the archive log (shell backgrounding,
+redirection, and environment settings are not recorded there):
+
+```bash
+cd /home/ak58925/agentCtx
+bash scripts/run_agent_models_expansion_tb.sh devstral main
+bash scripts/run_agent_models_expansion_tb.sh qwen main
+```
+
+These were separate concurrent launches:
+
+| Rerun | First cell reached | Launcher log |
+|---|---|---|
+| Devstral Main | `d05__b4k__ss` | `logs/followup_tb_devstral_main.nohup.log` |
+| Qwen Main | `d05__b3k__su-full` | `logs/followup_tb_qwen_main.nohup.log` |
+
+This entry records the Devstral Main and Qwen Main rerun launches, not
+completion. GLM Main and Qwen ablation rerun launch times and commands have
+not been independently verified for this entry; the archive log's 17:53 CDT
+status is a historical snapshot, not a current status report.
+Only `summary_marker_error` results were archived;
+`summary_failure_accounting` and `summary_related_response` were not included
+in this rerun selection.
+
+For the affected cells, selection lists, archive operations, and detailed
+status, see [Summary-bug rerun: tooling and archive log](../archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md).
