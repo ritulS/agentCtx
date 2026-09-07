@@ -57,6 +57,13 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   control a single sweep. `scripts/run_experiment_iclr.py` runs one cell of
   the canonical ICLR results tree. Launchers are grouped under
   `scripts/{calibration,expansions,serving,harbor}/`; see `scripts/README.md`.
+- `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py` and
+  `scripts/run_experiment_iclr.py` from the working tree and from the
+  reference branches (`origin/akiho-expansion`,
+  `origin/akiho-expansion-terminalbench-0829`) against deterministic fakes
+  and diffs everything they write. `uvx --with pyyaml pytest`; see
+  `tests/README.md`. Run it after touching `src/agentctx/experiments/` or
+  `src/agentctx/benchmarks/`.
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,

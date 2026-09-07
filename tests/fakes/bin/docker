@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stand-in for the Docker/Podman CLI: the Terminal-Bench adapter only runs
+# `docker info` as a reachability probe, so always report success.
+exit 0
