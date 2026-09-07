@@ -27,6 +27,9 @@ Summarization
   Make a single LLM call asking for a summary of the compressible window
   targeting (target_tokens - protected_tokens) compressible tokens worth of text.
   Replaces the entire compressible window with one summary message.
+  The call goes to the agent's model unless MSWEA_SUMMARY_MODEL_CONFIG (or
+  MSWEA_SUMMARY_MODEL_NAME / MSWEA_SUMMARY_API_BASE) selects a different
+  summarization model — see "Summarization model" below.
 
 Token log (MSWEA_TOKEN_LOG_PATH)
   Written after every agent step.  Schema:
@@ -35,13 +38,17 @@ Token log (MSWEA_TOKEN_LOG_PATH)
     compression_events, total_tokens_saved, mean_compression_ratio
 """
 
+import copy
 import json
 import os
 import re
+import threading
 import time
 from pathlib import Path
 
 import tiktoken
+
+from summary_config import summary_model_config, summary_model_info
 
 COMPRESSION_RATIO = float(os.environ.get("MSWEA_COMPRESSION_RATIO", "0.5"))
 N_PROTECTED       = 2   # system + first-user (task) messages are never compressed
@@ -67,6 +74,59 @@ def count_tokens(messages: list[dict]) -> int:
         else:
             total += len(_ENCODER.encode(str(content)))
     return max(total, 0)
+
+
+# ── Summarization model ────────────────────────────────────────────────────────
+#
+# By default the agent's own model writes the summaries. To route the
+# summarize() / structured_summarize() LLM call to a different model, set:
+#
+#   MSWEA_SUMMARY_MODEL_CONFIG  path to a config YAML in the configs/*.yaml
+#                               format; only its `model:` section is read
+#                               (model_name, model_class, model_kwargs, ...).
+#   MSWEA_SUMMARY_MODEL_NAME    optional override of model_name
+#   MSWEA_SUMMARY_API_BASE      optional override of model_kwargs.api_base
+#
+# The name/api_base overrides work on top of the file, or on their own (then
+# the model_class defaults to litellm_textbased, matching configs/*.yaml).
+# Nothing set → agent model is used, i.e. behaviour is unchanged.
+#
+# The summary model is process-wide (like MSWEA_COMPRESSION_RATIO) and built
+# lazily on the first summarization event, so runs that never compress never
+# open a connection to it.
+
+_SUMMARY_MODEL      = None
+_SUMMARY_MODEL_LOCK = threading.Lock()
+
+
+def get_summary_model(agent_model):
+    """Model used for summarization calls: the override if configured, else
+    the agent's own model."""
+    cfg = summary_model_config()
+    if cfg is None:
+        return agent_model
+    global _SUMMARY_MODEL
+    with _SUMMARY_MODEL_LOCK:
+        if _SUMMARY_MODEL is None:
+            from minisweagent.models import get_model  # late import: same package that imports us
+            _SUMMARY_MODEL = get_model(config=cfg)
+    return _SUMMARY_MODEL
+
+
+def query_summary(model, messages: list[dict]) -> dict:
+    """Query for prose without interpreting the summary as an agent action.
+
+    mini-swe-agent v2 model.query() also calls _parse_actions(), which rejects
+    ordinary summaries for text-based models. Use a separate shallow copy so
+    disabling that parser cannot affect agent calls, including when the agent
+    and summarizer share a model. Keep query()'s API preparation, retries,
+    usage metadata and cost tracking intact. Models without this parser hook
+    retain their existing query behavior.
+    """
+    if callable(getattr(model, "_parse_actions", None)):
+        model = copy.copy(model)
+        model._parse_actions = lambda response: []
+    return model.query(messages)
 
 
 # ── Primitives ─────────────────────────────────────────────────────────────────
@@ -133,8 +193,13 @@ def summarize(
     # 1 token ≈ 4 chars ≈ 0.75 words (rough heuristic)
     target_words      = max(30, int(compress_target * 0.75))
 
+    # The summary is produced by the summarization model (agent model unless
+    # MSWEA_SUMMARY_MODEL_* overrides it); the resulting message is formatted
+    # by the agent's model since it goes back into the agent's history.
+    summary_model = get_summary_model(model)
+
     summary_prompt = [
-        model.format_message(
+        summary_model.format_message(
             role="system",
             content=(
                 "You are summarizing an agent's work history to free up context window space. "
@@ -142,7 +207,7 @@ def summarize(
                 "your summary, so it must be complete enough to continue the task."
             ),
         ),
-        model.format_message(
+        summary_model.format_message(
             role="user",
             content=(
                 f"Summarize the following agent conversation history in approximately "
@@ -159,7 +224,7 @@ def summarize(
     ]
 
     _t0          = time.time()
-    response     = model.query(summary_prompt)
+    response     = query_summary(summary_model, summary_prompt)
     latency_s    = time.time() - _t0
     summary_text = response.get("content") or ""
     if isinstance(summary_text, list):
@@ -224,8 +289,10 @@ def structured_summarize(
     compress_target  = max(50, target_tokens - protected_tokens)
     target_words     = max(30, int(compress_target * 0.75))
 
+    summary_model = get_summary_model(model)  # see "Summarization model" above
+
     summary_prompt = [
-        model.format_message(
+        summary_model.format_message(
             role="system",
             content=(
                 "You are compressing an agent's working memory to free up context window space. "
@@ -234,7 +301,7 @@ def structured_summarize(
                 "any other context."
             ),
         ),
-        model.format_message(
+        summary_model.format_message(
             role="user",
             content=(
                 f"Produce a structured summary of the agent conversation below in approximately "
@@ -264,7 +331,7 @@ def structured_summarize(
     ]
 
     _t0       = time.time()
-    response  = model.query(summary_prompt)
+    response  = query_summary(summary_model, summary_prompt)
     latency_s = time.time() - _t0
 
     summary_text = response.get("content") or ""
@@ -704,6 +771,7 @@ def token_log_dict(agent) -> dict:
         # ── Summarization-specific ───────────────────────────────────────────
         "summarization_prompt_tokens": agent._mem_summarization_prompt_tokens,
         "summarization_latency_s":     round(agent._mem_summarization_latency_s, 3),
+        "summarization_model":         summary_model_info(),
         # ── TRC-specific ─────────────────────────────────────────────────────
         "trc_truncation_fallback_events": agent._mem_trc_fallback_events,
         # ── Online TRC ───────────────────────────────────────────────────────

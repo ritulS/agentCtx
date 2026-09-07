@@ -328,6 +328,7 @@ class SweBench:
             "mean_compression_ratio": token_log.get("mean_compression_ratio", 1.0),
             "summarization_prompt_tokens": token_log.get("summarization_prompt_tokens", 0),
             "summarization_latency_s": token_log.get("summarization_latency_s", 0.0),
+            "summarization_model": token_log.get("summarization_model"),
             "trc_truncation_fallback_events": token_log.get("trc_truncation_fallback_events", 0),
             "online_trc_total_tokens_saved": token_log.get("online_trc_total_tokens_saved", 0),
             "online_trc_clears": token_log.get("online_trc_clears", 0),

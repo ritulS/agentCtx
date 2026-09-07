@@ -168,6 +168,7 @@ class CompressionAgent(BaseAgent):
                 "primitive": os.environ.get("MSWEA_PRIMITIVE", ""),
                 "token_budget": os.environ.get("MSWEA_TOKEN_BUDGET", ""),
                 "compression_ratio": os.environ.get("MSWEA_COMPRESSION_RATIO", ""),
+                "summary_model_config": os.environ.get("MSWEA_SUMMARY_MODEL_CONFIG", ""),
                 "error": exit_info.get("error"),
                 "stats_scope": "last_checkpoint; in-flight inference may be uncounted",
             })
