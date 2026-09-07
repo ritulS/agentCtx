@@ -177,6 +177,7 @@ class CompressionAgent(BaseAgent):
                         "n_calls": agent.n_calls if agent is not None else None,
                         "primitive": os.environ.get("MSWEA_PRIMITIVE", ""),
                         "token_budget": os.environ.get("MSWEA_TOKEN_BUDGET", ""),
+                        "summary_model_config": os.environ.get("MSWEA_SUMMARY_MODEL_CONFIG", ""),
                         "compression_ratio": os.environ.get(
                             "MSWEA_COMPRESSION_RATIO", ""
                         ),

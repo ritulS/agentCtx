@@ -9,7 +9,8 @@ under ``results/``, ``ICLR_results/`` and ``logs/``, including the exact
 agent/Harbor invocation captured by the fakes.
 
 Scenarios that need a capability a reference branch predates (Terminal-Bench)
-are skipped for that branch.
+are skipped for that branch. Added default summarizer metadata is asserted
+separately before comparing with the pre-feature references.
 """
 
 from __future__ import annotations
@@ -225,6 +226,36 @@ def _scenario(name: str) -> Scenario:
     return next(s for s in SCENARIOS if s.name == name)
 
 
+def _check_and_remove_default_summary_metadata(observation: dict) -> None:
+    """Assert the new default metadata before comparing with pre-feature refs."""
+    for command in observation["commands"]:
+        command["stdout"] = [line for line in command["stdout"] if line not in {
+            "  Summary cfg: agent_model", "  Summary model: (agent model)",
+        }]
+    files = observation["files"]
+    for path in list(files):
+        if path.endswith("/run_info.json"):
+            data = json.loads(files[path])
+            assert data.pop("summary_config") is None
+            assert data.pop("summary_model") == data["model"]
+            assert data.pop("summarization_model") == {"source": "agent_model"}
+            files[path] = json.dumps(data, indent=1, sort_keys=True)
+            md_path = path.removesuffix(".json") + ".md"
+            for row in (
+                "| Summary config | `(agent model)` |\n",
+                f"| Summary model | `{data['model']}` |\n",
+            ):
+                assert row in files[md_path]
+                files[md_path] = files[md_path].replace(row, "")
+        elif path.endswith("/experiment_results.json"):
+            rows = json.loads(files[path])
+            for row in rows:
+                # Older fake token logs have no summarizer provenance.
+                if "summarization_model" in row:
+                    assert row.pop("summarization_model") is None
+            files[path] = json.dumps(rows, indent=1, sort_keys=True)
+
+
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=SCENARIO_IDS)
 def test_runner_matches_reference(scenario: Scenario, reference_tree: Tree, working_tree: Tree, tmp_path):
     missing = scenario.requires - reference_tree.features
@@ -234,6 +265,7 @@ def test_runner_matches_reference(scenario: Scenario, reference_tree: Tree, work
     reference = execute(build_sandbox(tmp_path / "reference", reference_tree), scenario)
     current = execute(build_sandbox(tmp_path / "current", working_tree), scenario)
 
+    _check_and_remove_default_summary_metadata(current)
     report = describe_differences(reference, current)
     assert not report, f"working tree deviates from {reference_tree.label}:\n{report}"
 

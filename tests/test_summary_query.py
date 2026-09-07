@@ -3,6 +3,7 @@
 Run with: PYTHONPATH=src:mini-swe-agent/src python -m unittest discover -s tests -p test_summary_query.py -v
 """
 
+import os
 import unittest
 from unittest.mock import patch
 
@@ -15,6 +16,16 @@ from agentctx.compression import primitives
 
 class SummaryQueryTests(unittest.TestCase):
     def setUp(self):
+        env = patch.dict(os.environ, {
+            "MSWEA_SUMMARY_MODEL_CONFIG": "",
+            "MSWEA_SUMMARY_MODEL_NAME": "",
+            "MSWEA_SUMMARY_API_BASE": "",
+        })
+        env.start()
+        self.addCleanup(env.stop)
+        cache = patch.object(primitives, "_SUMMARY_MODEL", None)
+        cache.start()
+        self.addCleanup(cache.stop)
         self.agent = LitellmTextbasedModel(
             model_name="hosted_vllm/test-agent", cost_tracking="ignore_errors"
         )
@@ -61,6 +72,37 @@ class SummaryQueryTests(unittest.TestCase):
                     # Regular agent queries must still require an action.
                     with self.assertRaises(FormatError):
                         self.agent.query(self.messages)
+
+    def test_all_variants_use_override_but_format_history_for_agent(self):
+        summary_model = LitellmTextbasedModel(
+            model_name="hosted_vllm/test-summary", cost_tracking="ignore_errors"
+        )
+        with patch.dict(os.environ, {"MSWEA_SUMMARY_MODEL_NAME": "hosted_vllm/test-summary"}), patch(
+            "minisweagent.models.get_model", return_value=summary_model
+        ) as factory:
+            for primitive in (
+                primitives.summarize, primitives.structured_summarize,
+                primitives.summarize_partial, primitives.structured_summarize_partial,
+            ):
+                with self.subTest(primitive=primitive.__name__), patch.object(
+                    summary_model, "_query", return_value=self.response("Prose summary.")
+                ) as api, patch.object(
+                    summary_model, "_calculate_cost", return_value={"cost": 0.0}
+                ), patch.object(
+                    summary_model, "format_message", wraps=summary_model.format_message
+                ) as summary_format, patch.object(
+                    self.agent, "format_message", wraps=self.agent.format_message
+                ) as agent_format, patch.object(self.agent, "query") as agent_query:
+                    result, _, pt, ct, _ = primitive(self.messages, self.agent, 200)
+                    api.assert_called_once()
+                    agent_query.assert_not_called()
+                    self.assertEqual(summary_format.call_count, 2)
+                    agent_format.assert_called_once()
+                    self.assertIn("Prose summary.", result[2]["content"])
+                    self.assertEqual((pt, ct), (321, 27))
+                    with self.assertRaises(FormatError):
+                        summary_model.query(self.messages)
+            factory.assert_called_once()
 
     def test_summary_does_not_extract_commands_embedded_in_history(self):
         prose = "Previously ran:\n```mswea_bash_command\nls\n```"

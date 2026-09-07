@@ -34,12 +34,14 @@ Usage
 
 import argparse
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
 from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
 from agentctx.benchmarks import BENCHMARKS, create_benchmark
 from agentctx.experiments.conditions import default_conditions
+from agentctx.summary_config import summary_model_info
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
@@ -112,12 +114,21 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
         _model_name = cfg.get("model", {}).get("model_name", AGENT_CONFIG.stem)
     except Exception:
         _model_name = AGENT_CONFIG.stem
+    summary_info = summary_model_info()
+    _summary_model_name = summary_info.get("model_name", _model_name)
+    _summary_config = summary_info.get("config_path")
+    _summary_config_label = _summary_config or (
+        "(environment override)" if summary_info["source"] == "override" else "(agent model)"
+    )
 
     info = {
         "benchmark":    BENCHMARK.name,
         "run_tag":      MODEL_TAG,
         "model":        _model_name,
         "agent_config": str(AGENT_CONFIG),
+        "summary_config": _summary_config,
+        "summary_model":  _summary_model_name,
+        "summarization_model": summary_info,
         "budget_tokens": budget,
         "n_tasks":      n_tasks,
         "runs_per_task": RUNS_PER_TASK,
@@ -137,6 +148,8 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
 |---|---|
 | Run tag | `{MODEL_TAG}` |
 | Agent config | `{AGENT_CONFIG}` |
+| Summary config | `{_summary_config_label}` |
+| Summary model | `{_summary_model_name}` |
 | Budget | {budget:,} tokens (context window threshold) |
 | Tasks | {n_tasks} |
 | Conditions | {len(conditions)} |
@@ -183,6 +196,11 @@ def main() -> None:
                              "(online-trc, otrc-tr, otrc-su-partial, otrc-ss-partial). "
                              "Needed when --agent-config points at a non-Qwen model; "
                              "default is configs/config-online-trc.yaml which targets Qwen port 8000.")
+    parser.add_argument("--summary-config", default=None, metavar="YAML",
+                        help="Config YAML whose `model:` section is used for the summarization "
+                             "LLM call (SU-full, SU-partial, SS, SS-partial, and their OTRC/TRC-stacked "
+                             "variants). Default: the agent model itself. Exported to the agent as "
+                             "MSWEA_SUMMARY_MODEL_CONFIG.")
     parser.add_argument("--n-tasks",      type=int, default=None,
                         help="Override number of tasks (default: 100)")
     parser.add_argument("--tasks-file",   default=None,
@@ -218,6 +236,12 @@ def main() -> None:
         TASKS_FILE_EXPLICIT = True
     if args.agent_config:
         AGENT_CONFIG = Path(args.agent_config).resolve()
+    if args.summary_config:
+        summary_config = Path(args.summary_config).resolve()
+        if not summary_config.exists():
+            raise SystemExit(f"--summary-config not found: {summary_config}")
+        # Both benchmark adapters copy this environment into agent processes.
+        os.environ["MSWEA_SUMMARY_MODEL_CONFIG"] = str(summary_config)
     if args.otrc_config:
         otrc_path = Path(args.otrc_config).resolve()
         for c in conditions:
@@ -263,6 +287,9 @@ def main() -> None:
     print(f"  Benchmark  : {BENCHMARK.name}")
     print(f"  Model tag  : {MODEL_TAG}")
     print(f"  Agent cfg  : {AGENT_CONFIG}")
+    summary_info = summary_model_info()
+    print(f"  Summary cfg: {summary_info.get('config_path') or summary_info['source']}")
+    print(f"  Summary model: {summary_info.get('model_name', '(agent model)')}")
     print(f"  Results dir: {model_results_dir()}")
     print(f"  Tasks      : {len(tasks)}")
     print(f"  Conditions : {[c['condition'] for c in conditions]}")
