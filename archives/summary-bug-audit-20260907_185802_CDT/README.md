@@ -84,5 +84,8 @@ metadata cases (missing depth for non-summary conditions). No JSON read failures
 were reported.
 
 The archived `archive_rerun_targets.py` is a Terminal-Bench mover that requires
-Harbor trial files. It needs a SWE-bench adaptation before executing moves here.
+Harbor trial files. For SWE-bench use
+`archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/archive_swebench_rerun_targets.py`.
+See the tooling directory's `ARCHIVE_LOG.md` for preview and execution commands.
+The SWE-bench script defaults to dry run and selects only `summary_marker_error`.
 Generated files are under the repository's `archives/` directory.

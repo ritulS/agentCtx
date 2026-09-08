@@ -5,7 +5,7 @@ Last update: August 24 by Akiho
 
 | Priority | Experiment | Dataset(s) | ETA |
 |---:|---|---|---|
-| 1 | [Increase runs/task](#exp-runs) | SWE: P100 + ABL-30 | **3–5 days** (4400 runs) |
+| 1 | [Increase runs/task](#exp-runs) | SWE: P100 + ABL-30 | **3–5 days** (2860 additional runs) |
 | 2 | [Add 2 agent models](#exp-models) | SWE: P100 + ABL-30 | **3–7 days** (8580 runs) + TBD (8580 runs) |
 | 3 | [Terminal-Bench evaluation](#exp-tb) | TB: Full + ABL-20 | TBD (31,200 runs) |
 | 4 | [Summarizer ablation](#exp-summarizer) | SWE: ABL-30; TB: ABL-20 | TBD (760 runs) |
@@ -24,11 +24,17 @@ Last update: August 24 by Akiho
 
 | Primitives | Depths | Budget |Task |Runs |Notes|
 |---|---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5  |10K / 15K / 20K | P100 | 1500 ||
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K | P100 | 500 | Main |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 20K | ABL-30 | 300 | Budget ablation |
 | TR, SU-full, SU-partial, SS, SS-partial | **0.3 / 0.7** | 10K / 15K / 20K | **ABL-30** | **900** | **Ablation-depth runs** |
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 |10K / 15K / 20K | P100 | 5800 | Full-depth alternative (not used) |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K / 20K | P100| 1800 ||
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 15K | P100 | 600 | Main |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 10K / 20K | ABL-30 | 360 | Budget ablation |
 | FC, OTRC | depth invariant | ∞ | P100 | 200 ||
+
+Counts above track the additional third run: main 1,300 + ablation 1,560 = 2,860.
+The complete three-run grid contains 8,580 runs, using the same cohort definition
+as Devstral and GLM. Legacy Qwen main results at 10K/20K contribute only their
+ABL-30 tasks; copies in ablation are deduplicated by task, condition and run number.
 
 <a id="exp-models"></a>
 ## 2. [Priority] SWE-Bench: Add 2 agent models

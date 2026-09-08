@@ -169,3 +169,51 @@ One marker candidate has no matching result-index row; it is flagged with
 No runs were moved and no experiment result indexes were modified.
 `archive_rerun_targets.py` still assumes Terminal-Bench Harbor files and must be
 adapted before using it to move SWE-bench runs.
+
+### SWE-bench archive command
+
+Use `scripts/archive_swebench_rerun_targets.py` in this tooling directory for
+SWE-bench. It selects only `summary_marker_error`, moves run directories, and
+removes matching result-index rows. Missing index rows are recorded in the
+manifest and do not prevent archiving their run directories. Original indexes,
+the source CSV, a move journal, and file checksums are kept in the destination.
+Stop experiment launchers/workers before execution and keep them stopped until
+completion. The script refuses execution when it detects active SWE-bench runners.
+
+```bash
+tooling=archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts
+csv=archives/summary-bug-audit-20260907_185802_CDT/archive_targets.csv
+archive_name="swebench_summary_marker_error_$(date +%Y%m%d_%H%M%S_%Z)"
+
+# Preview only; does not create the archive.
+venv/bin/python "$tooling/archive_swebench_rerun_targets.py" \
+  --root "$PWD" --rerun-csv "$csv" --archive-name "$archive_name"
+
+# Execute after checking the preview and stopping experiment writers.
+venv/bin/python "$tooling/archive_swebench_rerun_targets.py" \
+  --root "$PWD" --rerun-csv "$csv" --archive-name "$archive_name" --execute
+```
+
+Dry-run validation: 2,359 run directories, 58 cells, 2,358 recorded result rows,
+and one unindexed run. Real data was not moved during command preparation.
+The execute path was checked on temporary sample data, including an unindexed
+run, preservation of an unrelated run, and backup/index consistency.
+
+## 2026-09-07 19:44: Qwen main 10K/20K cells reused for ablation (SWE-bench)
+
+Script: `scripts/reuse_qwen_main_for_ablation.py` (commit `4d9d2e4`). Copies the
+ABL-30 subset of the legacy P100 `main/qwen35b` cells at 10K/20K (d05 singles and
+di invariants) into `ablation/qwen35b`. Sources preserved; each destination cell
+carries a `REUSE_MANIFEST.json` with per-run SHA-256 and pending keys.
+
+```bash
+venv/bin/python scripts/reuse_qwen_main_for_ablation.py            # dry run
+venv/bin/python scripts/reuse_qwen_main_for_ablation.py --execute  # 19:44 CDT
+```
+
+Result: 22 cells, 1,761 runs copied, 219 pending (all "missing result row or
+trajectory", i.e. runs already moved by the summary-marker archive above; no new
+marker exclusions). Pending runs are filled by
+`bash scripts/run_agent_models_expansion.sh qwen`, which skips keys already
+recorded in the destination cell. Note: these runs now exist in both `main`
+(P100) and `ablation` (ABL-30) for qwen35b; filter by `experiment_section`.

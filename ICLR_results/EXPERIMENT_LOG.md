@@ -235,3 +235,38 @@ task/condition/run keys when resumed.
 - [TODO] Start and verify the GLM vLLM server on the configured endpoint.
 - [TODO] Launch GLM: `GLM_A_BUDGET=<A> GLM_P_BUDGET=<P> GLM_B_BUDGET=<B> setsid bash scripts/run_agent_models_expansion.sh glm > logs/agent_models_glm.out 2>&1 &`.
 - [TODO] Record the start time, code version, PID, calibrated budgets, and runtime log paths here.
+
+## 2026-09-07 — Summary-bug rerun and Qwen SWE-Bench resume
+
+Summary calls incorrectly required a bash command, causing FormatErrors and
+making affected runs require rerunning. After applying the fix, 2,359 local
+SWE-Bench runs with `summary_marker_error` were archived and their result-index
+entries removed where present. See
+[ARCHIVE_LOG.md](../archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md)
+for the audit, selection rules, archive tooling, and Qwen result-reuse details.
+
+- Qwen resumed: **2026-09-07 20:01:53 CDT**, as recorded in the launcher log.
+- Resume commit (HEAD): **`da461d6`**. The working tree also contains an
+  uncommitted `scripts/run_experiment.py` change recording `step_completion_tokens`.
+- Scope: P100 main first, then ABL-30 ablation, with 3 runs/task, 16 workers,
+  and evaluation enabled. Existing result keys are skipped; archived/missing
+  keys in this grid are rerun. The 10K/20K depth=0.5 and depth-invariant arms
+  use ABL-30; 1,761 existing runs across 22 cells were copied into ablation.
+- Slack notifications: experiment start and final success/failure.
+- Runtime log: `logs/followup_agent_models_qwen_launcher.log`.
+
+Resume command (Qwen vLLM on port 8000, the rootless Podman API, and
+`SLACK_WEBHOOK_URL` must already be configured):
+
+```bash
+cd /home/ak58925/agentCtx
+mkdir -p logs
+export DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"
+
+nohup env MAX_WORKERS=16 RUN_EVAL=1 \
+  PYTHON="$PWD/venv/bin/python3" \
+  QWEN_A_BUDGET=10000 QWEN_P_BUDGET=15000 QWEN_B_BUDGET=20000 \
+  bash scripts/run_agent_models_expansion_notified.sh qwen \
+  >> logs/followup_agent_models_qwen_launcher.log 2>&1 < /dev/null &
+echo $! > logs/followup_agent_models_qwen_launcher.pid
+```
