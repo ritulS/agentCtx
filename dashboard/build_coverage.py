@@ -82,12 +82,12 @@ def model_for_record(record: dict, source_name: str) -> str:
 
 
 def load_records(path: Path) -> list[dict]:
-    data = json.load(open(path))
+    data = json.loads(path.read_text())
     return data.get("results", []) if isinstance(data, dict) else data
 
 
 def load_task_list(path: Path) -> set:
-    data = json.load(open(path))
+    data = json.loads(path.read_text())
     if isinstance(data, dict):
         data = data.get("tasks", data.get("instances", []))
     return {t["instance_id"] if isinstance(t, dict) else t for t in data}
@@ -180,15 +180,6 @@ def main():
 
     # ---- 2. enumerate the in-scope cells (main model) ------------------------
     expected = {}  # cell key -> required cohort
-    for prim in DEPTH_TUNABLE:
-        for b in BUDGETS:
-            for d in DEPTH_GRID:
-                expected[("swebench", MAIN_MODEL, prim, b, d)] = "P100" if b == 15_000 else "ABL-30"
-    for prim in DEPTH_INVARIANT:
-        for b in BUDGETS:
-            expected[("swebench", MAIN_MODEL, prim, b, 0.5)] = "P100"
-    for prim in ("FC", "OTRC"):
-        expected[("swebench", MAIN_MODEL, prim, INF, 0.5)] = "P100"
     # Legacy model-expansion baselines that only used the ABL-30 cohort.
     for model in ("Qwen2.5-Coder-32B", "Llama-3.3-70B"):
         for prim in ("FC", "OTRC"):
@@ -200,11 +191,12 @@ def main():
         for prim in ("FC", "OTRC"):
             expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
-    # Concrete model-expansion cells in FOLLOWUP_EXPERIMENTS.md. A/P/B are
-    # the rounded P5/P15/P25 values of each model's P100 FC run_1 peak-context
-    # distribution. The primary (P) arm uses P100; budget/depth ablations use
-    # ABL-30.
+    # All three SWE models share the same main/ablation grid. Qwen retains
+    # its existing 10K/15K/20K budgets; the other models use calibrated values.
+    # Only the primary budget at canonical depth and infinite baselines use
+    # P100. Every budget/depth ablation uses ABL-30, regardless of source path.
     expansion_budgets = {
+        MAIN_MODEL: (10_000, 15_000, 20_000),
         "Devstral-Small-2-24B": (17_000, 21_000, 24_000),
         "GLM-4.7-Flash": (10_000, 13_000, 15_000),
     }

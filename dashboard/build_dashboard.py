@@ -489,18 +489,6 @@ def main():
             parts.append(plan_chip("0.7", "ablation", f"{abl_name} · {budget} · depth 0.7 · planned"))
         return "".join(parts)
 
-    p1_rows = [("Depth-tunable", None)]
-    p1_rows += [(p, [depth_set("SB:P-100", "SB:ABL-30", b) for b in ("10K", "15K", "20K")] + [""])
-                for p in tunable]
-    p1_rows.append(("Depth-invariant", None))
-    p1_rows += [(p, [plan_chip("DI", "main", f"SB:P-100 · {b} · depth-invariant · planned")
-                     for b in ("10K", "15K", "20K")] + [""])
-                for p in invariant]
-    p1_rows.append(("∞-budget baselines", None))
-    p1_rows += [(p, ["", "", "", plan_chip("DI", "main", "SB:P-100 · unlimited budget · depth-invariant · planned")])
-                for p in ("FC", "OTRC")]
-    p1_matrix = planned_matrix(["10K", "15K", "20K", "∞"], p1_rows)
-
     def model_plan_matrix(budgets, main_name, abl_name, calibration=False):
         rows_ = [("Depth-tunable", None)]
         for p in tunable:
@@ -528,6 +516,7 @@ def main():
                   for p in ("FC", "OTRC")]
         return planned_matrix(budgets, rows_)
 
+    p1_matrix = model_plan_matrix(["10K", "15K", "20K", "∞"], "SB:P-100", "SB:ABL-30")
     p2_devstral = model_plan_matrix(["17K", "21K", "24K", "∞"], "SB:P-100", "SB:ABL-30")
     p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-30")
     p3_qwen = model_plan_matrix(
@@ -547,7 +536,7 @@ def main():
 <div class="tablewrap roadmap-overview"><table>
 <thead><tr><th>priority</th><th>experiment</th><th>dataset</th><th>planned runs</th></tr></thead>
 <tbody>
-<tr><td class="priority">P1</td><td><a href="#priority-1">Increase runs/task: 2 → 3</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400 additional</td></tr>
+<tr><td class="priority">P1</td><td><a href="#priority-1">Increase runs/task: 2 → 3</a></td><td>SB:P-100 + SB:ABL-30</td><td>2,860 additional</td></tr>
 <tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
 <tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
@@ -596,21 +585,6 @@ def main():
         return [model, label, depth, shown_budget, dataset,
                 target_text, status_badge(done, actual, target)]
 
-    p1_tracking_rows = []
-    for budget in ("10K", "15K", "20K"):
-        p1_tracking_rows.append(swe_track(MAIN, tunable_label, tunable, "0.5", budget,
-                                                "SB:P-100", 100, 3, baseline_runs=2))
-    for depth in ("0.3", "0.7"):
-        for budget in ("10K", "15K", "20K"):
-            p1_tracking_rows.append(swe_track(MAIN, tunable_label, tunable, depth, budget,
-                                                    "SB:ABL-30", 30, 3, baseline_runs=2))
-    for budget in ("10K", "15K", "20K"):
-        p1_tracking_rows.append(swe_track(MAIN, invariant_label, invariant, "DI", budget,
-                                                "SB:P-100", 100, 3, baseline_runs=2))
-    p1_tracking_rows.append(swe_track(MAIN, baseline_label, ["FC", "OTRC"], "DI", "∞",
-                                            "SB:P-100", 100, 3, baseline_runs=2))
-    p1_tracking = tracking_table(p1_tracking_rows)
-
     p2a_rows = [
         swe_track("Devstral-Small-2-24B", tunable_label, tunable, "0.5", "21K", "SB:P-100", 100, 3),
         swe_track("Devstral-Small-2-24B", invariant_label, invariant, "DI", "21K", "SB:P-100", 100, 3),
@@ -624,18 +598,26 @@ def main():
     ]
     p2b_tracking = tracking_table(p2b_rows)
 
-    def ablation_tracking_rows(model, budgets):
+    def ablation_tracking_rows(model, budgets, baseline_runs=0):
         rows_ = []
         for depth in ("0.3", "0.7"):
             for budget in budgets:
                 rows_.append(swe_track(model, tunable_label, tunable, depth, budget,
-                                             "SB:ABL-30", 30, 3))
+                                             "SB:ABL-30", 30, 3, baseline_runs=baseline_runs))
         for budget in (budgets[0], budgets[-1]):
             rows_.append(swe_track(model, tunable_label, tunable, "0.5", budget,
-                                         "SB:ABL-30", 30, 3))
+                                         "SB:ABL-30", 30, 3, baseline_runs=baseline_runs))
             rows_.append(swe_track(model, invariant_label, invariant, "DI", budget,
-                                         "SB:ABL-30", 30, 3))
+                                         "SB:ABL-30", 30, 3, baseline_runs=baseline_runs))
         return rows_
+
+    p1_tracking_rows = [
+        swe_track(MAIN, tunable_label, tunable, "0.5", "15K", "SB:P-100", 100, 3, baseline_runs=2),
+        swe_track(MAIN, invariant_label, invariant, "DI", "15K", "SB:P-100", 100, 3, baseline_runs=2),
+        swe_track(MAIN, baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3, baseline_runs=2),
+    ] + ablation_tracking_rows(MAIN, ["10K", "15K", "20K"], baseline_runs=2)
+    p1_tracking = tracking_table(p1_tracking_rows)
+    p1_target = sum(row[6][2] for row in p1_tracking_rows)
 
     p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["17K", "21K", "24K"])
     p2d_rows = ablation_tracking_rows("GLM-4.7-Flash", ["10K", "13K", "15K"])
@@ -699,7 +681,8 @@ def main():
     history = load_progress_history()
     now_utc = datetime.now(timezone.utc)
     snapshot = {}
-    p1_progress = progress_bar(p1_tracking_rows, "p1", history, now_utc, snapshot)
+    # A new cohort definition must not be compared with old P100 counters.
+    p1_progress = progress_bar(p1_tracking_rows, "p1_abl30_v2", history, now_utc, snapshot)
     p2a_progress = progress_bar(p2a_rows, "p2a", history, now_utc, snapshot)
     p2b_progress = progress_bar(p2b_rows, "p2b", history, now_utc, snapshot)
     p2c_progress = progress_bar(p2c_rows, "p2c", history, now_utc, snapshot)
@@ -879,7 +862,7 @@ a {{ color:var(--accent-ink); }}
 <div class="tablewrap roadmap-overview"><table>
 <thead><tr><th>priority</th><th>experiment</th><th>dataset(s)</th><th>runs</th></tr></thead>
 <tbody>
-<tr><td class="priority">1</td><td><a href="#exp-runs">Increase runs/task</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400</td></tr>
+<tr><td class="priority">1</td><td><a href="#exp-runs">Increase runs/task</a></td><td>SB:P-100 + SB:ABL-30</td><td>{p1_target:,}</td></tr>
 <tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
 <tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
@@ -903,8 +886,9 @@ a {{ color:var(--accent-ink); }}
 <li>Runs/task: <strong>3 (mostly 1 additional run/task)</strong></li>
 </ul>
 <p class="note">Progress and budget chips count only the additional third run (the existing
-2 runs/task are excluded). Status is tracked per depth and budget. The unused full-depth P100
-alternative is excluded.</p>
+2 runs/task are excluded). Main uses P100 at 15K and depth 0.5 (or DI), plus FC/OTRC at ∞.
+All depth 0.3/0.7 cells and the 10K/20K depth 0.5 or DI cells use ABL-30.
+Existing results count only for the selected cohort; copies of the same run count once.</p>
 {p1_tracking}
 
 <h2 id="exp-models">2. [Priority] SWE-Bench: Add 2 agent models</h2>
