@@ -611,12 +611,15 @@ def main():
                                          "SB:ABL-30", 30, 3, baseline_runs=baseline_runs))
         return rows_
 
-    p1_tracking_rows = [
+    p1a_rows = [
         swe_track(MAIN, tunable_label, tunable, "0.5", "15K", "SB:P-100", 100, 3),
         swe_track(MAIN, invariant_label, invariant, "DI", "15K", "SB:P-100", 100, 3),
         swe_track(MAIN, baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
-    ] + ablation_tracking_rows(MAIN, ["10K", "15K", "20K"])
-    p1_tracking = tracking_table(p1_tracking_rows)
+    ]
+    p1b_rows = ablation_tracking_rows(MAIN, ["10K", "15K", "20K"])
+    p1_tracking_rows = p1a_rows + p1b_rows
+    p1a_tracking = tracking_table(p1a_rows)
+    p1b_tracking = tracking_table(p1b_rows)
     p1_target = sum(row[6][2] for row in p1_tracking_rows)
 
     p2c_rows = ablation_tracking_rows("Devstral-Small-2-24B", ["17K", "21K", "24K"])
@@ -682,7 +685,8 @@ def main():
     now_utc = datetime.now(timezone.utc)
     snapshot = {}
     # Total-run progress must not be compared with the old third-run counters.
-    p1_progress = progress_bar(p1_tracking_rows, "p1_all_runs_v3", history, now_utc, snapshot)
+    p1a_progress = progress_bar(p1a_rows, "p1a_all_runs_v3", history, now_utc, snapshot)
+    p1b_progress = progress_bar(p1b_rows, "p1b_all_runs_v3", history, now_utc, snapshot)
     p2a_progress = progress_bar(p2a_rows, "p2a", history, now_utc, snapshot)
     p2b_progress = progress_bar(p2b_rows, "p2b", history, now_utc, snapshot)
     p2c_progress = progress_bar(p2c_rows, "p2c", history, now_utc, snapshot)
@@ -879,7 +883,6 @@ a {{ color:var(--accent-ink); }}
 </div>
 
 <h2 id="exp-runs">1. [Priority] SWE-Bench: Runs/task: 3 (run_1–run_3)</h2>
-{p1_progress}
 <ul>
 <li>ETA: 3–5 days</li>
 <li>Model (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct</li>
@@ -889,7 +892,13 @@ a {{ color:var(--accent-ink); }}
 including completed first and second runs, toward 8,580 total runs. Main uses P100 at 15K and depth 0.5 (or DI), plus FC/OTRC at ∞.
 All depth 0.3/0.7 cells and the 10K/20K depth 0.5 or DI cells use ABL-30.
 Existing results count only for the selected cohort; copies of the same run count once.</p>
-{p1_tracking}
+<h3 id="exp-runs-main">(1.a) Qwen Main</h3>
+{p1a_progress}
+{p1a_tracking}
+
+<h3 id="exp-runs-abl">(1.b) Qwen Ablation</h3>
+{p1b_progress}
+{p1b_tracking}
 
 <h2 id="exp-models">2. [Priority] SWE-Bench: Add 2 agent models</h2>
 {p2_progress}
