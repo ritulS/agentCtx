@@ -1,48 +1,48 @@
-# Summary受け渡し仕様の確認
+# Summary handoff verification
 
-2026-09-08。対象は前回監査の645 runと現行memory.py。実験コード・結果は変更していない。
+2026-09-08. This review covers the 645 runs from the preceding audit and the current `memory.py`. Experiment code and results were not modified.
 
-## 結論
+## Findings
 
-メッセージ構造は実装上の意図どおり。一方、構造化summaryの内容には明示した出力形式との不一致があり、その出力を無検証で渡すことで後段コードのsummary識別の前提も崩れる。33 runの再要約FormatErrorの原因をこれだけで確定することはできない。
+The message structure behaves as intended. However, structured summaries do not consistently follow the specified output format. Passing these responses through without validation also breaks the assumptions used by downstream code to identify summaries. These findings alone do not establish the cause of the repeated-summarization FormatErrors in 33 runs.
 
-## 意図どおりの部分
+## Behavior that matches the intended design
 
-- memory.py:14-18, 224-225, 304で元のsystemと最初のtaskを保持し、圧縮対象をsummaryに置換する。partialはさらに元の末尾を付ける（424-426）。
-- 要約を作るためのsystem/userプロンプトは独立したquery_summary呼び出しにだけ渡す（243-283）。そのプロンプト自体をagentの会話に追加するコードはない。
-- 2026-09-07のf669241はsummary問い合わせ時のaction parserだけを無効化し、要約の整形やroleは変更していない。user roleで要約を戻す実装は以前から存在する。
+- `memory.py:14-18, 224-225, 304` preserves the original system message and initial task, replacing the compressible history with a summary. The partial variant also appends the original tail (`424-426`).
+- The system/user prompts requesting a summary are passed only to the separate `query_summary` call (`243-283`). There is no code that adds those prompts themselves to the agent's conversation.
+- Commit `f669241` on 2026-09-07 disabled only the action parser for summary calls. It did not change summary formatting or the message role. Returning summaries with the `user` role predates that fix.
 
-## 内容とコードの前提の不一致
+## Mismatches between response content and code assumptions
 
-1. memory.py:256-276は指定の見出し順と[CONTEXT SUMMARY]ブロック外への出力禁止を明示する。
-2. memory.py:286-302はresponse.contentを丸ごとuserメッセージにする。マーカー部分の抽出、前置きの除去、出力形式検査はない。別フィールドのreasoningをコードが結合しているわけではなく、contentに含まれている前置きがそのまま通る。
-3. 監査対象の保存trajectory中で検出した構造化summaryメッセージ220個はすべて開始markerの前に非空テキストがあり、219個は</think>を含む。これはプロンプトで指定した出力形式に違反する。ただし、すべての圧縮イベントが保存されているわけではない。
-4. memory.py:461-471のTRCはcontent.startswithでsummaryを保護する。前置き付きSSはこの判定から外れ、tool outputとしてクリア対象になる。同様の判定が609-619にもある。SUは外側のmarkerをコードで付けるため（195-197）、この点でSSと扱いが異なる。
+1. `memory.py:256-276` explicitly specifies the heading order and prohibits text outside the `[CONTEXT SUMMARY]` block.
+2. `memory.py:286-302` turns the entire `response.content` into a user message. It does not extract the marked block, remove preambles, or validate the output format. The code is not concatenating a separate reasoning field; it passes through the preamble already present in `content`.
+3. All 220 structured summary messages found in the saved trajectories contain nonempty text before the opening marker, and 219 contain `</think>`. This violates the requested output format. However, the saved trajectories do not preserve every compression event.
+4. TRC in `memory.py:461-471` protects summaries using `content.startswith`. An SS response with a preamble fails this check and becomes eligible for clearing as tool output. A similar check appears at `609-619`. SU behaves differently because the code adds its outer markers (`195-197`).
 
-## ローカル再現（モデル呼び出しなし）
+## Local reproduction without model calls
 
-FakeModelから「要約作成の思考文 + </think> + summaryブロック」を返し、現行structured_summarizeをそのまま実行した。
+The current `structured_summarize` was run unchanged with a FakeModel returning a reasoning preamble about preparing a summary, followed by `</think>` and a summary block.
 
-- 元のsystem/taskの保持: True
-- 要約依頼プロンプト自体の混入: False
-- 前置き込みresponseの完全一致での転送: True
-- summaryのrole: user
+- Original system/task preserved: True
+- Summary-request prompt itself included in the resulting conversation: False
+- Response forwarded exactly, including its preamble: True
+- Summary role: `user`
 
-そのsummaryの後ろに4回のagent/toolターンを置いてtool_result_clear(..., target_tokens=1, fallback_truncate=False)を呼んだ。
+Four agent/tool turns were appended after that summary, then `tool_result_clear(..., target_tokens=1, fallback_truncate=False)` was called.
 
-- 前置き付きsummary: [TOOL OUTPUT CLEARED]に置換された。
-- 同じsummaryの開始marker以前だけを除いたもの: 保護された。
+- Summary with the preamble: replaced with `[TOOL OUTPUT CLEARED]`.
+- The same summary with only the text before the opening marker removed: protected.
 
-これは後段との形式契約の不整合を再現する試験であり、33 runで実際にTRCによる要約消去が起きたことを示す試験ではない。33 runはSS系の他条件も含み、再要約失敗との因果確認には比較実験が必要。
+This test reproduces a mismatch with the format expected by downstream code. It does not demonstrate that TRC actually cleared summaries in the 33 runs. Those runs also include other SS-family conditions, and controlled comparisons are needed to establish a causal link to repeated-summarization failures.
 
-## 判断
+## Assessment
 
-「agentに元タスクが渡っていない」「summary依頼がそのまま最新指示として渡る」という実装ミスは確認されなかった。モデルの出力形式違反は実在する。その違反出力をそのまま受け渡し、後段は正しい形式を仮定するという境界の問題も存在する。したがって、全件をagent能力だけの問題と片付けるのも、全件を旧summaryバグの再発として無効化するのも根拠不足。
+No implementation error was found in which the agent loses the original task or receives the summary-request prompt itself as the latest instruction. Model output-format violations do occur. There is also an interface mismatch: these nonconforming responses are passed through unchanged, while downstream code assumes the expected format. The evidence therefore does not justify attributing every case solely to agent capability or invalidating every case as a recurrence of the old summary bug.
 
-形式の扱い（summaryブロックの抽出、明示的なsummary識別）を整える変更には技術的根拠がある。一方で、追加の続行指示やプロンプト最適化による改善は実験手法の変更として区別すべき。今回の確認では修正も再実行も行っていない。
+There is a technical basis for improving format handling, such as extracting the summary block and identifying summaries explicitly. Improvements through additional continuation instructions or prompt optimization should be treated separately as changes to the experimental method. This review did not modify the implementation or rerun experiments.
 
-## APIリクエストの記録範囲についての補足
+## Clarification on API request coverage in the logs
 
-このrunは10回の圧縮があり、trajectory.jsonは全APIリクエストの逐次記録ではなく圧縮後の会話を保存している。SS-partialは末尾の過去メッセージを保持するため、最終trajectoryでsummaryの次にFormatErrorがあるだけでは、そのsummaryを新規生成した直後のAPI応答だとは確定できない。前の説明の「その直後」という断定は取り下げる。summaryの前置き混入と、summaryを生成して拒否されたagent応答の存在はそれぞれログで確認できるが、この2つの時間的な対応は未確定。
+This run has 10 compression events. `trajectory.json` stores the post-compression conversation, rather than a sequential record of every API request. Because SS-partial retains earlier messages in the tail, a FormatError immediately following a summary in the final trajectory does not establish that it came from the API response immediately after that summary was newly generated. The earlier claim that it happened "immediately afterward" is withdrawn. The logs independently establish the presence of a summary preamble and an agent response that produced a summary and was rejected, but their temporal relationship remains unconfirmed.
 
-要約呼び出しの独立したsystem/userプロンプト、および通常agentへのsystem + 元タスク + summary(user) + 保持された末尾という送信構造はコードから確認した。要約入力の履歴全文と圧縮直後のAPI payloadをこのrunの保存ファイルだけから完全には復元していない。
+The code confirms that summary calls use separate system/user prompts, and that the normal agent receives the system message, original task, summary (`user`), and retained tail. The full history supplied to the summarizer and the API payload immediately after compression have not been fully reconstructed from this run's saved files alone.
