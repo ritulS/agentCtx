@@ -1,6 +1,15 @@
 # ICLR 2027 Experiment Log
 Experiment Plan → [exp_plans/FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EXPERIMENTS.md)
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. scripts have since moved under
+> `scripts/{calibration,expansions,serving,harbor}/` and shared code into
+> `src/agentctx/`). For present-day paths see `scripts/README.md` and
+> `CLAUDE.md`; for the code as it was at a given entry, check out the commit
+> hash recorded there.
+
 ## Follow-up 1 — Runs/task 2 → 3
 - Started: 2026-08-23 17:24:53 CDT
 - Code version used:  `27606ac14f4ff4bb96caf429984ad8fd26325cba`

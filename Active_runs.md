@@ -34,7 +34,9 @@ need rebuilding for serving/tbench.
   damage lives in deep half. Weakens healing mode S; action-level arms
   now decisive (see exp_plans/HEALING_V1.md). Figure:
   `results/killtest/figs/damage_map_qwen2.5-coder-0.5b.png`.
-- **What:** `scripts/killtest_damage_map.py measure` on all 86 clean TRC
+- **What:** `scripts/killtest_damage_map.py measure` (script since removed
+  from the tree; retrieve with `git show 8f9a50b:scripts/killtest_damage_map.py`)
+  on all 86 clean TRC
   events (`results/killtest/events_b15000_d050.json`, extracted from
   p100-inf full-context runs; budget 15k, depth 0.5) with
   Qwen2.5-Coder-0.5B-Instruct on **CPU** (A100s dead — MIG incident above).
@@ -60,7 +62,7 @@ need rebuilding for serving/tbench.
 - **What:** TB-core 0.1.1 (80 tasks), 4 conditions (full-context@∞,
   truncation/tool-result-clear/structured-summarize @15k), pilot 25 tasks →
   main grid 15 tasks × 4 cond × 3 runs = 180 runs. Custom adapter
-  `scripts/bench_adapters/harbor_adapter.py` reuses fork's DefaultAgent
+  `src/agentctx/benchmarks/harbor_adapter.py` reuses fork's DefaultAgent
   (compression path identical to SWE-bench); orchestrator
   `scripts/run_experiment.py`.
 - **Host:** Dobby. vLLM Qwen3.5-35B-A3B on :8000 (TP=4, PID in
@@ -69,7 +71,10 @@ need rebuilding for serving/tbench.
 - **Infra notes:** tb 0.2.18 in `venv-tb` (Python 3.12 via uv);
   venv-local lchown patch (`scripts/patch_tb_lchown.py`); task images
   prebuilt natively (`scripts/tb_prebuild_images.sh`) because docker-buildx
-  fails over rootless podman; oracle smoke 3/3.
+  fails over rootless podman; oracle smoke 3/3. Both scripts have since been
+  removed from the tree (superseded by
+  `scripts/harbor/tb_harbor_prebuild_images.sh`); retrieve the originals with
+  `git show 8f9a50b:scripts/<name>`.
 
 
 ### Logit Pilot (Tier-A) — Devstral logit-rank measurement on Dobby
@@ -432,9 +437,9 @@ No partial results expected to be useful — all child processes killed.
   - `results/ablations/stacked-15000/` — trc-su 65.0% / trc-ss 58.3%
   - `results/ablations/stacked-20000/` — trc-su 66.7% / trc-ss 76.7%
 - **Code changes that landed**:
-  - `memory.py`: `tool_result_clear(..., fallback_truncate=False)` skips built-in TR fallback so a caller can run a second primitive
+  - `memory.py` (now `src/agentctx/compression/primitives.py`): `tool_result_clear(..., fallback_truncate=False)` skips built-in TR fallback so a caller can run a second primitive
   - `mini-swe-agent/.../default.py`: new primitives `trc_summarize` and `trc_structured_summarize` (TRC then SU/SS)
-  - `scripts/run_experiment.py`: new conditions `trc-su` and `trc-ss`
+  - `scripts/run_experiment.py` (conditions now live in `src/agentctx/experiments/conditions.py`): new conditions `trc-su` and `trc-ss`
 - **Headline finding**: stacking lift narrows with budget — +11.7pp at 10k (trc-ss vs best single), +13.3pp at 15k (trc-su vs best single matched), only +5.0pp at 20k for trc-ss and **−5.0pp at 20k for trc-su**. At loose budgets where TRC alone already works well, the cascade's extra summarization step destroys capability TRC was preserving. This budget-dependent pattern motivates the OCC two-tier framing (proactive online-TRC keeps headroom; reactive cascade only fires when budget is tight).
 
 ---
