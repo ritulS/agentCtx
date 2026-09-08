@@ -69,9 +69,21 @@ ICLR_results/terminalbench/main/qwen35b-smoke
 ICLR_results/terminalbench
 .tools
 venv-glm/
+venv-glm-cu129-clean
+ICLR_results/terminalbench2
+analysis/reports
 
 # Archives are ignored by default; keep only the selected tooling and reports.
 /archives/**
+
+# Archive notes and task lists for the glm/devstral archives (no run data).
+!/archives/glm_since_20260905_145712_CDT/
+!/archives/glm_since_20260905_145712_CDT/README.md
+!/archives/glm_since_20260905_145712_CDT/tasks.tsv
+!/archives/glm_since_20260905_145712_CDT/partial_tasks.tsv
+!/archives/devstral_since_20260905_145630_CDT/
+!/archives/devstral_since_20260905_145630_CDT/README.md
+!/archives/devstral_since_20260905_145630_CDT/tasks.tsv
 
 !/archives/summary_bug_rerun_tooling_20260907_175359_CDT/
 !/archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md

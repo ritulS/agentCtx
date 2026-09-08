@@ -34,7 +34,7 @@ fi
 # TP=4 across all 4 A100 80GB so we can run max-model-len=65536 with
 # headroom for 64 concurrent seqs. Smaller TP truncates the FC peak
 # distribution (32k cap caused BadRequestError on ~40% of FC@∞ pilot runs).
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
+CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
   nohup venv/bin/python3 -m vllm.entrypoints.openai.api_server \
     --model mistralai/Devstral-Small-2-24B-Instruct-2512 \
     --port 8002 \
