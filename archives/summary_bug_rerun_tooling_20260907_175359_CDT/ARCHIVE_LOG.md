@@ -142,3 +142,30 @@ venv/bin/python scripts/build_rerun_runs.py \
 - Nothing was deleted. To restore an archive, move each `moves_completed.jsonl` destination back to its source
   and restore `experiment_results.json` from `before/`.
 - `COVERAGE.csv` and `COVERAGE_TB.csv` do not reflect the archives. Regenerate with `python scripts/build_coverage.py` after the reruns.
+
+## Local SWE-bench candidate CSV (2026-09-07)
+
+The local `akiho-expansion` workspace contains SWE-bench results. A fresh scan of
+22,979 trajectories produced outputs under
+`archives/summary-bug-audit-20260907_185802_CDT/`:
+
+- `archive_targets.csv`: 2,359 runs with `rerun_reason=summary_marker_error`,
+  matching the selection rule used in the Terminal-Bench archives above.
+- `archive_target_summary.csv`: counts by benchmark, section, and model.
+- `rerun-list/rerun_runs.csv`: all 5,119 candidates, including 2,498 additional
+  call-accounting cases and 262 response-content cases.
+- `manual_review_inconsistent_counters.csv`: unmarked runs whose counters cannot
+  support classification. These are excluded from the rerun list.
+- `README.md`: local commands, selection details, and limitations.
+
+The exporter now falls back to the matching `experiment_results.json` row when
+`exit_info.json` is absent, and to condition directory names for legacy rows
+without a primitive. Metadata provenance is recorded in `runs_with_errors.csv`.
+The reviewer reports inconsistent counters as `not_established` instead of
+stopping the whole audit or drawing an invalid accounting conclusion.
+
+One marker candidate has no matching result-index row; it is flagged with
+`result_index_status=missing` in `archive_targets.csv`. All candidate run paths exist.
+No runs were moved and no experiment result indexes were modified.
+`archive_rerun_targets.py` still assumes Terminal-Bench Harbor files and must be
+adapted before using it to move SWE-bench runs.

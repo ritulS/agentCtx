@@ -21,6 +21,23 @@ EVENT_FIELDS = [
     "n_actions", "summary_marker", "timestamp", "trajectory",
 ]
 
+# Directory condition names used by scripts/run_experiment.py. Older SWE-bench
+# result rows may omit primitive even when the condition is recorded.
+CONDITION_PRIMITIVES = {
+    "full-context": "truncation", "truncation": "truncation",
+    "summarization": "summarization",
+    "structured-summarize": "structured_summarize",
+    "summarization-partial": "summarization_partial",
+    "structured-summarize-partial": "structured_summarize_partial",
+    "tool-result-clear": "tool_result_clear", "online-trc": "online_trc",
+    "trc-su": "trc_summarize", "trc-ss": "trc_structured_summarize",
+    "otrc-tr": "online_trc",
+    "otrc-su-partial": "online_trc_summarize_partial",
+    "otrc-ss-partial": "online_trc_structured_summarize_partial",
+    "staggered-alternate": "staggered_alternate",
+    "staggered-random": "staggered_random",
+}
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -35,6 +52,7 @@ def main():
     (output / "details").mkdir()
     warnings = []
     metadata_cache = {}
+    result_cache = {}
 
     def read_json(path):
         try:
@@ -53,6 +71,25 @@ def main():
                     metadata_cache[info_path] = read_json(info_path)
                 return parent, metadata_cache[info_path]
         return None, {}
+
+    def result_metadata(cell, path):
+        """SWE-bench stores per-run settings in the cell's result index."""
+        index = cell / "experiment_results.json"
+        if index not in result_cache:
+            records = read_json(index) if index.exists() else []
+            if not isinstance(records, list):
+                warnings.append(f"{index}: expected a list of result rows")
+                records = []
+            result_cache[index] = {
+                row["key"]: {k: row[k] for k in (
+                    "primitive", "budget", "compression_ratio", "exit_status",
+                ) if k in row}
+                for row in records if "key" in row
+            }
+        task = str(path.parents[2].relative_to(cell))
+        run = int(path.parent.name.removeprefix("run_"))
+        key = f"{task}__{path.parents[1].name}__r{run}"
+        return result_cache[index].get(key, {})
 
     paths = sorted(source.rglob("trajectory.json"))
     totals = Counter()
@@ -79,20 +116,36 @@ def main():
                 parent = path.parents[3]
             exit_path = path.with_name("exit_info.json")
             exit_info = read_json(exit_path) if exit_path.exists() else {}
+            recorded = result_metadata(parent, path)
             token_path = path.with_name("token_log.json")
             tokens = read_json(token_path) if token_path.exists() else {}
             rel = path.relative_to(source)
             info = data.get("info", {})
             model = info.get("config", {}).get("model", {}).get("model_name", run_info.get("model", ""))
             cell_match = re.match(r"d(\d+)__", parent.name)
-            depth = exit_info.get("compression_ratio", "")
-            metadata_source = "exit_info.json"
+            metadata_sources = []
+
+            def setting(exit_key, result_key, fallback="", fallback_source=""):
+                if exit_info.get(exit_key, "") != "":
+                    metadata_sources.append("exit_info.json")
+                    return exit_info[exit_key]
+                if recorded.get(result_key, "") != "":
+                    metadata_sources.append("experiment_results.json")
+                    return recorded[result_key]
+                if fallback != "":
+                    metadata_sources.append(fallback_source)
+                return fallback
+
+            depth = setting("compression_ratio", "compression_ratio")
             if depth == "" and cell_match:
                 digits = cell_match[1]
                 depth = str(int(digits) / 10 ** (len(digits) - 1))
-                metadata_source += "; depth from cell name"
-            budget = exit_info.get("token_budget", run_info.get("budget_tokens", ""))
-            primitive = exit_info.get("primitive", "")
+                metadata_sources.append("depth from cell name")
+            budget = setting("token_budget", "budget", run_info.get("budget_tokens", ""), "run_info.json")
+            primitive = setting("primitive", "primitive",
+                                CONDITION_PRIMITIVES.get(path.parents[1].name, ""),
+                                "primitive from condition directory")
+            metadata_source = "; ".join(dict.fromkeys(metadata_sources))
             if depth == "" or budget == "" or primitive == "":
                 warnings.append(f"{path}: incomplete compression metadata")
             row = {
@@ -103,13 +156,13 @@ def main():
                 "condition": path.parents[1].name, "run": path.parent.name,
                 "primitive": primitive, "budget_tokens": budget, "depth": depth,
                 "metadata_source": metadata_source,
-                "exit_status": info.get("exit_status") or exit_info.get("exit_status", ""),
+                "exit_status": info.get("exit_status") or exit_info.get("exit_status") or recorded.get("exit_status", ""),
                 "agent_calls_recorded": info.get("model_stats", {}).get("api_calls", ""),
                 "compression_events": tokens.get("compression_events", ""),
                 "summarization_prompt_tokens": tokens.get("summarization_prompt_tokens", ""),
                 "trajectory": str(path),
             }
-            key = tuple(row[k] for k in (
+            key = tuple(str(row[k]) for k in (
                 "benchmark", "section", "cohort_model_path", "cell", "model",
                 "primitive", "budget_tokens", "depth",
             ))

@@ -75,21 +75,22 @@ def main():
             for m in messages
         )
         successes = max(recorded_successes, retained_successes)
-        assert 0 <= successes <= calls, f"Inconsistent success/call counters: {path}"
-        assert len(tokens.get("step_completion_tokens", [])) == recorded_successes, path
+        accounting_valid = (0 <= successes <= calls and
+                            len(tokens.get("step_completion_tokens", [])) == recorded_successes)
         # Normal queries increment n_calls BEFORE calling the model. Summary
         # queries happen before that increment. A normal failed query consumes
         # at least one of N-S slots. Missing old errors or in-flight/other failed
         # queries can only make this lower bound more conservative.
         normal_failure_slots = calls - successes
-        lower_bound = max(0, len(errors) - normal_failure_slots)
+        lower_bound = max(0, len(errors) - normal_failure_slots) if accounting_valid else 0
         cues = []
         for index, message in errors:
             response = str(message["extra"].get("model_response", ""))
             kind, snippet = evidence(response)
             if kind:
                 cues.append({"message_index_0based": index, "kind": kind, "snippet": snippet})
-        category = ("summary_failure_accounting" if lower_bound else
+        category = ("not_established" if not accounting_valid else
+                    "summary_failure_accounting" if lower_bound else
                     "summary_related_response" if cues else "not_established")
         reason = (
             f"N={calls}, S>={successes}, F={len(errors)}; normal failure slots <= {normal_failure_slots}; "
@@ -98,15 +99,19 @@ def main():
         if not lower_bound:
             reason += (" Rejected responses contain summary-request/output language; call origin is not recorded."
                        if cues else " No summary-specific response evidence; normal-agent format failures remain possible.")
+        if not accounting_valid:
+            reason = (f"Inconsistent success/call counters: N={calls}, recorded={recorded_successes}, "
+                      f"retained={retained_successes}. No accounting conclusion; manual review required.")
         record = {
             **{k: row[k] for k in ("benchmark", "section", "cohort_model_path", "model", "cell",
                                   "task", "condition", "run", "primitive", "budget_tokens", "depth")},
             "classification": category, "classification_ja": LABELS[category],
             "agent_calls_N": calls, "recorded_successes": recorded_successes,
+            "accounting_valid": accounting_valid,
             "retained_successes": retained_successes, "success_lower_bound_S": successes,
             "retained_format_errors_F": len(errors),
-            "normal_failure_slots_upper_bound": normal_failure_slots,
-            "summary_failure_lower_bound": lower_bound,
+            "normal_failure_slots_upper_bound": normal_failure_slots if accounting_valid else "",
+            "summary_failure_lower_bound": lower_bound if accounting_valid else "",
             "summary_language_error_count": len(cues),
             "reason": reason,
             "evidence_message_index": cues[0]["message_index_0based"] if cues else errors[0][0],
@@ -156,6 +161,7 @@ def main():
         "2. Response content: A response is classified as summary-related if it mentions a summary request, summarizes history, or contains multiple summary headings.\n"
         "   Normal agent responses may refer to previous summaries, so these are rerun candidates rather than confirmed summary calls.\n"
         "3. not_established means the evidence above is insufficient. It does not mean normal behavior, no summary impact, or no need to rerun.\n"
+        "   Rows with accounting_valid=False have inconsistent counters and require manual review; no accounting bounds are reported for them.\n"
         "   Some runs lack complete histories; this classification cannot rule out effects from summaries accepted in command format.\n\n"
         f"Files:\nreview_unmarked.csv: Conditions, classifications, evidence, and original response references for all {len(results)} runs\n"
         "summary_failure_accounting.txt: Runs identified through call accounting\n"

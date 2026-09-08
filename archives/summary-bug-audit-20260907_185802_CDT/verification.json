@@ -1,0 +1,16 @@
+{
+  "trajectories_scanned": 22979,
+  "archive_targets": 2359,
+  "all_rerun_candidates": 5119,
+  "candidate_conditions": 95,
+  "reasons": {
+    "summary_marker_error": 2359,
+    "summary_failure_accounting": 2498,
+    "summary_related_response": 262
+  },
+  "manual_review_inconsistent_counters": 55,
+  "unindexed_archive_candidates": 1,
+  "source_files_checked_unchanged": 46163,
+  "preexisting_changes_preserved": true,
+  "csv_counts_and_paths_validated": true
+}

@@ -1,0 +1,6 @@
+benchmark,section,cohort_model_path,runs
+swebench,ablation,devstral24b,511
+swebench,ablation,qwen35b,430
+swebench,main,devstral24b,256
+swebench,main,glm47flash,29
+swebench,main,qwen35b,1133
