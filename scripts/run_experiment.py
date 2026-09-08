@@ -246,8 +246,9 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
         "total_tokens":            tok.get("total_tokens", 0),
         "llm_latency_s":           tok.get("total_latency_s", 0.0),
         "mean_latency_s":          tok.get("mean_latency_s", 0.0),
-        # per-step context window sizes
+        # per-step token usage
         "step_prompt_tokens":      tok.get("step_prompt_tokens", []),
+        "step_completion_tokens":  tok.get("step_completion_tokens"),
         # compression
         "compression_events":             tok.get("compression_events", 0),
         "compression_event_steps":        tok.get("compression_event_steps", []),
