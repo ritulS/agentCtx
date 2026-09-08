@@ -217,3 +217,99 @@ marker exclusions). Pending runs are filled by
 `bash scripts/run_agent_models_expansion.sh qwen`, which skips keys already
 recorded in the destination cell. Note: these runs now exist in both `main`
 (P100) and `ablation` (ABL-30) for qwen35b; filter by `experiment_section`.
+
+## 2026-09-08: agent.log attribution and archive of the remaining rerun targets (SWE-bench)
+
+Why: trajectory.json only keeps the post-compression history, so FormatErrors from summary
+calls that were later compressed away are invisible to the 2026-09-07 audit. agent.log
+(subprocess stdout) keeps every message and the `step N` headers, which lets each
+FormatError be attributed: a normal-agent failure consumes a step number, a summary
+failure does not. Details: `scripts/attribute_agentlog.py` docstring and
+`archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/agentlog_README.txt`.
+
+### Step 1: attribution scan — commit `25b7ca7` (2026-09-08 16:21 CDT)
+
+Script: `scripts/attribute_agentlog.py` (sha256 `a20ad23d…`, identical to the file that
+produced the outputs). Inputs: the 2026-09-07 audit directory and the marker archive
+(audited copies of the 2,359 already-moved runs). Read-only on experiment files.
+
+```bash
+venv/bin/python archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/attribute_agentlog.py \
+  --audit-dir archives/summary-bug-audit-20260907_185802_CDT \
+  --source-root ICLR_results \
+  --archive-root archives/swebench_summary_marker_error_20260907_192635_CDT \
+  --output-dir archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench --workers 32
+# self-check on non-summary conditions (must report 0 summary_confirmed):
+#   same command with --all-conditions and --output-dir .../agentlog-swebench-allconditions
+```
+
+Result (16,166 summary-condition runs, all matching the audited trajectory/token_log):
+
+| verdict | runs |
+|---|---:|
+| summary_confirmed (compression-event corroborated) | 6,367 |
+| uncorroborated (mostly OTRC family) | 442 |
+| tail_unresolved (killed in a summary loop) | 1,908 |
+| inconsistent / multi_run_log (log-trajectory mismatch / launched twice) | 241 / 358 |
+| no_summary_evidence | 6,850 |
+
+Self-check: 6,813 non-summary runs, 0 `summary_confirmed`; 169 fail the structure checks
+(`agentlog-swebench-allconditions/nonsummary_integrity.csv`, mostly TR runs launched twice
+on 2026-08-23/24; not part of the summary-bug rerun).
+
+### Step 2: rerun_runs.csv update — commit `25b7ca7`
+
+`rerun-list/rerun_runs.csv` went from 5,119 rows (commit `be69dca`) to 9,322 rows by
+appending `agentlog-swebench/rerun_runs_agentlog_additions.csv` (4,203 rows, same columns,
+no duplicate trajectory keys). Backup kept locally as
+`rerun-list/rerun_runs.before-agentlog-20260908-1605.csv` (not committed).
+
+```bash
+AUD=archives/summary-bug-audit-20260907_185802_CDT
+cp $AUD/rerun-list/rerun_runs.csv $AUD/rerun-list/rerun_runs.before-agentlog-$(date +%Y%m%d-%H%M).csv
+tail -n +2 $AUD/agentlog-swebench/rerun_runs_agentlog_additions.csv >> $AUD/rerun-list/rerun_runs.csv
+```
+
+| rerun_reason (new) | rerun_priority | rows |
+|---|---|---:|
+| agentlog_summary_failure | priority | 3,824 |
+| agentlog_unverifiable | probable | 328 |
+| agentlog_uncorroborated | probable | 42 |
+| agentlog_tail_unresolved | probable | 9 |
+
+`summary_failure_lower_bound` is filled only for `agentlog_summary_failure` rows.
+
+### Step 3: archive of all remaining rerun targets — commit `16dacec` (2026-09-08 16:23 CDT)
+
+Script: `scripts/archive_swebench_rerun_targets.py` with the new `--rerun-reason`
+(repeatable) and `--source-stats` options. Non-marker rows are moved only if their
+trajectory.json and token_log.json still have the audited size and mtime. The copy saved in
+the archive (`archive_operation.py`, sha256 `e9c01912…`) is byte-identical to the committed
+script. Executed 2026-09-08 16:20:42–16:20:59 CDT, no launcher running.
+
+```bash
+venv/bin/python archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/archive_swebench_rerun_targets.py \
+  --rerun-csv archives/summary-bug-audit-20260907_185802_CDT/rerun-list/rerun_runs.csv \
+  --source-stats archives/summary-bug-audit-20260907_185802_CDT/source_file_stats.json \
+  --rerun-reason summary_failure_accounting --rerun-reason summary_related_response \
+  --rerun-reason agentlog_summary_failure --rerun-reason agentlog_uncorroborated \
+  --rerun-reason agentlog_tail_unresolved --rerun-reason agentlog_unverifiable \
+  --archive-name swebench_summary_bug_remaining_20260908_162042_CDT --execute
+```
+
+| Archive directory | Selection | Runs | Cells | Index rows removed | Unindexed |
+|---|---|---:|---:|---:|---:|
+| `swebench_summary_bug_remaining_20260908_162042_CDT` | 6 reasons above | 6,963 | 98 | 6,952 | 11 |
+
+| cohort / section | runs |
+|---|---:|
+| qwen35b / main | 2,719 |
+| qwen35b / ablation | 933 |
+| devstral24b / ablation | 1,795 |
+| devstral24b / main | 840 |
+| glm47flash / main | 676 |
+
+Together with the 2026-09-07 marker archive (2,359 runs) every row of `rerun_runs.csv`
+(9,322) is now out of `ICLR_results` and out of the result indexes, so the launcher's resume
+re-executes all of them. `status.json` reports `complete`; `before/` holds the original
+indexes and `moves_completed.jsonl` the move journal.
