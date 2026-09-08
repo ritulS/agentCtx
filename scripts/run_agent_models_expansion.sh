@@ -4,6 +4,10 @@
 # Implements the complete 3-runs/task grid for:
 #   2.a/2.c Devstral-Small-2-24B (P100 main + ABL-30 ablation)
 #   2.b/2.d GLM-4.7-Flash       (P100 main + ABL-30 ablation)
+#   Qwen3.5-35B-A3B uses the same main/ablation grid.
+#   Seed ABL-30 results from legacy Qwen main cells at 10K/20K first with
+#   scripts/reuse_qwen_main_for_ablation.py --execute (dry run without the flag).
+#   Completed keys are skipped only within the destination cell.
 #
 # Output follows ICLR_results/README.md exactly. Each primitive gets one cell:
 #   ICLR_results/swebench/{main|ablation}/{model}/{depth}__{budget}__{primitive}/
@@ -14,6 +18,7 @@
 # Usage:
 #   bash scripts/run_agent_models_expansion.sh devstral
 #   bash scripts/run_agent_models_expansion.sh glm
+#   bash scripts/run_agent_models_expansion.sh qwen
 #
 # Optional environment overrides:
 #   AGENTCTX_WS=/path/to/agentCtx MAX_WORKERS=16 RUN_EVAL=0 bash ...
@@ -24,8 +29,8 @@ cd "$WS"
 
 MODEL="${1:-}"
 case "$MODEL" in
-    devstral|glm) ;;
-    *) echo "Usage: $0 {devstral|glm}" >&2; exit 2 ;;
+    devstral|glm|qwen) ;;
+    *) echo "Usage: $0 {devstral|glm|qwen}" >&2; exit 2 ;;
 esac
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
@@ -50,6 +55,11 @@ GLM_A_BUDGET="${GLM_A_BUDGET:-10000}"
 GLM_P_BUDGET="${GLM_P_BUDGET:-13000}"
 GLM_B_BUDGET="${GLM_B_BUDGET:-15000}"
 
+# Use the existing Qwen budget values and numeric ICLR cell names.
+QWEN_A_BUDGET="${QWEN_A_BUDGET:-10000}"
+QWEN_P_BUDGET="${QWEN_P_BUDGET:-15000}"
+QWEN_B_BUDGET="${QWEN_B_BUDGET:-20000}"
+
 DEVSTRAL_TAG="devstral-2"
 DEVSTRAL_CONFIG="$WS/configs/config-devstral-vllm.yaml"
 DEVSTRAL_OTRC_CONFIG="${DEVSTRAL_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
@@ -59,6 +69,11 @@ GLM_TAG="${GLM_TAG:-glm47-flash}"
 GLM_CONFIG="${GLM_CONFIG:-$WS/configs/config-glm47flash-vllm.yaml}"
 GLM_OTRC_CONFIG="${GLM_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 GLM_HEALTH_URL="${GLM_HEALTH_URL:-http://localhost:8003/v1/models}"
+
+QWEN_TAG="${QWEN_TAG:-qwen35-a3b}"
+QWEN_CONFIG="${QWEN_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
+QWEN_OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
+QWEN_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 
 LOG="$WS/logs/followup_agent_models_${MODEL}.log"
 mkdir -p "$WS/logs"
@@ -233,6 +248,17 @@ if [[ "$MODEL" == glm ]]; then
     run_model "GLM-4.7-Flash" "$GLM_TAG" glm47flash "$GLM_CONFIG" \
         "$GLM_OTRC_CONFIG" "$GLM_HEALTH_URL" \
         "$GLM_A_BUDGET" "$GLM_P_BUDGET" "$GLM_B_BUDGET" bA bP bB
+fi
+
+if [[ "$MODEL" == qwen ]]; then
+    validate_ordered_budgets "Qwen" "$QWEN_A_BUDGET" "$QWEN_P_BUDGET" "$QWEN_B_BUDGET"
+    QWEN_A_TAG="$(numeric_budget_tag "$QWEN_A_BUDGET")"
+    QWEN_P_TAG="$(numeric_budget_tag "$QWEN_P_BUDGET")"
+    QWEN_B_TAG="$(numeric_budget_tag "$QWEN_B_BUDGET")"
+    run_model "Qwen3.5-35B-A3B" "$QWEN_TAG" qwen35b "$QWEN_CONFIG" \
+        "$QWEN_OTRC_CONFIG" "$QWEN_HEALTH_URL" \
+        "$QWEN_A_BUDGET" "$QWEN_P_BUDGET" "$QWEN_B_BUDGET" \
+        "$QWEN_A_TAG" "$QWEN_P_TAG" "$QWEN_B_TAG"
 fi
 
 log "=== Requested follow-up model experiments complete ==="

@@ -15,8 +15,8 @@ cd "$WS"
 
 MODEL="${1:-}"
 case "$MODEL" in
-    devstral|glm) ;;
-    *) echo "Usage: $0 {devstral|glm}" >&2; exit 2 ;;
+    devstral|glm|qwen) ;;
+    *) echo "Usage: $0 {devstral|glm|qwen}" >&2; exit 2 ;;
 esac
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
