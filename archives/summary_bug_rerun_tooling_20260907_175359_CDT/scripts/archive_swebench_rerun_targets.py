@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Archive SWE-bench summary-marker runs and remove their result-index rows.
+"""Archive SWE-bench summary-bug rerun targets and remove their result-index rows.
+
+Rows are selected from rerun_runs.csv by --rerun-reason (repeatable; default
+summary_marker_error, the historical selection).  Before moving anything each run is
+checked against the audit it came from: marker rows must still contain exactly the
+recorded number of summary markers; every other reason needs --source-stats
+(source_file_stats.json of the audit) and the run's trajectory.json and token_log.json
+must still have the audited size and mtime, so a rerun that already replaced the
+audited files is never archived by mistake.
 
 Dry run by default. Stop experiment launchers/workers before --execute, and keep
 them stopped until completion. Originals of every affected result index, the
@@ -49,8 +57,17 @@ def main():
     parser.add_argument('--archive-name', required=True, help='New directory name under archives/')
     parser.add_argument('--cohort-model-path', help='Optional model filter')
     parser.add_argument('--section', choices=['main', 'ablation'])
+    parser.add_argument('--rerun-reason', action='append', default=None,
+                        help='rerun_reason values to select (repeatable; default: summary_marker_error)')
+    parser.add_argument('--source-stats', type=Path, default=None,
+                        help='source_file_stats.json of the audit; required for reasons other than summary_marker_error')
     parser.add_argument('--execute', action='store_true')
     args = parser.parse_args()
+    reasons = set(args.rerun_reason or ['summary_marker_error'])
+    source_stats = None
+    if reasons - {'summary_marker_error'}:
+        require(args.source_stats is not None, '--source-stats is required for reasons other than summary_marker_error')
+        source_stats = json.loads(args.source_stats.resolve(strict=True).read_text())
     root = args.root.resolve(strict=True)
     require(Path(args.archive_name).name == args.archive_name and args.archive_name not in {'.', '..'},
             'archive-name must be a single directory name')
@@ -61,10 +78,10 @@ def main():
         reader = csv.DictReader(stream)
         fields = reader.fieldnames
         selected = [r for r in reader if r['benchmark'] == 'swebench'
-                    and r['rerun_reason'] == 'summary_marker_error'
+                    and r['rerun_reason'] in reasons
                     and (not args.cohort_model_path or r['cohort_model_path'] == args.cohort_model_path)
                     and (not args.section or r['section'] == args.section)]
-    require(selected, 'No SWE-bench summary_marker_error rows matched')
+    require(selected, f'No SWE-bench rows matched rerun_reason in {sorted(reasons)}')
     cells, moves, manifest, hashes = {}, [], [], {}
     for row in selected:
         relative = Path('ICLR_results/swebench') / row['section'] / row['cohort_model_path'] / row['cell'] / row['task'] / row['condition'] / row['run']
@@ -73,17 +90,25 @@ def main():
         require(run.resolve() == run and run.is_dir(), f'Missing or symlinked run: {run}')
         require((run / 'trajectory.json') == Path(row['trajectory']), f'CSV path mismatch: {run}')
         require(run not in moves, f'Duplicate run: {run}')
-        trajectory = json.loads((run / 'trajectory.json').read_text())
-        markers = 0
-        for message in trajectory.get('messages', []):
-            extra = message.get('extra') or {}
-            if extra.get('interrupt_type') != 'FormatError' and 'model_response' not in extra:
-                continue
-            response = extra.get('model_response', '')
-            if not isinstance(response, str):
-                response = json.dumps(response, ensure_ascii=False)
-            markers += any(m in response for m in ('[CONTEXT SUMMARY]', '[COMPRESSED HISTORY SUMMARY]'))
-        require(markers > 0 and markers == int(row['summary_marker_errors']), f'Stale marker evidence: {run}')
+        if row['rerun_reason'] == 'summary_marker_error':
+            trajectory = json.loads((run / 'trajectory.json').read_text())
+            markers = 0
+            for message in trajectory.get('messages', []):
+                extra = message.get('extra') or {}
+                if extra.get('interrupt_type') != 'FormatError' and 'model_response' not in extra:
+                    continue
+                response = extra.get('model_response', '')
+                if not isinstance(response, str):
+                    response = json.dumps(response, ensure_ascii=False)
+                markers += any(m in response for m in ('[CONTEXT SUMMARY]', '[COMPRESSED HISTORY SUMMARY]'))
+            require(markers > 0 and markers == int(row['summary_marker_errors']), f'Stale marker evidence: {run}')
+        else:
+            # Non-marker rows: the run must still be the audited execution (size and mtime of both files).
+            for name in ('trajectory.json', 'token_log.json'):
+                audited = source_stats.get(str(relative / name))
+                require(audited is not None, f'Not in source stats: {relative / name}')
+                stat = (run / name).stat()
+                require([stat.st_size, stat.st_mtime_ns] == list(audited), f'Run changed since audit: {run / name}')
         cell = run.parents[2]
         index = cell / 'experiment_results.json'
         if cell not in cells:
@@ -141,7 +166,8 @@ def main():
     (archive / 'source_sha256.json').write_text(json.dumps(hashes, indent=2) + '\n')
     shutil.copy2(__file__, archive / 'archive_operation.py')
     (archive / 'README.md').write_text(
-        f'# SWE-bench summary-marker archive\n\nCreated: {datetime.now().astimezone().isoformat()}\n\n'
+        f'# SWE-bench summary-bug rerun archive\n\nCreated: {datetime.now().astimezone().isoformat()}\n\n'
+        f'rerun_reason selection: {", ".join(sorted(reasons))}\n'
         f'Selected {len(moves)} runs; {removed} result-index rows will be removed.\n'
         'See status.json for completion status and moves_completed.jsonl for completed moves.\n'
         'Original indexes are in before/. Run directories retain workspace-relative paths.\n'
