@@ -536,7 +536,7 @@ def main():
 <div class="tablewrap roadmap-overview"><table>
 <thead><tr><th>priority</th><th>experiment</th><th>dataset</th><th>planned runs</th></tr></thead>
 <tbody>
-<tr><td class="priority">P1</td><td><a href="#priority-1">Increase runs/task: 2 → 3</a></td><td>SB:P-100 + SB:ABL-30</td><td>2,860 additional</td></tr>
+<tr><td class="priority">P1</td><td><a href="#priority-1">Runs/task: 3 (run_1–run_3)</a></td><td>SB:P-100 + SB:ABL-30</td><td>8,580 total</td></tr>
 <tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
 <tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
@@ -612,10 +612,10 @@ def main():
         return rows_
 
     p1_tracking_rows = [
-        swe_track(MAIN, tunable_label, tunable, "0.5", "15K", "SB:P-100", 100, 3, baseline_runs=2),
-        swe_track(MAIN, invariant_label, invariant, "DI", "15K", "SB:P-100", 100, 3, baseline_runs=2),
-        swe_track(MAIN, baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3, baseline_runs=2),
-    ] + ablation_tracking_rows(MAIN, ["10K", "15K", "20K"], baseline_runs=2)
+        swe_track(MAIN, tunable_label, tunable, "0.5", "15K", "SB:P-100", 100, 3),
+        swe_track(MAIN, invariant_label, invariant, "DI", "15K", "SB:P-100", 100, 3),
+        swe_track(MAIN, baseline_label, ["FC", "OTRC"], "DI", "∞", "SB:P-100", 100, 3),
+    ] + ablation_tracking_rows(MAIN, ["10K", "15K", "20K"])
     p1_tracking = tracking_table(p1_tracking_rows)
     p1_target = sum(row[6][2] for row in p1_tracking_rows)
 
@@ -681,8 +681,8 @@ def main():
     history = load_progress_history()
     now_utc = datetime.now(timezone.utc)
     snapshot = {}
-    # A new cohort definition must not be compared with old P100 counters.
-    p1_progress = progress_bar(p1_tracking_rows, "p1_abl30_v2", history, now_utc, snapshot)
+    # Total-run progress must not be compared with the old third-run counters.
+    p1_progress = progress_bar(p1_tracking_rows, "p1_all_runs_v3", history, now_utc, snapshot)
     p2a_progress = progress_bar(p2a_rows, "p2a", history, now_utc, snapshot)
     p2b_progress = progress_bar(p2b_rows, "p2b", history, now_utc, snapshot)
     p2c_progress = progress_bar(p2c_rows, "p2c", history, now_utc, snapshot)
@@ -862,7 +862,7 @@ a {{ color:var(--accent-ink); }}
 <div class="tablewrap roadmap-overview"><table>
 <thead><tr><th>priority</th><th>experiment</th><th>dataset(s)</th><th>runs</th></tr></thead>
 <tbody>
-<tr><td class="priority">1</td><td><a href="#exp-runs">Increase runs/task</a></td><td>SB:P-100 + SB:ABL-30</td><td>{p1_target:,}</td></tr>
+<tr><td class="priority">1</td><td><a href="#exp-runs">Complete runs 1–3</a></td><td>SB:P-100 + SB:ABL-30</td><td>{p1_target:,}</td></tr>
 <tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
 <tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
@@ -878,15 +878,15 @@ a {{ color:var(--accent-ink); }}
   <span>· Status is aggregated by model × primitive family × depth × budget × dataset.</span>
 </div>
 
-<h2 id="exp-runs">1. [Priority] SWE-Bench: Runs/task: 2 → 3</h2>
+<h2 id="exp-runs">1. [Priority] SWE-Bench: Runs/task: 3 (run_1–run_3)</h2>
 {p1_progress}
 <ul>
 <li>ETA: 3–5 days</li>
 <li>Model (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct</li>
-<li>Runs/task: <strong>3 (mostly 1 additional run/task)</strong></li>
+<li>Runs/task: <strong>3 (run_1, run_2, run_3)</strong></li>
 </ul>
-<p class="note">Progress and budget chips count only the additional third run (the existing
-2 runs/task are excluded). Main uses P100 at 15K and depth 0.5 (or DI), plus FC/OTRC at ∞.
+<p class="note">Progress and budget chips count all three runs per task (run_1–run_3),
+including completed first and second runs, toward 8,580 total runs. Main uses P100 at 15K and depth 0.5 (or DI), plus FC/OTRC at ∞.
 All depth 0.3/0.7 cells and the 10K/20K depth 0.5 or DI cells use ABL-30.
 Existing results count only for the selected cohort; copies of the same run count once.</p>
 {p1_tracking}
