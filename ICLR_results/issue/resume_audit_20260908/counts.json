@@ -1,0 +1,94 @@
+{
+  "scope_start_cdt": "2026-09-07 20:01:53",
+  "last_result_cdt": "2026-09-08T12:55:43.441423",
+  "stats": {
+    "trajectories": 645,
+    "format_error_events": 767,
+    "format_error_runs": 337,
+    "summary_marker_errors": 42,
+    "compression_events": 2085,
+    "runs_with_compression": 579,
+    "accounting_lower_bound_positive": 2,
+    "step_array_mismatch": 0,
+    "log_format_errors": 0,
+    "log_tracebacks": 8319,
+    "log_api_errors": 0
+  },
+  "cells": {
+    "ablation/qwen35b/d07__b10k__su-partial": {
+      "runs": 1,
+      "format_error_runs": 0,
+      "timeouts": 0
+    },
+    "ablation/qwen35b/d03__b10k__ss-partial": {
+      "runs": 65,
+      "format_error_runs": 23,
+      "timeouts": 20
+    },
+    "ablation/qwen35b/d03__b10k__ss": {
+      "runs": 46,
+      "format_error_runs": 23,
+      "timeouts": 22
+    },
+    "ablation/qwen35b/d03__b15k__ss": {
+      "runs": 19,
+      "format_error_runs": 10,
+      "timeouts": 0
+    },
+    "ablation/qwen35b/d07__b10k__su-full": {
+      "runs": 1,
+      "format_error_runs": 0,
+      "timeouts": 0
+    },
+    "ablation/qwen35b/d07__b10k__ss-partial": {
+      "runs": 68,
+      "format_error_runs": 26,
+      "timeouts": 5
+    },
+    "ablation/qwen35b/d03__b15k__ss-partial": {
+      "runs": 40,
+      "format_error_runs": 19,
+      "timeouts": 2
+    },
+    "ablation/qwen35b/d03__b20k__ss": {
+      "runs": 9,
+      "format_error_runs": 3,
+      "timeouts": 0
+    },
+    "ablation/qwen35b/d03__b20k__ss-partial": {
+      "runs": 27,
+      "format_error_runs": 15,
+      "timeouts": 4
+    },
+    "ablation/qwen35b/d07__b10k__ss": {
+      "runs": 41,
+      "format_error_runs": 28,
+      "timeouts": 6
+    },
+    "main/qwen35b/di__b15k__trc-ss": {
+      "runs": 8,
+      "format_error_runs": 5,
+      "timeouts": 1
+    },
+    "main/qwen35b/di__b15k__otrc-ss-partial": {
+      "runs": 89,
+      "format_error_runs": 69,
+      "timeouts": 52
+    },
+    "main/qwen35b/d05__b15k__ss": {
+      "runs": 74,
+      "format_error_runs": 45,
+      "timeouts": 14
+    },
+    "main/qwen35b/d05__b15k__ss-partial": {
+      "runs": 156,
+      "format_error_runs": 70,
+      "timeouts": 26
+    },
+    "main/qwen35b/d05__b15k__su-full": {
+      "runs": 1,
+      "format_error_runs": 1,
+      "timeouts": 0
+    }
+  }
+}
