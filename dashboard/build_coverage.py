@@ -97,13 +97,13 @@ def budget_label(b) -> str:
     return "inf" if b == INF else f"{b // 1000}k"
 
 
-def classify_cohort(tasks: set, abl30: set, p100: set) -> str:
+def classify_cohort(tasks: set, abl25: set, p100: set) -> str:
     if tasks >= p100:
         return "P100"
-    if tasks >= abl30:
-        extra = len(tasks - abl30)
-        return "ABL-30" if extra == 0 else f"ABL-30 (+{extra})"
-    return f"partial ({len(tasks & abl30)}/30 ABL-30, {len(tasks)} total)"
+    if tasks >= abl25:
+        extra = len(tasks - abl25)
+        return "ABL-25" if extra == 0 else f"ABL-25 (+{extra})"
+    return f"partial ({len(tasks & abl25)}/25 ABL-25, {len(tasks)} total)"
 
 
 def parse_args():
@@ -127,7 +127,7 @@ def main():
     args = parse_args()
     out = args.output if args.output.is_absolute() else ROOT / args.output
     tb_out = args.tb_output if args.tb_output.is_absolute() else ROOT / args.tb_output
-    abl30 = load_task_list(ROOT / "task_lists/ablation_30tasks.json")
+    abl25 = load_task_list(ROOT / "task_lists/ablation_25tasks.json")
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
 
@@ -180,10 +180,10 @@ def main():
 
     # ---- 2. enumerate the in-scope cells (main model) ------------------------
     expected = {}  # cell key -> required cohort
-    # Legacy model-expansion baselines that only used the ABL-30 cohort.
+    # Evaluate legacy model-expansion baselines on the current ablation subset.
     for model in ("Qwen2.5-Coder-32B", "Llama-3.3-70B"):
         for prim in ("FC", "OTRC"):
-            expected[("swebench", model, prim, INF, 0.5)] = "ABL-30"
+            expected[("swebench", model, prim, INF, 0.5)] = "ABL-25"
 
     # FOLLOWUP_EXPERIMENTS 2.a/2.b use P100. Calibration FC trajectories in
     # these canonical cells count as run_1 of the corresponding experiment.
@@ -194,7 +194,7 @@ def main():
     # All three SWE models share the same main/ablation grid. Qwen retains
     # its existing 10K/15K/20K budgets; the other models use calibrated values.
     # Only the primary budget at canonical depth and infinite baselines use
-    # P100. Every budget/depth ablation uses ABL-30, regardless of source path.
+    # P100. Every budget/depth ablation uses ABL-25, regardless of source path.
     expansion_budgets = {
         MAIN_MODEL: (10_000, 15_000, 20_000),
         "Devstral-Small-2-24B": (17_000, 21_000, 24_000),
@@ -205,13 +205,13 @@ def main():
             expected[("swebench", model, prim, p_budget, 0.5)] = "P100"
             for budget in (a_budget, p_budget, b_budget):
                 for depth in (0.3, 0.7):
-                    expected[("swebench", model, prim, budget, depth)] = "ABL-30"
+                    expected[("swebench", model, prim, budget, depth)] = "ABL-25"
             for budget in (a_budget, b_budget):
-                expected[("swebench", model, prim, budget, 0.5)] = "ABL-30"
+                expected[("swebench", model, prim, budget, 0.5)] = "ABL-25"
         for prim in DEPTH_INVARIANT:
             expected[("swebench", model, prim, p_budget, 0.5)] = "P100"
             for budget in (a_budget, b_budget):
-                expected[("swebench", model, prim, budget, 0.5)] = "ABL-30"
+                expected[("swebench", model, prim, budget, 0.5)] = "ABL-25"
         for prim in ("FC", "OTRC"):
             expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
@@ -256,20 +256,20 @@ def main():
                          else REQUIRED_RUNS_PER_TASK)
         covered = d["tasks"] if d else set()
         cohort = (f"TB-{len(covered)}" if benchmark == "terminal-bench" else
-                  classify_cohort(covered, abl30, p100)) if covered else ""
+                  classify_cohort(covered, abl25, p100)) if covered else ""
 
         runs_per_task_min = 0
         # Cohort-specific capped run counts let downstream consumers answer
-        # questions such as "how many third runs are complete for ABL-30?"
+        # questions such as "how many third runs are complete for ABL-25?"
         # exactly.  A proportional slice of a mixed P100 cell is incorrect
-        # when only the ABL-30 tasks have received run_3.
+        # when only the ABL-25 tasks have received run_3.
         d_runs = d["task_runs"] if d else {}
         def capped_runs(tasks, cap):
             return sum(min(cap, d_runs.get(t, 0)) for t in tasks)
 
         cohort_counts = {}
         for cohort_name, cohort_tasks in (
-            ("abl30", abl30), ("p100", p100), ("tb20", tb20)
+            ("abl25", abl25), ("p100", p100), ("tb20", tb20)
         ):
             cohort_counts[f"tasks_covered_{cohort_name}"] = sum(
                 d_runs.get(t, 0) > 0 for t in cohort_tasks
@@ -299,13 +299,13 @@ def main():
                 have_cohort = (
                     len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
                     cohort.startswith(req) or
-                    (req == "ABL-30" and cohort.startswith("P100"))
+                    (req == "ABL-25" and cohort.startswith("P100"))
                 )
                 if not have_cohort:
                     status = "PARTIAL"
                 else:
                     required_tasks = (covered if req and req.startswith("TB-") else
-                                      p100 if req == "P100" else abl30)
+                                      p100 if req == "P100" else abl25)
                     runs_per_task_min = min(
                         (d_runs.get(t, 0) for t in required_tasks),
                         default=0)
@@ -315,7 +315,7 @@ def main():
         has_required_cohort = (
             len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
             bool(req) and (cohort.startswith(req) or
-                           (req == "ABL-30" and cohort.startswith("P100")))
+                           (req == "ABL-25" and cohort.startswith("P100")))
         )
         if status == "PARTIAL" and covered and has_required_cohort:
             notes.append(f"only {runs_per_task_min}/{required_runs} runs/task")

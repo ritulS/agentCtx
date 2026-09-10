@@ -82,3 +82,17 @@ python dashboard/publish.py
 The GitHub Actions workflow builds `DASHBOARD.html` from both coverage CSVs,
 puts it below the configured `DASHBOARD_PATH`, and deploys that artifact to
 GitHub Pages.
+
+Priority 1 tracks all three runs per task (`run_1`–`run_3`), including the
+first two runs, across the P100 main cells and ABL-25 ablation cells. Its
+total target is 7,800 runs. Main and Ablation have separate progress bars. Progress history uses
+`p1a_all_runs_v3` and `p1b_abl25_v4` so throughput
+is not compared with older snapshots that counted only the additional run.
+
+SWE-Bench ablations use `task_lists/ablation_25tasks.json`, a strict subset of
+ABL-30. Coverage counts only those 25 task IDs, including existing runs from
+ABL-30/P100 cells. Each model has a 3,900-run ablation target; Priority 2 totals
+15,600 runs and the summarizer ablation totals 700 runs including Terminal-Bench.
+Regenerate `COVERAGE.csv` before rendering: old ABL-30 totals cannot be
+converted proportionally. The affected history keys are `p1b_abl25_v4`,
+`p2c_abl25_v2`, `p2d_abl25_v2`, `p2_abl25_v2`, and `p4_abl25_v2`.
