@@ -1,0 +1,3810 @@
+{
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-13964/structured-summarize-partial/run_2/token_log.json": [
+  2407,
+  1787179984483401933
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-13964/structured-summarize-partial/run_2/trajectory.json": [
+  95924,
+  1787179984483401933
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-14580/structured-summarize-partial/run_3/token_log.json": [
+  1880,
+  1787688264802997723
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-14580/structured-summarize-partial/run_3/trajectory.json": [
+  116212,
+  1787688264910999101
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-14915/structured-summarize-partial/run_1/token_log.json": [
+  1544,
+  1787179984499402147
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-14915/structured-summarize-partial/run_1/trajectory.json": [
+  50371,
+  1787179984499402147
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-14999/structured-summarize-partial/run_1/token_log.json": [
+  2182,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/django__django-14999/structured-summarize-partial/run_1/trajectory.json": [
+  78156,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-10297/structured-summarize-partial/run_1/token_log.json": [
+  1735,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-10297/structured-summarize-partial/run_1/trajectory.json": [
+  56455,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-10297/structured-summarize-partial/run_3/token_log.json": [
+  2616,
+  1787689640976894823
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-10297/structured-summarize-partial/run_3/trajectory.json": [
+  78620,
+  1787689641088896311
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-13779/structured-summarize-partial/run_2/token_log.json": [
+  2625,
+  1787179984527402523
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-13779/structured-summarize-partial/run_2/trajectory.json": [
+  111821,
+  1787179984527402523
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-25747/structured-summarize-partial/run_2/token_log.json": [
+  2527,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/scikit-learn__scikit-learn-25747/structured-summarize-partial/run_2/trajectory.json": [
+  120791,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/sympy__sympy-13091/structured-summarize-partial/run_3/token_log.json": [
+  2408,
+  1787691172012964190
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/sympy__sympy-13091/structured-summarize-partial/run_3/trajectory.json": [
+  110247,
+  1787691172120965598
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/sympy__sympy-24443/structured-summarize-partial/run_3/token_log.json": [
+  3451,
+  1787693594881187311
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss-partial/sympy__sympy-24443/structured-summarize-partial/run_3/trajectory.json": [
+  149794,
+  1787693594985188631
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-11066/structured-summarize/run_3/token_log.json": [
+  1436,
+  1787687212057969584
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-11066/structured-summarize/run_3/trajectory.json": [
+  60544,
+  1787687212173971113
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-11292/structured-summarize/run_2/token_log.json": [
+  1263,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-11292/structured-summarize/run_2/trajectory.json": [
+  41147,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-13012/structured-summarize/run_3/token_log.json": [
+  2548,
+  1787688574458965757
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-13012/structured-summarize/run_3/trajectory.json": [
+  89749,
+  1787688574582967352
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-14580/structured-summarize/run_2/token_log.json": [
+  1849,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-14580/structured-summarize/run_2/trajectory.json": [
+  32980,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-14915/structured-summarize/run_2/token_log.json": [
+  2764,
+  1787179984499402147
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-14915/structured-summarize/run_2/trajectory.json": [
+  115964,
+  1787179984499402147
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-17087/structured-summarize/run_1/token_log.json": [
+  1235,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-17087/structured-summarize/run_1/trajectory.json": [
+  28495,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-17087/structured-summarize/run_3/token_log.json": [
+  1589,
+  1787688841494404801
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/django__django-17087/structured-summarize/run_3/trajectory.json": [
+  79032,
+  1787688841622406452
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-10908/structured-summarize/run_2/token_log.json": [
+  3595,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-10908/structured-summarize/run_2/trajectory.json": [
+  116715,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_1/token_log.json": [
+  4675,
+  1787179984515402362
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_1/trajectory.json": [
+  54172,
+  1787179984515402362
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_2/token_log.json": [
+  1762,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_2/trajectory.json": [
+  34460,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_3/token_log.json": [
+  1586,
+  1787689139406252084
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_3/trajectory.json": [
+  89272,
+  1787689139522253583
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-13328/structured-summarize/run_1/token_log.json": [
+  4439,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-13328/structured-summarize/run_1/trajectory.json": [
+  51454,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-13779/structured-summarize/run_2/token_log.json": [
+  2289,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-13779/structured-summarize/run_2/trajectory.json": [
+  93039,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-13779/structured-summarize/run_3/token_log.json": [
+  2171,
+  1787689665793224383
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-13779/structured-summarize/run_3/trajectory.json": [
+  85151,
+  1787689665913225975
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-14496/structured-summarize/run_3/token_log.json": [
+  2508,
+  1787690389938752994
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-14496/structured-summarize/run_3/trajectory.json": [
+  55083,
+  1787690390046754407
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-15100/structured-summarize/run_1/token_log.json": [
+  1355,
+  1787179984531402577
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-15100/structured-summarize/run_1/trajectory.json": [
+  32148,
+  1787179984531402577
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-15100/structured-summarize/run_2/token_log.json": [
+  1322,
+  1787179984531402577
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-15100/structured-summarize/run_2/trajectory.json": [
+  32098,
+  1787179984531402577
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-26323/structured-summarize/run_2/token_log.json": [
+  2173,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/scikit-learn__scikit-learn-26323/structured-summarize/run_2/trajectory.json": [
+  36462,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-13031/structured-summarize/run_3/token_log.json": [
+  2058,
+  1787691562170226000
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-13031/structured-summarize/run_3/trajectory.json": [
+  60363,
+  1787691562290227649
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-13757/structured-summarize/run_3/token_log.json": [
+  2316,
+  1787691441916565301
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-13757/structured-summarize/run_3/trajectory.json": [
+  68322,
+  1787691442028566856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15017/structured-summarize/run_1/token_log.json": [
+  2739,
+  1787179984551402845
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15017/structured-summarize/run_1/trajectory.json": [
+  39451,
+  1787179984551402845
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15017/structured-summarize/run_3/token_log.json": [
+  4336,
+  1787692048956817912
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15017/structured-summarize/run_3/trajectory.json": [
+  73851,
+  1787692049068819413
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15345/structured-summarize/run_1/token_log.json": [
+  4447,
+  1787179984551402845
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15345/structured-summarize/run_1/trajectory.json": [
+  112093,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15345/structured-summarize/run_3/token_log.json": [
+  3740,
+  1787692516779050977
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-15345/structured-summarize/run_3/trajectory.json": [
+  105244,
+  1787692516899052569
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-17630/structured-summarize/run_1/token_log.json": [
+  4538,
+  1787179984559402953
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-17630/structured-summarize/run_1/trajectory.json": [
+  67362,
+  1787179984559402953
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-17630/structured-summarize/run_3/token_log.json": [
+  2507,
+  1787692095121435973
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-17630/structured-summarize/run_3/trajectory.json": [
+  64553,
+  1787692095229437419
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-19637/structured-summarize/run_1/token_log.json": [
+  1346,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-19637/structured-summarize/run_1/trajectory.json": [
+  26529,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-19637/structured-summarize/run_3/token_log.json": [
+  1117,
+  1787691910146953754
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-19637/structured-summarize/run_3/trajectory.json": [
+  26611,
+  1787691910258955262
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-24066/structured-summarize/run_1/token_log.json": [
+  1929,
+  1787179984607403596
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-24066/structured-summarize/run_1/trajectory.json": [
+  44396,
+  1787179984607403596
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-24066/structured-summarize/run_3/token_log.json": [
+  4560,
+  1787692641096699333
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-24066/structured-summarize/run_3/trajectory.json": [
+  40668,
+  1787692641220700976
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-24443/structured-summarize/run_3/token_log.json": [
+  1778,
+  1787692589676017811
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__ss/sympy__sympy-24443/structured-summarize/run_3/trajectory.json": [
+  46453,
+  1787692589784019243
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11292/summarization/run_1/token_log.json": [
+  1512,
+  1787179982135370429
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11292/summarization/run_1/trajectory.json": [
+  87536,
+  1787179982135370429
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11292/summarization/run_3/token_log.json": [
+  1492,
+  1787678117906319466
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11292/summarization/run_3/trajectory.json": [
+  371104,
+  1787679454711377035
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11299/summarization/run_1/token_log.json": [
+  1046,
+  1787179982135370429
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11299/summarization/run_1/trajectory.json": [
+  573813,
+  1787179982135370429
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11299/summarization/run_2/token_log.json": [
+  3221,
+  1787179982135370429
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11299/summarization/run_2/trajectory.json": [
+  177905,
+  1787179982135370429
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11299/summarization/run_3/token_log.json": [
+  2019,
+  1787678573704020092
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-11299/summarization/run_3/trajectory.json": [
+  248077,
+  1787679453555361853
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-12273/summarization/run_1/token_log.json": [
+  2731,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-12273/summarization/run_1/trajectory.json": [
+  151743,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-12273/summarization/run_2/token_log.json": [
+  4209,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-12273/summarization/run_2/trajectory.json": [
+  164549,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-12273/summarization/run_3/token_log.json": [
+  1630,
+  1787678720449855446
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-12273/summarization/run_3/trajectory.json": [
+  238742,
+  1787679375174329497
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13012/summarization/run_2/token_log.json": [
+  3863,
+  1787179982151370644
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13012/summarization/run_2/trajectory.json": [
+  374632,
+  1787179982151370644
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13964/summarization/run_1/token_log.json": [
+  1994,
+  1787179982259372093
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13964/summarization/run_1/trajectory.json": [
+  552088,
+  1787179982263372146
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13964/summarization/run_2/token_log.json": [
+  959,
+  1787179982259372093
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13964/summarization/run_2/trajectory.json": [
+  553517,
+  1787179982259372093
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13964/summarization/run_3/token_log.json": [
+  844,
+  1787678111034233518
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-13964/summarization/run_3/trajectory.json": [
+  360923,
+  1787679447767285821
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14580/summarization/run_1/token_log.json": [
+  2807,
+  1787179982139370482
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14580/summarization/run_1/trajectory.json": [
+  299752,
+  1787179982139370482
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14580/summarization/run_3/token_log.json": [
+  3201,
+  1787679477307673541
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14580/summarization/run_3/trajectory.json": [
+  90602,
+  1787679477423675062
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14915/summarization/run_1/token_log.json": [
+  3439,
+  1787179982175370965
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14915/summarization/run_1/trajectory.json": [
+  129488,
+  1787179982175370965
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14915/summarization/run_3/token_log.json": [
+  4414,
+  1787678846291429353
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14915/summarization/run_3/trajectory.json": [
+  132204,
+  1787678846555432655
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14999/summarization/run_1/token_log.json": [
+  3696,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14999/summarization/run_1/trajectory.json": [
+  246821,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14999/summarization/run_2/token_log.json": [
+  3762,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14999/summarization/run_2/trajectory.json": [
+  39795,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14999/summarization/run_3/token_log.json": [
+  3732,
+  1787679529664358876
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-14999/summarization/run_3/trajectory.json": [
+  90858,
+  1787679529800360653
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-17087/summarization/run_1/token_log.json": [
+  3368,
+  1787179982259372093
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-17087/summarization/run_1/trajectory.json": [
+  469915,
+  1787179982259372093
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-17087/summarization/run_2/token_log.json": [
+  4436,
+  1787179982259372093
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/django__django-17087/summarization/run_2/trajectory.json": [
+  121830,
+  1787179982259372093
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10297/summarization/run_1/token_log.json": [
+  4505,
+  1787179982143370536
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10297/summarization/run_1/trajectory.json": [
+  105276,
+  1787179982143370536
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10297/summarization/run_2/token_log.json": [
+  4576,
+  1787179982143370536
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10297/summarization/run_2/trajectory.json": [
+  70318,
+  1787179982143370536
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10297/summarization/run_3/token_log.json": [
+  3133,
+  1787679387238488798
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10297/summarization/run_3/trajectory.json": [
+  37519,
+  1787679387350490275
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10908/summarization/run_1/token_log.json": [
+  2800,
+  1787179982255372039
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10908/summarization/run_1/trajectory.json": [
+  31407,
+  1787179982255372039
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10908/summarization/run_2/token_log.json": [
+  1137,
+  1787179982255372039
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10908/summarization/run_2/trajectory.json": [
+  500727,
+  1787179982255372039
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10908/summarization/run_3/token_log.json": [
+  4523,
+  1787679781799632432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-10908/summarization/run_3/trajectory.json": [
+  81153,
+  1787679782547642090
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11310/summarization/run_1/token_log.json": [
+  933,
+  1787179982271372253
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11310/summarization/run_1/trajectory.json": [
+  537971,
+  1787179982271372253
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11310/summarization/run_2/token_log.json": [
+  2014,
+  1787179982271372253
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11310/summarization/run_2/trajectory.json": [
+  286296,
+  1787179982271372253
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11310/summarization/run_3/token_log.json": [
+  2350,
+  1787680310834413706
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11310/summarization/run_3/trajectory.json": [
+  106847,
+  1787680310942415084
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11578/summarization/run_1/token_log.json": [
+  2719,
+  1787179982147370589
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11578/summarization/run_1/trajectory.json": [
+  119980,
+  1787179982147370589
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11578/summarization/run_2/token_log.json": [
+  877,
+  1787179982147370589
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-11578/summarization/run_2/trajectory.json": [
+  502281,
+  1787179982147370589
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13328/summarization/run_1/token_log.json": [
+  2899,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13328/summarization/run_1/trajectory.json": [
+  243606,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13328/summarization/run_2/token_log.json": [
+  1520,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13328/summarization/run_2/trajectory.json": [
+  482241,
+  1787179982267372199
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13328/summarization/run_3/token_log.json": [
+  4397,
+  1787680513160990719
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13328/summarization/run_3/trajectory.json": [
+  94946,
+  1787680513248991838
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13779/summarization/run_1/token_log.json": [
+  3443,
+  1787179982247371931
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13779/summarization/run_1/trajectory.json": [
+  377692,
+  1787179982247371931
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13779/summarization/run_2/token_log.json": [
+  3523,
+  1787179982247371931
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13779/summarization/run_2/trajectory.json": [
+  316303,
+  1787179982247371931
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13779/summarization/run_3/token_log.json": [
+  2208,
+  1787679763703398709
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-13779/summarization/run_3/trajectory.json": [
+  34231,
+  1787679763823400259
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-14496/summarization/run_3/token_log.json": [
+  1582,
+  1787679605253344552
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-14496/summarization/run_3/trajectory.json": [
+  38305,
+  1787679605353345852
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-15100/summarization/run_2/token_log.json": [
+  1410,
+  1787179982147370589
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-15100/summarization/run_2/trajectory.json": [
+  57911,
+  1787179982147370589
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-15100/summarization/run_3/token_log.json": [
+  1380,
+  1787679811052009912
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-15100/summarization/run_3/trajectory.json": [
+  32590,
+  1787679811156011253
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-25747/summarization/run_1/token_log.json": [
+  3648,
+  1787179982159370750
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-25747/summarization/run_1/trajectory.json": [
+  186565,
+  1787179982159370750
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-25747/summarization/run_2/token_log.json": [
+  2246,
+  1787179982159370750
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-25747/summarization/run_2/trajectory.json": [
+  409313,
+  1787179982159370750
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-25747/summarization/run_3/token_log.json": [
+  1257,
+  1787679672326215894
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-25747/summarization/run_3/trajectory.json": [
+  376963,
+  1787680956490622755
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-26323/summarization/run_1/token_log.json": [
+  3713,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-26323/summarization/run_1/trajectory.json": [
+  41339,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-26323/summarization/run_2/token_log.json": [
+  3760,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/scikit-learn__scikit-learn-26323/summarization/run_2/trajectory.json": [
+  93634,
+  1787179982163370804
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-11618/summarization/run_2/token_log.json": [
+  1796,
+  1787179982167370858
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-11618/summarization/run_2/trajectory.json": [
+  431342,
+  1787179982167370858
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13031/summarization/run_1/token_log.json": [
+  2592,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13031/summarization/run_1/trajectory.json": [
+  82009,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13031/summarization/run_2/token_log.json": [
+  4478,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13031/summarization/run_2/trajectory.json": [
+  54708,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13031/summarization/run_3/token_log.json": [
+  2032,
+  1787680120835987300
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13031/summarization/run_3/trajectory.json": [
+  40542,
+  1787680120975989090
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13091/summarization/run_1/token_log.json": [
+  2217,
+  1787179982175370965
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13091/summarization/run_1/trajectory.json": [
+  429202,
+  1787179982175370965
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13091/summarization/run_2/token_log.json": [
+  4347,
+  1787179982175370965
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13091/summarization/run_2/trajectory.json": [
+  88370,
+  1787179982175370965
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13091/summarization/run_3/token_log.json": [
+  3207,
+  1787680391527442187
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13091/summarization/run_3/trajectory.json": [
+  99187,
+  1787680391647443716
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13757/summarization/run_1/token_log.json": [
+  4048,
+  1787179982183371073
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13757/summarization/run_1/trajectory.json": [
+  64363,
+  1787179982183371073
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13757/summarization/run_2/token_log.json": [
+  2023,
+  1787179982183371073
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13757/summarization/run_2/trajectory.json": [
+  111152,
+  1787179982183371073
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13757/summarization/run_3/token_log.json": [
+  2111,
+  1787679949841795931
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-13757/summarization/run_3/trajectory.json": [
+  496140,
+  1787681276351093043
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15017/summarization/run_2/token_log.json": [
+  2235,
+  1787179982251371985
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15017/summarization/run_2/trajectory.json": [
+  87298,
+  1787179982251371985
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15017/summarization/run_3/token_log.json": [
+  2379,
+  1787680267349859018
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15017/summarization/run_3/trajectory.json": [
+  40622,
+  1787680267473860599
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15345/summarization/run_1/token_log.json": [
+  4504,
+  1787179982251371985
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15345/summarization/run_1/trajectory.json": [
+  71455,
+  1787179982251371985
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15345/summarization/run_2/token_log.json": [
+  4471,
+  1787179982251371985
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15345/summarization/run_2/trajectory.json": [
+  127322,
+  1787179982251371985
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15345/summarization/run_3/token_log.json": [
+  3338,
+  1787680681583132167
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-15345/summarization/run_3/trajectory.json": [
+  74168,
+  1787680681699133641
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-17630/summarization/run_1/token_log.json": [
+  3103,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-17630/summarization/run_1/trajectory.json": [
+  98031,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-17630/summarization/run_2/token_log.json": [
+  2824,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-17630/summarization/run_2/trajectory.json": [
+  60552,
+  1787179982171370911
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-17630/summarization/run_3/token_log.json": [
+  3361,
+  1787681006231253869
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-17630/summarization/run_3/trajectory.json": [
+  45000,
+  1787681006343255290
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-19637/summarization/run_1/token_log.json": [
+  1640,
+  1787179982179371019
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-19637/summarization/run_1/trajectory.json": [
+  76071,
+  1787179982179371019
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-19637/summarization/run_3/token_log.json": [
+  1747,
+  1787681027407522524
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-19637/summarization/run_3/trajectory.json": [
+  542947,
+  1787681810882645535
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-24066/summarization/run_1/token_log.json": [
+  4461,
+  1787179982183371073
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-24066/summarization/run_1/trajectory.json": [
+  67109,
+  1787179982183371073
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-24066/summarization/run_2/token_log.json": [
+  1868,
+  1787179982187371127
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-full/sympy__sympy-24066/summarization/run_2/trajectory.json": [
+  124476,
+  1787179982187371127
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11066/summarization-partial/run_2/token_log.json": [
+  1379,
+  1787179984475401825
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11066/summarization-partial/run_2/trajectory.json": [
+  90394,
+  1787179984475401825
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11292/summarization-partial/run_1/token_log.json": [
+  2003,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11292/summarization-partial/run_1/trajectory.json": [
+  76291,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11292/summarization-partial/run_2/token_log.json": [
+  1763,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11292/summarization-partial/run_2/trajectory.json": [
+  64912,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11292/summarization-partial/run_3/token_log.json": [
+  2252,
+  1787687654427318105
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11292/summarization-partial/run_3/trajectory.json": [
+  118620,
+  1787687654539319484
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11299/summarization-partial/run_1/token_log.json": [
+  3911,
+  1787179984483401933
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11299/summarization-partial/run_1/trajectory.json": [
+  206884,
+  1787179984483401933
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11299/summarization-partial/run_2/token_log.json": [
+  901,
+  1787179984483401933
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11299/summarization-partial/run_2/trajectory.json": [
+  464116,
+  1787179984487401987
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11299/summarization-partial/run_3/token_log.json": [
+  1961,
+  1787687935466820081
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-11299/summarization-partial/run_3/trajectory.json": [
+  248718,
+  1787688504006060652
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-12273/summarization-partial/run_1/token_log.json": [
+  2333,
+  1787179984487401987
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-12273/summarization-partial/run_1/trajectory.json": [
+  103857,
+  1787179984487401987
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-12273/summarization-partial/run_2/token_log.json": [
+  2241,
+  1787179984487401987
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-12273/summarization-partial/run_2/trajectory.json": [
+  165722,
+  1787179984487401987
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-12273/summarization-partial/run_3/token_log.json": [
+  2600,
+  1787688563306822413
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-12273/summarization-partial/run_3/trajectory.json": [
+  85415,
+  1787688563414823801
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13012/summarization-partial/run_2/token_log.json": [
+  3087,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13012/summarization-partial/run_2/trajectory.json": [
+  345273,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13012/summarization-partial/run_3/token_log.json": [
+  1976,
+  1787687587586498249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13012/summarization-partial/run_3/trajectory.json": [
+  100972,
+  1787687587698499617
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13964/summarization-partial/run_1/token_log.json": [
+  2325,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13964/summarization-partial/run_1/trajectory.json": [
+  306362,
+  1787179984479401879
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13964/summarization-partial/run_2/token_log.json": [
+  4496,
+  1787179984483401933
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13964/summarization-partial/run_2/trajectory.json": [
+  87887,
+  1787179984483401933
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13964/summarization-partial/run_3/token_log.json": [
+  1629,
+  1787688409280845653
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-13964/summarization-partial/run_3/trajectory.json": [
+  109139,
+  1787688409392847088
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14580/summarization-partial/run_1/token_log.json": [
+  2696,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14580/summarization-partial/run_1/trajectory.json": [
+  283699,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14580/summarization-partial/run_2/token_log.json": [
+  2009,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14580/summarization-partial/run_2/trajectory.json": [
+  122701,
+  1787179984495402094
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14580/summarization-partial/run_3/token_log.json": [
+  2349,
+  1787688937555644406
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14580/summarization-partial/run_3/trajectory.json": [
+  70796,
+  1787688937675645956
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14915/summarization-partial/run_3/token_log.json": [
+  1521,
+  1787688506570093572
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14915/summarization-partial/run_3/trajectory.json": [
+  50577,
+  1787688506690095114
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14999/summarization-partial/run_1/token_log.json": [
+  2288,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14999/summarization-partial/run_1/trajectory.json": [
+  383909,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14999/summarization-partial/run_2/token_log.json": [
+  3146,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14999/summarization-partial/run_2/trajectory.json": [
+  56563,
+  1787179984503402201
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14999/summarization-partial/run_3/token_log.json": [
+  2781,
+  1787689625748692439
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-14999/summarization-partial/run_3/trajectory.json": [
+  210873,
+  1787689999589633147
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-17087/summarization-partial/run_1/token_log.json": [
+  1263,
+  1787179984507402254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-17087/summarization-partial/run_1/trajectory.json": [
+  69886,
+  1787179984507402254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-17087/summarization-partial/run_3/token_log.json": [
+  1377,
+  1787688782077638635
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/django__django-17087/summarization-partial/run_3/trajectory.json": [
+  64095,
+  1787688782197640182
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_1/token_log.json": [
+  2167,
+  1787179984507402254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_1/trajectory.json": [
+  72475,
+  1787179984507402254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_2/token_log.json": [
+  2300,
+  1787179984507402254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_2/trajectory.json": [
+  166571,
+  1787179984507402254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_3/token_log.json": [
+  3029,
+  1787689887308154379
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_3/trajectory.json": [
+  54320,
+  1787689887420155856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_1/token_log.json": [
+  4552,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_1/trajectory.json": [
+  77929,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_2/token_log.json": [
+  1762,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_2/trajectory.json": [
+  134214,
+  1787179984511402308
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_3/token_log.json": [
+  3551,
+  1787689950528987445
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_3/trajectory.json": [
+  176051,
+  1787690073178600550
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_1/token_log.json": [
+  4514,
+  1787179984515402362
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_1/trajectory.json": [
+  93784,
+  1787179984515402362
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_2/token_log.json": [
+  3760,
+  1787179984515402362
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_2/trajectory.json": [
+  134221,
+  1787179984515402362
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_3/token_log.json": [
+  963,
+  1787688757197317952
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_3/trajectory.json": [
+  471367,
+  1787690205140332458
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11578/summarization-partial/run_1/token_log.json": [
+  1204,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11578/summarization-partial/run_1/trajectory.json": [
+  394374,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11578/summarization-partial/run_2/token_log.json": [
+  1323,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11578/summarization-partial/run_2/trajectory.json": [
+  400227,
+  1787179984519402416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11578/summarization-partial/run_3/token_log.json": [
+  2181,
+  1787689371213288435
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-11578/summarization-partial/run_3/trajectory.json": [
+  53007,
+  1787689371329289997
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_1/token_log.json": [
+  1226,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_1/trajectory.json": [
+  394247,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_2/token_log.json": [
+  3594,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_2/trajectory.json": [
+  121024,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_3/token_log.json": [
+  1545,
+  1787689428434057668
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_3/trajectory.json": [
+  381678,
+  1787690728151173352
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_1/token_log.json": [
+  1876,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_1/trajectory.json": [
+  63647,
+  1787179984523402470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_2/token_log.json": [
+  2849,
+  1787179984527402523
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_2/trajectory.json": [
+  213272,
+  1787179984527402523
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_3/token_log.json": [
+  1878,
+  1787690048182272090
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_3/trajectory.json": [
+  98596,
+  1787690048294273562
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-14496/summarization-partial/run_1/token_log.json": [
+  1463,
+  1787179984527402523
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-14496/summarization-partial/run_1/trajectory.json": [
+  66295,
+  1787179984527402523
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-14496/summarization-partial/run_3/token_log.json": [
+  2227,
+  1787690932441839618
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-14496/summarization-partial/run_3/trajectory.json": [
+  162249,
+  1787690932545840975
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-15100/summarization-partial/run_1/token_log.json": [
+  1297,
+  1787179984531402577
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-15100/summarization-partial/run_1/trajectory.json": [
+  73063,
+  1787179984531402577
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-15100/summarization-partial/run_3/token_log.json": [
+  1628,
+  1787690359366352870
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-15100/summarization-partial/run_3/trajectory.json": [
+  399470,
+  1787691551442078541
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_1/token_log.json": [
+  2700,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_1/trajectory.json": [
+  98241,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_2/token_log.json": [
+  2712,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_2/trajectory.json": [
+  55957,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_3/token_log.json": [
+  2408,
+  1787691084375821407
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_3/trajectory.json": [
+  210148,
+  1787691565686274301
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-26323/summarization-partial/run_1/token_log.json": [
+  1615,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-26323/summarization-partial/run_1/trajectory.json": [
+  392360,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-26323/summarization-partial/run_2/token_log.json": [
+  4134,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-26323/summarization-partial/run_2/trajectory.json": [
+  153149,
+  1787179984535402630
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-26323/summarization-partial/run_3/token_log.json": [
+  2672,
+  1787690638642004391
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/scikit-learn__scikit-learn-26323/summarization-partial/run_3/trajectory.json": [
+  79977,
+  1787690638758005906
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-11618/summarization-partial/run_2/token_log.json": [
+  2121,
+  1787179984539402685
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-11618/summarization-partial/run_2/trajectory.json": [
+  66561,
+  1787179984539402685
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-11618/summarization-partial/run_3/token_log.json": [
+  2293,
+  1787690731967223177
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-11618/summarization-partial/run_3/trajectory.json": [
+  78847,
+  1787690732079224640
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13031/summarization-partial/run_1/token_log.json": [
+  2831,
+  1787179984543402737
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13031/summarization-partial/run_1/trajectory.json": [
+  424919,
+  1787179984543402737
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13031/summarization-partial/run_2/token_log.json": [
+  2635,
+  1787179984543402737
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13031/summarization-partial/run_2/trajectory.json": [
+  345103,
+  1787179984543402737
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13031/summarization-partial/run_3/token_log.json": [
+  4307,
+  1787692006616250263
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13031/summarization-partial/run_3/trajectory.json": [
+  134617,
+  1787692130157904499
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13091/summarization-partial/run_1/token_log.json": [
+  4013,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13091/summarization-partial/run_1/trajectory.json": [
+  197908,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13091/summarization-partial/run_2/token_log.json": [
+  3119,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13091/summarization-partial/run_2/trajectory.json": [
+  77943,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13091/summarization-partial/run_3/token_log.json": [
+  3209,
+  1787691781721219608
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13091/summarization-partial/run_3/trajectory.json": [
+  136284,
+  1787691781829221071
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13757/summarization-partial/run_1/token_log.json": [
+  3336,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13757/summarization-partial/run_1/trajectory.json": [
+  293151,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13757/summarization-partial/run_2/token_log.json": [
+  2587,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13757/summarization-partial/run_2/trajectory.json": [
+  279306,
+  1787179984547402791
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13757/summarization-partial/run_3/token_log.json": [
+  2541,
+  1787691355583360999
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-13757/summarization-partial/run_3/trajectory.json": [
+  365297,
+  1787692669117070561
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15017/summarization-partial/run_1/token_log.json": [
+  1413,
+  1787179984551402845
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15017/summarization-partial/run_1/trajectory.json": [
+  79739,
+  1787179984551402845
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15345/summarization-partial/run_1/token_log.json": [
+  2731,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15345/summarization-partial/run_1/trajectory.json": [
+  102830,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15345/summarization-partial/run_2/token_log.json": [
+  4541,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15345/summarization-partial/run_2/trajectory.json": [
+  99799,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15345/summarization-partial/run_3/token_log.json": [
+  2761,
+  1787692320124437877
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-15345/summarization-partial/run_3/trajectory.json": [
+  330368,
+  1787693068030347066
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-17630/summarization-partial/run_1/token_log.json": [
+  1982,
+  1787179984559402953
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-17630/summarization-partial/run_1/trajectory.json": [
+  89162,
+  1787179984559402953
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-17630/summarization-partial/run_2/token_log.json": [
+  1916,
+  1787179984559402953
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-17630/summarization-partial/run_2/trajectory.json": [
+  123227,
+  1787179984559402953
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-17630/summarization-partial/run_3/token_log.json": [
+  1583,
+  1787692758202250179
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-17630/summarization-partial/run_3/trajectory.json": [
+  254616,
+  1787693184939891327
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-19637/summarization-partial/run_1/token_log.json": [
+  1291,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-19637/summarization-partial/run_1/trajectory.json": [
+  76215,
+  1787179984555402899
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-19637/summarization-partial/run_3/token_log.json": [
+  1290,
+  1787692090357372230
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-19637/summarization-partial/run_3/trajectory.json": [
+  88524,
+  1787692090461373622
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24066/summarization-partial/run_1/token_log.json": [
+  3607,
+  1787179984611403651
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24066/summarization-partial/run_1/trajectory.json": [
+  74494,
+  1787179984611403651
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24066/summarization-partial/run_2/token_log.json": [
+  1879,
+  1787179984611403651
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24066/summarization-partial/run_2/trajectory.json": [
+  116132,
+  1787179984611403651
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24443/summarization-partial/run_1/token_log.json": [
+  1594,
+  1787179984607403596
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24443/summarization-partial/run_1/trajectory.json": [
+  106001,
+  1787179984607403596
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24443/summarization-partial/run_2/token_log.json": [
+  1500,
+  1787179984607403596
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24443/summarization-partial/run_2/trajectory.json": [
+  71693,
+  1787179984607403596
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24443/summarization-partial/run_3/token_log.json": [
+  2547,
+  1787693260872893983
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b10k__su-partial/sympy__sympy-24443/summarization-partial/run_3/trajectory.json": [
+  111432,
+  1787693261000895673
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-11292/structured-summarize-partial/run_1/token_log.json": [
+  2215,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-11292/structured-summarize-partial/run_1/trajectory.json": [
+  96353,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-11299/structured-summarize-partial/run_2/token_log.json": [
+  3027,
+  1787179985151410895
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-11299/structured-summarize-partial/run_2/trajectory.json": [
+  96876,
+  1787179985151410895
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-11299/structured-summarize-partial/run_3/token_log.json": [
+  4476,
+  1787700014696295037
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-11299/structured-summarize-partial/run_3/trajectory.json": [
+  207929,
+  1787700014832296730
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-13012/structured-summarize-partial/run_2/token_log.json": [
+  1938,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-13012/structured-summarize-partial/run_2/trajectory.json": [
+  103161,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-13964/structured-summarize-partial/run_3/token_log.json": [
+  2990,
+  1787700569599297488
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-13964/structured-summarize-partial/run_3/trajectory.json": [
+  290291,
+  1787700722433247631
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-14999/structured-summarize-partial/run_3/token_log.json": [
+  4512,
+  1787700900403524843
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/django__django-14999/structured-summarize-partial/run_3/trajectory.json": [
+  120466,
+  1787700900523526381
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-10908/structured-summarize-partial/run_3/token_log.json": [
+  2724,
+  1787700946088110254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-10908/structured-summarize-partial/run_3/trajectory.json": [
+  189428,
+  1787700946208111792
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-11310/structured-summarize-partial/run_1/token_log.json": [
+  2420,
+  1787179985187411378
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-11310/structured-summarize-partial/run_1/trajectory.json": [
+  234527,
+  1787179985187411378
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-11310/structured-summarize-partial/run_3/token_log.json": [
+  2687,
+  1787701418102172003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-11310/structured-summarize-partial/run_3/trajectory.json": [
+  207529,
+  1787701418214173443
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-13328/structured-summarize-partial/run_2/token_log.json": [
+  2048,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-13328/structured-summarize-partial/run_2/trajectory.json": [
+  144002,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-25747/structured-summarize-partial/run_1/token_log.json": [
+  3460,
+  1787179985215411755
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-25747/structured-summarize-partial/run_1/trajectory.json": [
+  111301,
+  1787179985215411755
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-26323/structured-summarize-partial/run_2/token_log.json": [
+  2264,
+  1787179985163411057
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/scikit-learn__scikit-learn-26323/structured-summarize-partial/run_2/trajectory.json": [
+  169238,
+  1787179985163411057
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/sympy__sympy-11618/structured-summarize-partial/run_3/token_log.json": [
+  2621,
+  1787701893448671762
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/sympy__sympy-11618/structured-summarize-partial/run_3/trajectory.json": [
+  86930,
+  1787701893576673537
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/sympy__sympy-15345/structured-summarize-partial/run_2/token_log.json": [
+  2875,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss-partial/sympy__sympy-15345/structured-summarize-partial/run_2/trajectory.json": [
+  221844,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11292/structured-summarize/run_1/token_log.json": [
+  3045,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11292/structured-summarize/run_1/trajectory.json": [
+  186564,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11292/structured-summarize/run_3/token_log.json": [
+  2948,
+  1787700086677193117
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11292/structured-summarize/run_3/trajectory.json": [
+  238901,
+  1787700086797194617
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11299/structured-summarize/run_1/token_log.json": [
+  2970,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11299/structured-summarize/run_1/trajectory.json": [
+  269802,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11299/structured-summarize/run_2/token_log.json": [
+  4381,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-11299/structured-summarize/run_2/trajectory.json": [
+  101801,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-12273/structured-summarize/run_1/token_log.json": [
+  2113,
+  1787179985151410895
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-12273/structured-summarize/run_1/trajectory.json": [
+  83859,
+  1787179985151410895
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-12273/structured-summarize/run_3/token_log.json": [
+  2773,
+  1787700614299867240
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-12273/structured-summarize/run_3/trajectory.json": [
+  62550,
+  1787700614423868822
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-13012/structured-summarize/run_2/token_log.json": [
+  4038,
+  1787179985155410949
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-13012/structured-summarize/run_2/trajectory.json": [
+  264094,
+  1787179985155410949
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-13964/structured-summarize/run_2/token_log.json": [
+  3143,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-13964/structured-summarize/run_2/trajectory.json": [
+  214362,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-13964/structured-summarize/run_3/token_log.json": [
+  3355,
+  1787700637068157653
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-13964/structured-summarize/run_3/trajectory.json": [
+  94713,
+  1787700637184159133
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-14580/structured-summarize/run_1/token_log.json": [
+  4369,
+  1787179985163411057
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-14580/structured-summarize/run_1/trajectory.json": [
+  321265,
+  1787179985167411110
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-14999/structured-summarize/run_2/token_log.json": [
+  1837,
+  1787179985171411164
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-14999/structured-summarize/run_2/trajectory.json": [
+  86793,
+  1787179985171411164
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-17087/structured-summarize/run_1/token_log.json": [
+  4370,
+  1787179985175411218
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-17087/structured-summarize/run_1/trajectory.json": [
+  150956,
+  1787179985175411218
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-17087/structured-summarize/run_2/token_log.json": [
+  2831,
+  1787179985175411218
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/django__django-17087/structured-summarize/run_2/trajectory.json": [
+  30584,
+  1787179985175411218
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-10297/structured-summarize/run_1/token_log.json": [
+  2969,
+  1787179985179411271
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-10297/structured-summarize/run_1/trajectory.json": [
+  31944,
+  1787179985179411271
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-10297/structured-summarize/run_3/token_log.json": [
+  2142,
+  1787700415729341075
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-10297/structured-summarize/run_3/trajectory.json": [
+  43847,
+  1787700415845342546
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11310/structured-summarize/run_1/token_log.json": [
+  4522,
+  1787179985183411325
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11310/structured-summarize/run_1/trajectory.json": [
+  101764,
+  1787179985183411325
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11310/structured-summarize/run_3/token_log.json": [
+  3861,
+  1787701316944871363
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11310/structured-summarize/run_3/trajectory.json": [
+  157172,
+  1787701317064872906
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_1/token_log.json": [
+  2303,
+  1787179985187411378
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_1/trajectory.json": [
+  205385,
+  1787179985187411378
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_2/token_log.json": [
+  2088,
+  1787179985187411378
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_2/trajectory.json": [
+  40604,
+  1787179985187411378
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_3/token_log.json": [
+  1646,
+  1787701057813543104
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-11578/structured-summarize/run_3/trajectory.json": [
+  37462,
+  1787701057941544746
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-13328/structured-summarize/run_1/token_log.json": [
+  2073,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-13328/structured-summarize/run_1/trajectory.json": [
+  86638,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-13328/structured-summarize/run_2/token_log.json": [
+  2018,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-13328/structured-summarize/run_2/trajectory.json": [
+  108292,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-25747/structured-summarize/run_3/token_log.json": [
+  1957,
+  1787701638949085177
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-25747/structured-summarize/run_3/trajectory.json": [
+  83248,
+  1787701639065086843
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-26323/structured-summarize/run_3/token_log.json": [
+  2169,
+  1787701864448269195
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/scikit-learn__scikit-learn-26323/structured-summarize/run_3/trajectory.json": [
+  104124,
+  1787701864564270807
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-11618/structured-summarize/run_1/token_log.json": [
+  3326,
+  1787179985211411701
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-11618/structured-summarize/run_1/trajectory.json": [
+  43081,
+  1787179985211411701
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-11618/structured-summarize/run_3/token_log.json": [
+  2151,
+  1787701867224307788
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-11618/structured-summarize/run_3/trajectory.json": [
+  29747,
+  1787701867348309513
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-13091/structured-summarize/run_1/token_log.json": [
+  4379,
+  1787179985199411540
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-13091/structured-summarize/run_1/trajectory.json": [
+  95540,
+  1787179985199411540
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-15345/structured-summarize/run_1/token_log.json": [
+  4441,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-15345/structured-summarize/run_1/trajectory.json": [
+  36223,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-15345/structured-summarize/run_2/token_log.json": [
+  3171,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-15345/structured-summarize/run_2/trajectory.json": [
+  162533,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-15345/structured-summarize/run_3/token_log.json": [
+  2749,
+  1787702997371454785
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-15345/structured-summarize/run_3/trajectory.json": [
+  38327,
+  1787702997479456206
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-17630/structured-summarize/run_1/token_log.json": [
+  1859,
+  1787179985303412935
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-17630/structured-summarize/run_1/trajectory.json": [
+  31711,
+  1787179985303412935
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-17630/structured-summarize/run_3/token_log.json": [
+  4487,
+  1787703576455053326
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-17630/structured-summarize/run_3/trajectory.json": [
+  79364,
+  1787703576567054792
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-24066/structured-summarize/run_3/token_log.json": [
+  2275,
+  1787703073884461073
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__ss/sympy__sympy-24066/structured-summarize/run_3/trajectory.json": [
+  141915,
+  1787703074000462598
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-11292/summarization/run_2/token_log.json": [
+  4400,
+  1787179982395373917
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-11292/summarization/run_2/trajectory.json": [
+  117317,
+  1787179982395373917
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-11299/summarization/run_2/token_log.json": [
+  4469,
+  1787179982399373971
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-11299/summarization/run_2/trajectory.json": [
+  37895,
+  1787179982399373971
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-12273/summarization/run_1/token_log.json": [
+  3411,
+  1787179982403374024
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-12273/summarization/run_1/trajectory.json": [
+  111577,
+  1787179982403374024
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13012/summarization/run_1/token_log.json": [
+  3830,
+  1787179982407374078
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13012/summarization/run_1/trajectory.json": [
+  256147,
+  1787179982403374024
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13012/summarization/run_2/token_log.json": [
+  2219,
+  1787179982407374078
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13012/summarization/run_2/trajectory.json": [
+  86677,
+  1787179982407374078
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13964/summarization/run_1/token_log.json": [
+  4330,
+  1787179982407374078
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13964/summarization/run_1/trajectory.json": [
+  264046,
+  1787179982407374078
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13964/summarization/run_2/token_log.json": [
+  4490,
+  1787179982407374078
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-13964/summarization/run_2/trajectory.json": [
+  49687,
+  1787179982407374078
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14580/summarization/run_2/token_log.json": [
+  1849,
+  1787179982411374132
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14580/summarization/run_2/trajectory.json": [
+  68938,
+  1787179982411374132
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14999/summarization/run_1/token_log.json": [
+  4425,
+  1787179982419374240
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14999/summarization/run_1/trajectory.json": [
+  140484,
+  1787179982419374240
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14999/summarization/run_2/token_log.json": [
+  2758,
+  1787179982419374240
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14999/summarization/run_2/trajectory.json": [
+  175814,
+  1787179982419374240
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14999/summarization/run_3/token_log.json": [
+  3661,
+  1787684054847840976
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-14999/summarization/run_3/trajectory.json": [
+  307596,
+  1787684250338351973
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-17087/summarization/run_2/token_log.json": [
+  4089,
+  1787179982423374292
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/django__django-17087/summarization/run_2/trajectory.json": [
+  301215,
+  1787179982423374292
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-10297/summarization/run_3/token_log.json": [
+  3624,
+  1787684048235756130
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-10297/summarization/run_3/trajectory.json": [
+  226648,
+  1787684048343757517
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-10908/summarization/run_2/token_log.json": [
+  3182,
+  1787179982427374346
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-10908/summarization/run_2/trajectory.json": [
+  33299,
+  1787179982427374346
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-11310/summarization/run_2/token_log.json": [
+  3601,
+  1787179982431374400
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-11310/summarization/run_2/trajectory.json": [
+  256952,
+  1787179982431374400
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-11310/summarization/run_3/token_log.json": [
+  4445,
+  1787684490833446055
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-11310/summarization/run_3/trajectory.json": [
+  143906,
+  1787684490945447497
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-11578/summarization/run_2/token_log.json": [
+  2001,
+  1787179982435374454
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-11578/summarization/run_2/trajectory.json": [
+  251614,
+  1787179982435374454
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-13328/summarization/run_3/token_log.json": [
+  2313,
+  1787684655767570169
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-13328/summarization/run_3/trajectory.json": [
+  189081,
+  1787684655887571716
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-13779/summarization/run_1/token_log.json": [
+  2540,
+  1787179982439374507
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-13779/summarization/run_1/trajectory.json": [
+  453022,
+  1787179982439374507
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-13779/summarization/run_3/token_log.json": [
+  2125,
+  1787684836017892901
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-13779/summarization/run_3/trajectory.json": [
+  129993,
+  1787684836133894396
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-25747/summarization/run_1/token_log.json": [
+  4232,
+  1787179982447374615
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-25747/summarization/run_1/trajectory.json": [
+  68007,
+  1787179982447374615
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-25747/summarization/run_2/token_log.json": [
+  3044,
+  1787179982447374615
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-25747/summarization/run_2/trajectory.json": [
+  224308,
+  1787179982447374615
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-26323/summarization/run_1/token_log.json": [
+  3237,
+  1787179982451374668
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-26323/summarization/run_1/trajectory.json": [
+  154648,
+  1787179982451374668
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-26323/summarization/run_3/token_log.json": [
+  2900,
+  1787685270635625493
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/scikit-learn__scikit-learn-26323/summarization/run_3/trajectory.json": [
+  362889,
+  1787685716797984066
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13031/summarization/run_1/token_log.json": [
+  4220,
+  1787179982459374775
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13031/summarization/run_1/trajectory.json": [
+  126842,
+  1787179982459374775
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13031/summarization/run_2/token_log.json": [
+  2435,
+  1787179982459374775
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13031/summarization/run_2/trajectory.json": [
+  66114,
+  1787179982459374775
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13031/summarization/run_3/token_log.json": [
+  4390,
+  1787685303580111536
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13031/summarization/run_3/trajectory.json": [
+  159027,
+  1787685303852115535
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13757/summarization/run_1/token_log.json": [
+  4463,
+  1787179982463374829
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-13757/summarization/run_1/trajectory.json": [
+  82532,
+  1787179982463374829
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-15345/summarization/run_1/token_log.json": [
+  2691,
+  1787179982471374937
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-15345/summarization/run_1/trajectory.json": [
+  44036,
+  1787179982471374937
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-15345/summarization/run_2/token_log.json": [
+  4497,
+  1787179982471374937
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-15345/summarization/run_2/trajectory.json": [
+  247068,
+  1787179982471374937
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-17630/summarization/run_1/token_log.json": [
+  1707,
+  1787179982475374990
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-17630/summarization/run_1/trajectory.json": [
+  131918,
+  1787179982475374990
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-17630/summarization/run_2/token_log.json": [
+  2871,
+  1787179982475374990
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-17630/summarization/run_2/trajectory.json": [
+  50759,
+  1787179982475374990
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-24066/summarization/run_1/token_log.json": [
+  2086,
+  1787179982479375044
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-24066/summarization/run_1/trajectory.json": [
+  157611,
+  1787179982479375044
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-24443/summarization/run_1/token_log.json": [
+  1993,
+  1787179982483375098
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-24443/summarization/run_1/trajectory.json": [
+  144768,
+  1787179982483375098
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-24443/summarization/run_2/token_log.json": [
+  1727,
+  1787179982483375098
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-full/sympy__sympy-24443/summarization/run_2/trajectory.json": [
+  32739,
+  1787179982483375098
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-11292/summarization-partial/run_2/token_log.json": [
+  2179,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-11292/summarization-partial/run_2/trajectory.json": [
+  105604,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-11299/summarization-partial/run_1/token_log.json": [
+  4436,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-11299/summarization-partial/run_1/trajectory.json": [
+  115769,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-11299/summarization-partial/run_2/token_log.json": [
+  2338,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-11299/summarization-partial/run_2/trajectory.json": [
+  306155,
+  1787179985147410842
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-12273/summarization-partial/run_1/token_log.json": [
+  2044,
+  1787179985151410895
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-12273/summarization-partial/run_1/trajectory.json": [
+  324947,
+  1787179985151410895
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-12273/summarization-partial/run_3/token_log.json": [
+  2433,
+  1787700329664250697
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-12273/summarization-partial/run_3/trajectory.json": [
+  269539,
+  1787700598019659668
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13012/summarization-partial/run_3/token_log.json": [
+  2373,
+  1787699801277661364
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13012/summarization-partial/run_3/trajectory.json": [
+  118841,
+  1787699801397662830
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13964/summarization-partial/run_1/token_log.json": [
+  2383,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13964/summarization-partial/run_1/trajectory.json": [
+  291439,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13964/summarization-partial/run_2/token_log.json": [
+  2475,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13964/summarization-partial/run_2/trajectory.json": [
+  204835,
+  1787179985159411003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13964/summarization-partial/run_3/token_log.json": [
+  2870,
+  1787700636880155254
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-13964/summarization-partial/run_3/trajectory.json": [
+  145102,
+  1787700636992156683
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14580/summarization-partial/run_1/token_log.json": [
+  2989,
+  1787179985167411110
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14580/summarization-partial/run_1/trajectory.json": [
+  405927,
+  1787179985167411110
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14580/summarization-partial/run_2/token_log.json": [
+  2714,
+  1787179985167411110
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14580/summarization-partial/run_2/trajectory.json": [
+  211355,
+  1787179985167411110
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14580/summarization-partial/run_3/token_log.json": [
+  3588,
+  1787700880271266962
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14580/summarization-partial/run_3/trajectory.json": [
+  304703,
+  1787700880535270343
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14999/summarization-partial/run_1/token_log.json": [
+  2620,
+  1787179985171411164
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14999/summarization-partial/run_1/trajectory.json": [
+  235997,
+  1787179985171411164
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14999/summarization-partial/run_2/token_log.json": [
+  2509,
+  1787179985171411164
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/django__django-14999/summarization-partial/run_2/trajectory.json": [
+  116088,
+  1787179985171411164
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_3/token_log.json": [
+  1995,
+  1787701107586181897
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-10297/summarization-partial/run_3/trajectory.json": [
+  145540,
+  1787701107698183335
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_1/token_log.json": [
+  2524,
+  1787179985179411271
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_1/trajectory.json": [
+  136643,
+  1787179985179411271
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_3/token_log.json": [
+  3126,
+  1787701649789240790
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-10908/summarization-partial/run_3/trajectory.json": [
+  223492,
+  1787701649913242568
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_1/token_log.json": [
+  3517,
+  1787179985183411325
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_1/trajectory.json": [
+  215229,
+  1787179985183411325
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_2/token_log.json": [
+  4290,
+  1787179985183411325
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_2/trajectory.json": [
+  334264,
+  1787179985183411325
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_3/token_log.json": [
+  1843,
+  1787700967692387198
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-11310/summarization-partial/run_3/trajectory.json": [
+  79046,
+  1787700967816388788
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_1/token_log.json": [
+  1813,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_1/trajectory.json": [
+  86856,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_2/token_log.json": [
+  2979,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13328/summarization-partial/run_2/trajectory.json": [
+  242254,
+  1787179985191411432
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_1/token_log.json": [
+  1791,
+  1787179985195411486
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_1/trajectory.json": [
+  136258,
+  1787179985195411486
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_3/token_log.json": [
+  2012,
+  1787701359501418462
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-13779/summarization-partial/run_3/trajectory.json": [
+  105846,
+  1787701359613419901
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_1/token_log.json": [
+  2190,
+  1787179985211411701
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_1/trajectory.json": [
+  325826,
+  1787179985211411701
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_2/token_log.json": [
+  1949,
+  1787179985215411755
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/scikit-learn__scikit-learn-25747/summarization-partial/run_2/trajectory.json": [
+  180824,
+  1787179985215411755
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-11618/summarization-partial/run_2/token_log.json": [
+  2761,
+  1787179985211411701
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-11618/summarization-partial/run_2/trajectory.json": [
+  96886,
+  1787179985211411701
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-11618/summarization-partial/run_3/token_log.json": [
+  2677,
+  1787702041702710875
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-11618/summarization-partial/run_3/trajectory.json": [
+  105148,
+  1787702041814712404
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13031/summarization-partial/run_1/token_log.json": [
+  2979,
+  1787179985207411647
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13031/summarization-partial/run_1/trajectory.json": [
+  146186,
+  1787179985207411647
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13031/summarization-partial/run_3/token_log.json": [
+  3176,
+  1787702968359072952
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13031/summarization-partial/run_3/trajectory.json": [
+  146407,
+  1787702968475074479
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13091/summarization-partial/run_1/token_log.json": [
+  3876,
+  1787179985203411593
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13091/summarization-partial/run_1/trajectory.json": [
+  232174,
+  1787179985203411593
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13091/summarization-partial/run_3/token_log.json": [
+  4487,
+  1787702681799291310
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13091/summarization-partial/run_3/trajectory.json": [
+  193050,
+  1787702681931293057
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13757/summarization-partial/run_1/token_log.json": [
+  3831,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13757/summarization-partial/run_1/trajectory.json": [
+  138949,
+  1787179985295412827
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13757/summarization-partial/run_3/token_log.json": [
+  4308,
+  1787703128261175672
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-13757/summarization-partial/run_3/trajectory.json": [
+  136966,
+  1787703128389177354
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-15345/summarization-partial/run_1/token_log.json": [
+  2272,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-15345/summarization-partial/run_1/trajectory.json": [
+  258090,
+  1787179985291412774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-17630/summarization-partial/run_1/token_log.json": [
+  2884,
+  1787179985299412881
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-17630/summarization-partial/run_1/trajectory.json": [
+  417923,
+  1787179985299412881
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-17630/summarization-partial/run_3/token_log.json": [
+  2810,
+  1787703309367552975
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-17630/summarization-partial/run_3/trajectory.json": [
+  126528,
+  1787703309487554549
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-24066/summarization-partial/run_2/token_log.json": [
+  4412,
+  1787179985303412935
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-24066/summarization-partial/run_2/trajectory.json": [
+  262347,
+  1787179985303412935
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-24066/summarization-partial/run_3/token_log.json": [
+  4455,
+  1787703601083375851
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-24066/summarization-partial/run_3/trajectory.json": [
+  236044,
+  1787703601219377632
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-24443/summarization-partial/run_3/token_log.json": [
+  2747,
+  1787703827210335768
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/d05__b20k__su-partial/sympy__sympy-24443/summarization-partial/run_3/trajectory.json": [
+  269243,
+  1787703827342337495
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/django__django-11299/otrc-ss-partial/run_1/token_log.json": [
+  14889,
+  1787179984987408696
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/django__django-11299/otrc-ss-partial/run_1/trajectory.json": [
+  162547,
+  1787179984987408696
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/django__django-13012/otrc-ss-partial/run_1/token_log.json": [
+  14956,
+  1787179984995408802
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/django__django-13012/otrc-ss-partial/run_1/trajectory.json": [
+  75318,
+  1787179984995408802
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/django__django-13012/otrc-ss-partial/run_3/token_log.json": [
+  5967,
+  1787895031327482814
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/django__django-13012/otrc-ss-partial/run_3/trajectory.json": [
+  93047,
+  1787895031431484160
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-11310/otrc-ss-partial/run_1/token_log.json": [
+  14756,
+  1787179985023409178
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-11310/otrc-ss-partial/run_1/trajectory.json": [
+  137358,
+  1787179985023409178
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-11310/otrc-ss-partial/run_3/token_log.json": [
+  15833,
+  1787897316225293786
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-11310/otrc-ss-partial/run_3/trajectory.json": [
+  248358,
+  1787897316221293734
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-13328/otrc-ss-partial/run_1/token_log.json": [
+  13531,
+  1787179985031409285
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-13328/otrc-ss-partial/run_1/trajectory.json": [
+  171371,
+  1787179985031409285
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-13779/otrc-ss-partial/run_2/token_log.json": [
+  14966,
+  1787179985039409393
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-13779/otrc-ss-partial/run_2/trajectory.json": [
+  216839,
+  1787179985039409393
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-26323/otrc-ss-partial/run_2/token_log.json": [
+  14707,
+  1787179985055409608
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/scikit-learn__scikit-learn-26323/otrc-ss-partial/run_2/trajectory.json": [
+  76665,
+  1787179985055409608
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/sympy__sympy-15345/otrc-ss-partial/run_3/token_log.json": [
+  18035,
+  1787898974764102805
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-ss-partial/sympy__sympy-15345/otrc-ss-partial/run_3/trajectory.json": [
+  80638,
+  1787898975172108488
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11292/otrc-su-partial/run_1/token_log.json": [
+  6492,
+  1787179984983408642
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11292/otrc-su-partial/run_1/trajectory.json": [
+  318150,
+  1787179984983408642
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11292/otrc-su-partial/run_3/token_log.json": [
+  11555,
+  1787895958831556499
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11292/otrc-su-partial/run_3/trajectory.json": [
+  433211,
+  1787895958827556447
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11299/otrc-su-partial/run_1/token_log.json": [
+  8297,
+  1787179984983408642
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11299/otrc-su-partial/run_1/trajectory.json": [
+  209544,
+  1787179984983408642
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11299/otrc-su-partial/run_2/token_log.json": [
+  7688,
+  1787179984983408642
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11299/otrc-su-partial/run_2/trajectory.json": [
+  146959,
+  1787179984983408642
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11299/otrc-su-partial/run_3/token_log.json": [
+  6016,
+  1787895348719603355
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-11299/otrc-su-partial/run_3/trajectory.json": [
+  93500,
+  1787895348835604864
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-12273/otrc-su-partial/run_1/token_log.json": [
+  7718,
+  1787179984991408748
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-12273/otrc-su-partial/run_1/trajectory.json": [
+  53117,
+  1787179984991408748
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-12273/otrc-su-partial/run_2/token_log.json": [
+  7595,
+  1787179984991408748
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-12273/otrc-su-partial/run_2/trajectory.json": [
+  206512,
+  1787179984991408748
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-12273/otrc-su-partial/run_3/token_log.json": [
+  15037,
+  1787895846058084611
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-12273/otrc-su-partial/run_3/trajectory.json": [
+  170914,
+  1787895846178086177
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13012/otrc-su-partial/run_1/token_log.json": [
+  5446,
+  1787179984991408748
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13012/otrc-su-partial/run_1/trajectory.json": [
+  240337,
+  1787179984991408748
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13012/otrc-su-partial/run_2/token_log.json": [
+  8113,
+  1787179984995408802
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13012/otrc-su-partial/run_2/trajectory.json": [
+  192152,
+  1787179984995408802
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13012/otrc-su-partial/run_3/token_log.json": [
+  13638,
+  1787895899686784489
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13012/otrc-su-partial/run_3/trajectory.json": [
+  335068,
+  1787895899686784489
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13964/otrc-su-partial/run_1/token_log.json": [
+  6995,
+  1787179984995408802
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13964/otrc-su-partial/run_1/trajectory.json": [
+  486294,
+  1787179984995408802
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13964/otrc-su-partial/run_2/token_log.json": [
+  15861,
+  1787179984999408856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13964/otrc-su-partial/run_2/trajectory.json": [
+  352681,
+  1787179984999408856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13964/otrc-su-partial/run_3/token_log.json": [
+  12341,
+  1787896010916236471
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-13964/otrc-su-partial/run_3/trajectory.json": [
+  139675,
+  1787896010912236418
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14580/otrc-su-partial/run_1/token_log.json": [
+  6264,
+  1787179984999408856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14580/otrc-su-partial/run_1/trajectory.json": [
+  70929,
+  1787179984999408856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14580/otrc-su-partial/run_2/token_log.json": [
+  6496,
+  1787179984999408856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14580/otrc-su-partial/run_2/trajectory.json": [
+  171423,
+  1787179984999408856
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14580/otrc-su-partial/run_3/token_log.json": [
+  11277,
+  1787895230930072118
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14580/otrc-su-partial/run_3/trajectory.json": [
+  105278,
+  1787895231046073624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14915/otrc-su-partial/run_3/token_log.json": [
+  4724,
+  1787895220349934682
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14915/otrc-su-partial/run_3/trajectory.json": [
+  262422,
+  1787895220469936240
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14999/otrc-su-partial/run_1/token_log.json": [
+  7897,
+  1787179985007408963
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14999/otrc-su-partial/run_1/trajectory.json": [
+  100048,
+  1787179985007408963
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14999/otrc-su-partial/run_2/token_log.json": [
+  5614,
+  1787179985007408963
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-14999/otrc-su-partial/run_2/trajectory.json": [
+  448269,
+  1787179985007408963
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-17087/otrc-su-partial/run_3/token_log.json": [
+  4175,
+  1787895618167112305
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/django__django-17087/otrc-su-partial/run_3/trajectory.json": [
+  223158,
+  1787895618287113869
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10297/otrc-su-partial/run_3/token_log.json": [
+  14799,
+  1787896780410289774
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10297/otrc-su-partial/run_3/trajectory.json": [
+  275099,
+  1787896780526291290
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10908/otrc-su-partial/run_1/token_log.json": [
+  7373,
+  1787179985019409125
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10908/otrc-su-partial/run_1/trajectory.json": [
+  296645,
+  1787179985019409125
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10908/otrc-su-partial/run_2/token_log.json": [
+  14744,
+  1787179985019409125
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10908/otrc-su-partial/run_2/trajectory.json": [
+  265608,
+  1787179985019409125
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10908/otrc-su-partial/run_3/token_log.json": [
+  14981,
+  1787896396077267235
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-10908/otrc-su-partial/run_3/trajectory.json": [
+  174591,
+  1787896397521286103
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11310/otrc-su-partial/run_1/token_log.json": [
+  6144,
+  1787179985023409178
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11310/otrc-su-partial/run_1/trajectory.json": [
+  160443,
+  1787179985023409178
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11310/otrc-su-partial/run_2/token_log.json": [
+  14949,
+  1787179985023409178
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11310/otrc-su-partial/run_2/trajectory.json": [
+  364949,
+  1787179985023409178
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11578/otrc-su-partial/run_1/token_log.json": [
+  9582,
+  1787179985027409232
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11578/otrc-su-partial/run_1/trajectory.json": [
+  409225,
+  1787179985027409232
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11578/otrc-su-partial/run_2/token_log.json": [
+  6970,
+  1787179985027409232
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-11578/otrc-su-partial/run_2/trajectory.json": [
+  432035,
+  1787179985027409232
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13328/otrc-su-partial/run_2/token_log.json": [
+  15267,
+  1787179985031409285
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13328/otrc-su-partial/run_2/trajectory.json": [
+  332066,
+  1787179985031409285
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13328/otrc-su-partial/run_3/token_log.json": [
+  15096,
+  1787897056385897075
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13328/otrc-su-partial/run_3/trajectory.json": [
+  250689,
+  1787897056505898644
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13779/otrc-su-partial/run_1/token_log.json": [
+  12338,
+  1787179985035409339
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13779/otrc-su-partial/run_1/trajectory.json": [
+  120393,
+  1787179985035409339
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13779/otrc-su-partial/run_2/token_log.json": [
+  12993,
+  1787179985035409339
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13779/otrc-su-partial/run_2/trajectory.json": [
+  419886,
+  1787179985035409339
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13779/otrc-su-partial/run_3/token_log.json": [
+  9968,
+  1787897496011644134
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-13779/otrc-su-partial/run_3/trajectory.json": [
+  215247,
+  1787897496011644134
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-15100/otrc-su-partial/run_1/token_log.json": [
+  5610,
+  1787179985043409446
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-15100/otrc-su-partial/run_1/trajectory.json": [
+  228925,
+  1787179985043409446
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-25747/otrc-su-partial/run_1/token_log.json": [
+  14705,
+  1787179985047409500
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-25747/otrc-su-partial/run_1/trajectory.json": [
+  108750,
+  1787179985047409500
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-25747/otrc-su-partial/run_2/token_log.json": [
+  11119,
+  1787179985047409500
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-25747/otrc-su-partial/run_2/trajectory.json": [
+  471084,
+  1787179985047409500
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-25747/otrc-su-partial/run_3/token_log.json": [
+  14873,
+  1787897353145776442
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-25747/otrc-su-partial/run_3/trajectory.json": [
+  139617,
+  1787897353269778063
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-26323/otrc-su-partial/run_1/token_log.json": [
+  6244,
+  1787179985051409554
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-26323/otrc-su-partial/run_1/trajectory.json": [
+  112075,
+  1787179985051409554
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-26323/otrc-su-partial/run_2/token_log.json": [
+  11497,
+  1787179985051409554
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-26323/otrc-su-partial/run_2/trajectory.json": [
+  355721,
+  1787179985051409554
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-26323/otrc-su-partial/run_3/token_log.json": [
+  15296,
+  1787897559980480416
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/scikit-learn__scikit-learn-26323/otrc-su-partial/run_3/trajectory.json": [
+  266338,
+  1787897560116482194
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13031/otrc-su-partial/run_1/token_log.json": [
+  11159,
+  1787179985059409661
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13031/otrc-su-partial/run_1/trajectory.json": [
+  101739,
+  1787179985059409661
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13031/otrc-su-partial/run_3/token_log.json": [
+  9630,
+  1787897356481820054
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13031/otrc-su-partial/run_3/trajectory.json": [
+  133751,
+  1787897356597821570
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_1/token_log.json": [
+  6724,
+  1787179985063409715
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_1/trajectory.json": [
+  269674,
+  1787179985063409715
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_2/token_log.json": [
+  9146,
+  1787179985063409715
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_2/trajectory.json": [
+  446714,
+  1787179985063409715
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_3/token_log.json": [
+  15564,
+  1787898497625298992
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_3/trajectory.json": [
+  391603,
+  1787898497625298992
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_1/token_log.json": [
+  11851,
+  1787179985067409768
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_1/trajectory.json": [
+  180473,
+  1787179985067409768
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_2/token_log.json": [
+  15116,
+  1787179985067409768
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_2/trajectory.json": [
+  113716,
+  1787179985067409768
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_3/token_log.json": [
+  11690,
+  1787898678875928528
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_3/trajectory.json": [
+  445933,
+  1787898678871928470
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15017/otrc-su-partial/run_1/token_log.json": [
+  16008,
+  1787179985071409822
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15017/otrc-su-partial/run_1/trajectory.json": [
+  192139,
+  1787179985071409822
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15017/otrc-su-partial/run_3/token_log.json": [
+  14163,
+  1787898844950285699
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15017/otrc-su-partial/run_3/trajectory.json": [
+  581915,
+  1787898844946285642
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15345/otrc-su-partial/run_1/token_log.json": [
+  9336,
+  1787179985143410788
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15345/otrc-su-partial/run_1/trajectory.json": [
+  336967,
+  1787179985143410788
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15345/otrc-su-partial/run_2/token_log.json": [
+  14959,
+  1787179985143410788
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15345/otrc-su-partial/run_2/trajectory.json": [
+  165764,
+  1787179985143410788
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15345/otrc-su-partial/run_3/token_log.json": [
+  15691,
+  1787898335946883519
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-15345/otrc-su-partial/run_3/trajectory.json": [
+  177075,
+  1787898400047850573
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_1/token_log.json": [
+  17108,
+  1787179985135410681
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_1/trajectory.json": [
+  318197,
+  1787179985135410681
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_2/token_log.json": [
+  10242,
+  1787179985135410681
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_2/trajectory.json": [
+  586376,
+  1787179985135410681
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_3/token_log.json": [
+  13444,
+  1787899043469057437
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_3/trajectory.json": [
+  496608,
+  1787899043465057382
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-24066/otrc-su-partial/run_3/token_log.json": [
+  15358,
+  1787898657719625037
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__otrc-su-partial/sympy__sympy-24066/otrc-su-partial/run_3/trajectory.json": [
+  228819,
+  1787898657855626991
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-11299/trc-ss/run_1/token_log.json": [
+  4999,
+  1787179984263398981
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-11299/trc-ss/run_1/trajectory.json": [
+  210544,
+  1787179984263398981
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-11299/trc-ss/run_3/token_log.json": [
+  4851,
+  1787891265885973114
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-11299/trc-ss/run_3/trajectory.json": [
+  172667,
+  1787891266009974702
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-12273/trc-ss/run_2/token_log.json": [
+  4221,
+  1787179984267399034
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-12273/trc-ss/run_2/trajectory.json": [
+  268965,
+  1787179984267399034
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-13012/trc-ss/run_3/token_log.json": [
+  4843,
+  1787891101771876785
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-13012/trc-ss/run_3/trajectory.json": [
+  71874,
+  1787891101899878415
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-13964/trc-ss/run_1/token_log.json": [
+  3976,
+  1787179984271399089
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-13964/trc-ss/run_1/trajectory.json": [
+  95938,
+  1787179984271399089
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-13964/trc-ss/run_3/token_log.json": [
+  2458,
+  1787891577621984718
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-13964/trc-ss/run_3/trajectory.json": [
+  110568,
+  1787891696543521997
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-14580/trc-ss/run_1/token_log.json": [
+  3925,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-14580/trc-ss/run_1/trajectory.json": [
+  130579,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-14580/trc-ss/run_2/token_log.json": [
+  4182,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-14580/trc-ss/run_2/trajectory.json": [
+  24745,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-14999/trc-ss/run_3/token_log.json": [
+  4176,
+  1787891191301018708
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/django__django-14999/trc-ss/run_3/trajectory.json": [
+  165432,
+  1787891191433020395
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-10297/trc-ss/run_1/token_log.json": [
+  2265,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-10297/trc-ss/run_1/trajectory.json": [
+  122599,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-10297/trc-ss/run_3/token_log.json": [
+  2440,
+  1787891027666935174
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-10297/trc-ss/run_3/trajectory.json": [
+  32085,
+  1787891027786936695
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-10908/trc-ss/run_2/token_log.json": [
+  3505,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-10908/trc-ss/run_2/trajectory.json": [
+  36455,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11310/trc-ss/run_2/token_log.json": [
+  2696,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11310/trc-ss/run_2/trajectory.json": [
+  100084,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11310/trc-ss/run_3/token_log.json": [
+  3996,
+  1787891359967180387
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11310/trc-ss/run_3/trajectory.json": [
+  199245,
+  1787891360095182032
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11578/trc-ss/run_1/token_log.json": [
+  3695,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11578/trc-ss/run_1/trajectory.json": [
+  106728,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11578/trc-ss/run_2/token_log.json": [
+  3850,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11578/trc-ss/run_2/trajectory.json": [
+  173673,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11578/trc-ss/run_3/token_log.json": [
+  2904,
+  1787891591098158770
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-11578/trc-ss/run_3/trajectory.json": [
+  52350,
+  1787891591202160112
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-14496/trc-ss/run_1/token_log.json": [
+  2250,
+  1787179984295399410
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-14496/trc-ss/run_1/trajectory.json": [
+  51293,
+  1787179984295399410
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-25747/trc-ss/run_1/token_log.json": [
+  3206,
+  1787179984303399518
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-25747/trc-ss/run_1/trajectory.json": [
+  182761,
+  1787179984303399518
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-25747/trc-ss/run_3/token_log.json": [
+  4172,
+  1787892362748442822
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-25747/trc-ss/run_3/trajectory.json": [
+  39600,
+  1787892362936445409
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-26323/trc-ss/run_3/token_log.json": [
+  3715,
+  1787892514686521767
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/scikit-learn__scikit-learn-26323/trc-ss/run_3/trajectory.json": [
+  60004,
+  1787892514802523346
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-11618/trc-ss/run_2/token_log.json": [
+  3375,
+  1787179984307399572
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-11618/trc-ss/run_2/trajectory.json": [
+  160463,
+  1787179984307399572
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-13091/trc-ss/run_1/token_log.json": [
+  3972,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-13091/trc-ss/run_1/trajectory.json": [
+  33734,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-13091/trc-ss/run_3/token_log.json": [
+  4467,
+  1787892578035382242
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-13091/trc-ss/run_3/trajectory.json": [
+  74597,
+  1787892578151383814
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-13757/trc-ss/run_1/token_log.json": [
+  4207,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-13757/trc-ss/run_1/trajectory.json": [
+  109261,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-15345/trc-ss/run_1/token_log.json": [
+  2917,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-15345/trc-ss/run_1/trajectory.json": [
+  170124,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-15345/trc-ss/run_2/token_log.json": [
+  4329,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-15345/trc-ss/run_2/trajectory.json": [
+  127807,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-15345/trc-ss/run_3/token_log.json": [
+  4072,
+  1787892638568201571
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-15345/trc-ss/run_3/trajectory.json": [
+  114985,
+  1787892638688203193
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-17630/trc-ss/run_1/token_log.json": [
+  1779,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-17630/trc-ss/run_1/trajectory.json": [
+  95605,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-17630/trc-ss/run_3/token_log.json": [
+  4735,
+  1787892730961447402
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-17630/trc-ss/run_3/trajectory.json": [
+  247068,
+  1787892731109449394
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-24066/trc-ss/run_1/token_log.json": [
+  2207,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-24066/trc-ss/run_1/trajectory.json": [
+  122116,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-24066/trc-ss/run_3/token_log.json": [
+  3705,
+  1787893191455598003
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-ss/sympy__sympy-24066/trc-ss/run_3/trajectory.json": [
+  84380,
+  1787893191571599544
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-11299/trc-su/run_1/token_log.json": [
+  4747,
+  1787179984263398981
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-11299/trc-su/run_1/trajectory.json": [
+  194425,
+  1787179984263398981
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-11299/trc-su/run_2/token_log.json": [
+  2205,
+  1787179984263398981
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-11299/trc-su/run_2/trajectory.json": [
+  31961,
+  1787179984263398981
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-11299/trc-su/run_3/token_log.json": [
+  4133,
+  1787891591434163109
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-11299/trc-su/run_3/trajectory.json": [
+  506689,
+  1787891663031088492
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-12273/trc-su/run_2/token_log.json": [
+  4736,
+  1787179984267399034
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-12273/trc-su/run_2/trajectory.json": [
+  361761,
+  1787179984267399034
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-12273/trc-su/run_3/token_log.json": [
+  4206,
+  1787891633286703917
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-12273/trc-su/run_3/trajectory.json": [
+  188165,
+  1787891633562707485
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-13012/trc-su/run_1/token_log.json": [
+  4054,
+  1787179984267399034
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-13012/trc-su/run_1/trajectory.json": [
+  216278,
+  1787179984267399034
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-13964/trc-su/run_1/token_log.json": [
+  2920,
+  1787179984271399089
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-13964/trc-su/run_1/trajectory.json": [
+  56614,
+  1787179984271399089
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-13964/trc-su/run_3/token_log.json": [
+  3699,
+  1787891198593111903
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-13964/trc-su/run_3/trajectory.json": [
+  134646,
+  1787891198713113437
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-14580/trc-su/run_1/token_log.json": [
+  2038,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-14580/trc-su/run_1/trajectory.json": [
+  128990,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-14580/trc-su/run_2/token_log.json": [
+  3852,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-14580/trc-su/run_2/trajectory.json": [
+  156025,
+  1787179984275399141
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-14580/trc-su/run_3/token_log.json": [
+  4820,
+  1787891659259039712
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-14580/trc-su/run_3/trajectory.json": [
+  241946,
+  1787891659375041212
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-17087/trc-su/run_1/token_log.json": [
+  3061,
+  1787179984279399195
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/django__django-17087/trc-su/run_1/trajectory.json": [
+  469256,
+  1787179984279399195
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10297/trc-su/run_2/token_log.json": [
+  4050,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10297/trc-su/run_2/trajectory.json": [
+  143078,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10297/trc-su/run_3/token_log.json": [
+  4823,
+  1787891465136533693
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10297/trc-su/run_3/trajectory.json": [
+  355883,
+  1787891465712541114
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10908/trc-su/run_1/token_log.json": [
+  3717,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10908/trc-su/run_1/trajectory.json": [
+  59137,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10908/trc-su/run_2/token_log.json": [
+  3588,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10908/trc-su/run_2/trajectory.json": [
+  381784,
+  1787179984283399249
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10908/trc-su/run_3/token_log.json": [
+  4435,
+  1787891556657714040
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-10908/trc-su/run_3/trajectory.json": [
+  113821,
+  1787891556773715538
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11310/trc-su/run_1/token_log.json": [
+  4654,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11310/trc-su/run_1/trajectory.json": [
+  206985,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11310/trc-su/run_2/token_log.json": [
+  4839,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11310/trc-su/run_2/trajectory.json": [
+  27782,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11310/trc-su/run_3/token_log.json": [
+  2461,
+  1787891096279806883
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11310/trc-su/run_3/trajectory.json": [
+  36989,
+  1787891096403808461
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11578/trc-su/run_2/token_log.json": [
+  3541,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11578/trc-su/run_2/trajectory.json": [
+  40250,
+  1787179984287399303
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11578/trc-su/run_3/token_log.json": [
+  4255,
+  1787891723103865720
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-11578/trc-su/run_3/trajectory.json": [
+  185386,
+  1787891723219867221
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13328/trc-su/run_1/token_log.json": [
+  4692,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13328/trc-su/run_1/trajectory.json": [
+  214690,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13328/trc-su/run_2/token_log.json": [
+  4842,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13328/trc-su/run_2/trajectory.json": [
+  47618,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13328/trc-su/run_3/token_log.json": [
+  3266,
+  1787891747092176265
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13328/trc-su/run_3/trajectory.json": [
+  151764,
+  1787891747204177714
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13779/trc-su/run_1/token_log.json": [
+  3610,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13779/trc-su/run_1/trajectory.json": [
+  201582,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13779/trc-su/run_2/token_log.json": [
+  4698,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13779/trc-su/run_2/trajectory.json": [
+  138734,
+  1787179984291399357
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13779/trc-su/run_3/token_log.json": [
+  3220,
+  1787891591298161353
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-13779/trc-su/run_3/trajectory.json": [
+  108332,
+  1787891591406162748
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-15100/trc-su/run_2/token_log.json": [
+  1423,
+  1787179984299399464
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-15100/trc-su/run_2/trajectory.json": [
+  32075,
+  1787179984299399464
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-25747/trc-su/run_2/token_log.json": [
+  3256,
+  1787179984303399518
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-25747/trc-su/run_2/trajectory.json": [
+  309464,
+  1787179984303399518
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-25747/trc-su/run_3/token_log.json": [
+  2773,
+  1787892352496301653
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/scikit-learn__scikit-learn-25747/trc-su/run_3/trajectory.json": [
+  42328,
+  1787892352620303360
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-11618/trc-su/run_1/token_log.json": [
+  4514,
+  1787179984307399572
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-11618/trc-su/run_1/trajectory.json": [
+  230227,
+  1787179984307399572
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-11618/trc-su/run_3/token_log.json": [
+  2839,
+  1787891918870402634
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-11618/trc-su/run_3/trajectory.json": [
+  104765,
+  1787891918994404242
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13031/trc-su/run_2/token_log.json": [
+  3401,
+  1787179984307399572
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13031/trc-su/run_2/trajectory.json": [
+  286835,
+  1787179984307399572
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13031/trc-su/run_3/token_log.json": [
+  3217,
+  1787893129206770701
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13031/trc-su/run_3/trajectory.json": [
+  131196,
+  1787893129342772509
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13091/trc-su/run_1/token_log.json": [
+  4839,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13091/trc-su/run_1/trajectory.json": [
+  132046,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13091/trc-su/run_2/token_log.json": [
+  4846,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13091/trc-su/run_2/trajectory.json": [
+  181074,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13091/trc-su/run_3/token_log.json": [
+  4739,
+  1787892437817472903
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13091/trc-su/run_3/trajectory.json": [
+  237959,
+  1787892437953474763
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13757/trc-su/run_1/token_log.json": [
+  2607,
+  1787179984311399624
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13757/trc-su/run_1/trajectory.json": [
+  60062,
+  1787179984315399678
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13757/trc-su/run_2/token_log.json": [
+  4674,
+  1787179984315399678
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13757/trc-su/run_2/trajectory.json": [
+  64060,
+  1787179984315399678
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13757/trc-su/run_3/token_log.json": [
+  4652,
+  1787893205999791165
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-13757/trc-su/run_3/trajectory.json": [
+  133932,
+  1787893206123792812
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-15345/trc-su/run_1/token_log.json": [
+  4820,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-15345/trc-su/run_1/trajectory.json": [
+  136325,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-17630/trc-su/run_1/token_log.json": [
+  3608,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-17630/trc-su/run_1/trajectory.json": [
+  102954,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-17630/trc-su/run_2/token_log.json": [
+  2237,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-17630/trc-su/run_2/trajectory.json": [
+  144525,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24066/trc-su/run_1/token_log.json": [
+  2221,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24066/trc-su/run_1/trajectory.json": [
+  141835,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24066/trc-su/run_2/token_log.json": [
+  2632,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24066/trc-su/run_2/trajectory.json": [
+  174972,
+  1787179984367400376
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24443/trc-su/run_1/token_log.json": [
+  1802,
+  1787179984359400269
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24443/trc-su/run_1/trajectory.json": [
+  54249,
+  1787179984359400269
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24443/trc-su/run_2/token_log.json": [
+  2010,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24443/trc-su/run_2/trajectory.json": [
+  135849,
+  1787179984363400323
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24443/trc-su/run_3/token_log.json": [
+  1565,
+  1787892910787858909
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b10k__trc-su/sympy__sympy-24443/trc-su/run_3/trajectory.json": [
+  32944,
+  1787892910903860460
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-ss-partial/scikit-learn__scikit-learn-25747/otrc-ss-partial/run_3/token_log.json": [
+  12089,
+  1787907888640683582
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-ss-partial/scikit-learn__scikit-learn-25747/otrc-ss-partial/run_3/trajectory.json": [
+  691937,
+  1787907888636683529
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/django__django-14999/otrc-su-partial/run_2/token_log.json": [
+  9803,
+  1787179984819406441
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/django__django-14999/otrc-su-partial/run_2/trajectory.json": [
+  123258,
+  1787179984819406441
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/scikit-learn__scikit-learn-11578/otrc-su-partial/run_3/token_log.json": [
+  11597,
+  1787907352977659698
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/scikit-learn__scikit-learn-11578/otrc-su-partial/run_3/trajectory.json": [
+  228040,
+  1787907353089661168
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13031/otrc-su-partial/run_3/token_log.json": [
+  15182,
+  1787907912384994591
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13031/otrc-su-partial/run_3/trajectory.json": [
+  185544,
+  1787907912732999150
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_1/token_log.json": [
+  15003,
+  1787179984871407139
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_1/trajectory.json": [
+  192840,
+  1787179984871407139
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_2/token_log.json": [
+  14242,
+  1787179984871407139
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13091/otrc-su-partial/run_2/trajectory.json": [
+  151349,
+  1787179984871407139
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_1/token_log.json": [
+  12595,
+  1787179984875407192
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_1/trajectory.json": [
+  613527,
+  1787179984875407192
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_2/token_log.json": [
+  9986,
+  1787179984875407192
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_2/trajectory.json": [
+  509457,
+  1787179984875407192
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_3/token_log.json": [
+  15427,
+  1787908672259359513
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-13757/otrc-su-partial/run_3/trajectory.json": [
+  291257,
+  1787908672595364480
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-15017/otrc-su-partial/run_1/token_log.json": [
+  12303,
+  1787179984879407247
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-15017/otrc-su-partial/run_1/trajectory.json": [
+  493785,
+  1787179984879407247
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_1/token_log.json": [
+  14965,
+  1787179984887407353
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_1/trajectory.json": [
+  231308,
+  1787179984887407353
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_2/token_log.json": [
+  13262,
+  1787179984887407353
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__otrc-su-partial/sympy__sympy-17630/otrc-su-partial/run_2/trajectory.json": [
+  115398,
+  1787179984887407353
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/scikit-learn__scikit-learn-10908/trc-ss/run_3/token_log.json": [
+  3023,
+  1787901978415071655
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/scikit-learn__scikit-learn-10908/trc-ss/run_3/trajectory.json": [
+  37199,
+  1787901978531073170
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/scikit-learn__scikit-learn-25747/trc-ss/run_3/token_log.json": [
+  3052,
+  1787902791586060599
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/scikit-learn__scikit-learn-25747/trc-ss/run_3/trajectory.json": [
+  188481,
+  1787902791698062123
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/sympy__sympy-13091/trc-ss/run_2/token_log.json": [
+  4398,
+  1787179984243398712
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/sympy__sympy-13091/trc-ss/run_2/trajectory.json": [
+  161647,
+  1787179984243398712
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/sympy__sympy-13757/trc-ss/run_3/token_log.json": [
+  4482,
+  1787903200687580471
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-ss/sympy__sympy-13757/trc-ss/run_3/trajectory.json": [
+  97817,
+  1787903200811582134
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/scikit-learn__scikit-learn-25747/trc-su/run_3/token_log.json": [
+  2592,
+  1787902736937316180
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/scikit-learn__scikit-learn-25747/trc-su/run_3/trajectory.json": [
+  441961,
+  1787902737057317816
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/sympy__sympy-13091/trc-su/run_3/token_log.json": [
+  4541,
+  1787903006968976380
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/sympy__sympy-13091/trc-su/run_3/trajectory.json": [
+  123706,
+  1787903007088977998
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/sympy__sympy-17630/trc-su/run_1/token_log.json": [
+  2638,
+  1787179984255398874
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/sympy__sympy-17630/trc-su/run_1/trajectory.json": [
+  83377,
+  1787179984255398874
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/sympy__sympy-17630/trc-su/run_3/token_log.json": [
+  3430,
+  1787903376221929858
+ ],
+ "ICLR_results/swebench/ablation/qwen35b/di__b20k__trc-su/sympy__sympy-17630/trc-su/run_3/trajectory.json": [
+  345177,
+  1787903376345931515
+ ]
+}
