@@ -79,7 +79,7 @@ def chip(cell, depth):
         cls = "extra"
     else:  # COMPLETE / HAVE / PARTIAL
         cls = "have" if status != "PARTIAL" else "partial"
-    # cohort is the second visual axis: solid fill = full P100, outline = ABL-30
+    # cohort is the second visual axis: solid fill = full P100, outline = ABL-25
     if cls != "missing" and cell["cohort_covered"]:
         cls += " p100" if cell["cohort_covered"].startswith("P100") else " abl"
     return f'<span class="chip {cls}" title="{title}">{depth}</span>'
@@ -158,7 +158,7 @@ def coverage_progress(
         min_runs = _int(cell.get("runs_per_task_min"))
         cohort = (
             "p100" if tasks == 100 else
-            "abl30" if tasks == 30 else
+            "abl25" if tasks == 25 else
             # No frozen P-15/P-40 task-list files exist yet. Terminal-Bench
             # progress therefore uses the observed-task capped counts, while
             # the target below still caps credit at the planned task count.
@@ -179,6 +179,9 @@ def coverage_progress(
             total_progress = _int(cell[capped_key])
             baseline_progress = _int(cell[baseline_key]) if baseline_key else 0
             incremental_progress = total_progress - baseline_progress
+        elif cohort == "abl25":
+            raise ValueError("ABL-25 progress requires exact cohort counts; regenerate COVERAGE.csv "
+                             "with dashboard/build_coverage.py")
         elif disk_tasks:
             # Backward-compatible fallback for coverage files generated before
             # cohort-specific capped counts were added.
@@ -426,7 +429,7 @@ def main():
         ("6", "models"),
         ("100", "SWE-bench tasks (P100)"),
         ("11 + 2", "primitives + baselines"),
-        (f"{n_p100} / {n_abl}", "cells at full P100 / ABL-30 only"),
+        (f"{n_p100} / {n_abl}", "cells at full P100 / ABL-25 only"),
         (f"{disk_runs:,}", "trajectories on this disk"),
         (f"{tb_runs:,}", "valid Terminal-Bench runs in COVERAGE_TB.csv"),
     ]
@@ -466,7 +469,7 @@ def main():
         qbody.append(f'<tr><td class="prim">{label}</td>{"".join(tds)}</tr>')
     quant_card = (
         '<div class="card"><h3>Precision sweep — Qwen3-30B-A3B-Instruct-2507</h3>'
-        '<p class="note">Different base model (appendix only). ABL-30, d=0.5, 2 runs. '
+        '<p class="note">Different base model (appendix only). ABL-25, d=0.5, 2 runs. '
         'Resolve at ∞: fp16 9.17% &gt; fp8 7.08% &gt; gptq 3.33% &gt; awq 2.92%.</p>'
         f'<div class="tablewrap"><table><thead><tr><th>cell</th>{qhead}</tr></thead>'
         f'<tbody>{"".join(qbody)}</tbody></table></div></div>')
@@ -516,9 +519,9 @@ def main():
                   for p in ("FC", "OTRC")]
         return planned_matrix(budgets, rows_)
 
-    p1_matrix = model_plan_matrix(["10K", "15K", "20K", "∞"], "SB:P-100", "SB:ABL-30")
-    p2_devstral = model_plan_matrix(["17K", "21K", "24K", "∞"], "SB:P-100", "SB:ABL-30")
-    p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-30")
+    p1_matrix = model_plan_matrix(["10K", "15K", "20K", "∞"], "SB:P-100", "SB:ABL-25")
+    p2_devstral = model_plan_matrix(["17K", "21K", "24K", "∞"], "SB:P-100", "SB:ABL-25")
+    p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-25")
     p3_qwen = model_plan_matrix(
         ["2K", "3K", "4K", "∞"],
         "TB:P-40", "TB:P-15", calibration=True,
@@ -536,21 +539,21 @@ def main():
 <div class="tablewrap roadmap-overview"><table>
 <thead><tr><th>priority</th><th>experiment</th><th>dataset</th><th>planned runs</th></tr></thead>
 <tbody>
-<tr><td class="priority">P1</td><td><a href="#priority-1">Runs/task: 3 (run_1–run_3)</a></td><td>SB:P-100 + SB:ABL-30</td><td>8,580 total</td></tr>
-<tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
+<tr><td class="priority">P1</td><td><a href="#priority-1">Runs/task: 3 (run_1–run_3)</a></td><td>SB:P-100 + SB:ABL-25</td><td>7,800 total</td></tr>
+<tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-25</td><td>15,600</td></tr>
 <tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
-<tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
+<tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>SB:ABL-25 + TB:ABL-20</td><td>700</td></tr>
 </tbody></table></div>"""
 
     p4_table = """
 <div class="tablewrap"><table>
-<thead><tr><th>summarizer</th><th>primitive</th><th>SB:ABL-30</th><th>TB:ABL-20</th><th>total</th></tr></thead>
+<thead><tr><th>summarizer</th><th>primitive</th><th>SB:ABL-25</th><th>TB:ABL-20</th><th>total</th></tr></thead>
 <tbody>
-<tr><td rowspan="2" class="prim">Qwen3.5-9B</td><td class="prim">SU-full <span class="plan-chip ablation">0.5</span></td><td>90</td><td>100</td><td>190</td></tr>
-<tr><td class="prim">TRC+SU <span class="plan-chip ablation">DI</span></td><td>90</td><td>100</td><td>190</td></tr>
-<tr><td rowspan="2" class="prim">Gemma-4-12B</td><td class="prim">SU-full <span class="plan-chip ablation">0.5</span></td><td>90</td><td>100</td><td>190</td></tr>
-<tr><td class="prim">TRC+SU <span class="plan-chip ablation">DI</span></td><td>90</td><td>100</td><td>190</td></tr>
-<tr class="total"><td colspan="2">Total</td><td>360</td><td>400</td><td>760</td></tr>
+<tr><td rowspan="2" class="prim">Qwen3.5-9B</td><td class="prim">SU-full <span class="plan-chip ablation">0.5</span></td><td>75</td><td>100</td><td>175</td></tr>
+<tr><td class="prim">TRC+SU <span class="plan-chip ablation">DI</span></td><td>75</td><td>100</td><td>175</td></tr>
+<tr><td rowspan="2" class="prim">Gemma-4-12B</td><td class="prim">SU-full <span class="plan-chip ablation">0.5</span></td><td>75</td><td>100</td><td>175</td></tr>
+<tr><td class="prim">TRC+SU <span class="plan-chip ablation">DI</span></td><td>75</td><td>100</td><td>175</td></tr>
+<tr class="total"><td colspan="2">Total</td><td>300</td><td>400</td><td>700</td></tr>
 </tbody></table></div>"""
 
     # ---- progress tables at model × family × depth × budget granularity ----
@@ -603,12 +606,12 @@ def main():
         for depth in ("0.3", "0.7"):
             for budget in budgets:
                 rows_.append(swe_track(model, tunable_label, tunable, depth, budget,
-                                             "SB:ABL-30", 30, 3, baseline_runs=baseline_runs))
+                                             "SB:ABL-25", 25, 3, baseline_runs=baseline_runs))
         for budget in (budgets[0], budgets[-1]):
             rows_.append(swe_track(model, tunable_label, tunable, "0.5", budget,
-                                         "SB:ABL-30", 30, 3, baseline_runs=baseline_runs))
+                                         "SB:ABL-25", 25, 3, baseline_runs=baseline_runs))
             rows_.append(swe_track(model, invariant_label, invariant, "DI", budget,
-                                         "SB:ABL-30", 30, 3, baseline_runs=baseline_runs))
+                                         "SB:ABL-25", 25, 3, baseline_runs=baseline_runs))
         return rows_
 
     p1a_rows = [
@@ -657,9 +660,9 @@ def main():
 
     p4_tracking_rows = []
     p4_specs = [
-        ("4.a", "Qwen3.5-9B", "SB:ABL-30", 30, 3),
+        ("4.a", "Qwen3.5-9B", "SB:ABL-25", 25, 3),
         ("4.b", "Qwen3.5-9B", "TB:ABL-20", 20, 5),
-        ("4.c", "Gemma-4-12B", "SB:ABL-30", 30, 3),
+        ("4.c", "Gemma-4-12B", "SB:ABL-25", 25, 3),
         ("4.d", "Gemma-4-12B", "TB:ABL-20", 20, 5),
     ]
     p4_display_rows = []
@@ -684,18 +687,18 @@ def main():
     history = load_progress_history()
     now_utc = datetime.now(timezone.utc)
     snapshot = {}
-    # Total-run progress must not be compared with the old third-run counters.
+    # Preserve main history; changed ablation cohorts need fresh counters.
     p1a_progress = progress_bar(p1a_rows, "p1a_all_runs_v3", history, now_utc, snapshot)
-    p1b_progress = progress_bar(p1b_rows, "p1b_all_runs_v3", history, now_utc, snapshot)
+    p1b_progress = progress_bar(p1b_rows, "p1b_abl25_v4", history, now_utc, snapshot)
     p2a_progress = progress_bar(p2a_rows, "p2a", history, now_utc, snapshot)
     p2b_progress = progress_bar(p2b_rows, "p2b", history, now_utc, snapshot)
-    p2c_progress = progress_bar(p2c_rows, "p2c", history, now_utc, snapshot)
-    p2d_progress = progress_bar(p2d_rows, "p2d", history, now_utc, snapshot)
-    p2_progress = progress_bar(p2a_rows + p2b_rows + p2c_rows + p2d_rows, "p2", history, now_utc, snapshot)
+    p2c_progress = progress_bar(p2c_rows, "p2c_abl25_v2", history, now_utc, snapshot)
+    p2d_progress = progress_bar(p2d_rows, "p2d_abl25_v2", history, now_utc, snapshot)
+    p2_progress = progress_bar(p2a_rows + p2b_rows + p2c_rows + p2d_rows, "p2_abl25_v2", history, now_utc, snapshot)
     p3a_progress = progress_bar(p3a_rows, "p3a", history, now_utc, snapshot)
     p3b_progress = progress_bar(p3b_rows, "p3b", history, now_utc, snapshot)
     p3_progress = progress_bar(p3a_rows + p3b_rows, "p3", history, now_utc, snapshot)
-    p4_progress = progress_bar(p4_tracking_rows, "p4", history, now_utc, snapshot)
+    p4_progress = progress_bar(p4_tracking_rows, "p4_abl25_v2", history, now_utc, snapshot)
     if args.record_history:
         write_progress_history(history, snapshot, now_utc)
 
@@ -866,10 +869,10 @@ a {{ color:var(--accent-ink); }}
 <div class="tablewrap roadmap-overview"><table>
 <thead><tr><th>priority</th><th>experiment</th><th>dataset(s)</th><th>runs</th></tr></thead>
 <tbody>
-<tr><td class="priority">1</td><td><a href="#exp-runs">Complete runs 1–3</a></td><td>SB:P-100 + SB:ABL-30</td><td>{p1_target:,}</td></tr>
-<tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
+<tr><td class="priority">1</td><td><a href="#exp-runs">Complete runs 1–3</a></td><td>SB:P-100 + SB:ABL-25</td><td>{p1_target:,}</td></tr>
+<tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-25</td><td>15,600</td></tr>
 <tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
-<tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
+<tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-25 + TB:ABL-20</td><td>700</td></tr>
 </tbody></table></div>
 <ul>
 <li>SWE-Bench env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
@@ -889,8 +892,8 @@ a {{ color:var(--accent-ink); }}
 <li>Runs/task: <strong>3 (run_1, run_2, run_3)</strong></li>
 </ul>
 <p class="note">Progress and budget chips count all three runs per task (run_1–run_3),
-including completed first and second runs, toward 8,580 total runs. Main uses P100 at 15K and depth 0.5 (or DI), plus FC/OTRC at ∞.
-All depth 0.3/0.7 cells and the 10K/20K depth 0.5 or DI cells use ABL-30.
+including completed first and second runs, toward 7,800 total runs. Main uses P100 at 15K and depth 0.5 (or DI), plus FC/OTRC at ∞.
+All depth 0.3/0.7 cells and the 10K/20K depth 0.5 or DI cells use ABL-25.
 Existing results count only for the selected cohort; copies of the same run count once.</p>
 <h3 id="exp-runs-main">(1.a) Qwen Main</h3>
 {p1a_progress}
@@ -911,8 +914,8 @@ Existing results count only for the selected cohort; copies of the same run coun
 <tbody>
 <tr><td><a href="#exp-models-devstral-main">(2.a) Devstral-24B Main</a></td><td>Devstral-Small-2-24B</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 21K (or ∞)</td><td>3,900</td></tr>
 <tr><td><a href="#exp-models-glm-main">(2.b) GLM Main</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:P-100</td><td>Depth: 0.5 or DI / Budget: 13K (or ∞)</td><td>3,900</td></tr>
-<tr><td><a href="#exp-models-devstral-abl">(2.c) Devstral-24B Ablation</a></td><td>Devstral-Small-2-24B</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
-<tr><td><a href="#exp-models-glm-abl">(2.d) GLM Ablation</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:ABL-30</td><td>Depth &amp; budget ablation</td><td>4,680</td></tr>
+<tr><td><a href="#exp-models-devstral-abl">(2.c) Devstral-24B Ablation</a></td><td>Devstral-Small-2-24B</td><td>SB:ABL-25</td><td>Depth &amp; budget ablation</td><td>3,900</td></tr>
+<tr><td><a href="#exp-models-glm-abl">(2.d) GLM Ablation</a></td><td>GLM-4.7-Flash (30B-A3B MoE)</td><td>SB:ABL-25</td><td>Depth &amp; budget ablation</td><td>3,900</td></tr>
 </tbody></table></div>
 
 <h3 id="exp-models-devstral-main">(2.a) Devstral-24B Main</h3>
@@ -955,7 +958,7 @@ Existing results count only for the selected cohort; copies of the same run coun
 <h2 id="exp-summarizer">4. [Priority] Summarizer Ablation</h2>
 {p4_progress}
 <ul>
-<li>ETA: TBD (760 runs)</li>
+<li>ETA: TBD (700 runs)</li>
 </ul>
 <p>Existing self-summarization runs are used as the baseline.</p>
 {p4_tracking}
