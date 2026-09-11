@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from collections import defaultdict
 from pathlib import Path
@@ -20,6 +21,17 @@ class SweBench:
 
     name = "swe-bench"
 
+    # Harness-side test timeout (passed as --timeout so the harness itself stops
+    # and removes the container) and the outer subprocess limit, which must also
+    # cover image builds. Killing only the subprocess would orphan the container.
+    EVAL_TEST_TIMEOUT_S = 1800
+    EVAL_SUBPROCESS_TIMEOUT_S = EVAL_TEST_TIMEOUT_S + 900
+    APPLY_PATCH_FAIL = ">>>>> Patch Apply Failed"   # swebench.harness.constants
+    # OpenMP/BLAS thread cap inside evaluation containers; without it small-data
+    # test suites spawn one thread per host core and never finish (see
+    # scripts/swebench_eval_wrapper.py).
+    EVAL_THREADS = 8
+
     REPOS = {
         "django/django": "django",
         "sympy/sympy": "sympy",
@@ -33,7 +45,7 @@ class SweBench:
         self.python = workspace_root / "venv" / "bin" / "python"
         self.dataset_subset = "verified"
         self.dataset_split = "test"
-        self.docker_host = f"unix:///run/user/{os.getuid()}/podman/podman.sock"
+        self.docker_host = os.environ.get("DOCKER_HOST") or f"unix:///run/user/{os.getuid()}/podman/podman.sock"
 
     def load_tasks(
         self,
@@ -176,10 +188,21 @@ class SweBench:
             "model_patch": result["submission"],
         }}, indent=2))
 
+        # The harness reuses an existing report.json for the same run_id (= key)
+        # without comparing patches, so a regenerated run would inherit the
+        # verdict of its previous patch. Remove this key's old harness output
+        # and top-level reports before evaluating.
+        run_dir = evaluation_dir / "logs" / "run_evaluation" / key
+        if run_dir.exists():
+            shutil.rmtree(run_dir)
+        for name in self._eval_output_names(predictions_stem, key):
+            (evaluation_dir / name).unlink(missing_ok=True)
+
         env = os.environ.copy()
         env.update(self.agent_environment())
+        env["SWEBENCH_EVAL_THREADS"] = str(self.EVAL_THREADS)
         command = [
-            str(self.python), "-m", "swebench.harness.run_evaluation",
+            str(self.python), str(self.workspace_root / "scripts" / "swebench_eval_wrapper.py"),
             "--predictions_path", str(predictions_path),
             "--max_workers", "1",
             "--instance_ids", instance_id,
@@ -187,15 +210,29 @@ class SweBench:
             "--report_dir", str(evaluation_dir),
             "--dataset_name", "princeton-nlp/SWE-bench_Verified",
             "--split", self.dataset_split,
+            "--timeout", str(self.EVAL_TEST_TIMEOUT_S),
+            # Keep instance images (~2.8 GB each, ~100 tasks): the default
+            # "env" level deletes them after every run, forcing a re-pull or
+            # rebuild on the next evaluation of the same task and racing
+            # against other harness runs (409 image conflicts).
+            "--cache_level", "instance",
         ]
         try:
             subprocess.run(command, cwd=evaluation_dir, env=env, capture_output=True,
-                           text=True, timeout=600)
+                           text=True, timeout=self.EVAL_SUBPROCESS_TIMEOUT_S)
         except subprocess.TimeoutExpired:
             print(f"    ! Eval timeout for {key}")
+            self._remove_eval_container(instance_id, key)
             return None
         except Exception as exc:
             print(f"    ! Eval error for {key}: {exc}")
+            self._remove_eval_container(instance_id, key)
+            return None
+
+        # Confirm the harness evaluated this submission, not something else.
+        patch_file = run_dir / self.model_tag / instance_id / "patch.diff"
+        if not patch_file.exists() or patch_file.read_text() != result["submission"]:
+            print(f"    ! Eval patch mismatch for {key}")
             return None
 
         output_file = self._find_eval_output(predictions_stem, key)
@@ -204,19 +241,55 @@ class SweBench:
             return None
         try:
             data = json.loads(output_file.read_text())
-            return instance_id in data.get("resolved_ids", [])
         except Exception as exc:
             print(f"    ! Could not parse eval output: {exc}")
             return None
+        if instance_id in data.get("resolved_ids", []):
+            return True
+        if instance_id in data.get("unresolved_ids", []):
+            return False
+        # No report.json: the harness lists the instance under error_ids both for
+        # a patch that does not apply (a genuine failure) and for environment
+        # errors or test timeouts (not a verdict). Tell them apart via the log.
+        instance_log = run_dir / self.model_tag / instance_id / "run_instance.log"
+        if instance_log.exists() and self.APPLY_PATCH_FAIL in instance_log.read_text(errors="replace"):
+            return False
+        print(f"    ! Eval harness error for {key} (no verdict; will be retried)")
+        return None
+
+    def _remove_eval_container(self, instance_id: str, key: str) -> None:
+        """Remove the harness container for this run if it survived the harness.
+
+        The harness names it sweb.eval.<instance>.<run_id>; a container left
+        running keeps burning CPU and blocks image removal (409 conflicts).
+        """
+        name = f"sweb.eval.{instance_id}.{key}"
+        try:
+            import docker  # the venv's Docker-compatible SDK, talks to podman
+            client = docker.DockerClient(base_url=self.docker_host)
+            try:
+                client.containers.get(name).remove(force=True)
+                print(f"    ! Removed leftover eval container {name}")
+            except docker.errors.NotFound:
+                pass
+            finally:
+                client.close()
+        except Exception as exc:
+            print(f"    ! Could not remove eval container {name}: {exc}")
+
+    def _eval_output_names(self, predictions_stem: str, run_id: str) -> list[str]:
+        """Top-level harness report names this runner recognizes for one run."""
+        return [
+            f"{self.model_tag}.{run_id}.json",
+            f"{predictions_stem}.{run_id}.json",
+            f"{run_id}.json",
+        ]
 
     def _find_eval_output(self, predictions_stem: str, run_id: str) -> Path | None:
+        # Exact names only: a glob such as "*__r1*.json" would also match "__r10".
         evaluation_dir = self.results_dir / "eval"
-        candidates = [
-            evaluation_dir / f"{self.model_tag}.{run_id}.json",
-            evaluation_dir / f"{predictions_stem}.{run_id}.json",
-            evaluation_dir / f"{run_id}.json",
-        ]
-        for candidate in candidates:
+        for name in self._eval_output_names(predictions_stem, run_id):
+            candidate = evaluation_dir / name
             if candidate.exists():
                 return candidate
-        return next(evaluation_dir.glob(f"*{run_id}*.json"), None)
+        return None
