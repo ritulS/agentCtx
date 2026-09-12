@@ -15,6 +15,7 @@ env/
 # All collected experiment data lives in data/ (see data/README.md).
 # results/ablations, results/tbench, Review1/raw are compatibility symlinks.
 data/
+calibration_results/
 results/*
 !results/.gitkeep
 logs/*

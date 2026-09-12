@@ -14,11 +14,15 @@ Harbor's raw job is retained outside ``ICLR_results`` under ``logs/harbor_jobs``
 Each trial's canonical artifacts are normalized to
 ``<task>/full-context/run_<N>``.  The aggregate keeps the same token fields as
 the SWE-Bench runner, including ``step_prompt_tokens``.
+
+Use --calibration-dir for an isolated collection outside ICLR_results. Both
+normalized results and raw Harbor state stay there; dashboard updates are disabled.
 """
 
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import json
 import os
 import shutil
@@ -27,8 +31,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import yaml
+
+# Support both direct CLI execution and import through scripts.*.
+if __package__:
+    from .log_vllm_prefix_cache import PrefixCacheRecorder
+else:
+    from log_vllm_prefix_cache import PrefixCacheRecorder
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -221,6 +232,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--job-name", default=None)
     parser.add_argument(
+        "--calibration-dir", type=Path, default=None,
+        help="isolated collection directory outside ICLR_results (also disables postprocess)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="validate inputs and print paths/command without writing files or running Harbor",
+    )
+    parser.add_argument(
+        "--metrics-url", default=None,
+        help="vLLM metrics URL override; isolated calibration records /metrics automatically",
+    )
+    parser.add_argument(
         "--result-scope",
         choices=("p80_rootless", "p80_subuid_required"),
         default=None,
@@ -324,7 +347,6 @@ def main() -> None:
     if args.result_scope:
         result_root /= args.result_scope
     destination = result_root / args.model_key / "di__binf__fc"
-    destination.mkdir(parents=True, exist_ok=True)
     # Keep infrastructure-specific Harbor state out of the canonical ICLR
     # results hierarchy documented in ICLR_results/README.md.
     jobs_dir = (
@@ -332,7 +354,31 @@ def main() -> None:
         / args.model_key / "di__binf__fc"
     )
     job_name = args.job_name or f"{args.job_prefix}-{args.model_key}-fc-run{args.run_num}"
+    if Path(job_name).name != job_name or job_name in (".", ".."):
+        raise SystemExit("--job-name must be a single directory name")
+    if args.calibration_dir:
+        if args.result_scope:
+            raise SystemExit("--calibration-dir cannot be combined with --result-scope")
+        calibration_dir = args.calibration_dir.resolve()
+        destination = (calibration_dir / "results").resolve()
+        jobs_dir = (calibration_dir / "harbor_jobs").resolve()
+        # Resolve symlinks as well: neither results nor infrastructure state
+        # may enter the canonical tree, even through an existing directory link.
+        protected = (ROOT / "ICLR_results").resolve()
+        for path in (calibration_dir, destination, jobs_dir, (jobs_dir / job_name).resolve()):
+            if path.is_relative_to(protected) or protected.is_relative_to(path):
+                raise SystemExit("--calibration-dir must be separate from ICLR_results")
+        args.skip_postprocess = True
+    elif args.metrics_url:
+        raise SystemExit("--metrics-url requires --calibration-dir")
     job_dir = jobs_dir / job_name
+    metrics_recorder = None
+    if args.calibration_dir:
+        base = urlsplit(api_base)
+        metrics_url = args.metrics_url or urlunsplit((base.scheme, base.netloc, "/metrics", "", ""))
+        metrics_recorder = PrefixCacheRecorder(
+            metrics_url, calibration_dir / "metrics" / job_name / "prefix_cache.jsonl",
+        )
     docker_host = args.docker_host or f"unix:///run/user/{os.getuid()}/podman/podman.sock"
 
     env = os.environ.copy()
@@ -349,28 +395,23 @@ def main() -> None:
         "MSWEA_COST_TRACKING": "ignore_errors",
         "MSWEA_TB_CONFIGS": os.pathsep.join((str(config), str(ROOT / "configs/config-tbench.yaml"))),
     })
-    health = subprocess.run(
-        ["docker", "info"], cwd=ROOT, env=env, stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    if health.returncode:
-        raise SystemExit(
-            f"rootless Podman API is not reachable through DOCKER_HOST={docker_host}; "
-            "start `podman system service` first"
-        )
-
     phase = "FC calibration" if args.run_num == 1 else "FC repetition"
     print(
         f"{phase}: {args.display_name}, {label}, "
         f"run_{args.run_num}, {args.n_tasks} tasks"
     )
     print(f"Output: {destination}")
+    print(f"Raw Harbor job: {job_dir}")
+    print(f"Postprocess: {'disabled' if args.skip_postprocess else 'enabled'}")
+    if metrics_recorder:
+        print(f"Prefix-cache metrics: {metrics_recorder.url} -> {metrics_recorder.output} (every 10s)")
     cmd = [
         str(harbor), "run",
         "--agent", "tbench.harbor_adapter:CompressionAgent",
         "--model", model_name,
         "--path", str(dataset_path),
         "--n-attempts", "1",
+        "--max-retries", "0",
         "--n-tasks", str(args.n_tasks),
         "--n-concurrent", str(args.n_concurrent),
         "--agent-timeout-multiplier", str(args.agent_timeout_multiplier),
@@ -389,7 +430,23 @@ def main() -> None:
     env.setdefault("MSWEA_API_KEY", "EMPTY")
     env["OPENAI_BASE_URL"] = api_base
     env["OPENAI_API_BASE"] = api_base
-    run(cmd, env=env)
+    if args.dry_run:
+        import shlex
+
+        print("+", shlex.join(cmd))
+        return
+    health = subprocess.run(
+        ["docker", "info"], cwd=ROOT, env=env, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if health.returncode:
+        raise SystemExit(
+            f"rootless Podman API is not reachable through DOCKER_HOST={docker_host}; "
+            "start `podman system service` first"
+        )
+    destination.mkdir(parents=True, exist_ok=True)
+    with metrics_recorder if metrics_recorder else nullcontext():
+        run(cmd, env=env)
 
     current_rows, aggregate_rows = collect_results(
         job_dir, destination, label, args.run_num
@@ -424,7 +481,7 @@ def main() -> None:
     manifest = {
         "dataset": DATASET,
         "benchmark": args.result_benchmark,
-        "track": "main",
+        "track": "calibration" if args.calibration_dir else "main",
         "result_scope": args.result_scope,
         "model_key": args.model_key,
         "cell": "di__binf__fc",
@@ -435,10 +492,11 @@ def main() -> None:
         "complete": not missing_names,
         "missing_tasks": missing_names,
         "tasks_file": str(tasks_file.relative_to(ROOT)) if tasks_file and tasks_file.is_relative_to(ROOT) else (str(tasks_file) if tasks_file else None),
-        "raw_jobs_dir": str(jobs_dir.relative_to(ROOT)),
+        "raw_jobs_dir": str(jobs_dir.relative_to(ROOT)) if jobs_dir.is_relative_to(ROOT) else str(jobs_dir),
         "raw_jobs": sorted(path.name for path in jobs_dir.iterdir() if path.is_dir()),
     }
-    (destination / "ICLR_CELL_MANIFEST.json").write_text(
+    manifest_name = "CALIBRATION_MANIFEST.json" if args.calibration_dir else "ICLR_CELL_MANIFEST.json"
+    (destination / manifest_name).write_text(
         json.dumps(manifest, indent=2) + "\n"
     )
     print(

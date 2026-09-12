@@ -4,6 +4,7 @@
 # Terminal-Bench full-context serving setup used in this repository.
 #
 # Usage:  bash scripts/start_vllm_qwen35.sh
+# Native context: QWEN_MAX_MODEL_LEN=native bash scripts/start_vllm_qwen35.sh
 # Tail:   tail -f logs/vllm_qwen35.log
 # Stop:   kill "$(cat logs/vllm_qwen35.pid)"
 set -euo pipefail
@@ -17,6 +18,10 @@ MODEL="${QWEN_MODEL:-Qwen/Qwen3.5-35B-A3B}"
 CUDA_DEVICES="${QWEN_CUDA_VISIBLE_DEVICES:-0,1,2,3}"
 TP_SIZE="${QWEN_TENSOR_PARALLEL_SIZE:-4}"
 MAX_MODEL_LEN="${QWEN_MAX_MODEL_LEN:-102400}"
+CONTEXT_ARGS=()
+if [[ "$MAX_MODEL_LEN" != "native" ]]; then
+    CONTEXT_ARGS+=(--max-model-len "$MAX_MODEL_LEN")
+fi
 MAX_NUM_SEQS="${QWEN_MAX_NUM_SEQS:-64}"
 PYTHON_BIN="${QWEN_VLLM_PYTHON:-$WS/venv/bin/python3}"
 LOG_FILE="$WS/logs/vllm_qwen35.log"
@@ -46,7 +51,7 @@ CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
     --port "$PORT" \
     --dtype auto \
     --tensor-parallel-size "$TP_SIZE" \
-    --max-model-len "$MAX_MODEL_LEN" \
+    "${CONTEXT_ARGS[@]}" \
     --max-num-seqs "$MAX_NUM_SEQS" \
     --enable-prefix-caching \
     </dev/null > "$LOG_FILE" 2>&1 &
