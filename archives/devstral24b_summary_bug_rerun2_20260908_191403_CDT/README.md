@@ -3,6 +3,29 @@
 Source list: `/home/ak58925/agentCtx/archives/summary_bug_rerun_tooling_20260907_175359_CDT/rerun_list/rerun_runs.csv` (copied to `rerun_source/`). Selected rows: `rerun_source/selected_rows.csv`.
 Selection: cohort_model_path=devstral24b, rerun_reason in [summary_failure_accounting, summary_related_response, tb_erasure_possible, tb_unverifiable].
 
+## Provenance
+
+- Code: agentCtx commit `26d5fbc` (branch `akiho-expansion-terminalbench-0829`). `archive_rerun_targets.py` is
+  unchanged since `f64dbe6`; the list-building scripts `attribute_tb_erasure.py` / `append_rerun_additions.py` are
+  first committed in `26d5fbc`, identical to the executed files. Runtime fix for the reruns: `6b45448` (`memory.py`).
+- Rerun list update (2026-09-08 19:13 CDT, 1874 -> 2492 rows; `tb_erasure_possible` / `tb_unverifiable` rows come from
+  `erasure-terminalbench/rerun_runs_tb_additions.csv`, see `ARCHIVE_LOG.md` in the tooling archive):
+
+  ```bash
+  cd /home/ak58925/agentCtx; T=archives/summary_bug_rerun_tooling_20260907_175359_CDT
+  python3 $T/scripts/append_rerun_additions.py --rerun-list $T/rerun_list/rerun_runs.csv \
+    --additions $T/erasure-terminalbench/rerun_runs_tb_additions.csv --label tb-erasure
+  ```
+
+- This archive (2026-09-08 19:14 CDT; the same loop also produced the glm47flash and qwen35b archives):
+
+  ```bash
+  python3 $T/scripts/archive_rerun_targets.py --rerun-csv $T/rerun_list/rerun_runs.csv \
+    --cohort-model-path devstral24b \
+    --rerun-reason summary_failure_accounting summary_related_response tb_erasure_possible tb_unverifiable \
+    --archive-name devstral24b_summary_bug_rerun2_20260908_191403_CDT --execute
+  ```
+
 ## Why
 
 These runs recorded FormatErrors on responses containing summary markers:

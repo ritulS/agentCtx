@@ -119,6 +119,137 @@ Made with one-off scripts (`archive_operation.py` in each directory), selecting 
 
 Both running launchers use the runtime tree with the `6b45448` fix.
 
+## 2026-09-08: Terminal-Bench counterpart of the SWE-bench agent.log expansion (update NOT yet applied)
+
+On SWE-bench (branch `akiho-expansion`, commit `25b7ca7`, cherry-picked as `fcef550`) `attribute_agentlog.py`
+recovered FormatErrors that a later successful compression had erased from `trajectory.json` by reading the
+mini-swe-agent console output (`agent.log`, written by `scripts/run_experiment.py`), and appended 4,203 rows.
+
+That method has no input on Terminal-Bench:
+
+- The Harbor adapter runs a `DefaultAgent` subclass (`CheckpointAgent`) that prints nothing per step.
+  `agent.log` in a TB run directory is a copy of Harbor's `trial.log` (docker/environment messages).
+  `worker.log` (Harbor trial `agent/`, only after the 2026-09-06 zombie fix) holds the banner and tracebacks;
+  0 step headers in 1,400 files.
+- `model_stats.api_calls` in `trajectory.json` is the agent's own `n_calls` (`default.py`), not a model-side counter.
+
+`scripts/attribute_tb_erasure.py` therefore uses the only per-run evidence there is. A failed pre-fix summary call
+left a `Format error` user message that only a successful rewrite of the compressible window removes
+(successful summary; or any event for the `*_partial` variants, whose fallback is `truncate()`). TRC and online TRC
+stub message *content* but keep `extra` (`interrupt_type`, `model_response`), so they never remove the evidence;
+for `trc_summarize` / `trc_structured_summarize` only the stage-2 summary (`summarization_prompt_tokens > 0`) counts.
+Runs where such a rewrite happened and no summary failure was established are `probable / tb_erasure_possible`;
+runs with no retained error and no possible rewrite are clean (`no_evidence_intact`). The intact verdicts assume
+`token_log.json` describes the same state as `trajectory.json`; before the 2026-09-06 zombie fix a Harbor timeout
+wrote `token_log.json` while the agent thread kept saving `trajectory.json`, so runs whose trajectory is newer than
+the token_log by more than 5 s, or whose `api_calls` lead `step_prompt_tokens` by more than one call, are
+`token_log_stale` → `probable / tb_unverifiable` instead (reviewer feedback of 2026-09-08). Nothing can be
+confirmed, so no TB addition is `priority`. Pre-fix = Harbor `started_at` before the runtime fix (`6b45448`,
+17:23:33 CDT); the 899 reruns started after it are skipped. Runs are read from `ICLR_results/` and the four
+`*_summary_marker_error_*` archives (no path appears twice).
+
+Outputs in `erasure-terminalbench/` (committed: additions, condition summary, README, anomalies; the two per-run
+CSVs are gitignored):
+
+| Verdict | Runs |
+|---|---|
+| summary-condition pre-fix runs scanned | 2981 |
+| already_listed | 1874 |
+| erasure_possible → **addition** `probable / tb_erasure_possible` | **485** (452 error-free, 33 previously `not_established`) |
+| token_log_stale → **addition** `probable / tb_unverifiable` | **133** (113 error-free, 20 previously `not_established`; 118 with trajectory >60 s after exit, 15 by the api_calls gap only) |
+| errors_intact_not_established (unchanged, not added) | 47 |
+| no_evidence_intact (clean, not added) | 442 |
+| source_changed / unreadable | 0 / 0 |
+| non-summary runs with summary-marker errors (must be 0) | 0 |
+
+Additions total 618: devstral24b main 256, glm47flash main 167, qwen35b main 138, qwen35b ablation 57. The largest
+cells are `devstral24b d05__b4k__su-full` and `di__b4k__trc-su`: runs whose summaries succeeded and so erased
+whatever failed before. Per-cell counts: `erasure-terminalbench/tb_condition_summary.csv`.
+
+Command used (read-only on experiment files):
+
+```bash
+cd /home/ak58925/agentCtx
+T=archives/summary_bug_rerun_tooling_20260907_175359_CDT; S=/home/ak58925/agentCtx-summarization/results
+python3 $T/scripts/attribute_tb_erasure.py \
+  --audit-dir $S/query-error-audit-20260907 --audit-dir $S/query-error-audit-20260907-1731 \
+  --review-dir $S/query-error-review-870-20260907 --review-dir $S/query-error-review-20260907-1731 \
+  --rerun-list $T/rerun_list/rerun_runs.csv --output-dir $T/erasure-terminalbench --all-conditions
+```
+
+**Pending update command** (not run; verified with `--dry-run`: headers equal, no duplicates, 1874 → 2492 rows).
+It backs up the list as `rerun_runs.before-tb-erasure-update-<ts>.csv` and appends an "Update history" line to
+`rerun_README.txt`:
+
+```bash
+python3 $T/scripts/append_rerun_additions.py --rerun-list $T/rerun_list/rerun_runs.csv \
+  --additions $T/erasure-terminalbench/rerun_runs_tb_additions.csv --label tb-erasure
+```
+
+Archiving for rerun is a separate step. Note that the 2026-09-07 archives covered only `summary_marker_error`; the
+`summary_failure_accounting` (604) and `summary_related_response` (169) rows are still in `ICLR_results/` (verified
+2026-09-08 from `erasure-terminalbench/tb_attribution.csv`, all 773 at `location=workspace`). One archive per cohort
+with all four pending reasons covers both (dry run 2026-09-08: devstral24b 151+256, glm47flash 240+167,
+qwen35b 382+195 = 1,391 runs):
+
+```bash
+for c in devstral24b glm47flash qwen35b; do
+  python3 $T/scripts/archive_rerun_targets.py --rerun-csv $T/rerun_list/rerun_runs.csv \
+    --cohort-model-path $c \
+    --rerun-reason summary_failure_accounting summary_related_response tb_erasure_possible tb_unverifiable \
+    --archive-name ${c}_summary_bug_rerun2_$(date +%Y%m%d_%H%M%S)_CDT --execute
+done
+```
+
+565 of the 618 new rows have no FormatError at all, so those are a judgement call on erased or unrecorded evidence,
+not a detected bug.
+
+**Applied 2026-09-08 19:13-19:14 CDT.** `rerun_runs.csv` 1874 → 2492 rows (backup
+`rerun_list/rerun_runs.before-tb-erasure-update-20260908-1913.csv`), then the three archives below with the four
+reasons above. Each archive's `README.md` and `tasks.tsv` are committed; the run data are not.
+
+Provenance (agentCtx, branch `akiho-expansion-terminalbench-0829`):
+
+| Item | Commit | Notes |
+|---|---|---|
+| Code that ran all three commands below | `26d5fbc` | `attribute_tb_erasure.py` and `append_rerun_additions.py` are first committed here, identical to the files that were executed; `archive_rerun_targets.py` is unchanged since `f64dbe6` (2026-09-07). |
+| Runtime fix the reruns will use | `6b45448` | `memory.py` `query_summary`; unchanged since. |
+| SWE-bench method this replaces | `fcef550` | cherry-pick of `25b7ca7` on `akiho-expansion`. |
+| Audit inputs | — | `agentCtx-summarization` (HEAD `cd1716f`) `results/query-error-audit-20260907{,-1731}`, `query-error-review-870-20260907`, `query-error-review-20260907-1731`. |
+
+Commands, in the order executed (all from `/home/ak58925/agentCtx`, `T=archives/summary_bug_rerun_tooling_20260907_175359_CDT`):
+
+```bash
+# 1. attribution (18:58 CDT; read-only on experiment files)
+S=/home/ak58925/agentCtx-summarization/results
+python3 $T/scripts/attribute_tb_erasure.py \
+  --audit-dir $S/query-error-audit-20260907 --audit-dir $S/query-error-audit-20260907-1731 \
+  --review-dir $S/query-error-review-870-20260907 --review-dir $S/query-error-review-20260907-1731 \
+  --rerun-list $T/rerun_list/rerun_runs.csv --output-dir $T/erasure-terminalbench --all-conditions
+
+# 2. rerun list update (19:13 CDT): 1874 -> 2492 rows
+python3 $T/scripts/append_rerun_additions.py --rerun-list $T/rerun_list/rerun_runs.csv \
+  --additions $T/erasure-terminalbench/rerun_runs_tb_additions.csv --label tb-erasure
+
+# 3. archive (19:14 CDT): one archive per cohort, dry run passed beforehand for each
+for c in devstral24b glm47flash qwen35b; do
+  python3 $T/scripts/archive_rerun_targets.py --rerun-csv $T/rerun_list/rerun_runs.csv \
+    --cohort-model-path $c \
+    --rerun-reason summary_failure_accounting summary_related_response tb_erasure_possible tb_unverifiable \
+    --archive-name ${c}_summary_bug_rerun2_$(date +%Y%m%d_%H%M%S)_CDT --execute
+done
+```
+
+| Archive directory | Time (CDT) | Selection | Runs | Cells | Result rows |
+|---|---|---|---|---|---|
+| `devstral24b_summary_bug_rerun2_20260908_191403_CDT` | 19:14:03 | devstral24b, 4 reasons | 407 (151 old + 256 new) | 8 | 960 → 553 |
+| `glm47flash_summary_bug_rerun2_20260908_191403_CDT` | 19:14:03 | glm47flash, 4 reasons | 407 (240 + 167) | 6 | 698 → 291 |
+| `qwen35b_summary_bug_rerun2_20260908_191404_CDT` | 19:14:04 | qwen35b main + ablation, 4 reasons | 577 (382 + 195) | 16 | 1148 → 571 |
+
+`trajectory.json` count in `ICLR_results/terminalbench` afterwards: 3487. Next: relaunch
+`run_agent_models_expansion_tb.sh` for devstral main, qwen main, qwen ablation, glm main (see "Rerun status"),
+then `python scripts/build_coverage.py`.
+
 ## Rebuilding rerun_runs.csv
 
 ```bash
