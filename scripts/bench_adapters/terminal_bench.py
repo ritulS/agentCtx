@@ -13,9 +13,31 @@ from typing import Callable, Any
 
 import yaml
 
+from .tb_verdict import (
+    needs_rerun,
+    retry_exceptions_from_env,
+    select_trials,
+    task_name as harbor_task_name,
+    trial_result_files,
+    trial_verdict,
+    verifier_env_args,
+    verifier_timeout_args,
+    verifier_timeout_multiplier,
+)
+
 
 class TerminalBench:
-    """Adapter between the generic experiment runner and Harbor batches."""
+    """Adapter between the generic experiment runner and Harbor batches.
+
+    Verdict handling (see ``tb_verdict.py``): a trial without a verifier reward
+    is saved with ``resolved=None`` and its Harbor exception, never as a
+    failure. A verifier timeout whose reward file was nevertheless written is
+    graded from that file. Rows whose exception is infrastructure-related are
+    re-run up to ``TB_MAX_BATCH_ATTEMPTS`` times (default 3); earlier attempts
+    are kept next to the run directory as ``run_<n>.superseded.<k>``.
+    ``TB_VERIFIER_TIMEOUT_MULTIPLIER`` (default 1.0) is passed to Harbor and
+    recorded on every row.
+    """
 
     name = "terminal-bench"
     benchmark_version = "1.0"
@@ -106,42 +128,106 @@ class TerminalBench:
         self._validate_runtime(agent_config)
         model_name, api_base = self._load_model_config(agent_config)
         results = existing_results
-        existing_keys = {result["key"] for result in results}
+        max_attempts = max(1, int(os.environ.get("TB_MAX_BATCH_ATTEMPTS", "3")))
+        retry_exceptions = retry_exceptions_from_env()
 
         for condition in conditions:
             for run_num in range(1, runs_per_task + 1):
-                missing_tasks = [
-                    task["instance_id"]
-                    for task in tasks
-                    if self._run_key(
-                        task["instance_id"], condition["condition"], run_num
-                    ) not in existing_keys
-                ]
-                if not missing_tasks:
-                    continue
+                for attempt in range(1, max_attempts + 1):
+                    by_key = {row["key"]: row for row in results}
+                    pending = []
+                    for task in tasks:
+                        key = self._run_key(
+                            task["instance_id"], condition["condition"], run_num
+                        )
+                        row = by_key.get(key)
+                        if row is None:
+                            pending.append(task["instance_id"])
+                        elif (
+                            needs_rerun(row, retry_exceptions)
+                            and int(row.get("attempts") or 1) < max_attempts
+                        ):
+                            pending.append(task["instance_id"])
+                    if not pending:
+                        break
+                    if attempt > 1:
+                        print(
+                            f"Re-running {len(pending)} unverified task(s) for "
+                            f"{condition['condition']} r{run_num} "
+                            f"(attempt {attempt}/{max_attempts})",
+                            flush=True,
+                        )
 
-                rows = self._run_batch(
-                    task_names=missing_tasks,
-                    condition=condition,
-                    run_num=run_num,
-                    agent_config=agent_config,
-                    model_name=model_name,
-                    api_base=api_base,
-                    n_concurrent=max_workers,
-                    compression_ratio=compression_ratio,
-                )
-                for row in rows:
-                    results.append(row)
-                    existing_keys.add(row["key"])
-                save(results)
+                    rows = self._run_batch(
+                        task_names=pending,
+                        condition=condition,
+                        run_num=run_num,
+                        agent_config=agent_config,
+                        model_name=model_name,
+                        api_base=api_base,
+                        n_concurrent=max_workers,
+                        compression_ratio=compression_ratio,
+                        attempt=attempt,
+                    )
+                    for row in rows:
+                        previous = by_key.get(row["key"])
+                        if previous is not None:
+                            row["attempts"] = int(previous.get("attempts") or 1) + 1
+                            row["previous_attempts"] = [
+                                *previous.get("previous_attempts", []),
+                                {
+                                    "timestamp": previous.get("timestamp"),
+                                    "harbor_exception": previous.get("harbor_exception"),
+                                    "harbor_exception_message": previous.get(
+                                        "harbor_exception_message"
+                                    ),
+                                    "superseded_dir": previous.get("superseded_dir"),
+                                },
+                            ]
+                            results[results.index(previous)] = row
+                        else:
+                            results.append(row)
+                        by_key[row["key"]] = row
+                    # Save after every batch: generated trials must never be
+                    # lost to a later failure in the same sweep.
+                    save(results)
+                self._report_unverified(results, condition["condition"], run_num)
         return results
 
     def evaluate_results(
         self, results: list[dict], save: Callable[[list[dict]], None]
     ) -> list[dict]:
-        """Harbor grades each trial during execution, so no second pass is needed."""
+        """Harbor grades each trial during execution; nothing to evaluate later.
+
+        A trial without a verdict cannot be graded after the fact because its
+        container is gone. Such rows keep ``resolved=None``; re-running the
+        experiment (without ``--eval-only``) retries the retryable ones.
+        """
         del save
+        unverified = [row for row in results if row.get("resolved") is None]
+        if unverified:
+            print(
+                f"{len(unverified)} Terminal-Bench row(s) have no verifier verdict "
+                "(resolved=None); rerun the experiment to retry the retryable ones."
+            )
         return results
+
+    @staticmethod
+    def _report_unverified(results: list[dict], condition: str, run_num: int) -> None:
+        rows = [
+            row for row in results
+            if row.get("condition") == condition
+            and int(row.get("run_num") or 0) == run_num
+            and row.get("resolved") is None
+        ]
+        if not rows:
+            return
+        print(f"Unverified after all attempts ({condition} r{run_num}): {len(rows)}")
+        for row in rows:
+            print(
+                f"    {row['instance_id']}: {row.get('harbor_exception')} "
+                f"{row.get('harbor_exception_message') or ''}".rstrip()
+            )
 
     def _validate_runtime(self, agent_config: Path) -> None:
         for path, label in (
@@ -190,12 +276,15 @@ class TerminalBench:
         api_base: str,
         n_concurrent: int,
         compression_ratio: float,
+        attempt: int = 1,
     ) -> list[dict]:
         condition_name = condition["condition"]
         job_name = (
             f"{self.model_tag}-{condition_name}-r{run_num}-"
             f"{int(time.time() * 1000)}"
         )
+        if attempt > 1:
+            job_name += f"-a{attempt}"
         job_dir = self.jobs_dir / job_name
         config_specs = []
         if condition.get("config") is not None:
@@ -226,6 +315,9 @@ class TerminalBench:
             "--model", model_name,
             "--path", str(self.dataset_path),
             "--n-attempts", "1",
+            # Retries are handled by run_experiments so that every attempt's
+            # evidence is kept; Harbor's own retry deletes the failed trial.
+            "--max-retries", "0",
             "--n-tasks", str(len(task_names)),
             "--n-concurrent", str(n_concurrent),
             "--env", "docker",
@@ -233,6 +325,8 @@ class TerminalBench:
             "--jobs-dir", str(self.jobs_dir),
             "--job-name", job_name,
             "--yes",
+            *verifier_env_args(),
+            *verifier_timeout_args(),
         ]
         for task_name in task_names:
             command.extend(("--include-task-name", task_name))
@@ -240,9 +334,13 @@ class TerminalBench:
         print(
             f"\nHarbor batch: {condition_name} r{run_num}, "
             f"{len(task_names)} tasks"
+            + (f", attempt {attempt}" if attempt > 1 else "")
         )
+        # Never raise before collecting: a Harbor process that dies part-way
+        # has usually finished (and graded) some trials, which must be saved.
+        returncode = 0
         if os.environ.get("TB_REAP_FINISHED_HARBOR") != "1":
-            subprocess.run(command, cwd=self.workspace_root, env=env, check=True)
+            returncode = subprocess.run(command, cwd=self.workspace_root, env=env).returncode
         else:
             proc = subprocess.Popen(command, cwd=self.workspace_root, env=env)
             reaped = False
@@ -277,27 +375,61 @@ class TerminalBench:
                     proc.wait()
                 reaped = True
                 break
-            if not reaped and proc.returncode:
-                raise subprocess.CalledProcessError(proc.returncode, command)
+            if not reaped:
+                returncode = proc.returncode
+        # Collect whatever Harbor produced, even if the job died part-way:
+        # generated trials are saved by the caller and the rest re-queued.
+        selected, duplicates = select_trials(job_dir, task_names)
+        if returncode and not selected:
+            # Nothing to collect: a launch-time failure (bad flags, unreachable
+            # container service), not a partial batch.
+            raise subprocess.CalledProcessError(returncode, command)
+        if returncode:
+            print(
+                f"    ! Harbor exited with status {returncode}; collecting the "
+                f"{len(selected)} finished trial(s) and re-queuing the rest"
+            )
+        for task, rejected in sorted(duplicates.items()):
+            print(
+                f"    ! {task}: {len(rejected)} duplicate trial(s) in {job_dir.name}; "
+                "keeping the one with a verdict / latest finish"
+            )
         rows = [
             self._normalize_trial(path.parent, condition, run_num, compression_ratio)
-            for path in self._trial_result_paths(job_dir)
+            for path in selected.values()
         ]
-        if len(rows) != len(task_names):
-            raise RuntimeError(
-                f"Harbor produced {len(rows)} trial results, expected "
-                f"{len(task_names)}; raw job retained at {job_dir}"
+        missing = sorted(set(task_names) - set(selected))
+        if missing:
+            print(
+                f"    ! Harbor produced {len(rows)} of {len(task_names)} trial results; "
+                f"missing: {', '.join(missing)} (raw job retained at {job_dir})"
             )
         return sorted(rows, key=lambda row: row["instance_id"])
 
     @staticmethod
     def _trial_result_paths(job_dir: Path) -> list[Path]:
-        for root in (job_dir / "trials", job_dir):
-            for filename in ("result.json", "results.json"):
-                paths = sorted(root.glob(f"*/{filename}"))
-                if paths:
-                    return paths
-        return []
+        return trial_result_files(job_dir)
+
+    @staticmethod
+    def _supersede_previous_output(output: Path, harbor_result: dict) -> str | None:
+        """Move an earlier attempt's run directory aside instead of overwriting it.
+
+        Returns the relative name of the archived directory, or None when the
+        directory did not exist or already holds this very trial.
+        """
+        previous = output / "harbor_result.json"
+        if not previous.exists():
+            return None
+        try:
+            if json.loads(previous.read_text()).get("id") == harbor_result.get("id"):
+                return None
+        except (OSError, ValueError):
+            pass
+        index = 1
+        while (archived := output.with_name(f"{output.name}.superseded.{index}")).exists():
+            index += 1
+        output.rename(archived)
+        return archived.name
 
     def _normalize_trial(
         self,
@@ -310,9 +442,10 @@ class TerminalBench:
         if not result_path.exists():
             result_path = trial_dir / "results.json"
         harbor_result = json.loads(result_path.read_text())
-        task = harbor_result["task_name"]
+        task = harbor_task_name(harbor_result)
         condition_name = condition["condition"]
         output = self.results_dir / task / condition_name / f"run_{run_num}"
+        superseded_dir = self._supersede_previous_output(output, harbor_result)
         output.mkdir(parents=True, exist_ok=True)
 
         for source, target in (
@@ -333,7 +466,7 @@ class TerminalBench:
         exit_info = (
             json.loads(exit_info_path.read_text()) if exit_info_path.exists() else {}
         )
-        reward = self._reward_value(harbor_result)
+        verdict = trial_verdict(harbor_result, trial_dir)
         timing = harbor_result.get("agent_execution") or {}
         row = {
             "key": self._run_key(task, condition_name, run_num),
@@ -357,8 +490,13 @@ class TerminalBench:
             "agent_latency_s": self._seconds_between(
                 timing.get("started_at"), timing.get("finished_at")
             ),
-            "resolved": bool(reward is not None and reward > 0),
-            "reward": reward,
+            # reward / resolved / verdict_source / harbor_exception(_message)
+            # (+ reward_file when recovered): resolved is None when no reward.
+            **verdict,
+            "verifier_timeout_multiplier": verifier_timeout_multiplier(),
+            "harbor_trial_dir": self._relative_to_workspace(trial_dir),
+            "attempts": 1,
+            "superseded_dir": superseded_dir,
             "exit_status": exit_info.get("exit_status", "missing_exit_info"),
             "n_calls": exit_info.get("n_calls"),
             "submission_generated": exit_info.get("exit_status") == "Submitted",
@@ -368,19 +506,15 @@ class TerminalBench:
         row["llm_latency_s"] = token_log.get("total_latency_s", 0.0)
         return row
 
+    def _relative_to_workspace(self, path: Path) -> str:
+        try:
+            return str(path.relative_to(self.workspace_root))
+        except ValueError:
+            return str(path)
+
     @staticmethod
     def _run_key(instance_id: str, condition: str, run_num: int) -> str:
         return f"{instance_id}__{condition}__r{run_num}"
-
-    @staticmethod
-    def _reward_value(result: dict[str, Any]) -> float | None:
-        rewards = (result.get("verifier_result") or {}).get("rewards")
-        if not isinstance(rewards, dict) or not rewards:
-            return None
-        value = rewards.get("reward")
-        if value is None and len(rewards) == 1:
-            value = next(iter(rewards.values()))
-        return float(value) if isinstance(value, (int, float)) else None
 
     @staticmethod
     def _seconds_between(start: str | None, finish: str | None) -> float | None:

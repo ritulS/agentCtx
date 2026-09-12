@@ -38,12 +38,22 @@ import yaml
 # Support both direct CLI execution and import through scripts.*.
 if __package__:
     from .log_vllm_prefix_cache import PrefixCacheRecorder
+    from .bench_adapters.tb_verdict import (
+        reward_value, select_trials, task_name as harbor_task_name, trial_verdict,
+        verifier_env_args, verifier_timeout_args, verifier_timeout_multiplier,
+    )
 else:
     from log_vllm_prefix_cache import PrefixCacheRecorder
+    from bench_adapters.tb_verdict import (
+        reward_value, select_trials, task_name as harbor_task_name, trial_verdict,
+        verifier_env_args, verifier_timeout_args, verifier_timeout_multiplier,
+    )
 
 
 ROOT = Path(__file__).resolve().parent.parent
 INF = 999_999_999
+# Set by main() from --verifier-timeout-multiplier; None = TB_VERIFIER_TIMEOUT_MULTIPLIER / 1.0.
+VERIFIER_TIMEOUT_MULTIPLIER: float | None = None
 EXPECTED_TASKS = 80
 DATASET = "terminal-bench-core@0.1.1"
 BENCHMARK_VERSION = "1.0"
@@ -70,16 +80,6 @@ def load_model_config(path: Path) -> tuple[str, str]:
     return str(name), str(base_url)
 
 
-def reward_value(result: dict[str, Any]) -> float | None:
-    rewards = (result.get("verifier_result") or {}).get("rewards")
-    if not isinstance(rewards, dict) or not rewards:
-        return None
-    value = rewards.get("reward")
-    if value is None and len(rewards) == 1:
-        value = next(iter(rewards.values()))
-    return float(value) if isinstance(value, (int, float)) else None
-
-
 def seconds_between(start: str | None, finish: str | None) -> float | None:
     if not start or not finish:
         return None
@@ -96,7 +96,7 @@ def normalize_trial(
     if not result_path.exists():
         result_path = trial_dir / "results.json"
     result = json.loads(result_path.read_text())
-    task = result["task_name"]
+    task = harbor_task_name(result)
     output = destination / task / "full-context" / f"run_{run_num}"
     output.mkdir(parents=True, exist_ok=True)
 
@@ -114,7 +114,7 @@ def normalize_trial(
     token_log = json.loads(token_log_path.read_text()) if token_log_path.exists() else {}
     exit_path = trial_dir / "agent" / "exit_info.json"
     exit_info = json.loads(exit_path.read_text()) if exit_path.exists() else {}
-    reward = reward_value(result)
+    verdict = trial_verdict(result, trial_dir)
     timing = result.get("agent_execution") or {}
     row = {
         "key": f"{task}__full-context__r{run_num}",
@@ -134,8 +134,12 @@ def normalize_trial(
         "returncode": 0 if result.get("exception_info") is None else -1,
         "e2e_latency_s": seconds_between(result.get("started_at"), result.get("finished_at")),
         "agent_latency_s": seconds_between(timing.get("started_at"), timing.get("finished_at")),
-        "resolved": bool(reward is not None and reward > 0),
-        "reward": reward,
+        # reward / resolved / verdict_source / harbor_exception(_message)
+        # (+ reward_file when recovered): resolved stays None when there is
+        # no reward (see scripts/bench_adapters/tb_verdict.py).
+        **verdict,
+        "verifier_timeout_multiplier": verifier_timeout_multiplier(VERIFIER_TIMEOUT_MULTIPLIER),
+        "harbor_trial_dir": str(trial_dir.relative_to(ROOT)) if trial_dir.is_relative_to(ROOT) else str(trial_dir),
         "exit_status": exit_info.get("exit_status", "missing_exit_info"),
         "n_calls": exit_info.get("n_calls"),
         "submission_generated": exit_info.get("exit_status") == "Submitted",
@@ -149,20 +153,25 @@ def normalize_trial(
 def collect_results(
     job_dir: Path, destination: Path, label: str, run_num: int
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    trial_results = sorted((job_dir / "trials").glob("*/result.json"))
-    if not trial_results:
-        trial_results = sorted((job_dir / "trials").glob("*/results.json"))
-    # Harbor 0.20 stores trial directories directly below the job directory;
-    # older releases used a ``trials/`` intermediate directory.
-    if not trial_results:
-        trial_results = sorted(job_dir.glob("*/result.json"))
-    if not trial_results:
-        trial_results = sorted(job_dir.glob("*/results.json"))
+    # One trial per task. A relaunched job can hold several trials for the
+    # same task; the one with a verifier verdict wins, then the latest finish.
+    selected, duplicates = select_trials(job_dir)
+    for task, rejected in sorted(duplicates.items()):
+        print(
+            f"    ! {task}: {len(rejected)} duplicate trial(s) in {job_dir.name}; "
+            "keeping the one with a verdict / latest finish"
+        )
     current_rows = [
         normalize_trial(path.parent, destination, label, run_num)
-        for path in trial_results
+        for path in selected.values()
     ]
     current_rows.sort(key=lambda row: row["instance_id"])
+    unverified = [row["instance_id"] for row in current_rows if row["resolved"] is None]
+    if unverified:
+        print(
+            f"    ! {len(unverified)} trial(s) without a verifier verdict (resolved=None): "
+            + ", ".join(unverified)
+        )
 
     # A canonical run may be collected in multiple infrastructure phases (for
     # example, tasks whose images are already available followed by images
@@ -205,6 +214,13 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1.0,
         help="multiply each task's agent timeout without changing verifier timeouts",
+    )
+    parser.add_argument(
+        "--verifier-timeout-multiplier",
+        type=float,
+        default=None,
+        help="multiply each task's verifier timeout (default: TB_VERIFIER_TIMEOUT_MULTIPLIER or 1.0); "
+             "verifier timeouts here are dominated by dependency installs in test.sh",
     )
     parser.add_argument(
         "--n-tasks",
@@ -273,6 +289,11 @@ def main() -> None:
         raise SystemExit("--run-num must be between 1 and 5")
     if args.agent_timeout_multiplier <= 0:
         raise SystemExit("--agent-timeout-multiplier must be positive")
+    global VERIFIER_TIMEOUT_MULTIPLIER
+    try:
+        VERIFIER_TIMEOUT_MULTIPLIER = verifier_timeout_multiplier(args.verifier_timeout_multiplier)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     config = args.agent_config.resolve()
     harbor = args.harbor_bin.resolve()
     dataset_path = args.dataset_path.resolve()
@@ -402,6 +423,7 @@ def main() -> None:
     )
     print(f"Output: {destination}")
     print(f"Raw Harbor job: {job_dir}")
+    print(f"Verifier timeout multiplier: {VERIFIER_TIMEOUT_MULTIPLIER}")
     print(f"Postprocess: {'disabled' if args.skip_postprocess else 'enabled'}")
     if metrics_recorder:
         print(f"Prefix-cache metrics: {metrics_recorder.url} -> {metrics_recorder.output} (every 10s)")
@@ -415,11 +437,14 @@ def main() -> None:
         "--n-tasks", str(args.n_tasks),
         "--n-concurrent", str(args.n_concurrent),
         "--agent-timeout-multiplier", str(args.agent_timeout_multiplier),
+        *verifier_timeout_args(VERIFIER_TIMEOUT_MULTIPLIER),
         "--env", "docker",
         "--cpus", "ignore",
         "--jobs-dir", str(jobs_dir),
         "--job-name", job_name,
         "--yes",
+        # Cap OpenMP/BLAS threads inside the verifier (see tb_verdict.py).
+        *verifier_env_args(),
     ]
     for task_name in args.task_name:
         cmd.extend(["--include-task-name", task_name])

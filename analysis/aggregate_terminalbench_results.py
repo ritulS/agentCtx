@@ -86,6 +86,10 @@ FIELDNAMES = [
     "latency_llm_s", "compression_events", "trc_fallback_events",
     "online_trc_clears", "total_tokens_saved", "online_trc_tokens_saved",
     "summarization_prompt_tokens", "summarization_latency_s",
+    # Verdict provenance (rows written by scripts/bench_adapters/tb_verdict.py;
+    # empty for older rows): "verifier" when Harbor's verifier produced the
+    # reward, "none" when the trial was never graded.
+    "verdict_source", "harbor_exception",
 ]
 
 
@@ -132,6 +136,14 @@ def failure_mode(row: dict[str, Any], state: str) -> str:
         return "resolved"
     if state == "pre_agent_failure":
         return "pre_agent_failure"
+    if reward is None and row.get("resolved") is None:
+        # No verifier verdict: the trial was never graded. This is not a task
+        # failure. A verifier timeout is kept apart (as in the original
+        # Terminal-Bench harness); everything else is "unverified" and is
+        # normally re-run by the runner.
+        if row.get("harbor_exception") == "VerifierTimeoutError":
+            return "verifier_timeout"
+        return "unverified"
     status = str(row.get("exit_status") or "")
     if status.startswith("LimitsExceeded"):
         return "limits_exceeded"
@@ -212,6 +224,8 @@ def normalized_row(
         "online_trc_tokens_saved": row.get("online_trc_total_tokens_saved", 0),
         "summarization_prompt_tokens": row.get("summarization_prompt_tokens", 0),
         "summarization_latency_s": row.get("summarization_latency_s", 0),
+        "verdict_source": row.get("verdict_source") or "",
+        "harbor_exception": row.get("harbor_exception") or "",
     }
 
 
