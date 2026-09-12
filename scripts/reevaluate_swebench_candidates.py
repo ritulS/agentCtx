@@ -25,7 +25,16 @@ import sys
 import uuid
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CANDIDATES = ROOT / "ICLR_results/issue/devstral_rule_otrc_20260910/reevaluation_candidates_combined.csv"
+# Trees that hold canonical SWE-bench indexes. ``results/ablations`` is a
+# symlink into ``data/swebench/ablations`` on the machines that use the
+# pre-ICLR layout, so both spellings are accepted (paths are resolved first).
+RESULT_ROOTS = ("ICLR_results/swebench", "results", "data/swebench")
+# Evaluation evidence must not be written into any canonical tree.
+PROTECTED_ROOTS = ("ICLR_results", "results", "data")
+
+
+def resolved_roots(names):
+    return [(ROOT / name).resolve() for name in names]
 
 
 def read(path):
@@ -51,9 +60,27 @@ def save(path, value):
 
 def source_path(relative):
     path = (ROOT / relative).resolve()
-    if not path.is_relative_to(ROOT / "ICLR_results/swebench") or path.name != "experiment_results.json":
-        raise ValueError(f"Noncanonical result file: {relative}")
+    inside = any(path.is_relative_to(root) for root in resolved_roots(RESULT_ROOTS))
+    if not inside or path.name != "experiment_results.json":
+        raise ValueError(f"Noncanonical result file (expected experiment_results.json under "
+                         f"{', '.join(RESULT_ROOTS)}): {relative}")
     return path
+
+
+def display_path(path):
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def model_tag_from_candidates(path):
+    with path.open() as stream:
+        tags = {row.get("model_tag") for row in csv.DictReader(stream)} - {None, ""}
+    if len(tags) != 1:
+        raise ValueError("--model-tag is required: the candidate list names "
+                         f"{len(tags)} model tags ({', '.join(sorted(tags)) or 'none'})")
+    return tags.pop()
 
 
 def candidates(path):
@@ -81,7 +108,7 @@ def candidates(path):
                 raise ValueError(f"Candidate identity mismatch: {key}")
             if not row.get("patch_generated") or not (row.get("submission") or "").strip():
                 raise ValueError(f"No saved patch: {key}")
-            result.append({"result_file": str(src.relative_to(ROOT)), "key": row["key"],
+            result.append({"result_file": display_path(src), "key": row["key"],
                            "task": row["instance_id"], "cell": candidate["cell"],
                            "reason": candidate["reason"], "generation_sha256": identity(row),
                            "patch_sha256": sha(row["submission"].encode()),
@@ -131,9 +158,12 @@ def checked_report(item, evidence):
 
 def run(args):
     items = candidates(args.candidates)
+    if not args.model_tag:
+        args.model_tag = model_tag_from_candidates(args.candidates)
     output = args.output_dir.resolve()
-    if output.is_relative_to(ROOT / "ICLR_results"):
-        raise ValueError("Use an output directory outside ICLR_results")
+    if any(output.is_relative_to(root) for root in resolved_roots(PROTECTED_ROOTS)):
+        raise ValueError("Use an output directory outside ICLR_results, results and data "
+                         "(for example logs/reeval/<name>)")
     manifest_path = output / "manifest.json"
     if output.exists():
         if not args.resume or not manifest_path.is_file():
@@ -295,7 +325,8 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("plan", "run"):
         sub = commands.add_parser(name)
-        sub.add_argument("--candidates", type=Path, default=DEFAULT_CANDIDATES)
+        sub.add_argument("--candidates", type=Path, required=True,
+                         help="evaluate_only CSV from scripts/build_reevaluation_candidates.py")
         if name == "run":
             sub.add_argument("--output-dir", type=Path, required=True)
             sub.add_argument("--python", type=Path, default=ROOT / "venv/bin/python")
@@ -304,8 +335,9 @@ def main():
                                   "successful run on record is 336 s)")
             sub.add_argument("--eval-threads", type=int, default=8,
                              help="OMP/BLAS thread cap inside evaluation containers (default 8)")
-            sub.add_argument("--model-tag", default="devstral-2",
-                             help="model_name_or_path used by the harness (devstral-2, qwen35-a3b, glm47-flash)")
+            sub.add_argument("--model-tag", default=None,
+                             help="model_name_or_path used by the harness (devstral-2, qwen35-a3b, "
+                                  "glm47-flash); default: the single model_tag named in the candidate list")
             sub.add_argument("--resume", action="store_true")
             sub.add_argument("--continue-on-error", action="store_true",
                              help="Record unverified rows and keep going instead of stopping")

@@ -5,6 +5,13 @@ Scans ICLR_results/swebench/<section>/<model>/*/experiment_results.json and the
 harness artifacts next to them, and writes an evaluate_only CSV compatible with
 scripts/reevaluate_swebench_candidates.py.
 
+Machines that keep SWE-bench cells in the pre-ICLR layout
+(results/ablations/<cell>/experiment_results.json, i.e. data/swebench/ablations)
+pass the cell directory's parent instead:
+
+    python3 scripts/build_reevaluation_candidates.py \\
+        --results-root results/ablations --model-tag qwen35-a3b --cell 'p100-*'
+
 Included by default:
   stale_report_different_patch     eval cache patch.diff differs from the current submission
   evaluation_error_recorded_as_false
@@ -21,6 +28,7 @@ import argparse
 import collections
 import csv
 import datetime as dt
+import fnmatch
 import json
 from pathlib import Path
 
@@ -29,6 +37,14 @@ APPLY_PATCH_FAIL = ">>>>> Patch Apply Failed"
 DEFAULT_TAG = {"devstral24b": "devstral-2", "qwen35b": "qwen35-a3b", "glm47flash": "glm47-flash"}
 FIELDS = ["cell", "key", "task", "run_num", "action", "reason", "result_file",
           "timestamp", "resolved", "model_tag"]
+
+
+def display_path(path: Path) -> str:
+    """Repo-relative when possible (what reevaluate_swebench_candidates expects)."""
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
 
 
 def toplevel_report(eval_dir: Path, key: str) -> Path | None:
@@ -74,16 +90,37 @@ def classify(row: dict, cell_dir: Path, tag: str) -> str | None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", required=True, choices=sorted(DEFAULT_TAG))
-    ap.add_argument("--model-tag", default=None)
+    ap.add_argument("--model", default=None, choices=sorted(DEFAULT_TAG),
+                    help="model directory under ICLR_results/swebench/<section>/ (ICLR layout)")
+    ap.add_argument("--model-tag", default=None,
+                    help="harness model_name_or_path; required with --results-root")
     ap.add_argument("--section", default="main", choices=("main", "ablation"))
+    ap.add_argument("--results-root", type=Path, default=None,
+                    help="directory whose subdirectories are cells with experiment_results.json "
+                         "(e.g. results/ablations); replaces the ICLR_results/swebench layout")
+    ap.add_argument("--cell", action="append", default=[], metavar="GLOB",
+                    help="only scan cells whose directory name matches (repeatable)")
     ap.add_argument("--include-unevaluated", action="store_true")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
-    tag = args.model_tag or DEFAULT_TAG[args.model]
-    base = ROOT / "ICLR_results" / "swebench" / args.section / args.model
-    out = args.out or (ROOT / "ICLR_results" / "issue" /
-                       f"reeval_candidates_{args.model}_{args.section}_{dt.date.today():%Y%m%d}" / "candidates.csv")
+    today = f"{dt.date.today():%Y%m%d}"
+    if args.results_root is not None:
+        if not args.model_tag:
+            ap.error("--model-tag is required with --results-root")
+        tag = args.model_tag
+        base = args.results_root if args.results_root.is_absolute() else ROOT / args.results_root
+        label = args.model or base.name
+        out = args.out or (ROOT / "results" / "reeval" / f"candidates_{tag}_{today}" / "candidates.csv")
+    else:
+        if not args.model:
+            ap.error("--model is required unless --results-root is given")
+        tag = args.model_tag or DEFAULT_TAG[args.model]
+        base = ROOT / "ICLR_results" / "swebench" / args.section / args.model
+        label = f"{args.model}/{args.section}"
+        out = args.out or (ROOT / "ICLR_results" / "issue" /
+                           f"reeval_candidates_{args.model}_{args.section}_{today}" / "candidates.csv")
+    if not base.is_dir():
+        raise SystemExit(f"results directory not found: {base}")
     include = {"stale_report_different_patch", "evaluation_error_recorded_as_false"}
     if args.include_unevaluated:
         include.add("unevaluated")
@@ -91,6 +128,8 @@ def main() -> int:
     rows, counts = [], collections.Counter()
     per_cell = collections.defaultdict(collections.Counter)
     for cell_dir in sorted(p for p in base.iterdir() if p.is_dir()):
+        if args.cell and not any(fnmatch.fnmatch(cell_dir.name, pattern) for pattern in args.cell):
+            continue
         index = cell_dir / "experiment_results.json"
         if not index.exists():
             continue
@@ -105,10 +144,10 @@ def main() -> int:
                 per_cell[cell_dir.name][reason] += 1
                 rows.append({"cell": cell_dir.name, "key": row["key"], "task": row["instance_id"],
                              "run_num": row["run_num"], "action": "evaluate_only", "reason": reason,
-                             "result_file": str(index.relative_to(ROOT)), "timestamp": row.get("timestamp", ""),
+                             "result_file": display_path(index), "timestamp": row.get("timestamp", ""),
                              "resolved": row.get("resolved"), "model_tag": tag})
 
-    print(f"{args.model}/{args.section} (tag {tag}): scanned classifications: {dict(counts)}")
+    print(f"{label} (tag {tag}): scanned classifications: {dict(counts)}")
     for cell in sorted(per_cell):
         print(f"  {cell}: {dict(per_cell[cell])}")
     if not rows:
