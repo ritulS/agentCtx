@@ -23,8 +23,10 @@ class SweBench:
 
     # Harness-side test timeout (passed as --timeout so the harness itself stops
     # and removes the container) and the outer subprocess limit, which must also
-    # cover image builds. Killing only the subprocess would orphan the container.
-    EVAL_TEST_TIMEOUT_S = 1800
+    # cover image pulls/builds. Killing only the subprocess would orphan the
+    # container. 600 s is ~1.8x the slowest of 7,522 successful test runs
+    # (336 s, measured without the thread cap); a hit means the patch hangs.
+    EVAL_TEST_TIMEOUT_S = 600
     EVAL_SUBPROCESS_TIMEOUT_S = EVAL_TEST_TIMEOUT_S + 900
     APPLY_PATCH_FAIL = ">>>>> Patch Apply Failed"   # swebench.harness.constants
     # OpenMP/BLAS thread cap inside evaluation containers; without it small-data

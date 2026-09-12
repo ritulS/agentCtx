@@ -299,7 +299,9 @@ def main():
         if name == "run":
             sub.add_argument("--output-dir", type=Path, required=True)
             sub.add_argument("--python", type=Path, default=ROOT / "venv/bin/python")
-            sub.add_argument("--test-timeout", type=int, default=1800)
+            sub.add_argument("--test-timeout", type=int, default=600,
+                             help="harness test timeout in seconds (default 600; slowest "
+                                  "successful run on record is 336 s)")
             sub.add_argument("--eval-threads", type=int, default=8,
                              help="OMP/BLAS thread cap inside evaluation containers (default 8)")
             sub.add_argument("--model-tag", default="devstral-2",
