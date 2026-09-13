@@ -55,7 +55,12 @@ picking one.
   ablations. Terminal-Bench uses P40 for main runs and P15 for ablations, with
   room to expand later.
 - Budgets are calibrated per model. Qwen uses 10K/15K/20K, Devstral uses
-  17K/21K/24K, GLM uses 10K/13K/15K.
+  17K/21K/24K, GLM uses 10K/13K/15K. The middle one is the primary budget.
+- **SWE-bench main track uses the primary budget only** — Qwen at 15K,
+  Devstral at 21K, GLM at 13K, each alongside its unlimited-budget baseline.
+  Decided 2026-09-13. Qwen P100 runs also exist at 10K and 20K, but they are
+  out of scope for the paper. The other budgets are studied on ABL-25 in the
+  ablation track.
 - Cells are named `{depth}__{budget}__{primitive}`, for example
   `d05__b15k__su-partial` and `di__binf__fc`. GLM cells use `bA`, `bP` and
   `bB` for its lower, primary and upper budgets rather than a token count, so

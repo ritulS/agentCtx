@@ -49,4 +49,8 @@ Notes
     - P40 = `task_lists/tbench_p40.json` (40 tasks)
     - ABL-20 (summarizer ablation) = TBD (20 ⊂ P40)
     - ABL-15 = `task_lists/tbench_abl15.json` (15 ⊂ ABL-20 ⊂ P40)
+- Paper scope, decided 2026-09-13. The SWE-bench main track is the primary
+  budget only (Qwen 15K, Devstral 21K, GLM 13K) plus the unlimited-budget
+  baseline. Qwen P100 runs exist on disk at 10K and 20K as well; they are out
+  of scope and analysis excludes them.
 - Results: `ICLR_results/<bench>/{main,ablation}/<model>/<cell>`.
