@@ -31,10 +31,11 @@ symlinks into `data/`, so every script path in this repo keeps working.
 
 | Path | Size | Note |
 |------|------|------|
-| `data/` | ~9.9 GB | ALL run outputs. Canonical grid: `data/swebench/ablations/`. |
+| `data/` | ~9.9 GB | Older (EMNLP-era) run outputs; grid in `data/swebench/ablations/`. |
+| `ICLR_results/swebench` | large | Canonical ICLR run data; see [ICLR.md](ICLR.md). |
 | `venv/` | ~11 GB | Python env; recreate locally (see README). |
 | `logs/`, `archive/`, `temp/` | varies | Run logs and scratch. |
-| `Review1/figures*/`, `figures/`, `PaperSections/` | varies | Regeneratable / paper-local. |
+| `Review1/figures*/`, `figures/`, `paper_sections_ICLR/`, `paper_layout_EMNLP/` | varies | Regeneratable / paper-local. |
 | `*.csv.bak.*` | — | Local timestamped CSV snapshots. |
 
 See [.gitignore](.gitignore) for the authoritative list.
@@ -66,7 +67,8 @@ source venv/bin/activate
 python Review1/build_review1.py        # walks results/ablations/* → Review1/Review1.csv
 ```
 
-Per-model aggregations on Albus use `Review1/build_review1_albus.py`.
+That pipeline covers the older data only. ICLR per-run outcomes come from
+`analysis/aggregate_benchmark_results.py`; see [ICLR.md](ICLR.md).
 
 ## Archiving for reproducibility (optional)
 
