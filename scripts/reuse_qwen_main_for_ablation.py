@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy ABL-30 runs from Qwen's legacy main 10K/20K cells into ablation.
+"""Copy ABL-25 runs from Qwen's legacy main 10K/20K cells into ablation.
 
 Dry run by default; add --execute to copy. Stop experiment writers before
 execution. Sources are preserved. Existing destination cells are never replaced.
@@ -61,10 +61,10 @@ def has_summary_marker_error(path):
 
 
 def build_plan(root):
-    tasks_file = root / 'task_lists/ablation_30tasks.json'
+    tasks_file = root / 'task_lists/ablation_25tasks.json'
     tasks_raw = tasks_file.read_bytes()
     tasks = [r['instance_id'] for r in json.loads(tasks_raw)]
-    require(len(tasks) == len(set(tasks)) == 30, 'Expected 30 unique ABL-30 tasks')
+    require(len(tasks) == len(set(tasks)) == 25, 'Expected 25 unique ABL-25 tasks')
     require(all(Path(t).name == t and t not in {'.', '..'} for t in tasks), 'Invalid task ID')
     base = root / 'ICLR_results/swebench'
     plan = []
@@ -126,7 +126,7 @@ def execute(root, tasks_file, tasks_raw, plan):
             require((source / 'experiment_results.json').read_bytes() == cell['index_raw'],
                     f'Source index changed: {source}')
             (staged / 'experiment_results.json').write_text(json.dumps(cell['rows'], indent=2) + '\n')
-            manifest = dict(source_cell=str(source.relative_to(root)), cohort='ABL-30',
+            manifest = dict(source_cell=str(source.relative_to(root)), cohort='ABL-25',
                             tasks_file=str(tasks_file.relative_to(root)),
                             tasks_sha256=hashlib.sha256(tasks_raw).hexdigest(),
                             source_index_sha256=hashlib.sha256(cell['index_raw']).hexdigest(),
@@ -146,7 +146,7 @@ def main():
     root = args.root.resolve(strict=True)
     tasks_file, tasks_raw, plan = build_plan(root)
     copied = sum(len(cell['runs']) for cell in plan)
-    print(f'Cells: {len(plan)}; reusable runs: {copied}; pending runs: {len(plan) * 90 - copied}')
+    print(f'Cells: {len(plan)}; reusable runs: {copied}; pending runs: {len(plan) * 75 - copied}')
     if args.execute:
         execute(root, tasks_file, tasks_raw, plan)
         print('Complete. Source main cells preserved.')

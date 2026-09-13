@@ -1,14 +1,18 @@
 # Follow-up Experiments Plan
-Last update: August 24 by Akiho
+Last update: September 11, 2026
+
+Future SWE-bench ablation launches for Qwen, Devstral, and GLM use
+`task_lists/ablation_25tasks.json` (25 tasks, 3 runs/task). Existing ABL-30
+results are retained; only ABL-25 tasks are scheduled and counted.
 
 ## Overview
 
 | Priority | Experiment | Dataset(s) | ETA |
 |---:|---|---|---|
-| 1 | [Increase runs/task](#exp-runs) | SWE: P100 + ABL-30 | **3–5 days** (2860 additional runs) |
-| 2 | [Add 2 agent models](#exp-models) | SWE: P100 + ABL-30 | **3–7 days** (8580 runs) + TBD (8580 runs) |
+| 1 | [Increase runs/task](#exp-runs) | SWE: P100 + ABL-25 | **3–5 days** (2600 additional runs) |
+| 2 | [Add 2 agent models](#exp-models) | SWE: P100 + ABL-25 | **3–7 days** (7800 runs) + TBD (7800 runs) |
 | 3 | [Terminal-Bench evaluation](#exp-tb) | TB: Full + ABL-20 | TBD (31,200 runs) |
-| 4 | [Summarizer ablation](#exp-summarizer) | SWE: ABL-30; TB: ABL-20 | TBD (760 runs) |
+| 4 | [Summarizer ablation](#exp-summarizer) | SWE: ABL-25; TB: ABL-20 | TBD (700 runs) |
 | 5 | [Quantization ablation](#exp-quantization) | TBD | TBD |
 | 6 | [Add ACON](#exp-acon) | SWE: P100 | TBD |
 
@@ -25,16 +29,16 @@ Last update: August 24 by Akiho
 | Primitives | Depths | Budget |Task |Runs |Notes|
 |---|---|---|---|---|---|
 | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K | P100 | 500 | Main |
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 20K | ABL-30 | 300 | Budget ablation |
-| TR, SU-full, SU-partial, SS, SS-partial | **0.3 / 0.7** | 10K / 15K / 20K | **ABL-30** | **900** | **Ablation-depth runs** |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 20K | ABL-25 | 250 | Budget ablation |
+| TR, SU-full, SU-partial, SS, SS-partial | **0.3 / 0.7** | 10K / 15K / 20K | **ABL-25** | **750** | **Ablation-depth runs** |
 | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 15K | P100 | 600 | Main |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 10K / 20K | ABL-30 | 360 | Budget ablation |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 10K / 20K | ABL-25 | 300 | Budget ablation |
 | FC, OTRC | depth invariant | ∞ | P100 | 200 ||
 
-Counts above track the additional third run: main 1,300 + ablation 1,560 = 2,860.
-The complete three-run grid contains 8,580 runs, using the same cohort definition
+Counts above track the additional third run: main 1,300 + ablation 1,300 = 2,600.
+The complete three-run grid contains 7,800 runs, using the same cohort definition
 as Devstral and GLM. Legacy Qwen main results at 10K/20K contribute only their
-ABL-30 tasks; copies in ablation are deduplicated by task, condition and run number.
+ABL-25 tasks; copies in ablation are deduplicated by task, condition and run number.
 
 <a id="exp-models"></a>
 ## 2. [Priority] SWE-Bench: Add 2 agent models
@@ -45,8 +49,8 @@ ABL-30 tasks; copies in ablation are deduplicated by task, condition and run num
 |---|---|---|---|---|---|
 | [(2.a) Devstral-24B Main](#exp-models-devstral-main) | Devstral-Small-2-24B|SB:P-100| Depth: 0.5 or depth-invariant / Budget: 21K (or ∞) | 3900|1.3-3.3 days|
 | [(2.b) GLM Main](#exp-models-glm-main) | GLM-4.7-Flash (30B-A3B MoE)|SB:P-100 | Depth: 0.5 or depth-invariant / Budget: 13K (or ∞) | 3900|TBD|
-| [(2.c) Devstral-24B Ablation](#exp-models-devstral-abl) | Devstral-Small-2-24B|SB:ABL-30 |depth & budget ablation|4680|1.6-3.9 days|
-| [(2.d) GLM Ablation](#exp-models-glm-abl) | GLM-4.7-Flash (30B-A3B MoE)|SB:ABL-30 | depth & budget ablation |4680|TBD|
+| [(2.c) Devstral-24B Ablation](#exp-models-devstral-abl) | Devstral-Small-2-24B|SB:ABL-25 |depth & budget ablation|3900|TBD|
+| [(2.d) GLM Ablation](#exp-models-glm-abl) | GLM-4.7-Flash (30B-A3B MoE)|SB:ABL-25 | depth & budget ablation |3900|TBD|
 
 <a id="exp-models-devstral-main"></a>
 ### (2.a) Devstral-24B Main
@@ -72,18 +76,18 @@ ABL-30 tasks; copies in ablation are deduplicated by task, condition and run num
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 17K / 21K / 24K | SB:ABL-30 | 2700 |
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 17K / 24K | SB:ABL-30 | 900 |
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |17K / 24K | SB:ABL-30 | 1080 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 17K / 21K / 24K | SB:ABL-25 | 2250 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 17K / 24K | SB:ABL-25 | 750 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |17K / 24K | SB:ABL-25 | 900 |
 
 <a id="exp-models-glm-abl"></a>
 ### (2.d) GLM Ablation
 
 | Primitives | Depths | Budget |Task | Runs |
 |---|---|---|---|---|
-| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 10K / 13K / 15K | SB:ABL-30 | 2700 |
-| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 15K | SB:ABL-30 | 900|
-| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K | SB:ABL-30 | 1080|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 10K / 13K / 15K | SB:ABL-25 | 2250 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 15K | SB:ABL-25 | 750|
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K | SB:ABL-25 | 900|
 
 <a id="exp-tb"></a>
 ## 3. [Priority] Terminal-Bench Evaluation
@@ -127,16 +131,16 @@ ABL-30 tasks; copies in ablation are deduplicated by task, condition and run num
 
 <a id="exp-summarizer"></a>
 ## 4. [Priority] Summarizer Ablation
-- ETA: TBD (760 runs)
+- ETA: TBD (700 runs)
 - Agent: Qwen3.5-35B-A3B-Instruct
 
 Existing self-summarization runs are used as the baseline.
 
 | | **Summarizer** | Primitives | Agent | Budget | Tasks | Runs/task |
 |---|---|---|---|---|---|---:|
-|(4.a)|**Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-30 | 3 |
+|(4.a)|**Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-25 | 3 |
 |(4.b)|**Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | TB:ABL-20 | 5 |
-|(4.c)|**Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-30 | 3 |
+|(4.c)|**Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-25 | 3 |
 |(4.d)|**Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | TB:ABL-20 | 5 |
 
 <a id="exp-quantization"></a>

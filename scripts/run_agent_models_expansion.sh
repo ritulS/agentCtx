@@ -2,10 +2,10 @@
 # FOLLOWUP_EXPERIMENTS.md section 2: SWE-Bench "Add 2 agent models".
 #
 # Implements the complete 3-runs/task grid for:
-#   2.a/2.c Devstral-Small-2-24B (P100 main + ABL-30 ablation)
-#   2.b/2.d GLM-4.7-Flash       (P100 main + ABL-30 ablation)
+#   2.a/2.c Devstral-Small-2-24B (P100 main + ABL-25 ablation)
+#   2.b/2.d GLM-4.7-Flash       (P100 main + ABL-25 ablation)
 #   Qwen3.5-35B-A3B uses the same main/ablation grid.
-#   Seed ABL-30 results from legacy Qwen main cells at 10K/20K first with
+#   Seed ABL-25 results from legacy Qwen main cells at 10K/20K first with
 #   scripts/reuse_qwen_main_for_ablation.py --execute (dry run without the flag).
 #   Completed keys are skipped only within the destination cell.
 #
@@ -22,6 +22,8 @@
 #
 # Optional environment overrides:
 #   AGENTCTX_WS=/path/to/agentCtx MAX_WORKERS=16 RUN_EVAL=0 bash ...
+#   SECTIONS="main" (or "ablation"; default "main ablation") limits the grid to
+#   the listed ICLR sections, e.g. to resume only the P100 main cells.
 set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -36,11 +38,21 @@ esac
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"
 P100="$WS/task_lists/p100_all_100_tasks.json"
-ABL30="$WS/task_lists/ablation_30tasks.json"
+ABL25="$WS/task_lists/ablation_25tasks.json"
 RUNS_PER_TASK=3
 MAX_WORKERS="${MAX_WORKERS:-16}"
 RUN_EVAL="${RUN_EVAL:-1}"
+SECTIONS="${SECTIONS:-main ablation}"
 INF_BUDGET=999999999
+
+for section in $SECTIONS; do
+    case "$section" in
+        main|ablation) ;;
+        *) echo "[ERROR] SECTIONS must contain only 'main' and/or 'ablation': $SECTIONS" >&2; exit 2 ;;
+    esac
+done
+
+section_enabled() { [[ " $SECTIONS " == *" $1 "* ]]; }
 
 # Calibrated from the SWE-Bench P100 FC run_1 peak step-prompt-token
 # distribution (n=100): A/P/B use P5/P15/P25, rounded to the nearest 1K.
@@ -194,6 +206,7 @@ run_model() {
         exit 1
     fi
 
+    if section_enabled main; then
     log "=== $label: section 2 main (P100) ==="
     run_cell "$tag" "$model_dir" "$config" "$otrc_config" main d05 "$p_tag" \
         "$p_budget" 0.5 "$P100" "${SINGLES[@]}"
@@ -201,9 +214,15 @@ run_model() {
         "$p_budget" 0.5 "$P100" "${INVARIANT[@]}"
     run_cell "$tag" "$model_dir" "$config" "$otrc_config" main di binf \
         "$INF_BUDGET" 0.5 "$P100" "${BASELINES[@]}"
+    fi
 
-    log "=== $label: section 2 ablation (ABL-30) ==="
-    # Tail depths use A/P/B: 5 * 2 * 3 * 30 * 3 = 2,700 runs.
+    if ! section_enabled ablation; then
+        log "=== $label: sections run: $SECTIONS (ablation skipped) ==="
+        return
+    fi
+
+    log "=== $label: section 2 ablation (ABL-25) ==="
+    # Tail depths use A/P/B: 5 * 2 * 3 * 25 * 3 = 2,250 runs.
     local depth depth_tag budget budget_tag pair
     for depth in 0.3 0.7; do
         depth_tag="d${depth/./}"
@@ -211,25 +230,25 @@ run_model() {
             budget="${pair%%:*}"
             budget_tag="${pair##*:}"
             run_cell "$tag" "$model_dir" "$config" "$otrc_config" ablation \
-                "$depth_tag" "$budget_tag" "$budget" "$depth" "$ABL30" "${SINGLES[@]}"
+                "$depth_tag" "$budget_tag" "$budget" "$depth" "$ABL25" "${SINGLES[@]}"
         done
     done
-    # Canonical depth and invariant arms use A/B only: 900 + 1,080 runs.
+    # Canonical depth and invariant arms use A/B only: 750 + 900 runs.
     for pair in "$a_budget:$a_tag" "$b_budget:$b_tag"; do
         budget="${pair%%:*}"
         budget_tag="${pair##*:}"
         run_cell "$tag" "$model_dir" "$config" "$otrc_config" ablation \
-            d05 "$budget_tag" "$budget" 0.5 "$ABL30" "${SINGLES[@]}"
+            d05 "$budget_tag" "$budget" 0.5 "$ABL25" "${SINGLES[@]}"
         run_cell "$tag" "$model_dir" "$config" "$otrc_config" ablation \
-            di "$budget_tag" "$budget" 0.5 "$ABL30" "${INVARIANT[@]}"
+            di "$budget_tag" "$budget" 0.5 "$ABL25" "${INVARIANT[@]}"
     done
-    log "=== $label complete: 8,580 planned runs ==="
+    log "=== $label complete: sections=$SECTIONS (full grid: 3,900 main + 3,900 ablation runs) ==="
 }
 
 require_file "$PY"
 require_file "$RUNNER"
 require_file "$P100"
-require_file "$ABL30"
+require_file "$ABL25"
 
 if [[ "$MODEL" == devstral ]]; then
     validate_ordered_budgets "Devstral" "$DEVSTRAL_A_BUDGET" \
