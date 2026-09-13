@@ -1,6 +1,6 @@
 # ICLR 2027 — current target and source of truth
 
-**Last verified** 2026-09-12. Abstract due Sept 18 2026, paper due Sept 25
+**Last verified** 2026-09-13. Abstract due Sept 18 2026, paper due Sept 25
 2026, 9 pages of main text.
 
 **Precedence.** This file wins over every other doc in the repo. Code and data
@@ -32,6 +32,7 @@ picking one.
 | Topic | Where |
 |---|---|
 | Experiment grid and status | `ICLR_analysis/exp_grid.md` |
+| Task cohorts | `task_lists/`, manifest in `task_lists/README.md`. Ablation analysis filters to `ablation_25tasks.json`. |
 | Experiment plan | `ICLR_analysis/exp_grid.md` is the plan of record. `exp_plans/FOLLOWUP_EXPERIMENTS.md` is the Aug 24 background write-up and predates the ABL-25 switch. |
 | Run data (canonical) | `/home/ak58925/agentCtx/ICLR_results/<bench>/<track>/<model>/<cell>/`, layout in `ICLR_results/README.md` |
 | Run history | `ICLR_results/EXPERIMENT_LOG.md`, `ICLR_results/EXPERIMENT_TIMELINE_DETAIL_SWE.md` |
@@ -117,6 +118,12 @@ Akiho. Do not infer TB status from this filesystem.
 - **Some verdicts are under re-evaluation.** `ICLR_results/issue/` holds the
   candidate lists, currently for qwen35b and glm47flash main runs (dated
   2026-09-10) plus a resume audit. Check it before trusting a resolve rate.
+- **Filter ablations to ABL-25.** Most ablation runs were launched on the
+  older 30-task cohort, so `ICLR_results/swebench/ablation/` holds 30 tasks
+  per cell. ABL-25 is a strict subset, so analysis filters to
+  `task_lists/ablation_25tasks.json` rather than re-running anything. See
+  `task_lists/README.md`. Cells are still filling, so report the
+  completeness filter with any ablation table.
 - **Group the outcomes CSV by `model_key`, not `model`.** The 200 `di__binf__fc`
   baseline rows carry display names (`Devstral-Small-2-24B`) while every other
   row carries a key (`devstral24b`), so grouping on `model` splits the

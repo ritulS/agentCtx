@@ -71,7 +71,7 @@ Per-model serving configs live in [configs/](configs/).
 | `scripts/bench_adapters/`, `tbench/` | Per-benchmark adapters, including the Terminal-Bench harbor adapter. |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
-| `task_lists/` | Pinned task JSONs — `p100_all_100_tasks.json` (P100), `ablation_25tasks.json` (ABL-25), `ablation_30tasks.json` (older ABL-30), tbench sets. |
+| `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
 | `exp_plans/` | Current experiment queue (`FOLLOWUP_EXPERIMENTS.md`); retired plans in `archived/`. |
 | `ICLR_results/`, `ICLR_analysis/`, `analysis/` | Canonical ICLR run data, the experiment grid, and per-run outcome aggregation. |
 
