@@ -1,0 +1,5 @@
+cause,cause_label,n_runs,n_tasks
+context_limit,vLLM context window (max-model-len) exceeded,1,1
+timeout,1500 s harness timeout,67,35
+step_limit,125 step limit (LimitsExceeded),15,12
+submitted_unresolved,"agent submitted, patch did not resolve",70,39

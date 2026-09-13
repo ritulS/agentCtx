@@ -1,0 +1,39 @@
+{
+  "argv": [
+    "--model",
+    "qwen35b",
+    "--primitive",
+    "fc"
+  ],
+  "filters": {
+    "model": [
+      "qwen35b"
+    ],
+    "section": null,
+    "primitive": [
+      "fc"
+    ],
+    "condition": null,
+    "cell": null,
+    "budget": null,
+    "depth": null,
+    "run": null,
+    "difficulty": null,
+    "cohort": null,
+    "task": null
+  },
+  "include_resolved": false,
+  "log_scan": true,
+  "outcomes": "analysis/outcomes/swebench_outcomes.csv",
+  "n_runs": 153,
+  "n_tasks": 66,
+  "constants": {
+    "STEP_LIMIT": 125,
+    "AGENT_TIMEOUT_S": 1500,
+    "MODEL_CTX_WINDOW": {
+      "qwen35b": 102400,
+      "devstral24b": 65536,
+      "glm47flash": 65536
+    }
+  }
+}
