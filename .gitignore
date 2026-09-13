@@ -63,10 +63,11 @@ Review1/figures_n100/
 # ── Local CSV backups (timestamped snapshots, not history) ────────────────────
 *.csv.bak.*
 DASHBOARD.html
-scripts/notify_slack.py
 Review1/archived_experiment_data/
 ICLR_results/swebench
+quarantined_results/
 venv-glm/
+backups/
 
 # Archives are ignored by default; keep only the selected tooling and reports.
 /archives/**
@@ -87,6 +88,8 @@ venv-glm/
 !/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/
 !/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/*.csv
 !/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/rerun_README.txt
+!/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/rerun_ablation_seeded_README.txt
+!/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/source_file_stats_ablation_seeded.json
 
 !/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/
 !/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/rerun_runs_agentlog_additions.csv
@@ -97,3 +100,8 @@ venv-glm/
 !/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/nonsummary_integrity.csv
 !/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/agentlog_README.txt
 
+ICLR_results/issue/devstral_rule_otrc_20260910
+ICLR_results/issue/devstral_summary_20260910
+ICLR_results/issue/qwen_main_20260910
+ICLR_results/issue/qwen_fc_15min_1hour_20260910
+backups/
