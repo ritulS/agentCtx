@@ -9,6 +9,11 @@ one CSV per benchmark:
 Each row represents one task / primitive / run, with model, budget, depth, the
 normalized outcome (`resolved` and `failure_mode`), and operational metrics.
 
+`step_prompt_tokens` and `step_completion_tokens` contain the complete recorded
+per-step arrays as JSON in a single CSV cell each, preserving their original
+order and length. Decode these cells with `json.loads` after reading the CSV.
+Missing or null arrays are blank; recorded empty arrays are `[]`.
+
 Execution validity is recorded separately from task success:
 
 - `execution_state`: `agent_started`, `pre_agent_failure`,
