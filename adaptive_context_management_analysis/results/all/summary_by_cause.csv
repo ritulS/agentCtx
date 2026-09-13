@@ -1,0 +1,6 @@
+cause,cause_label,n_runs,n_tasks
+context_limit,vLLM context window (max-model-len) exceeded,11,10
+timeout,1500 s harness timeout,1511,86
+step_limit,125 step limit (LimitsExceeded),3494,98
+submitted_unresolved,"agent submitted, patch did not resolve",4299,96
+other:InternalServerError,other (API error etc.),1,1

@@ -1,0 +1,5 @@
+difficulty,n_runs,n_tasks,context_limit,timeout,step_limit,submitted_unresolved,other:InternalServerError
+<15 min fix,2367,35,4,351,999,1013,0
+15 min - 1 hour,5674,55,6,1022,2062,2583,1
+1-4 hours,1158,8,1,128,330,699,0
+>4 hours,117,1,0,10,103,4,0
