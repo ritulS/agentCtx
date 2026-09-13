@@ -14,6 +14,30 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — summary-bug rerun, ICLR main section only (SWE-bench) — Dobby
+- **Status:** 🟢 RUNNING since 2026-09-08 16:48 CDT (launcher PID 3862052,
+  `logs/followup_agent_models_qwen_launcher.pid`). Slack unit
+  `agent-model-expansion/qwen` (start/stop notices).
+- **What:** resume of `ICLR_results/swebench/main/qwen35b/` after the
+  summary-bug archives (marker 09-07 + remaining 09-08; see
+  `archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md`).
+  `run_experiment_iclr.py` re-executes every key missing from each cell's
+  `experiment_results.json`. 917 runs expected: su-partial 209, su-full 207,
+  ss 128, otrc-su-partial 121, ss-partial 80, trc-su 79, trc-ss 58,
+  otrc-ss-partial 35 (all b15k); tr/trc/otrc-tr/fc/otrc cells already 300/300.
+  Fixed `memory.py` (`query_summary`, commit f669241) is in use.
+- **Command:** `SECTIONS=main MAX_WORKERS=16 RUN_EVAL=1 QWEN_{A,P,B}_BUDGET=10000/15000/20000
+  bash scripts/run_agent_models_expansion_notified.sh qwen` (nohup, log
+  `logs/followup_agent_models_qwen_launcher.log`). `SECTIONS` is a new
+  override in `scripts/run_agent_models_expansion.sh` (uncommitted at launch).
+- **Not covered by this launch:** main 10k/20k cells (2,607 rerun rows; 1,912
+  are NEW-70 tasks with no ablation counterpart). **Before running
+  `SECTIONS=ablation`:** archive the 476 seeded ablation copies of archived
+  main runs (`rerun-list/rerun_runs_ablation_seeded.csv`, dry run passes; the
+  archive script refuses `--execute` while this launcher is alive).
+- **Infra:** vLLM Qwen3.5-35B-A3B :8000 (TP=4, PID in `logs/vllm_qwen35_a3b.pid`);
+  rootless podman API socket already up (PID 4142791).
+
 ### Kill test — damage map, 7B GPU run — Dobby
 - **Status:** ✅ COMPLETE 2026-08-07 ~14:20 CDT (fast — ~25 min on one
   A100). **Confirms 0.5B verdict at scale:** damage diffuse (medK deep
