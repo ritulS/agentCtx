@@ -85,3 +85,87 @@ column). Runs with returncode == -1 (1500 s kill) are not backfilled and stay `t
 
 `swebench_verified_difficulty.json` maps instance_id → difficulty for the 500 tasks of
 HF `princeton-nlp/SWE-Bench_Verified`. The script regenerates it if missing.
+
+## rerun_limit_failures.py
+
+Re-runs **only** the runs that a `failure_causes.csv` classified as `timeout`
+and/or `step_limit`, with `STEP_LIMIT` / `AGENT_TIMEOUT` raised. The runner
+`scripts/run_experiment.py` is imported unchanged; only its two limit constants
+and its result directory are overridden (same technique as
+`scripts/run_experiment_iclr.py`). `ICLR_results/` is never written to.
+
+```bash
+S=adaptive_context_management_analysis/rerun_limit_failures.py
+
+# Plan only (nothing created): the 82 Qwen3.5-35B / full-context runs, per difficulty
+python3 $S --step-limit 250 --timeout 3600 --dry-run
+
+# Launch agent runs + SWE-bench evaluation (vLLM Qwen :8000 and podman socket must be up;
+# add an Active_runs.md entry first)
+nohup python3 $S --step-limit 250 --timeout 3600 --max-workers 8 --with-eval \
+    > logs/rerun_qwen35b_fc_limits.log 2>&1 &
+
+# Only a subset, e.g. the 1-4 h and >4 h runs of run_1
+python3 $S --step-limit 250 --timeout 3600 --difficulty 1to4h gt4h --run 1 --dry-run
+
+# Evaluate later / retry evaluation errors (same arguments -> same output dir)
+python3 $S --step-limit 250 --timeout 3600 --eval-only
+```
+
+| Argument | Meaning |
+|---|---|
+| `--step-limit N` / `--timeout SEC` | New limits (required; at least one must exceed 125 / 1500) |
+| `--causes-csv` | Input (default `results/model=qwen35b__primitive=fc/failure_causes.csv`). Must be a single cell |
+| `--causes` | Which causes to re-run (default `timeout,step_limit`) |
+| `--difficulty` / `--task` / `--run` / `--limit` | Further narrowing (same aliases as `classify_failure_causes.py`); `--limit` applies after ordering |
+| `--order` | Launch order: `hard-first` (default, >4 h → 1-4 h → 15 min-1 h → <15 min), `easy-first`, `task` |
+| `--out-root` / `--name` | Output location (default `results/adaptive_context_management/swebench/reruns/<model>__<cell>__<causes>__step<N>__t<SEC>[__filters]`) |
+| `--agent-config` / `--model-tag` / `--max-workers` | Passed to the runner (defaults: `configs/config-qwen-vllm.yaml`, `qwen35-a3b`, 8) |
+| `--with-eval` / `--eval-only` | SWE-bench evaluation via the runner's adapter |
+| `--force` | Redo keys already present in the output `experiment_results.json` (default: skip = resume) |
+| `--dry-run` | Print the plan and the per-difficulty table; write nothing |
+
+Output directory contents: `experiment_results.json` (runner schema plus
+`rerun_of`, `original_cause`, `step_limit`, `agent_timeout_s`),
+`rerun_manifest.csv` (one row per selected run with the original cause, exit
+status, step count, and both run directories), `rerun_info.json`, and
+`<task>/<condition>/run_<n>/{agent.log,trajectory.json,token_log.json}`.
+The run numbers are kept from the original runs, so `run_2` in the new
+directory is the re-run of the original `run_2`.
+
+The output lives under `results/` (gitignored via `results/*`) on purpose: the outcomes aggregator
+scans `ICLR_results/swebench/**`, and the re-runs must not be mixed into the
+canonical cells.
+
+## run_rerun_limits_notified.sh
+
+Slack-notified launcher for one phase of `rerun_limit_failures.py`, modelled on
+`scripts/run_agent_models_expansion_notified.sh` (start / completion / failure
+notices via `dashboard/notify_slack.py`, plus an outcome summary on success).
+
+| Phase | Difficulties | Runs |
+|---|---|---|
+| `PHASE=1` (default) | `15 min - 1 hour` | 55 |
+| `PHASE=2` | `1-4 hours` + `>4 hours` | 17 |
+| `PHASE=3` | `<15 min fix` | 10 |
+
+Both phases run hardest-first within the phase (`--order hard-first`).
+
+```bash
+L=adaptive_context_management_analysis/run_rerun_limits_notified.sh
+DRY_RUN=1 bash $L                    # print the plan; no Slack, nothing written
+export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'
+nohup bash $L > logs/rerun_qwen35b_fc_limits_phase1_launcher.log 2>&1 &
+PHASE=2 nohup bash $L > logs/rerun_qwen35b_fc_limits_phase2_launcher.log 2>&1 &
+PHASE=3 nohup bash $L > logs/rerun_qwen35b_fc_limits_phase3_launcher.log 2>&1 &
+kill $(cat logs/rerun_qwen35b_fc_limits_phase1.pid)   # stop (sends a "terminated" notice)
+```
+
+Preflight refuses to start unless `SLACK_WEBHOOK_URL` is set (or
+`ALLOW_NO_SLACK=1`), vLLM Qwen3.5-35B-A3B answers on `:8000`, the podman socket
+exists, and no launcher for the same phase is alive. Other experiment runners on
+the machine produce a warning (they inflate per-step latency). Defaults
+`STEP_LIMIT=200 TIMEOUT=3600 MAX_WORKERS=8 WITH_EVAL=1` can be overridden via
+the environment; `EXTRA_ARGS="--limit 4"` appends arguments for a smoke test.
+Runner output goes to `logs/rerun_qwen35b_fc_limits_phase<N>.log`, the PID to
+the matching `.pid`. Remember to add an `Active_runs.md` entry before launching.
