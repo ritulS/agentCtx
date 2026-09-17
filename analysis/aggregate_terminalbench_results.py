@@ -11,6 +11,15 @@ is filtered by its own task list (see ``SECTION_TASK_LISTS``) and the
 runs under ``main/<model>`` and the P-80 re-runs of the same tasks stay
 distinguishable.
 
+The summarizer ablation (FOLLOWUP_EXPERIMENTS.md §4) lives under
+``model_ablation/<agent>-sum-<summarizer>/<cell>`` (e.g.
+``model_ablation/qwen35b-sum-qwen35-9b/d05__b3k__su-full``).  Its cells use
+the main-grid layout at the agent's primary budget and the P-40 task list.
+``agent_model_key`` strips the ``-sum-<summarizer>`` suffix so these rows can
+be joined with the self-summarization baseline under ``main/<agent>``; the
+``summarizer_model`` / ``summarizer_source`` columns come from the cell's
+``run_info.json`` (``agent_model`` = the agent summarized for itself).
+
 Per-step prompt and completion token arrays are stored as JSON in CSV cells;
 missing or null arrays produce empty cells.
 
@@ -44,6 +53,7 @@ RUNS_PER_TASK = 3
 SECTION_TASK_LISTS = {
     "main": DEFAULT_P40_TASKS,
     "ablation": DEFAULT_ABL15_TASKS,
+    "model_ablation": DEFAULT_P40_TASKS,
     "main/p80_rootless": DEFAULT_P80_ROOTLESS_TASKS,
     "main/p80_subuid_required": DEFAULT_P80_SUBUID_TASKS,
 }
@@ -56,6 +66,11 @@ MODEL_BUDGETS = {
 SINGLE_PRIMITIVES = {"tr", "su-full", "su-partial", "ss", "ss-partial"}
 INVARIANT_PRIMITIVES = {"trc", "trc-su", "trc-ss", "otrc-tr", "otrc-su-partial", "otrc-ss-partial"}
 BASELINE_CELLS = {"di__binf__fc", "di__binf__otrc"}
+# model_ablation model directories are named <agent>-sum-<summarizer>.
+SUMMARIZER_SEPARATOR = "-sum-"
+# Throwaway smoke-test model directories (e.g. qwen35b-sum-qwen35-9b-smoke,
+# as in scripts/run_qwen_tb_summarizer_ablation.sh) are never aggregated.
+SMOKE_SUFFIX = "-smoke"
 
 # Short primitive labels used in the ICLR result cell names.
 CONDITION_TO_PRIMITIVE = {
@@ -90,6 +105,10 @@ FIELDNAMES = [
     # empty for older rows): "verifier" when Harbor's verifier produced the
     # reward, "none" when the trial was never graded.
     "verdict_source", "harbor_exception",
+    # Summarizer provenance: agent_model_key is the model directory minus any
+    # "-sum-<summarizer>" suffix; summarizer_* come from the cell's
+    # run_info.json ("agent_model" = self-summarization, the default).
+    "agent_model_key", "summarizer_model", "summarizer_source",
 ]
 
 
@@ -164,6 +183,39 @@ def path_metadata(path: Path, source_root: Path) -> tuple[str, str, str]:
     return "/".join(parts[:-2]), parts[-2], parts[-1]
 
 
+def agent_model_key(model_key: str) -> str:
+    """Strip the ``-sum-<summarizer>`` suffix used by model_ablation dirs."""
+    return model_key.split(SUMMARIZER_SEPARATOR, 1)[0]
+
+
+_RUN_INFO_CACHE: dict[Path, dict[str, Any]] = {}
+
+
+def summarizer_info(source: Path) -> tuple[str, str]:
+    """Return (summarizer_model, summarizer_source) for a result file's cell.
+
+    Read from the sibling ``run_info.json`` written by the runner.  Cells run
+    before the summarizer override existed have no ``summarization_model``
+    entry; they always summarized with the agent model.
+    """
+    cell_dir = source.parent
+    if cell_dir not in _RUN_INFO_CACHE:
+        info: dict[str, Any] = {}
+        path = cell_dir / "run_info.json"
+        if path.is_file():
+            try:
+                loaded = json.loads(path.read_text())
+                info = loaded if isinstance(loaded, dict) else {}
+            except (OSError, json.JSONDecodeError):
+                info = {}
+        _RUN_INFO_CACHE[cell_dir] = info
+    info = _RUN_INFO_CACHE[cell_dir]
+    provenance = info.get("summarization_model") or {}
+    source_kind = str(provenance.get("source") or "agent_model")
+    model = info.get("summary_model") or provenance.get("model_name") or info.get("model") or ""
+    return str(model), source_kind
+
+
 def display_path(path: Path) -> str:
     try:
         return str(path.relative_to(ROOT))
@@ -177,6 +229,7 @@ def normalized_row(
     section, model_key, cell = path_metadata(source, source_root)
     condition = str(row.get("condition") or "")
     state = execution_state(row)
+    summarizer_model, summarizer_source = summarizer_info(source)
     return {
         "benchmark": "terminalbench",
         "benchmark_version": row.get("benchmark_version"),
@@ -226,11 +279,21 @@ def normalized_row(
         "summarization_latency_s": row.get("summarization_latency_s", 0),
         "verdict_source": row.get("verdict_source") or "",
         "harbor_exception": row.get("harbor_exception") or "",
+        "agent_model_key": agent_model_key(model_key),
+        "summarizer_model": summarizer_model,
+        "summarizer_source": summarizer_source,
     }
 
 
 def expected_cells(section: str, model: str) -> set[str]:
-    """Mirror the P-40/ABL-15 grid in run_agent_models_expansion_tb.sh."""
+    """Mirror the P-40/ABL-15 grid in run_agent_models_expansion_tb.sh.
+
+    ``model_ablation`` cells (run_qwen_tb_summarizer_ablation.sh) reuse the
+    main-grid layout at the agent's primary budget, keyed by the agent part of
+    the ``<agent>-sum-<summarizer>`` directory name.
+    """
+    if section == "model_ablation":
+        model = agent_model_key(model)
     if model not in MODEL_BUDGETS:
         return set()
     budget_a, budget_p, budget_b = MODEL_BUDGETS[model]
@@ -238,6 +301,10 @@ def expected_cells(section: str, model: str) -> set[str]:
         cells = {f"d05__{budget_p}__{primitive}" for primitive in SINGLE_PRIMITIVES}
         cells |= {f"di__{budget_p}__{primitive}" for primitive in INVARIANT_PRIMITIVES}
         return cells | BASELINE_CELLS
+    if section == "model_ablation":
+        cells = {f"d05__{budget_p}__{primitive}" for primitive in SINGLE_PRIMITIVES}
+        cells |= {f"di__{budget_p}__{primitive}" for primitive in INVARIANT_PRIMITIVES}
+        return cells
 
     cells = {
         f"d05__{budget}__{primitive}"
@@ -266,12 +333,12 @@ def result_files(
     Sections are matched on the full path below the source root, so
     ``main/<model>/<cell>`` and ``main/p80_rootless/<model>/<cell>`` are
     distinct sections.  The grid of expected cells is taken from the section's
-    top-level directory (``main`` or ``ablation``).
+    top-level directory (``main``, ``ablation`` or ``model_ablation``).
     """
     known = set(sections)
     for path in sorted(source_root.rglob("experiment_results.json")):
         section, model, cell = path_metadata(path, source_root)
-        if section not in known:
+        if section not in known or model.endswith(SMOKE_SUFFIX):
             continue
         if cell in expected_cells(section.split("/", 1)[0], model):
             yield section, path
@@ -337,6 +404,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--p40-tasks", type=Path, default=DEFAULT_P40_TASKS)
     parser.add_argument("--abl15-tasks", type=Path, default=DEFAULT_ABL15_TASKS)
     parser.add_argument(
+        "--model-ablation-tasks", type=Path, default=DEFAULT_P40_TASKS,
+        help="task list for model_ablation/<agent>-sum-<summarizer> cells (default: P-40)",
+    )
+    parser.add_argument(
         "--p80-rootless-tasks", type=Path, default=DEFAULT_P80_ROOTLESS_TASKS
     )
     parser.add_argument(
@@ -354,6 +425,7 @@ def main() -> None:
     section_task_lists = {
         "main": args.p40_tasks.resolve(),
         "ablation": args.abl15_tasks.resolve(),
+        "model_ablation": args.model_ablation_tasks.resolve(),
         "main/p80_rootless": args.p80_rootless_tasks.resolve(),
         "main/p80_subuid_required": args.p80_subuid_tasks.resolve(),
     }

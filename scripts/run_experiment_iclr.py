@@ -49,7 +49,12 @@ def parse_adapter_args() -> tuple[argparse.Namespace, list[str]]:
         choices=tuple(ICLR_ROOTS),
         default="swe-bench",
     )
-    parser.add_argument("--iclr-section", required=True, choices=("main", "ablation"))
+    parser.add_argument(
+        "--iclr-section", required=True,
+        choices=("main", "ablation", "model_ablation"),
+        help="result section below ICLR_results/<benchmark>/; model_ablation holds "
+             "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4)",
+    )
     parser.add_argument("--iclr-model", required=True)
     parser.add_argument("--iclr-cell", required=True)
     return parser.parse_known_args()

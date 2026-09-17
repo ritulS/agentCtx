@@ -8,6 +8,8 @@ Sources of truth:
            ICLR_results/terminalbench/<track>/[<namespace>/]<model>/<cell>/
              experiment_results.json
            (per-record condition, budget, compression_ratio, instance_id)
+           <model> may be <agent>-sum-<summarizer> (track model_ablation): those
+           runs become separate cells with a non-empty ``summarizer`` column.
 Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 
 Usage:  python dashboard/build_coverage.py
@@ -74,6 +76,27 @@ ICLR_MODEL_LABELS = {
     "glm47flash": "GLM-4.7-Flash",
 }
 
+# Summarizer ablation (FOLLOWUP_EXPERIMENTS.md §4): result model directories
+# are named <agent>-sum-<summarizer>, e.g.
+# ICLR_results/terminalbench/model_ablation/qwen35b-sum-qwen35-9b/<cell>.
+# Such runs form their own cells, keyed additionally by the summarizer label;
+# ordinary cells (the agent summarizes for itself) carry an empty summarizer.
+SUMMARIZER_SEPARATOR = "-sum-"
+SUMMARIZER_LABELS = {
+    "qwen35-9b": "Qwen3.5-9B",
+    "gemma4-12b": "Gemma-4-12B",
+}
+# Throwaway smoke-test directories (…-smoke) are never counted.
+SMOKE_SUFFIX = "-smoke"
+
+
+def split_model_key(model_key: str) -> tuple[str, str]:
+    """Return (agent_key, summarizer_label) for a result model directory name."""
+    agent_key, separator, summarizer_key = model_key.partition(SUMMARIZER_SEPARATOR)
+    if not separator:
+        return model_key, ""
+    return agent_key, SUMMARIZER_LABELS.get(summarizer_key, summarizer_key)
+
 
 def model_for_record(record: dict, source_name: str) -> str:
     """Prefer metadata, while retaining compatibility with older aggregates."""
@@ -124,11 +147,15 @@ def terminalbench_harbor_fallbacks() -> list[tuple[str, str, dict]]:
         if depth is None:
             continue
         model_key = info_path.parent.parent.name
+        if model_key.endswith(SMOKE_SUFFIX):
+            continue
+        agent_key, summarizer = split_model_key(model_key)
         launches.append({
             "started": started,
             "end": None,
             "model_key": model_key,
-            "model": ICLR_MODEL_LABELS.get(model_key, model_key),
+            "model": ICLR_MODEL_LABELS.get(agent_key, agent_key),
+            "summarizer": summarizer,
             "condition": conditions[0],
             "budget": budget,
             "depth": depth,
@@ -177,6 +204,7 @@ def terminalbench_harbor_fallbacks() -> list[tuple[str, str, dict]]:
                             "budget": launch["budget"],
                             "compression_ratio": launch["depth"],
                             "model": launch["model"],
+                            "summarizer": launch["summarizer"],
                             "instance_id": instance_id,
                             "run_num": run_num,
                         },
@@ -265,11 +293,17 @@ def main():
             if meta is not None and ICLR_RESULTS in meta.parents
             else ""
         )
+        if model_key.endswith(SMOKE_SUFFIX):
+            continue
+        if model_key:
+            agent_key, summarizer = split_model_key(model_key)
+        else:  # Harbor fallback records carry the summarizer explicitly.
+            agent_key, summarizer = "", r.get("summarizer", "")
         model = model_for_record(r, source_name)
         model = ICLR_MODEL_LABELS.get(model, model)
-        if model == MAIN_MODEL and model_key in ICLR_MODEL_LABELS:
-            model = ICLR_MODEL_LABELS[model_key]
-        cell_key = (benchmark, model, prim, budget, round(float(depth), 1))
+        if model == MAIN_MODEL and agent_key in ICLR_MODEL_LABELS:
+            model = ICLR_MODEL_LABELS[agent_key]
+        cell_key = (benchmark, model, summarizer, prim, budget, round(float(depth), 1))
         iid = r.get("instance_id")
         dedup_key = cell_key + (iid, r.get("run_num"))
         if dedup_key in seen_runs:
@@ -344,15 +378,33 @@ def main():
             for b in (a_budget, b_budget):
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
 
+    # Every cell above is self-summarized: insert the empty summarizer slot so
+    # the keys line up with the (benchmark, model, summarizer, primitive,
+    # budget, depth) cell keys used on disk.
+    expected = {
+        (benchmark, model, "", prim, budget, depth): cohort
+        for (benchmark, model, prim, budget, depth), cohort in expected.items()
+    }
+
+    # FOLLOWUP_EXPERIMENTS 4: summarizer ablation.  SU-full (0.5) and TRC+SU
+    # (DI) with a different summarizer and the main model as agent.  SWE cells
+    # follow the plan (ABL-30 at 15k); Terminal-Bench cells follow
+    # scripts/run_qwen_tb_summarizer_ablation.sh (P-40 at the primary budget).
+    for summarizer in SUMMARIZER_LABELS.values():
+        for prim in ("SU-full", "TRC+SU"):
+            expected[("swebench", MAIN_MODEL, summarizer, prim, 15_000, 0.5)] = "ABL-30"
+            expected[("terminal-bench", MAIN_MODEL, summarizer, prim, 3_000, 0.5)] = "TB-40"
+
     # ---- 3. merge into sheet rows --------------------------------------------
     # The coverage CSVs inventory data that actually exists.  ``expected``
     # only annotates the scope/status of observed cells; planned-but-unrun
     # follow-ups must not create rows of their own.
     all_keys = sorted(disk,
-                      key=lambda k: (k[0], k[1] != MAIN_MODEL, k[1], k[2], k[3], k[4]))
+                      key=lambda k: (k[0], k[1] != MAIN_MODEL, k[1], k[2] != "", k[2],
+                                     k[3], k[4], k[5]))
     rows = []
     for key in all_keys:
-        benchmark, model, prim, budget, depth = key
+        benchmark, model, summarizer, prim, budget, depth = key
         d = disk.get(key)
         req = expected.get(key)
         required_runs = (TB_REQUIRED_RUNS_PER_TASK
@@ -429,6 +481,9 @@ def main():
         rows.append({
             "benchmark": benchmark,
             "model": model,
+            # Empty for ordinary (self-summarized) cells; the summarizer model
+            # label for summarizer-ablation cells (model_ablation/<agent>-sum-<summarizer>).
+            "summarizer": summarizer,
             "primitive": prim,
             "budget": budget_label(budget),
             "depth": depth,
@@ -482,8 +537,10 @@ def main():
     if problems:
         print("\nAttention:")
         for r in problems:
-            print(f"  [{r['status']:8s}] {r['benchmark']} / {r['model']} / {r['primitive']} / "
-                  f"{r['budget']} / d={r['depth']}  {r['cohort_covered']}  {r['notes']}")
+            summarizer = f" (summarizer {r['summarizer']})" if r["summarizer"] else ""
+            print(f"  [{r['status']:8s}] {r['benchmark']} / {r['model']}{summarizer} / "
+                  f"{r['primitive']} / {r['budget']} / d={r['depth']}  "
+                  f"{r['cohort_covered']}  {r['notes']}")
 
 
 if __name__ == "__main__":

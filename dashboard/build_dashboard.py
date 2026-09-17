@@ -40,9 +40,32 @@ BUDGET_ORDER = {
 }
 
 
+# Priority 4 (summarizer ablation): the tracked cells per experiment.  The
+# Terminal-Bench rows follow scripts/run_qwen_tb_summarizer_ablation.sh
+# (P-40 x 3 runs at the 3k primary budget) rather than the plan's TB:ABL-20
+# x 5, for which no task list exists; edit here if that changes.
+P4_PRIMITIVES = (("SU-full", "0.5"), ("TRC+SU", "DI"))
+P4_SPECS = [
+    # exp_id, summarizer, benchmark, dataset label, tasks, runs/task, budget
+    ("4.a", "Qwen3.5-9B", "swebench", "SB:ABL-30", 30, 3, "15k"),
+    ("4.b", "Qwen3.5-9B", "terminal-bench", "TB:P-40", 40, 3, "3k"),
+    ("4.c", "Gemma-4-12B", "swebench", "SB:ABL-30", 30, 3, "15k"),
+    ("4.d", "Gemma-4-12B", "terminal-bench", "TB:P-40", 40, 3, "3k"),
+]
+
+
 def load_cells():
+    """Return (swe_cells, tb_cells, summarizer_cells).
+
+    Ordinary cells are keyed by (model, primitive, budget, depth).  Cells
+    whose ``summarizer`` column is set (summarizer ablation, see
+    build_coverage.py) are kept apart under (benchmark, summarizer, model,
+    primitive, budget, depth) so they never shadow the self-summarized cell
+    of the same primitive and budget.
+    """
     swe_cells = {}
     tb_cells = {}
+    summarizer_cells = {}
     invariant = {
         "FC", "OTRC", "TRC", "TRC+SU", "TRC+SS",
         "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial",
@@ -55,10 +78,25 @@ def load_cells():
             budget = r["budget"].lower()
             if benchmark == "terminal-bench":
                 depth = "DI" if r["primitive"] in invariant else r["depth"]
-                tb_cells[(r["model"], r["primitive"], budget, depth)] = r
             else:
-                swe_cells[(r["model"], r["primitive"], budget, r["depth"])] = r
-    return swe_cells, tb_cells
+                depth = r["depth"]
+            key = (r["model"], r["primitive"], budget, depth)
+            summarizer = r.get("summarizer", "")
+            if summarizer:
+                summarizer_cells[(benchmark, summarizer) + key] = r
+            elif benchmark == "terminal-bench":
+                tb_cells[key] = r
+            else:
+                swe_cells[key] = r
+    return swe_cells, tb_cells, summarizer_cells
+
+
+def summarizer_view(summarizer_cells, benchmark, summarizer):
+    """Cells of one summarizer, keyed like ``swe_cells``/``tb_cells``."""
+    return {
+        key[2:]: row for key, row in summarizer_cells.items()
+        if key[0] == benchmark and key[1] == summarizer
+    }
 
 
 def chip(cell, depth):
@@ -356,7 +394,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    cells, tb_cells = load_cells()
+    cells, tb_cells, summarizer_cells = load_cells()
     rows = list(cells.values())
     tb_rows = list(tb_cells.values())
     generated_at = datetime.now(ZoneInfo("America/Chicago")).strftime(
@@ -620,30 +658,41 @@ def main():
     p3b_tracking = tracking_table(p3b_rows)
 
     p4_tracking_rows = []
-    p4_specs = [
-        ("4.a", "Qwen3.5-9B", "SB:ABL-30", 30, 3),
-        ("4.b", "Qwen3.5-9B", "TB:ABL-20", 20, 5),
-        ("4.c", "Gemma-4-12B", "SB:ABL-30", 30, 3),
-        ("4.d", "Gemma-4-12B", "TB:ABL-20", 20, 5),
-    ]
     p4_display_rows = []
-    for exp_id, summarizer, dataset, tasks, rpt in p4_specs:
-        budget = "3K" if dataset == "TB:ABL-20" else "15K"
-        target = tasks * rpt * 2
-        # No summarizer-specific run source exists yet. Missing data is zero;
-        # once those results are recorded, replace this with automatic discovery.
-        actual = 0
-        status = status_badge(actual >= target, min(actual, target), target)
+    p4_primitive_label = ", ".join(f"{p} ({d})" for p, d in P4_PRIMITIVES)
+    for exp_id, summarizer, benchmark, dataset, tasks, rpt, budget in P4_SPECS:
+        # Summarizer-ablation cells live in the coverage sheets with a
+        # non-empty ``summarizer`` column (ICLR_results/<bench>/model_ablation/
+        # <agent>-sum-<summarizer>/<cell>); look them up per primitive because
+        # depth-invariant TB cells are keyed "DI" while SWE cells use "0.5".
+        view = summarizer_view(summarizer_cells, benchmark, summarizer)
+        complete, actual, target = True, 0, 0
+        for primitive, depth in P4_PRIMITIVES:
+            query_depth = depth
+            if depth == "DI" and benchmark != "terminal-bench":
+                query_depth = "0.5"
+            done, done_runs, target_runs = coverage_progress(
+                view, MAIN, [primitive], budget, query_depth, tasks, rpt
+            )
+            complete = complete and done
+            actual += done_runs
+            target += target_runs
+        status = status_badge(complete, actual, target)
+        budget_label = budget.upper()
         p4_tracking_rows.append([
-            MAIN, "SU-full (0.5), TRC+SU (DI)", "mixed", budget, dataset,
-            f"{tasks} tasks × {rpt} runs × 2",
+            MAIN, p4_primitive_label, "mixed", budget_label, dataset,
+            f"{tasks} tasks × {rpt} runs × {len(P4_PRIMITIVES)}",
             status,
         ])
         p4_display_rows.append([
             f"({exp_id})", dataset, MAIN, summarizer,
-            "SU-full (0.5), TRC+SU (DI)", budget, status,
+            p4_primitive_label, budget_label, status,
         ])
     p4_tracking = summarizer_tracking_table(p4_display_rows)
+    p4_total_runs = sum(
+        tasks * rpt * len(P4_PRIMITIVES) for _, _, _, _, tasks, rpt, _ in P4_SPECS
+    )
+    p4_datasets = " + ".join(dict.fromkeys(spec[3] for spec in P4_SPECS))
 
     history = load_progress_history()
     now_utc = datetime.now(timezone.utc)
@@ -829,7 +878,7 @@ a {{ color:var(--accent-ink); }}
 <tr><td class="priority">1</td><td><a href="#exp-runs">Increase runs/task</a></td><td>SB:P-100 + SB:ABL-30</td><td>4,400</td></tr>
 <tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-30</td><td>17,160</td></tr>
 <tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
-<tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>SB:ABL-30 + TB:ABL-20</td><td>760</td></tr>
+<tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>{p4_datasets}</td><td>{p4_total_runs:,}</td></tr>
 </tbody></table></div>
 <ul>
 <li>Experiments env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
@@ -908,7 +957,9 @@ alternative is excluded.</p>
 <h2 id="exp-summarizer">4. [Priority] Summarizer Ablation</h2>
 {p4_progress}
 <ul>
-<li>ETA: TBD (760 runs)</li>
+<li>ETA: TBD ({p4_total_runs:,} runs)</li>
+<li>Terminal-Bench rows track {P4_SPECS[1][3]} × {P4_SPECS[1][5]} runs at {P4_SPECS[1][6].upper()}
+(scripts/run_qwen_tb_summarizer_ablation.sh); the plan's TB:ABL-20 × 5 has no task list.</li>
 </ul>
 <p>Existing self-summarization runs are used as the baseline.</p>
 {p4_tracking}
