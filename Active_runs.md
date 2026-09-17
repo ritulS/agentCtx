@@ -14,6 +14,65 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — FC limit-failure re-runs, overnight chain (phase 2 → again-19) — Dobby
+- **Status:** ✅ COMPLETE 2026-09-14 04:44 CDT (launched 00:17:43 CDT, PID 694474;
+  stage A 00:17–02:14, stage B 02:14–04:44, both incl. eval). Both stages ran at
+  **300 steps / 5400 s**. A first launch at 00:14 was killed after ~3 min because
+  `SLACK_WEBHOOK_URL` was the placeholder; the relaunch notified normally.
+  Stage A (phase 2, 17/17): resolved 2, submitted_unresolved 13, timeout again 1,
+  BadRequestError (context 102400 exceeded) 1.
+  Stage B (again-19, 19/19): resolved 4, submitted_unresolved 7, timeout again 4,
+  BadRequestError 4.
+  Overall for the 82 limit-failed FC runs after the best attempt: resolved 21,
+  submitted_unresolved 48, timeout/BadRequest 12, step-limit 1; qwen35b FC cell
+  147 → 168 resolved / 300 runs. Overlay CSV rebuilt:
+  `results/adaptive_context_management/swebench/swebench_outcomes_rerun.csv`.
+- **What:** `adaptive_context_management_analysis/run_rerun_limits_overnight.sh`
+  waits for the phase-3 runner (`logs/rerun_qwen35b_fc_limits_phase3.pid`) to
+  exit, then runs two stages sequentially (never in parallel on the shared vLLM):
+  A. phase 2 = "1-4 hours" + ">4 hours" (17 runs) at 300 steps / 5400 s;
+  B. the 19 phase-1 runs that hit the raised limits again (14 timeout, 5
+  step-limit; `results/.../failure_causes_p1_again19.csv`) at 300 steps /
+  5400 s. 8 workers, hardest-first, SWE-bench eval after each stage. Slack
+  units `.../rerun-qwen35b-fc-limits-phase2` and `-phase1` (stage B reuses the
+  phase-1 unit name).
+- **Command:** `export SLACK_WEBHOOK_URL=...; nohup bash adaptive_context_management_analysis/run_rerun_limits_overnight.sh > logs/rerun_qwen35b_fc_limits_overnight.log 2>&1 &`
+- **Output:** `results/adaptive_context_management/swebench/reruns/` —
+  `..._step300__t5400__diff=1to4h+gt4h/`, `..._step300__t5400__p1again19/`.
+  Wall-time bound: A ≤ 3 waves × 5400 s + eval ≈ 5 h; B ≤ 3 waves × 5400 s
+  + eval ≈ 5 h (in practice most waves end well before the timeout).
+  Overlay CSV after completion:
+  `python3 adaptive_context_management_analysis/build_rerun_outcomes.py` →
+  `results/adaptive_context_management/swebench/swebench_outcomes_rerun.csv`.
+
+### Qwen3.5-35B-A3B — FC limit-failure re-runs (200 steps / 3600 s), phase 3 — Dobby
+- **Status:** ✅ COMPLETE 2026-09-14 00:01 CDT (started 2026-09-13 22:56; 65 min
+  incl. eval). 10/10 recorded. Outcome: resolved 3 (2 ex-timeout, 1
+  ex-step_limit), submitted_unresolved 5, step_limit again 1, BadRequestError 1.
+  Slack unit `adaptive-context-management/rerun-qwen35b-fc-limits-phase3`.
+- **What:** the 10 Qwen FC runs of difficulty "<15 min fix" that failed only on
+  the 1500 s timeout (8) or 125-step limit (2), re-run with `--step-limit 200
+  --timeout 3600`, 8 workers, hardest-first, then SWE-bench eval.
+- **Output:** `results/adaptive_context_management/swebench/reruns/qwen35b__di__binf__fc__step_limit+timeout__step200__t3600__diff=u15/`
+  (log `logs/rerun_qwen35b_fc_limits_phase3.log`).
+
+### Qwen3.5-35B-A3B — FC limit-failure re-runs (200 steps / 3600 s), phase 1 — Dobby
+- **Status:** ✅ COMPLETE 2026-09-13 22:36 CDT (started 17:58; 4 h 38 min incl.
+  eval). 55/55 recorded. Outcome: resolved 12 (6 ex-timeout, 6 ex-step_limit),
+  submitted_unresolved 23, timeout again 14, step_limit again 5,
+  BadRequestError 1. Slack unit
+  `adaptive-context-management/rerun-qwen35b-fc-limits-phase1`.
+- **What:** the 55 Qwen FC runs of difficulty "15 min - 1 hour" that failed only
+  on the 1500 s timeout (45) or 125-step limit (10), re-run with
+  `--step-limit 200 --timeout 3600`, 8 workers, hardest-first, then SWE-bench
+  eval. Phase 2 (1-4 h + >4 h, 17 runs) and phase 3 (<15 min, 10 runs) not yet
+  launched. Scripts: commit e2dbe9b.
+- **Command:** `nohup bash adaptive_context_management_analysis/run_rerun_limits_notified.sh`
+  (log `logs/rerun_qwen35b_fc_limits_phase1_launcher.log`).
+- **Output:** `results/adaptive_context_management/swebench/reruns/qwen35b__di__binf__fc__step_limit+timeout__step200__t3600__diff=15m1h/`
+  (outside `ICLR_results/`; see `EXPERIMENT_LOG.md` in the parent dir).
+- **Infra:** vLLM Qwen3.5-35B-A3B :8000 (TP=4), rootless podman socket.
+
 ### Qwen3.5-35B-A3B — summary-bug rerun, ICLR main section only (SWE-bench) — Dobby
 - **Status:** 🟢 RUNNING since 2026-09-08 16:48 CDT (launcher PID 3862052,
   `logs/followup_agent_models_qwen_launcher.pid`). Slack unit
