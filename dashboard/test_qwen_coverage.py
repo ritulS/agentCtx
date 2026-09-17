@@ -90,6 +90,76 @@ class QwenCoverageTest(unittest.TestCase):
                 25, 3)
             self.assertEqual((done, actual, target), (True, 75, 75))
 
+    def test_summarizer_ablation_cells_are_tracked_separately(self):
+        # model_ablation/<agent>-sum-<summarizer> runs must form their own
+        # cell (non-empty ``summarizer`` column) instead of merging into the
+        # self-summarized main cell of the same primitive/budget/depth, and
+        # "-smoke" directories must never be counted.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'task_lists').mkdir()
+            tasks = [{'instance_id': f'task{i}'} for i in range(100)]
+            for name, cohort in [('ablation_25tasks.json', tasks[:25]),
+                                 ('p100_all_100_tasks.json', tasks),
+                                 ('tbench_tasks.json', [])]:
+                (root / 'task_lists' / name).write_text(json.dumps(cohort))
+
+            def write_cell(section, model_dir, n_tasks, runs, run_info=None):
+                rows = [dict(instance_id=t['instance_id'], condition='summarization',
+                             budget=15000, compression_ratio=0.5, run_num=rn)
+                        for t in tasks[:n_tasks] for rn in range(1, runs + 1)]
+                cell = root / 'ICLR_results/swebench' / section / model_dir / 'd05__b15k__su-full'
+                cell.mkdir(parents=True)
+                (cell / 'experiment_results.json').write_text(json.dumps(rows))
+                if run_info is not None:
+                    (cell / 'run_info.json').write_text(json.dumps(run_info))
+
+            write_cell('main', 'qwen35b', 100, 3)
+            write_cell('model_ablation', 'qwen35b-sum-qwen35-9b', 25, 3, run_info={
+                'model': 'hosted_vllm/Qwen/Qwen3.5-35B-A3B',
+                'summary_model': 'hosted_vllm/Qwen/Qwen3.5-9B',
+                'summarization_model': {'source': 'override',
+                                        'model_name': 'hosted_vllm/Qwen/Qwen3.5-9B'},
+            })
+            write_cell('model_ablation', 'qwen35b-sum-qwen35-9b-smoke', 1, 1)
+
+            with patch.object(coverage, 'ROOT', root), \
+                 patch.object(coverage, 'ICLR_RESULTS', root / 'ICLR_results'), \
+                 patch('sys.argv', ['build_coverage.py', '--output', str(root / 'COVERAGE.csv'),
+                                    '--tb-output', str(root / 'COVERAGE_TB.csv')]), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                coverage.main()
+            with (root / 'COVERAGE.csv').open() as stream:
+                rows = list(csv.DictReader(stream))
+
+            by_summarizer = {r['summarizer']: r for r in rows}
+            self.assertEqual(sorted(by_summarizer), ['', 'Qwen3.5-9B'])
+            self.assertEqual(len(rows), 2)   # the -smoke directory adds no cell
+            main_cell, abl_cell = by_summarizer[''], by_summarizer['Qwen3.5-9B']
+            self.assertEqual(main_cell['runs_on_disk'], '300')
+            self.assertEqual((main_cell['required_cohort'], main_cell['status']),
+                             ('P100', 'COMPLETE'))
+            self.assertEqual(abl_cell['model'], coverage.MAIN_MODEL)
+            self.assertEqual(abl_cell['runs_on_disk'], '75')
+            self.assertEqual((abl_cell['scope'], abl_cell['required_cohort'], abl_cell['status']),
+                             ('in-scope', 'ABL-25', 'COMPLETE'))
+            self.assertIn('model_ablation/qwen35b-sum-qwen35-9b/', abl_cell['source_dirs'])
+
+            # The dashboard keeps the two apart and reads P4 progress from the
+            # summarizer view only.
+            with patch.object(dashboard, 'ROOT', root):
+                swe_cells, tb_cells, summarizer_cells = dashboard.load_cells()
+            self.assertEqual(list(swe_cells), [(dashboard.MAIN, 'SU-full', '15k', '0.5')])
+            self.assertEqual(list(summarizer_cells),
+                             [('swebench', 'Qwen3.5-9B', dashboard.MAIN, 'SU-full', '15k', '0.5')])
+            view = dashboard.summarizer_view(summarizer_cells, 'swebench', 'Qwen3.5-9B')
+            self.assertEqual(
+                dashboard.coverage_progress(view, dashboard.MAIN, ['SU-full'], '15k', '0.5', 25, 3),
+                (True, 75, 75))
+            self.assertEqual(
+                dashboard.coverage_progress(view, dashboard.MAIN, ['TRC+SU'], '15k', '0.5', 25, 3),
+                (False, 0, 75))
+
     def test_partial_runs_count_toward_total(self):
         # One task with one run and one with two runs must contribute three,
         # even though neither task has a third run yet.
@@ -111,7 +181,7 @@ class QwenCoverageTest(unittest.TestCase):
             root = Path(tmp)
             with patch.object(dashboard, 'ROOT', root), \
                  patch.object(dashboard, 'OUT', root / 'DASHBOARD.html'), \
-                 patch.object(dashboard, 'load_cells', return_value=({}, {})), \
+                 patch.object(dashboard, 'load_cells', return_value=({}, {}, {})), \
                  patch.object(dashboard, 'load_progress_history', return_value=[]), \
                  patch.object(dashboard, 'progress_bar', side_effect=capture), \
                  patch('sys.argv', ['build_dashboard.py']), \
@@ -124,7 +194,7 @@ class QwenCoverageTest(unittest.TestCase):
             for old_key in ('p1b_all_runs_v3', 'p2c', 'p2d', 'p2', 'p4'):
                 self.assertNotIn(old_key, captured)
             self.assertEqual(sum(r[6][2] for r in captured['p2_abl25_v2']), 15600)
-            self.assertEqual(sum(r[6][2] for r in captured['p4_abl25_v2']), 700)
+            self.assertEqual(sum(r[6][2] for r in captured['p4_abl25_v2']), dashboard.P4_TOTAL_RUNS)
             self.assertEqual(sum(r[6][2] for r in captured['p3']), 11700)
             self.assertEqual(sum(r[6][2] for r in rows), 7800)
             self.assertEqual(sum(r[6][2] for r in rows if r[4] == 'SB:P-100'), 3900)

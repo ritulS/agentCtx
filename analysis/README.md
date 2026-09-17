@@ -29,6 +29,20 @@ a source result that is absent from the canonical cell.
 (not `False`) for every other model, meaning "not recorded" rather than "no
 submission". Don't treat a blank there as a negative signal.
 
+Summarizer provenance (summarizer ablation, FOLLOWUP_EXPERIMENTS.md §4) is
+recorded per row:
+
+- `agent_model_key`: `model_key` minus any `-sum-<summarizer>` suffix, so
+  rows under `model_ablation/<agent>-sum-<summarizer>/<cell>` join with the
+  self-summarization baseline under `main/<agent>`.
+- `summarizer_model` / `summarizer_source`: from the run's own
+  `summarization_model` record (written at generation time), falling back to
+  the cell's `run_info.json` only for runs without one. `agent_model` means
+  the agent summarized for itself; runs with neither record (archived copies,
+  runs made before the override existed) are always `agent_model` with a
+  blank `summarizer_model`.
+- Model directories ending in `-smoke` (launcher smoke tests) are skipped.
+
 Run both aggregations:
 
 ```bash

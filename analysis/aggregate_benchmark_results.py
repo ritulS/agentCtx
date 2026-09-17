@@ -61,7 +61,60 @@ FIELDNAMES = [
     "total_completion_tokens", "step_prompt_tokens", "step_completion_tokens",
     "latency_e2e_s", "latency_llm_s",
     "compression_events", "trc_fallback_events", "online_trc_clears",
+    # Summarizer provenance (FOLLOWUP_EXPERIMENTS.md §4): agent_model_key is the
+    # model directory minus any "-sum-<summarizer>" suffix, so summarizer-
+    # ablation rows (model_ablation/<agent>-sum-<summarizer>/<cell>) join with
+    # the self-summarization baseline under main/<agent>.  summarizer_* come
+    # from the cell's run_info.json ("agent_model" = the agent summarized for
+    # itself, the default and the only option for cells run before the
+    # summarizer override existed).
+    "agent_model_key", "summarizer_model", "summarizer_source",
 ]
+
+# model_ablation model directories are named <agent>-sum-<summarizer>.
+SUMMARIZER_SEPARATOR = "-sum-"
+# Throwaway smoke-test model directories (e.g. qwen35b-sum-qwen35-9b-smoke, as
+# in scripts/run_qwen_swe_summarizer_ablation.sh) are never aggregated.
+SMOKE_SUFFIX = "-smoke"
+
+
+def agent_model_key(model_key: str) -> str:
+    """Strip the ``-sum-<summarizer>`` suffix used by model_ablation dirs."""
+    return model_key.split(SUMMARIZER_SEPARATOR, 1)[0]
+
+
+_RUN_INFO_CACHE: dict[Path, dict[str, Any]] = {}
+
+
+def summarizer_info(source: Path, row: dict[str, Any] | None = None) -> tuple[str, str]:
+    """Return (summarizer_model, summarizer_source) for one run.
+
+    The run's own ``summarization_model`` record (copied from its token log by
+    run_experiment.py at generation time) wins.  Only runs without one fall
+    back to the cell's ``run_info.json``; that file is rewritten by every
+    launch into the cell, so it describes the latest launch rather than the
+    run.  Runs with neither (archived copies, runs made before the summarizer
+    override existed) always summarized with the agent model.
+    """
+    provenance = (row or {}).get("summarization_model")
+    if isinstance(provenance, dict) and provenance.get("source"):
+        return (str(provenance.get("model_name") or ""), str(provenance["source"]))
+    cell_dir = source.parent
+    if cell_dir not in _RUN_INFO_CACHE:
+        info: dict[str, Any] = {}
+        path = cell_dir / "run_info.json"
+        if path.is_file():
+            try:
+                loaded = json.loads(path.read_text())
+                info = loaded if isinstance(loaded, dict) else {}
+            except (OSError, json.JSONDecodeError):
+                info = {}
+        _RUN_INFO_CACHE[cell_dir] = info
+    info = _RUN_INFO_CACHE[cell_dir]
+    provenance = info.get("summarization_model") or {}
+    source_kind = str(provenance.get("source") or "agent_model")
+    model = info.get("summary_model") or provenance.get("model_name") or info.get("model") or ""
+    return str(model), source_kind
 
 
 def records(path: Path) -> list[dict[str, Any]]:
@@ -121,6 +174,7 @@ def normalized_row(
     row: dict[str, Any], benchmark: str, source_root: Path, source: Path
 ) -> dict[str, Any]:
     section, model_key, cell = metadata(source, source_root)
+    summarizer_model, summarizer_source = summarizer_info(source, row)
     condition = row.get("condition") or ""
     budget = row.get("budget")
     state = execution_state(row)
@@ -152,6 +206,9 @@ def normalized_row(
         "benchmark": benchmark,
         "experiment_section": section,
         "model_key": model_key,
+        "agent_model_key": agent_model_key(model_key),
+        "summarizer_model": summarizer_model,
+        "summarizer_source": summarizer_source,
         "model": row.get("model") or row.get("agent_model") or model_key,
         "cell": cell,
         "source_file": str(source.relative_to(ROOT)) if source.is_relative_to(ROOT) else str(source),
@@ -206,6 +263,8 @@ def build(benchmark: str, source_root: Path, output: Path) -> int:
     rows: list[dict[str, Any]] = []
     bad_sources: list[str] = []
     for source in sorted(source_root.glob("**/experiment_results.json")):
+        if metadata(source, source_root)[1].endswith(SMOKE_SUFFIX):
+            continue
         try:
             rows.extend(normalized_row(row, benchmark, source_root, source) for row in records(source))
         except (OSError, ValueError, json.JSONDecodeError) as exc:
