@@ -2,6 +2,22 @@
 # FOLLOWUP_EXPERIMENTS.md (3.a/3.b): Terminal-Bench P-40 main and P-15 ablation grids.
 # Usage: bash scripts/run_agent_models_expansion_tb.sh {qwen|devstral|glm|all} [main|ablation|both]
 # The section defaults to both. Completed task/condition/run keys are skipped on rerun.
+#
+# Splitting the ablation grid across two vLLM servers (e.g. GPUs 0-3 and 4-7):
+#   ABLATION_PARTS selects which ablation sub-grids this invocation runs, as a
+#   space-separated subset of {d05 d03 d07 di} (default: all four, in that order).
+#     d05 = depth-tunable singles @ depth 0.5, budgets A/B      (450 runs)
+#     d03 = depth-tunable singles @ depth 0.3, budgets A/P/B    (675 runs)
+#     d07 = depth-tunable singles @ depth 0.7, budgets A/P/B    (675 runs)
+#     di  = depth-invariant primitives @ depth 0.5, budgets A/B (540 runs)
+#   Point each invocation at its own server via <MODEL>_AGENT_CONFIG /
+#   <MODEL>_HEALTH_URL and give it its own log with TB_LOG_SUFFIX. Every other
+#   setting (tasks, budgets, runs/task, concurrency, cell names) is unchanged, and
+#   the two halves write disjoint ICLR cells, so they can run concurrently.
+#   Example (GLM):
+#     ABLATION_PARTS="d03 d07" TB_LOG_SUFFIX=gpu0-3 bash scripts/run_agent_models_expansion_tb.sh glm ablation
+#     ABLATION_PARTS="di d05"  TB_LOG_SUFFIX=gpu4-7 GLM_AGENT_CONFIG=configs/config-glm47flash-vllm-8004.yaml \
+#         GLM_HEALTH_URL=http://localhost:8004/v1/models bash scripts/run_agent_models_expansion_tb.sh glm ablation
 set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -13,6 +29,8 @@ ABL15="${TB_ABL15_TASKS_FILE:-$WS/task_lists/tbench_abl15.json}"
 RUNS_PER_TASK=3
 N_CONCURRENT="${N_CONCURRENT:-4}"
 INF_BUDGET=999999999
+ABLATION_PARTS="${ABLATION_PARTS:-d05 d03 d07 di}"
+TB_LOG_SUFFIX="${TB_LOG_SUFFIX:-}"
 
 # Terminal-Bench calibrated A/P/B budgets (all values may be overridden).
 QWEN_A_BUDGET="${QWEN_A_BUDGET:-2000}"
@@ -31,6 +49,15 @@ BASELINES=(full-context online-trc)
 mkdir -p "$WS/logs"
 
 usage() { echo "Usage: $0 {qwen|devstral|glm|all} [main|ablation|both]" >&2; }
+validate_ablation_parts() {
+    local part
+    [[ -n "${ABLATION_PARTS// /}" ]] || { echo "[ERROR] ABLATION_PARTS is empty." >&2; return 1; }
+    for part in $ABLATION_PARTS; do
+        case "$part" in d05|d03|d07|di) ;;
+            *) echo "[ERROR] Unknown ABLATION_PARTS entry: $part (expected d05, d03, d07, di)" >&2; return 1 ;;
+        esac
+    done
+}
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 
 primitive_name() {
@@ -78,7 +105,7 @@ run_model() {
     esac
 
     local otrc_config="${OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
-    local log_file="$WS/logs/followup_tb_${model}.log"
+    local log_file="$WS/logs/followup_tb_${model}${TB_LOG_SUFFIX:+_$TB_LOG_SUFFIX}.log"
     require_file "$config"; require_file "$otrc_config"
     validate_budgets "$model_label" "$a_budget" "$p_budget" "$b_budget"
     curl -fsS --max-time 5 "$health_url" >/dev/null || {
@@ -115,21 +142,26 @@ run_model() {
     fi
 
     if [[ "$section" == ablation || "$section" == both ]]; then
-        log "=== $model_label: TB (3.b) ablation, P-15 ==="
-        local depth depth_tag budget
-        for budget in "$a_budget" "$b_budget"; do
-            run_cell ablation "$ABL15" d05 "$budget" 0.5 "${SINGLES[@]}"
+        log "=== $model_label: TB (3.b) ablation, P-15 | parts: $ABLATION_PARTS | server: $health_url ==="
+        local part depth budget
+        for part in $ABLATION_PARTS; do
+            case "$part" in
+                d05)
+                    for budget in "$a_budget" "$b_budget"; do
+                        run_cell ablation "$ABL15" d05 "$budget" 0.5 "${SINGLES[@]}"
+                    done ;;
+                d03|d07)
+                    depth="0.${part#d0}"
+                    for budget in "$a_budget" "$p_budget" "$b_budget"; do
+                        run_cell ablation "$ABL15" "$part" "$budget" "$depth" "${SINGLES[@]}"
+                    done ;;
+                di)
+                    for budget in "$a_budget" "$b_budget"; do
+                        run_cell ablation "$ABL15" di "$budget" 0.5 "${INVARIANT[@]}"
+                    done ;;
+            esac
         done
-        for depth in 0.3 0.7; do
-            depth_tag="d${depth/./}"
-            for budget in "$a_budget" "$p_budget" "$b_budget"; do
-                run_cell ablation "$ABL15" "$depth_tag" "$budget" "$depth" "${SINGLES[@]}"
-            done
-        done
-        for budget in "$a_budget" "$b_budget"; do
-            run_cell ablation "$ABL15" di "$budget" 0.5 "${INVARIANT[@]}"
-        done
-        log "=== TB (3.b) complete for $model_label: 2,340 planned runs ==="
+        log "=== TB (3.b) complete for $model_label (parts: $ABLATION_PARTS; full grid = 2,340 runs) ==="
     fi
 }
 
@@ -137,6 +169,7 @@ selection="${1:-qwen}"
 section="${2:-both}"
 case "$selection" in qwen|devstral|glm|all) ;; *) usage; exit 2 ;; esac
 case "$section" in main|ablation|both) ;; *) usage; exit 2 ;; esac
+validate_ablation_parts
 require_file "$PY"; require_file "$RUNNER"; require_file "$P40"; require_file "$ABL15"
 
 if [[ "$selection" == all ]]; then
