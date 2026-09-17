@@ -104,4 +104,12 @@ ICLR_results/issue/devstral_rule_otrc_20260910
 ICLR_results/issue/devstral_summary_20260910
 ICLR_results/issue/qwen_main_20260910
 ICLR_results/issue/qwen_fc_15min_1hour_20260910
+ICLR_results/terminalbench
 backups/
+
+# Keep the canonical analysis snapshot; ignore filtered result copies.
+/adaptive_context_management_analysis/results/*
+!/adaptive_context_management_analysis/results/all/
+!/adaptive_context_management_analysis/results/all/**
+!/adaptive_context_management_analysis/results/model=qwen35b__primitive=fc/
+!/adaptive_context_management_analysis/results/model=qwen35b__primitive=fc/**
