@@ -35,6 +35,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,9 +46,18 @@ from bench_adapters import BENCHMARKS, create_benchmark
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
-WORKSPACE_ROOT       = Path(__file__).parent.parent
+WORKSPACE_ROOT       = Path(__file__).resolve().parent.parent
+if str(WORKSPACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_ROOT))   # summary_config.py lives at the repo root
+
+from summary_config import summary_model_info
+
 MINI_SWE_AGENT       = WORKSPACE_ROOT / "mini-swe-agent"
 AGENT_CONFIG         = WORKSPACE_ROOT / "configs/config-qwen-vllm.yaml"
+# Summarization-model override (--summary-config). None → the agent's own model
+# writes summaries. Exported to each agent process as MSWEA_SUMMARY_MODEL_CONFIG;
+# see memory.get_summary_model / summary_config.py.
+SUMMARY_CONFIG: Path | None = None
 TASKS_FILE           = WORKSPACE_ROOT / "task_lists" / "selected_tasks.json"
 TASKS_FILE_EXPLICIT  = False
 ABLATION_TASKS_FILE  = WORKSPACE_ROOT / "results" / "ablations" / "tasks.json"
@@ -171,6 +181,8 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
     env["MSWEA_COMPRESSION_RATIO"]  = str(compression_ratio)
     env["MSWEA_TOKEN_LOG_PATH"]     = str(token_log_file)
     env["MSWEA_RUN_KEY"]            = key   # used by staggered_random for reproducible seeding
+    if SUMMARY_CONFIG is not None:
+        env["MSWEA_SUMMARY_MODEL_CONFIG"] = str(SUMMARY_CONFIG)
     env.update(BENCHMARK.agent_environment())
 
     local_bin = str(Path.home() / ".local" / "bin")
@@ -258,6 +270,7 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
         "mean_compression_ratio":         tok.get("mean_compression_ratio", 1.0),
         "summarization_prompt_tokens":    tok.get("summarization_prompt_tokens", 0),
         "summarization_latency_s":        tok.get("summarization_latency_s", 0.0),
+        "summarization_model":            tok.get("summarization_model"),
         "trc_truncation_fallback_events": tok.get("trc_truncation_fallback_events", 0),
         # online-trc specific
         "online_trc_total_tokens_saved": tok.get("online_trc_total_tokens_saved", 0),
@@ -331,12 +344,21 @@ def _write_run_info(n_tasks: int, total_runs: int, budget: int) -> None:
         _model_name = cfg.get("model", {}).get("model_name", AGENT_CONFIG.stem)
     except Exception:
         _model_name = AGENT_CONFIG.stem
+    summary_info = summary_model_info()
+    _summary_model_name = summary_info.get("model_name", _model_name)
+    _summary_config = summary_info.get("config_path")
+    _summary_config_label = _summary_config or (
+        "(environment override)" if summary_info["source"] == "override" else "(agent model)"
+    )
 
     info = {
         "benchmark":    BENCHMARK.name,
         "run_tag":      MODEL_TAG,
         "model":        _model_name,
         "agent_config": str(AGENT_CONFIG),
+        "summary_config": _summary_config,
+        "summary_model":  _summary_model_name,
+        "summarization_model": summary_info,
         "budget_tokens": budget,
         "n_tasks":      n_tasks,
         "runs_per_task": RUNS_PER_TASK,
@@ -356,6 +378,8 @@ def _write_run_info(n_tasks: int, total_runs: int, budget: int) -> None:
 |---|---|
 | Run tag | `{MODEL_TAG}` |
 | Agent config | `{AGENT_CONFIG}` |
+| Summary config | `{_summary_config_label}` |
+| Summary model | `{_summary_model_name}` |
 | Budget | {budget:,} tokens (context window threshold) |
 | Tasks | {n_tasks} |
 | Conditions | {len(CONDITIONS)} |
@@ -385,7 +409,7 @@ results/{MODEL_TAG}/
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS, RUNS_PER_TASK, BENCHMARK
+    global MODEL_TAG, AGENT_CONFIG, SUMMARY_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS, RUNS_PER_TASK, BENCHMARK
 
     parser = argparse.ArgumentParser(description="Experiment runner")
     parser.add_argument("--benchmark", choices=sorted(BENCHMARKS), default="swe-bench",
@@ -402,6 +426,12 @@ def main() -> None:
                              "(online-trc, otrc-tr, otrc-su-partial, otrc-ss-partial). "
                              "Needed when --agent-config points at a non-Qwen model; "
                              "default is configs/config-online-trc.yaml which targets Qwen port 8000.")
+    parser.add_argument("--summary-config", default=None, metavar="YAML",
+                        help="Config YAML whose `model:` section is used for the summarization "
+                             "LLM call (SU-full, SU-partial, SS, SS-partial, and their OTRC/TRC-stacked "
+                             "variants). Default: the agent model itself. Exported to the agent as "
+                             "MSWEA_SUMMARY_MODEL_CONFIG. Use a dedicated --ablation name so runs "
+                             "are not deduplicated against same-model results.")
     parser.add_argument("--n-tasks",      type=int, default=None,
                         help="Override number of tasks (default: 100)")
     parser.add_argument("--tasks-file",   default=None,
@@ -433,6 +463,13 @@ def main() -> None:
         TASKS_FILE_EXPLICIT = True
     if args.agent_config:
         AGENT_CONFIG = Path(args.agent_config).resolve()
+    if args.summary_config:
+        SUMMARY_CONFIG = Path(args.summary_config).resolve()
+        if not SUMMARY_CONFIG.exists():
+            raise SystemExit(f"--summary-config not found: {SUMMARY_CONFIG}")
+        # Also set in this process so summary_model_info() (run_info.json,
+        # startup banner) resolves the same config the agents will see.
+        os.environ["MSWEA_SUMMARY_MODEL_CONFIG"] = str(SUMMARY_CONFIG)
     if args.otrc_config:
         otrc_path = Path(args.otrc_config).resolve()
         for c in CONDITIONS:
@@ -478,6 +515,9 @@ def main() -> None:
     print(f"  Benchmark  : {BENCHMARK.name}")
     print(f"  Model tag  : {MODEL_TAG}")
     print(f"  Agent cfg  : {AGENT_CONFIG}")
+    summary_info = summary_model_info()
+    print(f"  Summary cfg: {summary_info.get('config_path') or summary_info['source']}")
+    print(f"  Summary mdl: {summary_info.get('model_name', '(agent model)')}")
     print(f"  Results dir: {model_results_dir()}")
     print(f"  Tasks      : {len(tasks)}")
     print(f"  Conditions : {[c['condition'] for c in CONDITIONS]}")
@@ -488,7 +528,11 @@ def main() -> None:
     print("=" * 72)
 
     # Write run_info.json and run_info.md for this run
-    _write_run_info(len(tasks), total, budget)
+    # run_info.json describes the launch that generated the runs (model,
+    # summary config, ...).  An evaluation-only pass generates nothing, so it
+    # must not replace that record with its own (possibly different) settings.
+    if not (args.eval_only and (model_results_dir() / "run_info.json").exists()):
+        _write_run_info(len(tasks), total, budget)
 
     if not args.eval_only:
         results = run_all_agents(tasks)
