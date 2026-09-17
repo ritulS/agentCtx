@@ -169,3 +169,41 @@ the machine produce a warning (they inflate per-step latency). Defaults
 the environment; `EXTRA_ARGS="--limit 4"` appends arguments for a smoke test.
 Runner output goes to `logs/rerun_qwen35b_fc_limits_phase<N>.log`, the PID to
 the matching `.pid`. Remember to add an `Active_runs.md` entry before launching.
+
+## build_rerun_outcomes.py
+
+Overlays the raised-limit re-run results on `analysis/outcomes/swebench_outcomes.csv`
+and writes a second outcomes table (the canonical CSV and `ICLR_results/` are
+never modified):
+
+```bash
+python3 adaptive_context_management_analysis/build_rerun_outcomes.py            # every reruns/*/
+python3 adaptive_context_management_analysis/build_rerun_outcomes.py \
+    --rerun-dir results/adaptive_context_management/swebench/reruns/<name>      # only these dirs
+```
+
+Output: `results/adaptive_context_management/swebench/swebench_outcomes_rerun.csv`
+(+ `swebench_outcomes_rerun.meta.json` with the base-CSV mtime, git HEAD, the
+re-run directories / limits used, and an `original → rerun` failure-mode
+transition table).
+
+Same columns as `swebench_outcomes.csv`, plus:
+
+| Column | Contents |
+|---|---|
+| `rerun` | `True` if the row was replaced by a re-run result |
+| `step_limit` / `agent_timeout_s` | Harness limits that applied to **this** row (125 / 1500 for non-rerun rows) |
+| `rerun_name`, `rerun_source_file`, `rerun_original_cause` | Re-run directory, its `experiment_results.json`, and why the run was selected (`timeout` / `step_limit`) |
+| `rerun_attempts`, `rerun_history` | Number of re-run attempts for this run and `<dir>@step<N>/t<M>:<failure_mode>; ...` for all of them |
+| `original_*` | `source_file`, `resolved`, `failure_mode`, `exit_status`, `returncode`, `step_count`, `latency_e2e_s` of the replaced canonical row |
+
+Rules:
+
+- A re-run row replaces the canonical row with the same
+  `(section, model, cell, task, condition, run)` taken from its `rerun_of` path.
+- If the same run was re-run more than once (e.g. 200/3600 then 300/5400) the
+  attempt with the highest `(step_limit, agent_timeout_s)` wins; ties go to the
+  latest timestamp. All attempts stay listed in `rerun_history`.
+- Re-run rows whose `resolved` is missing (eval not run yet) are skipped with a
+  warning so an evaluated `False` is never replaced by a blank; pass
+  `--include-unevaluated` to overlay them anyway.
