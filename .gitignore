@@ -7,6 +7,8 @@ __pycache__/
 
 # ── Virtual environments ──────────────────────────────────────────────────────
 venv/
+# The workspace may reuse an existing environment via a symlink.
+/venv
 venv-tb/
 .venv/
 env/
