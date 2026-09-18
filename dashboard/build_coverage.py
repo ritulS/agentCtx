@@ -279,11 +279,11 @@ def main():
     # FOLLOWUP_EXPERIMENTS 4: summarizer ablation.  SU-full (0.5) and TRC+SU
     # (DI) with a different summarizer and the main model as agent.  SWE cells
     # follow scripts/run_qwen_swe_summarizer_ablation.sh (ABL-25 at 15k);
-    # Terminal-Bench cells follow the TB launcher (P-40 at the primary budget).
+    # Terminal-Bench cells use ABL-15 at the primary budget.
     for summarizer in SUMMARIZER_LABELS.values():
         for prim in ("SU-full", "TRC+SU"):
             expected[("swebench", MAIN_MODEL, summarizer, prim, 15_000, 0.5)] = "ABL-25"
-            expected[("terminal-bench", MAIN_MODEL, summarizer, prim, 3_000, 0.5)] = "TB-40"
+            expected[("terminal-bench", MAIN_MODEL, summarizer, prim, 3_000, 0.5)] = "TB-15"
 
     # ---- 3. merge into sheet rows --------------------------------------------
     # The coverage CSVs inventory data that actually exists.  ``expected``
@@ -324,7 +324,7 @@ def main():
                 cohort_counts[f"runs_capped_{cap}_{cohort_name}"] = capped_runs(
                     cohort_tasks, cap
                 )
-        # TB:P-15/P-40 progress can include provisional/rootless subsets.
+        # TB:ABL-15/P-40 progress can include provisional/rootless subsets.
         # Counting every observed task directly avoids proportionally scaling
         # a partial subset up to the planned cohort size in the dashboard.
         all_observed_tasks = set(d_runs)

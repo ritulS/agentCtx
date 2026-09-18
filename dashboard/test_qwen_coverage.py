@@ -191,10 +191,17 @@ class QwenCoverageTest(unittest.TestCase):
             self.assertNotIn('p1_all_runs_v3', captured)
             self.assertNotIn('p1', captured)
             self.assertNotIn('p1_abl25_v2', captured)
-            for old_key in ('p1b_all_runs_v3', 'p2c', 'p2d', 'p2', 'p4'):
+            for old_key in ('p1b_all_runs_v3', 'p2c', 'p2d', 'p2', 'p4', 'p4_abl25_v2'):
                 self.assertNotIn(old_key, captured)
             self.assertEqual(sum(r[6][2] for r in captured['p2_abl25_v2']), 15600)
-            self.assertEqual(sum(r[6][2] for r in captured['p4_abl25_v2']), dashboard.P4_TOTAL_RUNS)
+            p4_rows = captured['p4_abl25_tbabl15_v3']
+            self.assertEqual(sum(r[6][2] for r in p4_rows), 480)
+            self.assertEqual(dashboard.P4_TOTAL_RUNS, 480)
+            tb_p4_rows = [r for r in p4_rows if r[4].startswith('TB:')]
+            self.assertEqual(len(tb_p4_rows), 2)
+            for row in tb_p4_rows:
+                self.assertEqual(row[4], 'TB:ABL-15')
+                self.assertEqual(row[6][2], 90)
             self.assertEqual(sum(r[6][2] for r in captured['p3']), 11700)
             self.assertEqual(sum(r[6][2] for r in rows), 7800)
             self.assertEqual(sum(r[6][2] for r in rows if r[4] == 'SB:P-100'), 3900)

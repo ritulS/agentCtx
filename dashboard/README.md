@@ -92,7 +92,8 @@ is not compared with older snapshots that counted only the additional run.
 SWE-Bench ablations use `task_lists/ablation_25tasks.json`, a strict subset of
 ABL-30. Coverage counts only those 25 task IDs, including existing runs from
 ABL-30/P100 cells. Each model has a 3,900-run ablation target; Priority 2 totals
-15,600 runs and the summarizer ablation totals 700 runs including Terminal-Bench.
+15,600 runs and the summarizer ablation totals 480 runs including Terminal-Bench
+(TB:ABL-15 × 3 runs × 2 primitives × 2 summarizers = 180 runs).
 Regenerate `COVERAGE.csv` before rendering: old ABL-30 totals cannot be
 converted proportionally. The affected history keys are `p1b_abl25_v4`,
-`p2c_abl25_v2`, `p2d_abl25_v2`, `p2_abl25_v2`, and `p4_abl25_v2`.
+`p2c_abl25_v2`, `p2d_abl25_v2`, `p2_abl25_v2`, and `p4_abl25_tbabl15_v3`.

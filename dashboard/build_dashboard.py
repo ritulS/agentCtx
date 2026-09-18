@@ -43,16 +43,15 @@ BUDGET_ORDER = {
 
 # Priority 4 (summarizer ablation): the tracked cells per experiment.  SWE rows
 # follow scripts/run_qwen_swe_summarizer_ablation.sh (ABL-25 x 3 runs at the
-# 15k primary budget).  The Terminal-Bench rows follow the TB launcher (P-40 x
-# 3 runs at the 3k primary budget) rather than the plan's TB:ABL-20 x 5, for
-# which no task list exists; edit here if that changes.
+# 15k primary budget). Terminal-Bench uses TB:ABL-15 x 3 runs at the
+# 3k primary budget.
 P4_PRIMITIVES = (("SU-full", "0.5"), ("TRC+SU", "DI"))
 P4_SPECS = [
     # exp_id, summarizer, benchmark, dataset label, tasks, runs/task, budget
     ("4.a", "Qwen3.5-9B", "swebench", "SB:ABL-25", 25, 3, "15k"),
-    ("4.b", "Qwen3.5-9B", "terminal-bench", "TB:P-40", 40, 3, "3k"),
+    ("4.b", "Qwen3.5-9B", "terminal-bench", "TB:ABL-15", 15, 3, "3k"),
     ("4.c", "Gemma-4-12B", "swebench", "SB:ABL-25", 25, 3, "15k"),
-    ("4.d", "Gemma-4-12B", "terminal-bench", "TB:P-40", 40, 3, "3k"),
+    ("4.d", "Gemma-4-12B", "terminal-bench", "TB:ABL-15", 15, 3, "3k"),
 ]
 P4_TOTAL_RUNS = sum(tasks * rpt * len(P4_PRIMITIVES) for *_, tasks, rpt, _ in P4_SPECS)
 P4_DATASETS = " + ".join(dict.fromkeys(spec[3] for spec in P4_SPECS))
@@ -200,7 +199,7 @@ def coverage_progress(
         cohort = (
             "p100" if tasks == 100 else
             "abl25" if tasks == 25 else
-            # No frozen P-15/P-40 task-list files exist yet. Terminal-Bench
+            # No frozen ABL-15/P-40 task-list files exist yet. Terminal-Bench
             # progress therefore uses the observed-task capped counts, while
             # the target below still caps credit at the planned task count.
             "all" if tasks in (15, 40) else
@@ -565,15 +564,15 @@ def main():
     p2_glm = model_plan_matrix(["10K", "13K", "15K", "∞"], "SB:P-100", "SB:ABL-25")
     p3_qwen = model_plan_matrix(
         ["2K", "3K", "4K", "∞"],
-        "TB:P-40", "TB:P-15", calibration=True,
+        "TB:P-40", "TB:ABL-15", calibration=True,
     )
     p3_devstral = model_plan_matrix(
         ["3K", "4K", "7K", "∞"],
-        "TB:P-40", "TB:P-15", calibration=True,
+        "TB:P-40", "TB:ABL-15", calibration=True,
     )
     p3_glm = model_plan_matrix(
         ["2K", "3K", "5K", "∞"],
-        "TB:P-40", "TB:P-15", calibration=True,
+        "TB:P-40", "TB:ABL-15", calibration=True,
     )
 
     roadmap_overview = f"""
@@ -582,7 +581,7 @@ def main():
 <tbody>
 <tr><td class="priority">P1</td><td><a href="#priority-1">Runs/task: 3 (run_1–run_3)</a></td><td>SB:P-100 + SB:ABL-25</td><td>7,800 total</td></tr>
 <tr><td class="priority">P2</td><td><a href="#priority-2">Add Devstral and GLM</a></td><td>SB:P-100 + SB:ABL-25</td><td>15,600</td></tr>
-<tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
+<tr><td class="priority">P3</td><td><a href="#priority-3">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:ABL-15</td><td>11,700</td></tr>
 <tr><td class="priority">P4</td><td><a href="#priority-4">Summarizer ablation</a></td><td>{P4_DATASETS}</td><td>{P4_TOTAL_RUNS:,}</td></tr>
 </tbody></table></div>"""
 
@@ -710,12 +709,12 @@ def main():
         for depth in ("0.3", "0.7"):
             for budget, display_budget in budgets:
                 p3b_rows.append(tb_track(model, tunable_label, tunable, depth, budget,
-                                               "TB:P-15", 15, 3, display_budget))
+                                               "TB:ABL-15", 15, 3, display_budget))
         for budget, display_budget in (budgets[0], budgets[-1]):
             p3b_rows.append(tb_track(model, tunable_label, tunable, "0.5", budget,
-                                           "TB:P-15", 15, 3, display_budget))
+                                           "TB:ABL-15", 15, 3, display_budget))
             p3b_rows.append(tb_track(model, invariant_label, invariant, "DI", budget,
-                                           "TB:P-15", 15, 3, display_budget))
+                                           "TB:ABL-15", 15, 3, display_budget))
     p3b_tracking = tracking_table(p3b_rows)
 
     p4_tracking_rows = []
@@ -765,7 +764,7 @@ def main():
     p3a_progress = progress_bar(p3a_rows, "p3a", history, now_utc, snapshot)
     p3b_progress = progress_bar(p3b_rows, "p3b", history, now_utc, snapshot)
     p3_progress = progress_bar(p3a_rows + p3b_rows, "p3", history, now_utc, snapshot)
-    p4_progress = progress_bar(p4_tracking_rows, "p4_abl25_v2", history, now_utc, snapshot)
+    p4_progress = progress_bar(p4_tracking_rows, "p4_abl25_tbabl15_v3", history, now_utc, snapshot)
     if args.record_history:
         write_progress_history(history, snapshot, now_utc)
 
@@ -938,7 +937,7 @@ a {{ color:var(--accent-ink); }}
 <tbody>
 <tr><td class="priority">1</td><td><a href="#exp-runs">Complete runs 1–3</a></td><td>SB:P-100 + SB:ABL-25</td><td>{p1_target:,}</td></tr>
 <tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-25</td><td>15,600</td></tr>
-<tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:P-15</td><td>11,700</td></tr>
+<tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:ABL-15</td><td>11,700</td></tr>
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>{P4_DATASETS}</td><td>{P4_TOTAL_RUNS:,}</td></tr>
 </tbody></table></div>
 <ul>
@@ -1011,7 +1010,7 @@ Existing results count only for the selected cohort; copies of the same run coun
 </ul>
 <div class="tablewrap"><table><thead><tr><th>experiment</th><th>dataset</th><th>notes</th><th>runs</th></tr></thead><tbody>
 <tr><td><a href="#exp-tb-main">(3.a) TB Main</a></td><td>TB:P-40</td><td>Depth: 0.5 or DI / Budget: model-calibrated primary (or ∞)</td><td>4,680</td></tr>
-<tr><td><a href="#exp-tb-abl">(3.b) TB Ablation</a></td><td>TB:P-15</td><td>Depth &amp; budget ablation</td><td>7,020</td></tr>
+<tr><td><a href="#exp-tb-abl">(3.b) TB Ablation</a></td><td>TB:ABL-15</td><td>Depth &amp; budget ablation</td><td>7,020</td></tr>
 </tbody></table></div>
 
 <h3 id="exp-tb-main">(3.a) TB Main</h3>
@@ -1028,7 +1027,7 @@ Existing results count only for the selected cohort; copies of the same run coun
 <li>ETA: TBD ({P4_TOTAL_RUNS:,} runs)</li>
 <li>SWE-Bench rows track {P4_SPECS[0][3]} × {P4_SPECS[0][5]} runs at {P4_SPECS[0][6].upper()}
 (scripts/run_qwen_swe_summarizer_ablation.sh); Terminal-Bench rows track {P4_SPECS[1][3]} × {P4_SPECS[1][5]} runs
-at {P4_SPECS[1][6].upper()} rather than the plan's TB:ABL-20 × 5, which has no task list.</li>
+at {P4_SPECS[1][6].upper()}.</li>
 </ul>
 <p>Existing self-summarization runs are used as the baseline.</p>
 {p4_tracking}
