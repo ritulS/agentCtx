@@ -1,0 +1,16 @@
+# Summarizer-model override for the summarizer ablation (FOLLOWUP_EXPERIMENTS.md §4.c).
+# Only the `model:` section is read (summary_config.summary_model_config), via
+# `run_experiment.py --summary-config` -> MSWEA_SUMMARY_MODEL_CONFIG.
+# Server: bash scripts/start_vllm_summarizer.sh gemma4-12b  (port 8001, GPUs 0-3 shared with the agent).
+# google/gemma-4-12B-it is gated on Hugging Face (accept the licence, set HF_TOKEN)
+# and needs vLLM >= 0.27 (the default venv has 0.17; the start script uses venv-glm-cu129-clean).
+# Sampling settings mirror the agent config (configs/config-qwen-vllm.yaml).
+model:
+  model_name: "hosted_vllm/google/gemma-4-12B-it"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8001/v1"
+    drop_params: true
+    temperature: 0.2
+    max_tokens: 4096
+  cost_tracking: ignore_errors
