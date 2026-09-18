@@ -56,19 +56,39 @@ P4_SPECS = [
 P4_TOTAL_RUNS = sum(tasks * rpt * len(P4_PRIMITIVES) for *_, tasks, rpt, _ in P4_SPECS)
 P4_DATASETS = " + ".join(dict.fromkeys(spec[3] for spec in P4_SPECS))
 
+# Priority 5 (prefix-cache ablation): the main model as agent and summarizer,
+# served with vLLM prefix caching flipped relative to the benchmark's
+# production runs (SWE-Bench production: off; Terminal-Bench production: on).
+# Cells come from ICLR_results/<benchmark>/prefix_cache_ablation/ and carry a
+# non-empty ``prefix_cache`` column in the coverage sheets (build_coverage.py).
+# SWE rows follow scripts/run_qwen_swe_prefix_cache_ablation.sh (15k primary
+# budget); Terminal-Bench rows use its 3k primary budget, like Priority 4.
+P5_SPECS = [
+    # exp_id, benchmark, dataset label, prefix cache, tasks, runs/task, budget
+    ("5.a", "swebench", "SB:ABL-25", "ON", 25, 3, "15k"),
+    ("5.b", "terminal-bench", "TB:ABL-15", "OFF", 15, 3, "3k"),
+]
+P5_PRIMITIVES_PER_SPEC = 5 + 6 + 2   # depth-tunable + depth-invariant + FC/OTRC
+P5_TOTAL_RUNS = sum(tasks * rpt * P5_PRIMITIVES_PER_SPEC
+                    for *_, tasks, rpt, _ in P5_SPECS)
+P5_DATASETS = " + ".join(dict.fromkeys(spec[2] for spec in P5_SPECS))
+
 
 def load_cells():
-    """Return (swe_cells, tb_cells, summarizer_cells).
+    """Return (swe_cells, tb_cells, summarizer_cells, prefix_cache_cells).
 
     Ordinary cells are keyed by (model, primitive, budget, depth).  Cells
     whose ``summarizer`` column is set (summarizer ablation, see
     build_coverage.py) are kept apart under (benchmark, summarizer, model,
     primitive, budget, depth) so they never shadow the self-summarized cell
-    of the same primitive and budget.
+    of the same primitive and budget.  Cells whose ``prefix_cache`` column is
+    set (prefix-cache ablation) are kept apart the same way, under (benchmark,
+    prefix_cache, model, primitive, budget, depth).
     """
     swe_cells = {}
     tb_cells = {}
     summarizer_cells = {}
+    prefix_cache_cells = {}
     invariant = {
         "FC", "OTRC", "TRC", "TRC+SU", "TRC+SS",
         "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial",
@@ -85,13 +105,17 @@ def load_cells():
                 depth = r["depth"]
             key = (r["model"], r["primitive"], budget, depth)
             summarizer = r.get("summarizer", "")
-            if summarizer:
+            # Absent from coverage sheets generated before Priority 5 existed.
+            prefix_cache = r.get("prefix_cache") or ""
+            if prefix_cache:
+                prefix_cache_cells[(benchmark, prefix_cache) + key] = r
+            elif summarizer:
                 summarizer_cells[(benchmark, summarizer) + key] = r
             elif benchmark == "terminal-bench":
                 tb_cells[key] = r
             else:
                 swe_cells[key] = r
-    return swe_cells, tb_cells, summarizer_cells
+    return swe_cells, tb_cells, summarizer_cells, prefix_cache_cells
 
 
 def summarizer_view(summarizer_cells, benchmark, summarizer):
@@ -99,6 +123,14 @@ def summarizer_view(summarizer_cells, benchmark, summarizer):
     return {
         key[2:]: row for key, row in summarizer_cells.items()
         if key[0] == benchmark and key[1] == summarizer
+    }
+
+
+def prefix_cache_view(prefix_cache_cells, benchmark, prefix_cache):
+    """Cells of one prefix-cache setting, keyed like ``swe_cells``/``tb_cells``."""
+    return {
+        key[2:]: row for key, row in prefix_cache_cells.items()
+        if key[0] == benchmark and key[1] == prefix_cache
     }
 
 
@@ -436,6 +468,36 @@ def summarizer_tracking_table(rows):
     )
 
 
+def prefix_cache_tracking_table(rows):
+    """Priority 5 table: one row per experiment x primitive family."""
+    body = []
+    previous = None
+    for exp_id, dataset, model, prefix_cache, scope, depth, budget, status in rows:
+        complete, actual, target = status
+        cls = "done" if complete else "pending"
+        label = budget if complete else f"{budget}, {actual:,}/{target:,} runs"
+        current = [exp_id, dataset, model, prefix_cache, scope, depth,
+                   f'<span class="track-status {cls}">{label}</span>']
+        display = list(current)
+        if previous is not None and current[0] == previous[0]:
+            # Within one experiment, blank the leading columns that repeat.
+            for i in range(4):
+                if current[i] != previous[i]:
+                    break
+                display[i] = ""
+        body.append('<tr>' + ''.join(
+            '<td class="repeat"></td>' if cell == "" else f'<td>{cell}</td>'
+            for cell in display
+        ) + '</tr>')
+        previous = current
+    return (
+        '<div class="tablewrap tracking prefix-cache-tracking"><table><thead><tr>'
+        '<th>experiment</th><th>dataset</th><th>model (agent &amp; summarizer)</th>'
+        '<th>prefix cache</th><th>primitive scope</th><th>depth</th><th>budget</th>'
+        f'</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
+    )
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -447,7 +509,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    cells, tb_cells, summarizer_cells = load_cells()
+    cells, tb_cells, summarizer_cells, prefix_cache_cells = load_cells()
     rows = list(cells.values())
     tb_rows = list(tb_cells.values())
     generated_at = datetime.now(ZoneInfo("America/Chicago")).strftime(
@@ -750,6 +812,30 @@ def main():
         ])
     p4_tracking = summarizer_tracking_table(p4_display_rows)
 
+    p5_tracking_rows = []
+    p5_display_rows = []
+    for exp_id, benchmark, dataset, prefix_cache, tasks, rpt, budget in P5_SPECS:
+        view = prefix_cache_view(prefix_cache_cells, benchmark, prefix_cache)
+        # Depth-invariant Terminal-Bench cells are keyed "DI"; SWE cells "0.5".
+        di_depth = "DI" if benchmark == "terminal-bench" else "0.5"
+        for label, primitives, depth_label, query_depth, query_budget in (
+            (tunable_label, tunable, "0.5", "0.5", budget),
+            (invariant_label, invariant, "DI", di_depth, budget),
+            (baseline_label, ["FC", "OTRC"], "DI", di_depth, "inf"),
+        ):
+            status = status_badge(*coverage_progress(
+                view, MAIN, primitives, query_budget, query_depth, tasks, rpt))
+            budget_label = "∞" if query_budget == "inf" else query_budget.upper()
+            p5_tracking_rows.append([
+                MAIN, label, depth_label, budget_label, dataset,
+                f"{tasks} tasks × {rpt} runs × {len(primitives)}", status,
+            ])
+            p5_display_rows.append([
+                f"({exp_id})", dataset, MAIN, prefix_cache, label,
+                depth_label, budget_label, status,
+            ])
+    p5_tracking = prefix_cache_tracking_table(p5_display_rows)
+
     history = load_progress_history()
     now_utc = datetime.now(timezone.utc)
     snapshot = {}
@@ -765,6 +851,7 @@ def main():
     p3b_progress = progress_bar(p3b_rows, "p3b", history, now_utc, snapshot)
     p3_progress = progress_bar(p3a_rows + p3b_rows, "p3", history, now_utc, snapshot)
     p4_progress = progress_bar(p4_tracking_rows, "p4_abl25_tbabl15_v3", history, now_utc, snapshot)
+    p5_progress = progress_bar(p5_tracking_rows, "p5_prefix_cache_v1", history, now_utc, snapshot)
     if args.record_history:
         write_progress_history(history, snapshot, now_utc)
 
@@ -882,6 +969,8 @@ ul.attn li {{ background:var(--surface); border:1px solid var(--line); border-ra
 .tracking th:nth-child(5), .tracking td:nth-child(5) {{ min-width:240px; }}
 .summarizer-tracking th:nth-child(5), .summarizer-tracking td:nth-child(5) {{ min-width:210px; }}
 .summarizer-tracking th:nth-child(6), .summarizer-tracking td:nth-child(6) {{ min-width:150px; }}
+.prefix-cache-tracking th:nth-child(5), .prefix-cache-tracking td:nth-child(5) {{ min-width:210px; }}
+.prefix-cache-tracking th:nth-child(7), .prefix-cache-tracking td:nth-child(7) {{ min-width:170px; }}
 .tracking td.repeat {{ background:color-mix(in srgb, var(--bg) 45%, transparent); }}
 .track-status {{ display:inline-block; font-family:"IBM Plex Mono",monospace;
   font-size:.74rem; font-weight:500; padding:3px 9px; border-radius:20px;
@@ -939,6 +1028,7 @@ a {{ color:var(--accent-ink); }}
 <tr><td class="priority">2</td><td><a href="#exp-models">Add 2 agent models</a></td><td>SB:P-100 + SB:ABL-25</td><td>15,600</td></tr>
 <tr><td class="priority">3</td><td><a href="#exp-tb">Terminal-Bench evaluation</a></td><td>TB:P-40 + TB:ABL-15</td><td>11,700</td></tr>
 <tr><td class="priority">4</td><td><a href="#exp-summarizer">Summarizer ablation</a></td><td>{P4_DATASETS}</td><td>{P4_TOTAL_RUNS:,}</td></tr>
+<tr><td class="priority">5</td><td><a href="#exp-prefix-cache">Prefix cache ablation</a></td><td>{P5_DATASETS}</td><td>{P5_TOTAL_RUNS:,}</td></tr>
 </tbody></table></div>
 <ul>
 <li>SWE-Bench env: <strong>Dobby (GPU: 4× A100 80GB)</strong></li>
@@ -1031,6 +1121,20 @@ at {P4_SPECS[1][6].upper()}.</li>
 </ul>
 <p>Existing self-summarization runs are used as the baseline.</p>
 {p4_tracking}
+
+<h2 id="exp-prefix-cache">5. [Priority] Prefix Cache Ablation</h2>
+{p5_progress}
+<ul>
+<li>ETA: TBD ({P5_TOTAL_RUNS:,} runs)</li>
+<li>Model (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct; runs/task: 3</li>
+<li>vLLM <code>--enable-prefix-caching</code> is flipped relative to each benchmark's production runs:
+SWE-Bench production ran with it off, so (5.a) runs with it <strong>ON</strong>
+(scripts/run_qwen_swe_prefix_cache_ablation.sh); Terminal-Bench production ran with it on,
+so (5.b) runs with it <strong>OFF</strong>.</li>
+<li>Coverage counts only <code>ICLR_results/&lt;benchmark&gt;/prefix_cache_ablation/</code>.</li>
+</ul>
+<p>Existing production runs of the same cells are used as the baseline.</p>
+{p5_tracking}
 </div>
 </div>
 """

@@ -10,6 +10,8 @@ Sources of truth:
            (per-record condition, budget, compression_ratio, instance_id)
            <model> may be <agent>-sum-<summarizer> (track model_ablation): those
            runs become separate cells with a non-empty ``summarizer`` column.
+           Runs below the prefix_cache_ablation track become separate cells
+           with a non-empty ``prefix_cache`` column (ON / OFF).
 Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 
 Usage:  python dashboard/build_coverage.py
@@ -86,6 +88,23 @@ SUMMARIZER_LABELS = {
 # Throwaway smoke-test directories (…-smoke) are never counted.
 SMOKE_SUFFIX = "-smoke"
 
+# Prefix-cache ablation (dashboard Priority 5): every run below
+# ICLR_results/<benchmark>/prefix_cache_ablation/ was served with the vLLM
+# prefix-caching setting flipped relative to that benchmark's production runs.
+# Production SWE-Bench Qwen runs had it off (the vLLM default for the hybrid
+# Qwen3.5 model, see ICLR.md) and production Terminal-Bench runs had it on, so
+# the ablation is ON for SWE-Bench (scripts/run_qwen_swe_prefix_cache_ablation.sh)
+# and OFF for Terminal-Bench.  Such runs form their own cells, keyed
+# additionally by this label; every other cell carries an empty prefix_cache.
+PREFIX_CACHE_TRACK = "prefix_cache_ablation"
+PREFIX_CACHE_ABLATION = {"swebench": "ON", "terminal-bench": "OFF"}
+# Model directories of that track name the serving condition
+# (qwen35b-prefixcache / qwen35b-noprefixcache); the agent is the part before it.
+PREFIX_CACHE_DIR_SUFFIXES = ("-noprefixcache", "-prefixcache")
+# Finite budget of the tracked cells (dashboard 5.a / 5.b): the main model's
+# primary budget on each benchmark.
+PREFIX_CACHE_BUDGETS = {"swebench": 15_000, "terminal-bench": 3_000}
+
 
 def split_model_key(model_key: str) -> tuple[str, str]:
     """Return (agent_key, summarizer_label) for a result model directory name."""
@@ -93,6 +112,19 @@ def split_model_key(model_key: str) -> tuple[str, str]:
     if not separator:
         return model_key, ""
     return agent_key, SUMMARIZER_LABELS.get(summarizer_key, summarizer_key)
+
+
+def prefix_cache_for(benchmark: str, track: str) -> str:
+    """Return the prefix_cache label ("" outside the prefix-cache ablation track)."""
+    return PREFIX_CACHE_ABLATION[benchmark] if track == PREFIX_CACHE_TRACK else ""
+
+
+def strip_prefix_cache_suffix(model_key: str) -> str:
+    """qwen35b-prefixcache -> qwen35b, so the agent maps to its usual label."""
+    for suffix in PREFIX_CACHE_DIR_SUFFIXES:
+        if model_key.endswith(suffix):
+            return model_key[: -len(suffix)]
+    return model_key
 
 
 def model_for_record(record: dict, source_name: str) -> str:
@@ -155,9 +187,10 @@ def main():
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
 
     # ---- 1. scan disk -------------------------------------------------------
-    # cell key: (benchmark, model, summarizer, primitive, budget, depth) ->
-    # coverage data.  summarizer is "" unless the model dir is
-    # <agent>-sum-<summarizer> (summarizer ablation).
+    # cell key: (benchmark, model, summarizer, prefix_cache, primitive, budget,
+    # depth) -> coverage data.  summarizer is "" unless the model dir is
+    # <agent>-sum-<summarizer> (summarizer ablation); prefix_cache is "" unless
+    # the run lives below the prefix_cache_ablation track.
     # Some dirs are copies of other dirs' runs (see seed_depth_dirs.py) — dedupe
     # by (cell, instance_id, run_num) so copies don't inflate run counts.
     #
@@ -182,6 +215,11 @@ def main():
         if model_key.endswith(SMOKE_SUFFIX):
             continue
         agent_key, summarizer = split_model_key(model_key)
+        # <benchmark dir>/<track>/...: the track is the first component.
+        track = meta.relative_to(ICLR_RESULTS).parts[1]
+        prefix_cache = prefix_cache_for(benchmark, track)
+        if prefix_cache:
+            agent_key = strip_prefix_cache_suffix(agent_key)
         records = load_records(meta)
         for r in records:
             cond = r.get("condition")
@@ -193,7 +231,8 @@ def main():
             model = model_for_record(r, source_name)
             if model == MAIN_MODEL and agent_key in ICLR_MODEL_LABELS:
                 model = ICLR_MODEL_LABELS[agent_key]
-            cell_key = (benchmark, model, summarizer, prim, budget, round(float(depth), 1))
+            cell_key = (benchmark, model, summarizer, prefix_cache, prim, budget,
+                        round(float(depth), 1))
             cell = disk[cell_key]
             iid = r.get("instance_id")
             dedup_key = cell_key + (iid, r.get("run_num"))
@@ -268,11 +307,12 @@ def main():
             for b in (a_budget, b_budget):
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
 
-    # Every cell above is self-summarized: insert the empty summarizer slot so
-    # the keys line up with the (benchmark, model, summarizer, primitive,
-    # budget, depth) cell keys used on disk.
+    # Every cell above is self-summarized and served as in production: insert
+    # the empty summarizer and prefix_cache slots so the keys line up with the
+    # (benchmark, model, summarizer, prefix_cache, primitive, budget, depth)
+    # cell keys used on disk.
     expected = {
-        (benchmark, model, "", prim, budget, depth): cohort
+        (benchmark, model, "", "", prim, budget, depth): cohort
         for (benchmark, model, prim, budget, depth), cohort in expected.items()
     }
 
@@ -282,8 +322,19 @@ def main():
     # Terminal-Bench cells use ABL-15 at the primary budget.
     for summarizer in SUMMARIZER_LABELS.values():
         for prim in ("SU-full", "TRC+SU"):
-            expected[("swebench", MAIN_MODEL, summarizer, prim, 15_000, 0.5)] = "ABL-25"
-            expected[("terminal-bench", MAIN_MODEL, summarizer, prim, 3_000, 0.5)] = "TB-15"
+            expected[("swebench", MAIN_MODEL, summarizer, "", prim, 15_000, 0.5)] = "ABL-25"
+            expected[("terminal-bench", MAIN_MODEL, summarizer, "", prim, 3_000, 0.5)] = "TB-15"
+
+    # Dashboard Priority 5: prefix-cache ablation with the main model as agent
+    # and summarizer.  Every primitive at canonical depth plus the unlimited
+    # baselines, on ABL-25 (SWE-Bench, 5.a) and ABL-15 (Terminal-Bench, 5.b).
+    for benchmark, cohort in (("swebench", "ABL-25"), ("terminal-bench", "TB-15")):
+        label = PREFIX_CACHE_ABLATION[benchmark]
+        for prim in DEPTH_TUNABLE + DEPTH_INVARIANT:
+            expected[(benchmark, MAIN_MODEL, "", label, prim,
+                      PREFIX_CACHE_BUDGETS[benchmark], 0.5)] = cohort
+        for prim in ("FC", "OTRC"):
+            expected[(benchmark, MAIN_MODEL, "", label, prim, INF, 0.5)] = cohort
 
     # ---- 3. merge into sheet rows --------------------------------------------
     # The coverage CSVs inventory data that actually exists.  ``expected``
@@ -291,10 +342,10 @@ def main():
     # follow-ups must not create rows of their own.
     all_keys = sorted(disk,
                       key=lambda k: (k[0], k[1] != MAIN_MODEL, k[1], k[2] != "", k[2],
-                                     k[3], k[4], k[5]))
+                                     k[3] != "", k[3], k[4], k[5], k[6]))
     rows = []
     for key in all_keys:
-        benchmark, model, summarizer, prim, budget, depth = key
+        benchmark, model, summarizer, prefix_cache, prim, budget, depth = key
         d = disk.get(key)
         req = expected.get(key)
         required_runs = (TB_REQUIRED_RUNS_PER_TASK
@@ -372,6 +423,9 @@ def main():
             # Empty for ordinary (self-summarized) cells; the summarizer model
             # label for summarizer-ablation cells (model_ablation/<agent>-sum-<summarizer>).
             "summarizer": summarizer,
+            # Empty for ordinary cells; ON / OFF for prefix-cache-ablation cells
+            # (<benchmark>/prefix_cache_ablation/<model>/<cell>).
+            "prefix_cache": prefix_cache,
             "primitive": prim,
             "budget": budget_label(budget),
             "depth": depth,
@@ -426,6 +480,8 @@ def main():
         print("\nAttention:")
         for r in problems:
             summarizer = f" (summarizer {r['summarizer']})" if r["summarizer"] else ""
+            if r["prefix_cache"]:
+                summarizer += f" (prefix cache {r['prefix_cache']})"
             print(f"  [{r['status']:8s}] {r['benchmark']} / {r['model']}{summarizer} / "
                   f"{r['primitive']} / {r['budget']} / d={r['depth']}  "
                   f"{r['cohort_covered']}  {r['notes']}")
