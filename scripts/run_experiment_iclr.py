@@ -45,10 +45,12 @@ def parse_adapter_args() -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--iclr-section", required=True,
-        choices=("main", "ablation", "model_ablation"),
+        choices=("main", "ablation", "model_ablation", "prefix_cache_ablation"),
         help="result section below ICLR_results/swebench/; model_ablation holds "
              "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4), "
-             "under <agent>-sum-<summarizer> model directories",
+             "under <agent>-sum-<summarizer> model directories; prefix_cache_ablation "
+             "holds self-summarized runs served with vLLM prefix caching on "
+             "(scripts/run_qwen_swe_prefix_cache_ablation.sh)",
     )
     parser.add_argument("--iclr-model", required=True)
     parser.add_argument("--iclr-cell", required=True)
@@ -86,8 +88,9 @@ def validate_summarizer(section: str, runner_args: list[str], destination: Path)
     """The summarizer is part of a cell's identity, like budget and depth.
 
     ``model_ablation`` cells hold runs whose summarizer differs from the agent,
-    so they require ``--summary-config``; ``main``/``ablation`` cells are
-    self-summarized and must not get one.  Within a cell, every existing run
+    so they require ``--summary-config``; ``main``/``ablation``/
+    ``prefix_cache_ablation`` cells are self-summarized and must not get one.
+    Within a cell, every existing run
     that recorded its summarizer must match this launch's, so changing
     SUMMARY_CONFIG without changing the destination is refused instead of
     silently filling the remaining keys with a different summarizer.

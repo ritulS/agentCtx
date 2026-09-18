@@ -14,7 +14,9 @@ ICLR_results/
 │   │   ├── qwen35b/
 │   │   ├── devstral24b/
 │   │   └── glm47flash/
-│   └── summarizer_ablation/
+│   ├── summarizer_ablation/
+│   └── prefix_cache_ablation/      # vLLM --enable-prefix-caching reruns
+│       └── qwen35b-prefixcache/    # ABL-25, 15K, canonical depth, all primitives
 │
 └── terminalbench/
     ├── main/
