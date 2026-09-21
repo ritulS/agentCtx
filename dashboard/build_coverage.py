@@ -229,7 +229,12 @@ def main():
             budget = r.get("budget")
             depth = r.get("compression_ratio", 0.5) or 0.5
             model = model_for_record(r, source_name)
-            if model == MAIN_MODEL and agent_key in ICLR_MODEL_LABELS:
+            # Terminal-Bench records carry the result model tag (qwen35b, ...);
+            # map it to the display label before the cell key is built.
+            model = ICLR_MODEL_LABELS.get(model, model)
+            # Summarizer/prefix-cache runs record the directory tag itself
+            # (e.g. qwen35b-sum-qwen35-9b); attribute them to the agent model.
+            if model in (MAIN_MODEL, model_key) and agent_key in ICLR_MODEL_LABELS:
                 model = ICLR_MODEL_LABELS[agent_key]
             cell_key = (benchmark, model, summarizer, prefix_cache, prim, budget,
                         round(float(depth), 1))
