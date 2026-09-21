@@ -10,6 +10,8 @@ Sources of truth:
            (per-record condition, budget, compression_ratio, instance_id)
            <model> may be <agent>-sum-<summarizer> (track model_ablation): those
            runs become separate cells with a non-empty ``summarizer`` column.
+           Runs below the prefix_cache_ablation track become separate cells
+           with a non-empty ``prefix_cache`` column (ON / OFF).
 Scope rule (main model) comes from CLAUDE.md / project_runs_checklist.md.
 
 Usage:  python dashboard/build_coverage.py
@@ -19,16 +21,13 @@ Usage:  python dashboard/build_coverage.py
 import argparse
 import csv
 import json
-import re
 from collections import Counter, defaultdict
-from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ICLR_RESULTS = ROOT / "ICLR_results"
 DEFAULT_OUT = ROOT / "COVERAGE.csv"
 DEFAULT_TB_OUT = ROOT / "COVERAGE_TB.csv"
-TB_HARBOR_JOBS = ROOT / "logs" / "harbor_jobs" / "terminalbench"
 
 MAIN_MODEL = "Qwen3.5-35B-A3B"
 INF = 999_999_999
@@ -78,7 +77,7 @@ ICLR_MODEL_LABELS = {
 
 # Summarizer ablation (FOLLOWUP_EXPERIMENTS.md §4): result model directories
 # are named <agent>-sum-<summarizer>, e.g.
-# ICLR_results/terminalbench/model_ablation/qwen35b-sum-qwen35-9b/<cell>.
+# ICLR_results/swebench/model_ablation/qwen35b-sum-qwen35-9b/<cell>.
 # Such runs form their own cells, keyed additionally by the summarizer label;
 # ordinary cells (the agent summarizes for itself) carry an empty summarizer.
 SUMMARIZER_SEPARATOR = "-sum-"
@@ -89,6 +88,23 @@ SUMMARIZER_LABELS = {
 # Throwaway smoke-test directories (…-smoke) are never counted.
 SMOKE_SUFFIX = "-smoke"
 
+# Prefix-cache ablation (dashboard Priority 5): every run below
+# ICLR_results/<benchmark>/prefix_cache_ablation/ was served with the vLLM
+# prefix-caching setting flipped relative to that benchmark's production runs.
+# Production SWE-Bench Qwen runs had it off (the vLLM default for the hybrid
+# Qwen3.5 model, see ICLR.md) and production Terminal-Bench runs had it on, so
+# the ablation is ON for SWE-Bench (scripts/run_qwen_swe_prefix_cache_ablation.sh)
+# and OFF for Terminal-Bench.  Such runs form their own cells, keyed
+# additionally by this label; every other cell carries an empty prefix_cache.
+PREFIX_CACHE_TRACK = "prefix_cache_ablation"
+PREFIX_CACHE_ABLATION = {"swebench": "ON", "terminal-bench": "OFF"}
+# Model directories of that track name the serving condition
+# (qwen35b-prefixcache / qwen35b-noprefixcache); the agent is the part before it.
+PREFIX_CACHE_DIR_SUFFIXES = ("-noprefixcache", "-prefixcache")
+# Finite budget of the tracked cells (dashboard 5.a / 5.b): the main model's
+# primary budget on each benchmark.
+PREFIX_CACHE_BUDGETS = {"swebench": 15_000, "terminal-bench": 3_000}
+
 
 def split_model_key(model_key: str) -> tuple[str, str]:
     """Return (agent_key, summarizer_label) for a result model directory name."""
@@ -96,6 +112,19 @@ def split_model_key(model_key: str) -> tuple[str, str]:
     if not separator:
         return model_key, ""
     return agent_key, SUMMARIZER_LABELS.get(summarizer_key, summarizer_key)
+
+
+def prefix_cache_for(benchmark: str, track: str) -> str:
+    """Return the prefix_cache label ("" outside the prefix-cache ablation track)."""
+    return PREFIX_CACHE_ABLATION[benchmark] if track == PREFIX_CACHE_TRACK else ""
+
+
+def strip_prefix_cache_suffix(model_key: str) -> str:
+    """qwen35b-prefixcache -> qwen35b, so the agent maps to its usual label."""
+    for suffix in PREFIX_CACHE_DIR_SUFFIXES:
+        if model_key.endswith(suffix):
+            return model_key[: -len(suffix)]
+    return model_key
 
 
 def model_for_record(record: dict, source_name: str) -> str:
@@ -108,121 +137,28 @@ def model_for_record(record: dict, source_name: str) -> str:
 
 
 def load_records(path: Path) -> list[dict]:
-    data = json.load(open(path))
+    data = json.loads(path.read_text())
     return data.get("results", []) if isinstance(data, dict) else data
 
 
 def load_task_list(path: Path) -> set:
-    data = json.load(open(path))
+    data = json.loads(path.read_text())
     if isinstance(data, dict):
         data = data.get("tasks", data.get("instances", []))
     return {t["instance_id"] if isinstance(t, dict) else t for t in data}
-
-
-def terminalbench_harbor_fallbacks() -> list[tuple[str, str, dict]]:
-    """Return live Harbor runs that belong to canonical Terminal-Bench cells.
-
-    ``run_info.json`` is written before a cell starts, so it provides the
-    budget/condition metadata missing from Harbor's per-trial result files.
-    Job timestamps bound each launch and prevent an older launch of the same
-    model/condition (for example 27k followed by 3k) from being mixed in.
-    Canonical records still win later through the normal deduplication key.
-    """
-    launches = []
-    for info_path in ICLR_RESULTS.glob("terminalbench/**/run_info.json"):
-        try:
-            info = json.loads(info_path.read_text())
-            conditions = info.get("conditions", [])
-            if len(conditions) != 1:
-                continue
-            started = datetime.strptime(info["started"], "%Y-%m-%d %H:%M:%S").timestamp()
-            budget = int(info["budget_tokens"])
-            runs_per_task = int(info.get("runs_per_task", 1))
-        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-            continue
-
-        cell_name = info_path.parent.name
-        depth_tag = cell_name.split("__", 1)[0]
-        depth = {"d03": 0.3, "d05": 0.5, "d07": 0.7, "di": 0.5}.get(depth_tag)
-        if depth is None:
-            continue
-        model_key = info_path.parent.parent.name
-        if model_key.endswith(SMOKE_SUFFIX):
-            continue
-        agent_key, summarizer = split_model_key(model_key)
-        launches.append({
-            "started": started,
-            "end": None,
-            "model_key": model_key,
-            "model": ICLR_MODEL_LABELS.get(agent_key, agent_key),
-            "summarizer": summarizer,
-            "condition": conditions[0],
-            "budget": budget,
-            "depth": depth,
-            "runs_per_task": runs_per_task,
-            "source": f"logs/harbor_jobs/terminalbench/{model_key}",
-        })
-
-    # A later launch of the same model/condition closes the previous launch's
-    # job window. Harbor job names contain creation epoch milliseconds.
-    groups = defaultdict(list)
-    for launch in launches:
-        groups[(launch["model_key"], launch["condition"])].append(launch)
-    for group in groups.values():
-        group.sort(key=lambda launch: launch["started"])
-        for current, following in zip(group, group[1:]):
-            current["end"] = following["started"]
-
-    records = []
-    for launch in launches:
-        jobs_dir = TB_HARBOR_JOBS / launch["model_key"]
-        for run_num in range(1, launch["runs_per_task"] + 1):
-            pattern = f"{launch['model_key']}-{launch['condition']}-r{run_num}-*"
-            for job_dir in jobs_dir.glob(pattern):
-                match = re.search(r"-(\d{13})$", job_dir.name)
-                if not match:
-                    continue
-                job_started = int(match.group(1)) / 1000
-                if job_started < launch["started"]:
-                    continue
-                if launch["end"] is not None and job_started >= launch["end"]:
-                    continue
-                for result_path in job_dir.glob("*/result.json"):
-                    try:
-                        result = json.loads(result_path.read_text())
-                    except (OSError, json.JSONDecodeError):
-                        # A watcher may race a result file being replaced.
-                        continue
-                    instance_id = result.get("task_name")
-                    if not instance_id:
-                        continue
-                    records.append((
-                        "terminal-bench",
-                        launch["source"],
-                        {
-                            "condition": launch["condition"],
-                            "budget": launch["budget"],
-                            "compression_ratio": launch["depth"],
-                            "model": launch["model"],
-                            "summarizer": launch["summarizer"],
-                            "instance_id": instance_id,
-                            "run_num": run_num,
-                        },
-                    ))
-    return records
 
 
 def budget_label(b) -> str:
     return "inf" if b == INF else f"{b // 1000}k"
 
 
-def classify_cohort(tasks: set, abl30: set, p100: set) -> str:
+def classify_cohort(tasks: set, abl25: set, p100: set) -> str:
     if tasks >= p100:
         return "P100"
-    if tasks >= abl30:
-        extra = len(tasks - abl30)
-        return "ABL-30" if extra == 0 else f"ABL-30 (+{extra})"
-    return f"partial ({len(tasks & abl30)}/30 ABL-30, {len(tasks)} total)"
+    if tasks >= abl25:
+        extra = len(tasks - abl25)
+        return "ABL-25" if extra == 0 else f"ABL-25 (+{extra})"
+    return f"partial ({len(tasks & abl25)}/25 ABL-25, {len(tasks)} total)"
 
 
 def parse_args():
@@ -246,20 +182,22 @@ def main():
     args = parse_args()
     out = args.output if args.output.is_absolute() else ROOT / args.output
     tb_out = args.tb_output if args.tb_output.is_absolute() else ROOT / args.tb_output
-    abl30 = load_task_list(ROOT / "task_lists/ablation_30tasks.json")
+    abl25 = load_task_list(ROOT / "task_lists/ablation_25tasks.json")
     p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
-    tb15 = load_task_list(ROOT / "task_lists/tbench_abl15.json")
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
-    tb40 = load_task_list(ROOT / "task_lists/tbench_p40.json")
 
     # ---- 1. scan disk -------------------------------------------------------
-    # cell key: (benchmark, model, primitive, budget, depth) -> coverage data.
+    # cell key: (benchmark, model, summarizer, prefix_cache, primitive, budget,
+    # depth) -> coverage data.  summarizer is "" unless the model dir is
+    # <agent>-sum-<summarizer> (summarizer ablation); prefix_cache is "" unless
+    # the run lives below the prefix_cache_ablation track.
     # Some dirs are copies of other dirs' runs (see seed_depth_dirs.py) — dedupe
     # by (cell, instance_id, run_num) so copies don't inflate run counts.
     #
-    # ICLR_results/ holds the canonical, deduped copies built by the archive
-    # scripts. Live Terminal-Bench Harbor results are considered afterward as
-    # a fallback only for (cell, task, run_num) records not present here.
+    # ICLR_results/ holds the canonical, deduped, run-complete copies built by
+    # the archive scripts (see ICLR_CELL_MANIFEST.json in each cell). It is the
+    # only result tree scanned here; raw data directories are intentionally
+    # excluded from coverage.
     disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set(), "task_runs": Counter()})
     seen_runs = set()
     iclr_sources = [
@@ -272,64 +210,47 @@ def main():
         # such a namespace does not silently remove live runs from coverage.
         for meta in ICLR_RESULTS.glob("terminalbench/**/experiment_results.json")
     ]
-    sources = [
-        (benchmark, source_name, r, meta)
-        for benchmark, source_name, meta in sorted(iclr_sources)
-        for r in load_records(meta)
-    ]
-    sources += [
-        (benchmark, source_name, record, None)
-        for benchmark, source_name, record in terminalbench_harbor_fallbacks()
-    ]
-    for benchmark, source_name, r, meta in sources:
-        cond = r.get("condition")
-        prim = CONDITION_TO_PRIMITIVE.get(cond)
-        if prim is None:
-            continue
-        budget = r.get("budget")
-        depth = r.get("compression_ratio", 0.5) or 0.5
-        model_key = (
-            meta.parents[1].name
-            if meta is not None and ICLR_RESULTS in meta.parents
-            else ""
-        )
+    for benchmark, source_name, meta in sorted(iclr_sources):
+        model_key = meta.parents[1].name if ICLR_RESULTS in meta.parents else ""
         if model_key.endswith(SMOKE_SUFFIX):
             continue
-        if model_key:
-            agent_key, summarizer = split_model_key(model_key)
-        else:  # Harbor fallback records carry the summarizer explicitly.
-            agent_key, summarizer = "", r.get("summarizer", "")
-        model = model_for_record(r, source_name)
-        model = ICLR_MODEL_LABELS.get(model, model)
-        if model == MAIN_MODEL and agent_key in ICLR_MODEL_LABELS:
-            model = ICLR_MODEL_LABELS[agent_key]
-        cell_key = (benchmark, model, summarizer, prim, budget, round(float(depth), 1))
-        iid = r.get("instance_id")
-        dedup_key = cell_key + (iid, r.get("run_num"))
-        if dedup_key in seen_runs:
-            continue
-        seen_runs.add(dedup_key)
-        cell = disk[cell_key]
-        cell["tasks"].add(iid)
-        cell["runs"] += 1
-        cell["dirs"].add(source_name)
-        cell["task_runs"][iid] += 1
+        agent_key, summarizer = split_model_key(model_key)
+        # <benchmark dir>/<track>/...: the track is the first component.
+        track = meta.relative_to(ICLR_RESULTS).parts[1]
+        prefix_cache = prefix_cache_for(benchmark, track)
+        if prefix_cache:
+            agent_key = strip_prefix_cache_suffix(agent_key)
+        records = load_records(meta)
+        for r in records:
+            cond = r.get("condition")
+            prim = CONDITION_TO_PRIMITIVE.get(cond)
+            if prim is None:
+                continue
+            budget = r.get("budget")
+            depth = r.get("compression_ratio", 0.5) or 0.5
+            model = model_for_record(r, source_name)
+            if model == MAIN_MODEL and agent_key in ICLR_MODEL_LABELS:
+                model = ICLR_MODEL_LABELS[agent_key]
+            cell_key = (benchmark, model, summarizer, prefix_cache, prim, budget,
+                        round(float(depth), 1))
+            cell = disk[cell_key]
+            iid = r.get("instance_id")
+            dedup_key = cell_key + (iid, r.get("run_num"))
+            if dedup_key in seen_runs:
+                cell["dirs"].add(source_name)  # still note provenance, don't double count
+                continue
+            seen_runs.add(dedup_key)
+            cell["tasks"].add(iid)
+            cell["runs"] += 1
+            cell["dirs"].add(source_name)
+            cell["task_runs"][iid] += 1
 
     # ---- 2. enumerate the in-scope cells (main model) ------------------------
     expected = {}  # cell key -> required cohort
-    for prim in DEPTH_TUNABLE:
-        for b in BUDGETS:
-            for d in DEPTH_GRID:
-                expected[("swebench", MAIN_MODEL, prim, b, d)] = "P100" if b == 15_000 else "ABL-30"
-    for prim in DEPTH_INVARIANT:
-        for b in BUDGETS:
-            expected[("swebench", MAIN_MODEL, prim, b, 0.5)] = "P100"
-    for prim in ("FC", "OTRC"):
-        expected[("swebench", MAIN_MODEL, prim, INF, 0.5)] = "P100"
-    # Legacy model-expansion baselines that only used the ABL-30 cohort.
+    # Evaluate legacy model-expansion baselines on the current ablation subset.
     for model in ("Qwen2.5-Coder-32B", "Llama-3.3-70B"):
         for prim in ("FC", "OTRC"):
-            expected[("swebench", model, prim, INF, 0.5)] = "ABL-30"
+            expected[("swebench", model, prim, INF, 0.5)] = "ABL-25"
 
     # FOLLOWUP_EXPERIMENTS 2.a/2.b use P100. Calibration FC trajectories in
     # these canonical cells count as run_1 of the corresponding experiment.
@@ -337,63 +258,83 @@ def main():
         for prim in ("FC", "OTRC"):
             expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
-    # Concrete Devstral cells in FOLLOWUP_EXPERIMENTS.md.  This makes the
-    # follow-up plan part of the same inventory as completed data, instead of
-    # showing only whichever archived cells happen to exist today.
-    devstral = "Devstral-Small-2-24B"
-    for prim in DEPTH_TUNABLE:
-        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
-        for b in BUDGETS:
-            for d in DEPTH_GRID:
-                expected.setdefault(("swebench", devstral, prim, b, d), "ABL-30")
-    for prim in DEPTH_INVARIANT:
-        expected[("swebench", devstral, prim, 15_000, 0.5)] = "P100"
-        for b in (10_000, 20_000):
-            expected[("swebench", devstral, prim, b, 0.5)] = "ABL-30"
-    for prim in ("FC", "OTRC"):
-        expected[("swebench", devstral, prim, INF, 0.5)] = "P100"
+    # All three SWE models share the same main/ablation grid. Qwen retains
+    # its existing 10K/15K/20K budgets; the other models use calibrated values.
+    # Only the primary budget at canonical depth and infinite baselines use
+    # P100. Every budget/depth ablation uses ABL-25, regardless of source path.
+    expansion_budgets = {
+        MAIN_MODEL: (10_000, 15_000, 20_000),
+        "Devstral-Small-2-24B": (17_000, 21_000, 24_000),
+        "GLM-4.7-Flash": (10_000, 13_000, 15_000),
+    }
+    for model, (a_budget, p_budget, b_budget) in expansion_budgets.items():
+        for prim in DEPTH_TUNABLE:
+            expected[("swebench", model, prim, p_budget, 0.5)] = "P100"
+            for budget in (a_budget, p_budget, b_budget):
+                for depth in (0.3, 0.7):
+                    expected[("swebench", model, prim, budget, depth)] = "ABL-25"
+            for budget in (a_budget, b_budget):
+                expected[("swebench", model, prim, budget, 0.5)] = "ABL-25"
+        for prim in DEPTH_INVARIANT:
+            expected[("swebench", model, prim, p_budget, 0.5)] = "P100"
+            for budget in (a_budget, b_budget):
+                expected[("swebench", model, prim, budget, 0.5)] = "ABL-25"
+        for prim in ("FC", "OTRC"):
+            expected[("swebench", model, prim, INF, 0.5)] = "P100"
 
-    # FOLLOWUP_EXPERIMENTS 3.a/3.b: main cells use the frozen P-40 cohort and
-    # primary budget; ablation cells use the frozen P-15 cohort and A/P/B
-    # budgets calibrated separately for each model.
-    tb_budgets = {
+    # Concrete Terminal-Bench follow-up cells. A/P/B are model-specific. The
+    # primary (P) depth/budget cells and unlimited baselines use 40 tasks;
+    # the remaining grid uses the 15-task cohort.
+    tb_expansion_budgets = {
         MAIN_MODEL: (2_000, 3_000, 4_000),
         "Devstral-Small-2-24B": (3_000, 4_000, 7_000),
         "GLM-4.7-Flash": (2_000, 3_000, 5_000),
     }
-    for model, (a_budget, primary_budget, b_budget) in tb_budgets.items():
+    for model, (a_budget, p_budget, b_budget) in tb_expansion_budgets.items():
         for prim in DEPTH_TUNABLE:
-            expected[("terminal-bench", model, prim, primary_budget, 0.5)] = "TB-40"
+            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-40"
         for prim in DEPTH_INVARIANT:
-            expected[("terminal-bench", model, prim, primary_budget, 0.5)] = "TB-40"
+            expected[("terminal-bench", model, prim, p_budget, 0.5)] = "TB-40"
         for prim in ("FC", "OTRC"):
             expected[("terminal-bench", model, prim, INF, 0.5)] = "TB-40"
         for prim in DEPTH_TUNABLE:
             for b in (a_budget, b_budget):
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
-            for b in (a_budget, primary_budget, b_budget):
+            for b in (a_budget, p_budget, b_budget):
                 for d in (0.3, 0.7):
                     expected[("terminal-bench", model, prim, b, d)] = "TB-15"
         for prim in DEPTH_INVARIANT:
             for b in (a_budget, b_budget):
                 expected[("terminal-bench", model, prim, b, 0.5)] = "TB-15"
 
-    # Every cell above is self-summarized: insert the empty summarizer slot so
-    # the keys line up with the (benchmark, model, summarizer, primitive,
-    # budget, depth) cell keys used on disk.
+    # Every cell above is self-summarized and served as in production: insert
+    # the empty summarizer and prefix_cache slots so the keys line up with the
+    # (benchmark, model, summarizer, prefix_cache, primitive, budget, depth)
+    # cell keys used on disk.
     expected = {
-        (benchmark, model, "", prim, budget, depth): cohort
+        (benchmark, model, "", "", prim, budget, depth): cohort
         for (benchmark, model, prim, budget, depth), cohort in expected.items()
     }
 
     # FOLLOWUP_EXPERIMENTS 4: summarizer ablation.  SU-full (0.5) and TRC+SU
     # (DI) with a different summarizer and the main model as agent.  SWE cells
-    # follow the plan (ABL-30 at 15k); Terminal-Bench cells follow
-    # scripts/run_qwen_tb_summarizer_ablation.sh (P-40 at the primary budget).
+    # follow scripts/run_qwen_swe_summarizer_ablation.sh (ABL-25 at 15k);
+    # Terminal-Bench cells use ABL-15 at the primary budget.
     for summarizer in SUMMARIZER_LABELS.values():
         for prim in ("SU-full", "TRC+SU"):
-            expected[("swebench", MAIN_MODEL, summarizer, prim, 15_000, 0.5)] = "ABL-30"
-            expected[("terminal-bench", MAIN_MODEL, summarizer, prim, 3_000, 0.5)] = "TB-40"
+            expected[("swebench", MAIN_MODEL, summarizer, "", prim, 15_000, 0.5)] = "ABL-25"
+            expected[("terminal-bench", MAIN_MODEL, summarizer, "", prim, 3_000, 0.5)] = "TB-15"
+
+    # Dashboard Priority 5: prefix-cache ablation with the main model as agent
+    # and summarizer.  Every primitive at canonical depth plus the unlimited
+    # baselines, on ABL-25 (SWE-Bench, 5.a) and ABL-15 (Terminal-Bench, 5.b).
+    for benchmark, cohort in (("swebench", "ABL-25"), ("terminal-bench", "TB-15")):
+        label = PREFIX_CACHE_ABLATION[benchmark]
+        for prim in DEPTH_TUNABLE + DEPTH_INVARIANT:
+            expected[(benchmark, MAIN_MODEL, "", label, prim,
+                      PREFIX_CACHE_BUDGETS[benchmark], 0.5)] = cohort
+        for prim in ("FC", "OTRC"):
+            expected[(benchmark, MAIN_MODEL, "", label, prim, INF, 0.5)] = cohort
 
     # ---- 3. merge into sheet rows --------------------------------------------
     # The coverage CSVs inventory data that actually exists.  ``expected``
@@ -401,10 +342,10 @@ def main():
     # follow-ups must not create rows of their own.
     all_keys = sorted(disk,
                       key=lambda k: (k[0], k[1] != MAIN_MODEL, k[1], k[2] != "", k[2],
-                                     k[3], k[4], k[5]))
+                                     k[3] != "", k[3], k[4], k[5], k[6]))
     rows = []
     for key in all_keys:
-        benchmark, model, summarizer, prim, budget, depth = key
+        benchmark, model, summarizer, prefix_cache, prim, budget, depth = key
         d = disk.get(key)
         req = expected.get(key)
         required_runs = (TB_REQUIRED_RUNS_PER_TASK
@@ -412,21 +353,20 @@ def main():
                          else REQUIRED_RUNS_PER_TASK)
         covered = d["tasks"] if d else set()
         cohort = (f"TB-{len(covered)}" if benchmark == "terminal-bench" else
-                  classify_cohort(covered, abl30, p100)) if covered else ""
+                  classify_cohort(covered, abl25, p100)) if covered else ""
 
         runs_per_task_min = 0
         # Cohort-specific capped run counts let downstream consumers answer
-        # questions such as "how many third runs are complete for ABL-30?"
+        # questions such as "how many third runs are complete for ABL-25?"
         # exactly.  A proportional slice of a mixed P100 cell is incorrect
-        # when only the ABL-30 tasks have received run_3.
+        # when only the ABL-25 tasks have received run_3.
         d_runs = d["task_runs"] if d else {}
         def capped_runs(tasks, cap):
             return sum(min(cap, d_runs.get(t, 0)) for t in tasks)
 
         cohort_counts = {}
         for cohort_name, cohort_tasks in (
-            ("abl30", abl30), ("p100", p100), ("tb15", tb15),
-            ("tb20", tb20), ("tb40", tb40)
+            ("abl25", abl25), ("p100", p100), ("tb20", tb20)
         ):
             cohort_counts[f"tasks_covered_{cohort_name}"] = sum(
                 d_runs.get(t, 0) > 0 for t in cohort_tasks
@@ -435,7 +375,9 @@ def main():
                 cohort_counts[f"runs_capped_{cap}_{cohort_name}"] = capped_runs(
                     cohort_tasks, cap
                 )
-        # Retain an all-observed count for legacy P-80/rootless views.
+        # TB:ABL-15/P-40 progress can include provisional/rootless subsets.
+        # Counting every observed task directly avoids proportionally scaling
+        # a partial subset up to the planned cohort size in the dashboard.
         all_observed_tasks = set(d_runs)
         cohort_counts["tasks_covered_all"] = len(all_observed_tasks)
         for cap in range(1, 6):
@@ -452,17 +394,15 @@ def main():
                 status = "MISSING"
             else:
                 have_cohort = (
-                    covered >= tb15 if req == "TB-15" else
-                    covered >= tb40 if req == "TB-40" else
+                    len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
                     cohort.startswith(req) or
-                    (req == "ABL-30" and cohort.startswith("P100"))
+                    (req == "ABL-25" and cohort.startswith("P100"))
                 )
                 if not have_cohort:
                     status = "PARTIAL"
                 else:
-                    required_tasks = (tb15 if req == "TB-15" else
-                                      tb40 if req == "TB-40" else
-                                      p100 if req == "P100" else abl30)
+                    required_tasks = (covered if req and req.startswith("TB-") else
+                                      p100 if req == "P100" else abl25)
                     runs_per_task_min = min(
                         (d_runs.get(t, 0) for t in required_tasks),
                         default=0)
@@ -470,10 +410,9 @@ def main():
 
         notes = []
         has_required_cohort = (
-            covered >= tb15 if req == "TB-15" else
-            covered >= tb40 if req == "TB-40" else
+            len(covered) >= int(req.removeprefix("TB-")) if req and req.startswith("TB-") else
             bool(req) and (cohort.startswith(req) or
-                           (req == "ABL-30" and cohort.startswith("P100")))
+                           (req == "ABL-25" and cohort.startswith("P100")))
         )
         if status == "PARTIAL" and covered and has_required_cohort:
             notes.append(f"only {runs_per_task_min}/{required_runs} runs/task")
@@ -484,6 +423,9 @@ def main():
             # Empty for ordinary (self-summarized) cells; the summarizer model
             # label for summarizer-ablation cells (model_ablation/<agent>-sum-<summarizer>).
             "summarizer": summarizer,
+            # Empty for ordinary cells; ON / OFF for prefix-cache-ablation cells
+            # (<benchmark>/prefix_cache_ablation/<model>/<cell>).
+            "prefix_cache": prefix_cache,
             "primitive": prim,
             "budget": budget_label(budget),
             "depth": depth,
@@ -538,6 +480,8 @@ def main():
         print("\nAttention:")
         for r in problems:
             summarizer = f" (summarizer {r['summarizer']})" if r["summarizer"] else ""
+            if r["prefix_cache"]:
+                summarizer += f" (prefix cache {r['prefix_cache']})"
             print(f"  [{r['status']:8s}] {r['benchmark']} / {r['model']}{summarizer} / "
                   f"{r['primitive']} / {r['budget']} / d={r['depth']}  "
                   f"{r['cohort_covered']}  {r['notes']}")
