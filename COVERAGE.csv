@@ -175,7 +175,7 @@ swebench,GLM-4.7-Flash,,,TR,10k,0.3,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,IC
 swebench,GLM-4.7-Flash,,,TR,10k,0.7,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d07__bA__tr,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
 swebench,GLM-4.7-Flash,,,TR,13k,0.3,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d03__bP__tr,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
 swebench,GLM-4.7-Flash,,,TR,13k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,0,ICLR_results/swebench/main/glm47flash/d05__bP__tr,,25,25,50,75,75,75,100,100,200,300,300,300,0,0,0,0,0,0,100,100,200,300,300,300
-swebench,GLM-4.7-Flash,,,TR,13k,0.7,in-scope,ABL-25,PARTIAL,9,20,0,"partial (9/25 ABL-25, 9 total)",0,ICLR_results/swebench/ablation/glm47flash/d07__bP__tr,,9,9,17,20,20,20,9,9,17,20,20,20,0,0,0,0,0,0,9,9,17,20,20,20
+swebench,GLM-4.7-Flash,,,TR,13k,0.7,in-scope,ABL-25,PARTIAL,25,69,1,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d07__bP__tr,only 1/3 runs/task,25,25,48,69,69,69,25,25,48,69,69,69,0,0,0,0,0,0,25,25,48,69,69,69
 swebench,GLM-4.7-Flash,,,TR,15k,0.3,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d03__bB__tr,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
 swebench,GLM-4.7-Flash,,,TRC,13k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,0,ICLR_results/swebench/main/glm47flash/di__bP__trc,,25,25,50,75,75,75,100,100,200,300,300,300,0,0,0,0,0,0,100,100,200,300,300,300
 swebench,GLM-4.7-Flash,,,TRC+SS,13k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,0,ICLR_results/swebench/main/glm47flash/di__bP__trc-ss,,25,25,50,75,75,75,100,100,200,300,300,300,0,0,0,0,0,0,100,100,200,300,300,300
