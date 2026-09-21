@@ -14,6 +14,39 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — prefix-cache ablation, SWE-Bench (dashboard 5.a) — Dobby
+- **Status:** 15K grid ✅ COMPLETE 2026-09-19 02:23 CDT (launched 09-18 14:37, launcher
+  PID 1243729): 11 cells × ABL-25 × 3 runs = 825 runs at 15K / depth 0.5 (5 depth-tunable
+  + 6 depth-invariant), eval per cell. Agent = summarizer. Server prefix-cache hit rate
+  over the whole grid: **82.6%** (437.5M hit / 529.9M queried tokens).
+  ⏳ **Baselines pending launch:** FC / OTRC @∞ (`di__binf__{fc,otrc}`, 150 runs) — see
+  "Baselines" below; update this entry with the launch time/PID when started.
+- **Why:** production Qwen SWE-Bench runs were served with vLLM prefix caching **off**
+  (vLLM default for the hybrid Qwen3.5 model; every startup in
+  `logs/vllm_qwen35_a3b.log` 08-23..09-14 logged `enable_prefix_caching=False`, hit
+  rate 0.0%). This grid repeats the 15K cells with caching **on**, all else unchanged.
+- **Server:** `bash scripts/start_vllm_qwen35_prefix_cache.sh` — the production serving
+  command + `--enable-prefix-caching` only (PID 1217568, :8000, TP=4, started 14:28).
+  **Do not restart it mid-run**: the launcher logs per-cell prefix-cache hit rates from
+  the server's `/metrics` counters. Smoke test (1 task, su-full): 76.5% hit rate.
+- **Launch:** `nohup bash scripts/run_qwen_swe_prefix_cache_ablation_notified.sh >
+  logs/followup_sb_qwen_prefixcache.nohup.log 2>&1 &` (refuses to start unless the
+  server on the agent port was started with `--enable-prefix-caching`; safe to re-run,
+  completed keys are skipped).
+- **Results:** `ICLR_results/swebench/prefix_cache_ablation/qwen35b-prefixcache/<cell>`
+  (new `prefix_cache_ablation` section in `scripts/run_experiment_iclr.py`). Coverage:
+  `prefix_cache=ON` rows in `COVERAGE.csv`, dashboard Priority 5.
+- **Log:** `logs/followup_sb_qwen_qwen35b-prefixcache.log`
+- **Baselines:** the launcher's default `CELLS` now also holds `di__binf__fc` and
+  `di__binf__otrc` (budget derived from the cell name: b15k → 15000, binf → 999999999).
+  Launch only those two, so the 11 finished cells are not re-evaluated:
+  `nohup env CELLS="di__binf__fc:full-context:0.5 di__binf__otrc:online-trc:0.5" bash
+  scripts/run_qwen_swe_prefix_cache_ablation_notified.sh >
+  logs/followup_sb_qwen_prefixcache_baselines.nohup.log 2>&1 &`
+  Same limits as the caching-off `main/qwen35b/di__binf__*` cells (125 steps, 1500 s); compare
+  against their original attempts, not the 200/300-step FC limit-failure re-runs.
+- **5.b** (Terminal-Bench, caching OFF, 3K) runs on Albus.
+
 ### Qwen3.5-35B-A3B — FC limit-failure re-runs, overnight chain (phase 2 → again-19) — Dobby
 - **Status:** ✅ COMPLETE 2026-09-14 04:44 CDT (launched 00:17:43 CDT, PID 694474;
   stage A 00:17–02:14, stage B 02:14–04:44, both incl. eval). Both stages ran at

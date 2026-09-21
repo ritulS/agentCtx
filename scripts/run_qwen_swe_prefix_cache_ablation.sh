@@ -5,15 +5,17 @@
 # The production Qwen runs (ICLR_results/swebench/{main,ablation}/qwen35b) were
 # served with prefix caching off (vLLM default for this hybrid model; see
 # ICLR.md "Qwen prefix caching was off"). This launcher repeats the 15K /
-# canonical-depth grid with caching on, everything else unchanged:
+# canonical-depth grid and the unlimited-budget baselines with caching on,
+# everything else unchanged:
 #   Agent      : Qwen3.5-35B-A3B, configs/config-qwen-vllm.yaml, :8000
 #                server: bash scripts/start_vllm_qwen35_prefix_cache.sh
 #                (the production serving command + --enable-prefix-caching)
 #   Summarizer : the agent model itself (no --summary-config, no second server)
 #   Cells      : d05__b15k__{tr,su-full,su-partial,ss,ss-partial}           (depth 0.5)
 #                di__b15k__{trc,trc-su,trc-ss,otrc-tr,otrc-su-partial,otrc-ss-partial}
-#   Tasks      : ABL-25 x 3 runs  ->  11 cells x 25 x 3 = 825 runs
-#                (paired with the caching-off cells main/qwen35b/*__b15k__*).
+#                di__binf__{fc,otrc}                          (baselines, unlimited budget)
+#   Tasks      : ABL-25 x 3 runs  ->  13 cells x 25 x 3 = 975 runs (dashboard 5.a)
+#                (paired with the caching-off cells main/qwen35b/{*__b15k__*,di__binf__*}).
 # Results go to ICLR_results/swebench/prefix_cache_ablation/qwen35b-prefixcache/<cell>.
 # The section keeps these runs out of main/ and ablation/, so the caching-off
 # cells are neither skipped-as-complete nor mixed with them; the model dir also
@@ -25,6 +27,9 @@
 # hit rate (vLLM /metrics counters) over each cell.
 #
 # Usage: nohup bash scripts/run_qwen_swe_prefix_cache_ablation.sh > logs/followup_sb_qwen_prefixcache.nohup.log 2>&1 &
+# Baselines only (the 15K cells are complete; this also avoids re-running their eval pass):
+#   nohup env CELLS="di__binf__fc:full-context:0.5 di__binf__otrc:online-trc:0.5" \
+#     bash scripts/run_qwen_swe_prefix_cache_ablation.sh > logs/followup_sb_qwen_prefixcache.nohup.log 2>&1 &
 # Smoke test (1 task x 1 cell x 1 run into a throwaway model dir; delete it afterwards —
 # "-smoke" model dirs are ignored by build_coverage.py and aggregate_benchmark_results.py):
 #   N_TASKS=1 RUNS_PER_TASK=1 MAX_WORKERS=1 CELLS=d05__b15k__su-full:summarization:0.5 \
@@ -48,12 +53,13 @@ AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 TASKS_FILE="${TASKS_FILE:-$WS/task_lists/ablation_25tasks.json}"
 ICLR_SECTION="prefix_cache_ablation"                # ICLR_results/swebench/prefix_cache_ablation/
 ICLR_MODEL="${ICLR_MODEL:-qwen35b-prefixcache}"     # lowercase/digits/hyphens
-BUDGET=15000
+INF_BUDGET=999999999
 RUNS_PER_TASK="${RUNS_PER_TASK:-3}"
 MAX_WORKERS="${MAX_WORKERS:-16}"
 RUN_EVAL="${RUN_EVAL:-1}"
 N_TASKS="${N_TASKS:-}"          # empty = every task in TASKS_FILE
-# "cell:condition:depth" triples; override CELLS to run a subset.
+# "cell:condition:depth" triples; override CELLS to run a subset. The budget
+# comes from the cell name: b15k -> 15000, binf -> unlimited.
 CELLS="${CELLS:-d05__b15k__tr:truncation:0.5 \
 d05__b15k__su-full:summarization:0.5 \
 d05__b15k__su-partial:summarization-partial:0.5 \
@@ -64,7 +70,9 @@ di__b15k__trc-su:trc-su:0.5 \
 di__b15k__trc-ss:trc-ss:0.5 \
 di__b15k__otrc-tr:otrc-tr:0.5 \
 di__b15k__otrc-su-partial:otrc-su-partial:0.5 \
-di__b15k__otrc-ss-partial:otrc-ss-partial:0.5}"
+di__b15k__otrc-ss-partial:otrc-ss-partial:0.5 \
+di__binf__fc:full-context:0.5 \
+di__binf__otrc:online-trc:0.5}"
 LOG_FILE="${SB_PREFIXCACHE_LOG_FILE:-$WS/logs/followup_sb_qwen_${ICLR_MODEL}.log}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
@@ -132,32 +140,43 @@ log_prefix_cache_delta() {
 }
 
 log "=== Prefix-cache ablation (SWE-Bench) | dest: $ICLR_SECTION/$ICLR_MODEL | agent: $AGENT_CONFIG | summarizer: agent model ==="
-log "=== budget=$BUDGET runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL ==="
+log "=== budgets=15000/inf runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL ==="
 log "=== vLLM server PID $server_pid on port $port: $server_cmdline==="
 
+# run_runner <cell> <condition> <depth> <budget> [extra runner args]
 run_runner() {
     "$PY" "$RUNNER" \
         --iclr-section "$ICLR_SECTION" --iclr-model "$ICLR_MODEL" --iclr-cell "$1" \
         --ablation "iclr-${ICLR_MODEL}-${ICLR_SECTION}-$1" \
         --model-tag "$MODEL_TAG" \
         --agent-config "$AGENT_CONFIG" --otrc-config "$OTRC_CONFIG" \
-        --budget "$BUDGET" --depth "$3" --tasks-file "$TASKS_FILE" \
+        --budget "$4" --depth "$3" --tasks-file "$TASKS_FILE" \
         --conditions "$2" --runs-per-task "$RUNS_PER_TASK" \
-        --max-workers "$MAX_WORKERS" "${EXTRA_ARGS[@]}" "${@:4}" 2>&1 | tee -a "$LOG_FILE"
+        --max-workers "$MAX_WORKERS" "${EXTRA_ARGS[@]}" "${@:5}" 2>&1 | tee -a "$LOG_FILE"
 }
+
+# Validate every cell before the first run, so a typo in CELLS cannot stop the
+# grid hours in.
+for spec in $CELLS; do
+    IFS=: read -r cell condition depth <<<"$spec"
+    case "$cell" in
+        *__b15k__*|*__binf__*) ;;
+        *) echo "[ERROR] cell $cell is neither a 15K-budget nor an unlimited-budget cell" >&2; exit 1 ;;
+    esac
+    [[ -n "$condition" && -n "$depth" ]] || { echo "[ERROR] malformed CELLS entry: $spec" >&2; exit 1; }
+done
 
 read -r total_q0 total_h0 <<<"$(prefix_cache_counters)"
 for spec in $CELLS; do
     IFS=: read -r cell condition depth <<<"$spec"
-    [[ "$cell" == *"__b15k__"* ]] || {
-        echo "[ERROR] cell $cell is not a 15K-budget cell" >&2; exit 1;
-    }
-    log "--- $ICLR_SECTION/$ICLR_MODEL/$cell | condition=$condition budget=$BUDGET depth=$depth ---"
+    budget=15000
+    [[ "$cell" == *"__binf__"* ]] && budget="$INF_BUDGET"
+    log "--- $ICLR_SECTION/$ICLR_MODEL/$cell | condition=$condition budget=$budget depth=$depth ---"
     read -r cell_q0 cell_h0 <<<"$(prefix_cache_counters)"
-    run_runner "$cell" "$condition" "$depth"
+    run_runner "$cell" "$condition" "$depth" "$budget"
     log_prefix_cache_delta "$cell" "$cell_q0" "$cell_h0"
     if [[ "$RUN_EVAL" == 1 ]]; then
-        run_runner "$cell" "$condition" "$depth" --eval-only
+        run_runner "$cell" "$condition" "$depth" "$budget" --eval-only
     fi
 done
 log_prefix_cache_delta "the whole grid" "$total_q0" "$total_h0"
