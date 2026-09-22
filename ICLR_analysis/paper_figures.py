@@ -19,26 +19,31 @@ following existing analysis exports locally, or via the CLI paths:
 * --outcomes: analysis/outcomes/swebench_outcomes.csv, exported by
   analysis/aggregate_benchmark_results.py. --tasks: the pinned P100 JSON,
   a list of objects with instance_id. See load_q2_runs for the CSV schema.
+* --tb-outcomes: analysis/outcomes/terminalbench_outcomes.csv; --tb-tasks:
+  task_lists/tbench_p40.json. Terminal-Bench censoring reads Harbor results
+  beneath --run-root, falling back to CancelledError/empty exit status.
 The Q1 exports come from q1_frontier.py and q1_step_factor.py; neither is
 imported or run here. Q2 is computed directly, with no scratch-file inputs.
---figure q2 needs only the outcomes CSV and task list; Q1 needs only its exports.
+--figure q2 needs both benchmarks' outcomes and pinned task lists, plus Harbor
+records where available; Q1 needs only its exports.
 --audit-dir optionally exports Q2 task order and all displayed numerical values.
 
 Conventions:
 * Q1 preserves the supplied task-bootstrap intervals. Success includes capped
   runs as unresolved; resource ratios use uncapped runs paired by task with FC.
   The billing metric is estimated billed INPUT cost, as in the selected plot.
-* Q2 uses Qwen SWE main-track 15K, depth 0.5; FC/OTRC are budget-free references.
-  Each policy must have exactly runs 1,2,3 on each of the 100 pinned tasks.
+* Q2 uses Qwen main-track SWE 15K and Terminal-Bench 3K, depth 0.5;
+  FC/OTRC are budget-free references.
+  Each policy must have exactly runs 1,2,3 on every pinned task (100 SWE, 40 TB).
   Success requires >=2/3 resolved attempts; >=1500 s or missing verdict means
   unresolved. Both FC blocks show EVERY task, ordered by policy coverage then ID.
+  Terminal-Bench uses TB-40 runs 1--3 and Harbor per-task timeout flags.
 * Steps: successful attempts on tasks both policies solve, averaged within each
   task, then across paired tasks. Ratio of means, marginal 95% paired-task
   bootstrap (10,000 resamples, seed 210926 independently for each policy).
-* Endings: FC-solved tasks lost by the policy. Purple requires >=2 unsuccessful
-  step/time-limit attempts, teal >=2 submitted, explicitly failed evaluations;
-  gray is the remainder. A missing verdict is never called a failed evaluation.
-  These are observed memberships and endings, not causal or significance claims.
+  The two step panels have different axis ranges. Each policy/benchmark uses
+  its own shared-solved tasks; n reports their count. These selected subsets
+  do not identify a causal effect of extra steps on failures.
 
 Reuse the style without producing files or changing global rcParams on import:
     from pathlib import Path
@@ -53,8 +58,8 @@ Style: 5.5 inch ICLR width; DejaVu Sans; embedded TrueType PDF fonts;
 ColorBrewer blue=rule, orange=LLM, green=stacked, gray=step-triggered.
 Shade distinguishes primitives; hollow markers denote partial rewrite;
 OTRC is black/hollow. Model shapes: Qwen circle, Devstral triangle, GLM diamond.
-Q2 ending colors encode ending categories, not policy families. The task map
-uses policy colors plus explicit symbols; consult labels as well as colors.
+The task map uses policy colors plus explicit symbols; consult labels as well
+as colors. Its existing output filename is retained for paper references.
 """
 from pathlib import Path
 import argparse
@@ -316,7 +321,7 @@ def fig_o2_bill(frontiers, step_factors):
     return fig
 
 
-# Q2: reconstruct memberships, successful-run steps, and ending categories.
+# Q2: reconstruct memberships and successful-run steps on shared solved tasks.
 QWEN_CELLS = {
     "d05__b15k__tr": "TR", "di__b15k__trc": "TRC",
     "d05__b15k__su-full": "SU", "d05__b15k__su-partial": "SU-p",
@@ -327,38 +332,53 @@ QWEN_CELLS = {
     "di__binf__otrc": "OTRC", "di__binf__fc": "FC",
 }
 ROWS = ORDER + ["FC"]
-ENDING_COLORS = {"limit_losses": "#756bb1", "failed_eval_losses": "#5ab4ac",
-                 "other_losses": "#d9d9d9"}
 
 
-def load_q2_runs(outcomes_path, tasks_path):
+def load_q2_runs(outcomes_path, tasks_path, benchmark="swebench", run_root=ROOT):
     """Load the fixed main-track cohort, retaining missing verdicts as unresolved."""
     required = ["benchmark", "experiment_section", "model_key", "cell", "task_name",
                 "run_num", "resolved", "exit_status", "step_count", "latency_e2e_s"]
+    is_tb = benchmark == "terminalbench"
+    if is_tb:
+        required += ["source_file", "condition"]
     d = read_csv(outcomes_path, required)
-    pinned = [row["instance_id"] for row in json.loads(tasks_path.read_text())]
-    if len(pinned) != 100 or len(set(pinned)) != 100:
-        raise ValueError("Q2 expects the pinned 100-task SWE cohort, with unique task IDs")
-    d = d[d.benchmark.eq("swebench") & d.experiment_section.eq("main") &
-          d.model_key.eq("qwen35b") & d.cell.isin(QWEN_CELLS) &
+    manifest = json.loads(tasks_path.read_text())
+    pinned = manifest["tasks"] if is_tb else [row["instance_id"] for row in manifest]
+    n_tasks = 40 if is_tb else 100
+    if len(pinned) != n_tasks or len(set(pinned)) != n_tasks:
+        raise ValueError(f"Q2 expects the pinned {n_tasks}-task {benchmark} cohort")
+    cells = {cell.replace("b15k", "b3k") if is_tb else cell: policy
+             for cell, policy in QWEN_CELLS.items()}
+    d = d[d.benchmark.eq(benchmark) & d.experiment_section.eq("main") &
+          d.model_key.eq("qwen35b") & d.cell.isin(cells) &
           d.task_name.isin(pinned) & d.run_num.isin([1, 2, 3])].copy()
     d = d.rename(columns={"task_name": "task", "run_num": "run"})
-    d["policy"] = d.cell.map(QWEN_CELLS)
+    d["policy"] = d.cell.map(cells)
     expected = pd.MultiIndex.from_product([sorted(pinned), ROWS, [1, 2, 3]],
                                           names=["task", "policy", "run"])
     actual = pd.MultiIndex.from_frame(d[["task", "policy", "run"]])
     if actual.has_duplicates or len(expected.difference(actual)):
-        raise ValueError("Q2 requires exactly three unique runs per task/policy (3900 rows)")
+        raise ValueError(f"Q2 requires exactly three unique runs per task/policy ({n_tasks*39} rows)")
     verdict = d.resolved.astype("string").str.lower()
     if not (verdict.isna() | verdict.isin(["true", "false"])).all():
         raise ValueError("Q2 resolved values must be True, False, or missing")
-    if not np.isfinite(d.latency_e2e_s.to_numpy(float)).all():
-        raise ValueError("Q2 latency is missing/non-finite; cannot determine timeout flags")
-    d["capped"] = d.latency_e2e_s.ge(1500)
+    if is_tb:
+        caps = []
+        for row in d.itertuples():
+            path = (run_root / Path(row.source_file).parent / row.task /
+                    row.condition / f"run_{int(row.run)}" / "harbor_result.json")
+            info = {}
+            if path.is_file():
+                info = json.loads(path.read_text()).get("exception_info") or {}
+            status = "" if pd.isna(row.exit_status) else row.exit_status
+            caps.append(info.get("exception_type") == "AgentTimeoutError" if info
+                        else status in ("CancelledError", ""))
+        d["capped"] = caps
+    else:
+        if not np.isfinite(d.latency_e2e_s.to_numpy(float)).all():
+            raise ValueError("Q2 latency is missing/non-finite; cannot determine timeout flags")
+        d["capped"] = d.latency_e2e_s.ge(1500)
     d["res"] = verdict.eq("true").fillna(False) & ~d.capped
-    d["limit_failure"] = ~d.res & (d.capped | d.exit_status.eq("LimitsExceeded"))
-    d["eval_failure"] = (~d.res & ~d.capped & d.exit_status.eq("Submitted") &
-                           verdict.eq("false").fillna(False))
     successful_steps = d.loc[d.res, "step_count"].to_numpy(float)
     if not (np.isfinite(successful_steps) & (successful_steps > 0)).all():
         raise ValueError("Q2 successful attempts require positive, finite step counts")
@@ -369,8 +389,6 @@ def summarize_q2(d, resamples=10000, seed=210926):
     """Return task membership and paired statistics; resample tasks, not runs."""
     k = d.groupby(["task", "policy"]).res.sum().unstack().loc[:, ROWS].astype(int)
     solved = k.ge(2)
-    limit_counts = d.groupby(["task", "policy"]).limit_failure.sum().unstack()
-    eval_counts = d.groupby(["task", "policy"]).eval_failure.sum().unstack()
     means = d[d.res].groupby(["task", "policy"]).step_count.mean().unstack()
     rows = []
     for policy in ORDER:
@@ -386,18 +404,14 @@ def summarize_q2(d, resamples=10000, seed=210926):
         ix = rng.integers(0, len(pairs), (resamples, len(pairs)))
         boots = a[ix].mean(axis=1) / f[ix].mean(axis=1)
         lo, hi = np.quantile(boots, [.025, .975])
-        limits = int(limit_counts.loc[lost, policy].ge(2).sum())
-        evaluated = int(eval_counts.loc[lost, policy].ge(2).sum())
-        other = int(lost.sum()) - limits - evaluated
-        if other < 0 or int(solved[policy].sum()) != int(solved.FC.sum() + gained.sum() - lost.sum()):
+        if int(solved[policy].sum()) != int(solved.FC.sum() + gained.sum() - lost.sum()):
             raise ValueError(f"{policy}: inconsistent task partition")
         rows.append(dict(policy=policy, cohort_tasks=len(k), fc_solved=int(solved.FC.sum()),
                          solved=int(solved[policy].sum()), gained=int(gained.sum()), lost=int(lost.sum()),
                          n_tasks=int(common.sum()), policy_steps=a.mean(), fc_steps=f.mean(),
                          policy_runs=int((d.res & d.task.isin(pairs.index) & d.policy.eq(policy)).sum()),
                          fc_runs=int((d.res & d.task.isin(pairs.index) & d.policy.eq("FC")).sum()),
-                         ratio=a.mean()/f.mean(), ratio_lo=lo, ratio_hi=hi,
-                         limit_losses=limits, failed_eval_losses=evaluated, other_losses=other))
+                         ratio=a.mean()/f.mean(), ratio_lo=lo, ratio_hi=hi))
     summary = pd.DataFrame(rows).set_index("policy")
     coverage = solved[ORDER].sum(axis=1)
     meta = pd.DataFrame({"fc": solved.FC, "coverage": coverage,
@@ -407,9 +421,8 @@ def summarize_q2(d, resamples=10000, seed=210926):
     return solved, summary, missed, shared
 
 
-def fig_q2(solved, summary, missed, shared):
-    """Return the compact Qwen figure, including ALL 100 pinned task columns."""
-    steps = summary
+def fig_q2(solved, summary, missed, shared, tb_summary):
+    """Qwen SWE task map, then paired successful steps on SWE and Terminal-Bench."""
     n_tasks = len(solved)
     fig = plt.figure(figsize=(5.5,2.25))
     bottom, height = .17, .58
@@ -421,24 +434,24 @@ def fig_q2(solved, summary, missed, shared):
     gain_ax = fig.add_axes([gain_left,bottom,.042,height],sharey=totals)
     shared_ax = fig.add_axes([gain_left+.061,bottom,solved_width,height],sharey=totals)
     loss_ax = fig.add_axes([.518,bottom,.037,height],sharey=totals)
-    n_ax = fig.add_axes([.593,bottom,.045,height],sharey=totals)
-    step_ax = fig.add_axes([.658,bottom,.152,height],sharey=totals)
-    limit_ax = fig.add_axes([.858,bottom,.130,height],sharey=totals)
+    n_ax = fig.add_axes([.580,bottom,.031,height],sharey=totals)
+    step_ax = fig.add_axes([.630,bottom,.145,height],sharey=totals)
+    tb_n_ax = fig.add_axes([.801,bottom,.031,height],sharey=totals)
+    tb_step_ax = fig.add_axes([.849,bottom,.139,height],sharey=totals)
     map_axes = [totals,miss_ax,gain_ax,shared_ax,loss_ax]
-    all_axes = map_axes+[n_ax,step_ax,limit_ax]
+    all_axes = map_axes+[n_ax,step_ax,tb_n_ax,tb_step_ax]
 
     fig.text(.144,.95,'(a) Qwen · SWE-bench',fontsize=7.2)
-    fig.text(.592,.95,'(b) Execution and task losses',fontsize=7.2)
+    fig.text(.580,.95,'(b) Steps to solve · Qwen',fontsize=7.2)
     map_handles = [Line2D([],[],marker='s',ls='',mfc='#525252',mec='none',ms=3.5,label='Solved'),
                    Line2D([],[],marker='x',ls='',color='#666666',ms=3.5,mew=.6,label='Lost'),
                    Patch(facecolor='#f4f4f4',edgecolor='#cccccc',lw=.3,label='Neither')]
     map_legend = fig.legend(handles=map_handles,ncol=3,loc='upper left',bbox_to_anchor=(.144,.923),
                            frameon=False,fontsize=5.9,handlelength=1.0,handletextpad=.3,columnspacing=.7,borderaxespad=0)
-    right_handles = [Patch(facecolor=ENDING_COLORS['limit_losses'],edgecolor='none',label='Step/time limit'),
-                     Patch(facecolor=ENDING_COLORS['failed_eval_losses'],edgecolor='none',label='Failed eval.'),
-                     Patch(facecolor=ENDING_COLORS['other_losses'],edgecolor='#aaaaaa',lw=.3,label='Other')]
-    right_legend = fig.legend(handles=right_handles,ncol=3,loc='upper left',bbox_to_anchor=(.592,.923),
-                             frameon=False,fontsize=5.25,handlelength=1.0,handletextpad=.3,columnspacing=.6,borderaxespad=0)
+    right_handles = [Line2D([],[],marker='o',ms=2.5,color='#666666',lw=.7,
+                            label='95% CI; n = shared solved tasks')]
+    right_legend = fig.legend(handles=right_handles,ncol=1,loc='upper left',bbox_to_anchor=(.580,.923),
+                             frameon=False,fontsize=5.25,handlelength=1.5,handletextpad=.4,borderaxespad=0)
 
     for ax,tasks,is_missed in [(miss_ax,missed,True),(shared_ax,shared,False)]:
         pixels = np.ones((len(ROWS),len(tasks),4))
@@ -465,7 +478,7 @@ def fig_q2(solved, summary, missed, shared):
         loss = int((solved.FC&~solved[p]).sum())
         gain_ax.text(.5,j,f'+{gain}',ha='center',va='center',fontsize=6.2,color='#333333')
         loss_ax.text(.5,j,f'−{loss}' if loss else '0',ha='center',va='center',fontsize=6.2,color='#333333')
-    for ax in map_axes+[n_ax]:
+    for ax in map_axes+[n_ax,tb_n_ax]:
         ax.set_xticks([])
         for spine in ax.spines.values():spine.set_visible(False)
     for ax in all_axes:
@@ -476,44 +489,30 @@ def fig_q2(solved, summary, missed, shared):
     totals.set_ylim(len(ROWS)-.4,-.6)
     totals.set_yticks(np.arange(len(ROWS)),ROWS)
     totals.tick_params(axis='y',length=0,pad=11,labelsize=6.1)
-    for ax in [totals,gain_ax,loss_ax,n_ax]:ax.set_xlim(0,1)
+    for ax in [totals,gain_ax,loss_ax,n_ax,tb_n_ax]:ax.set_xlim(0,1)
     headers = [(totals,'Solved'),(miss_ax,f'FC missed\n{len(missed)} tasks'),
                (gain_ax,'Gained'),(shared_ax,f'FC solved\n{len(shared)} tasks'),(loss_ax,'Lost'),
-               (n_ax,'Shared\ntasks'),(step_ax,'Steps to solve\n95% CI'),(limit_ax,'How lost\ntasks end')]
+               (n_ax,'n'),(step_ax,'SWE-bench'),(tb_n_ax,'n'),(tb_step_ax,'Terminal-Bench')]
     for ax,header in headers:
         ax.text(.5,1.025,header,transform=ax.transAxes,ha='center',va='bottom',fontsize=5.65)
 
-    for j,p in enumerate(ORDER):
-        r = steps.loc[p]
-        mean,lo,hi = [(r[c]-1)*100 for c in ['ratio','ratio_lo','ratio_hi']]
-        hollow = PSTYLE[p][2]
-        step_ax.errorbar(mean,j,xerr=[[mean-lo],[hi-mean]],fmt='o',ms=3.1,color=pcol(p),
-                         mfc='white' if hollow else pcol(p),mec=pcol(p),mew=.7,lw=.75,capsize=1.4,zorder=4)
-        n_ax.text(.5,j,str(int(r.n_tasks)),ha='center',va='center',fontsize=5.9,color='#555555')
-        lost = int(summary.loc[p,'lost'])
-        limits = int(summary.loc[p,'limit_losses'])
-        incorrect = int(summary.loc[p,'failed_eval_losses'])
-        other = int(summary.loc[p,'other_losses'])
-        running = 0
-        for count,color,text_color in [(limits,ENDING_COLORS['limit_losses'],'white'),(incorrect,ENDING_COLORS['failed_eval_losses'],'#222222'),(other,ENDING_COLORS['other_losses'],'#444444')]:
-            limit_ax.barh(j,count,left=running,height=.67,color=color,edgecolor='#999999',lw=.22,zorder=3)
-            if count>=2:
-                limit_ax.text(running+count/2,j,str(count),ha='center',va='center',fontsize=5.15,
-                              color=text_color,zorder=4)
-            running += count
-        assert running == lost
-        limit_ax.text(lost+.5,j,str(lost),ha='left',va='center',fontsize=5.6,color='#333333')
-    n_ax.text(.5,len(ORDER),'—',ha='center',va='center',fontsize=6,color='#777777')
-    step_ax.scatter(0,len(ORDER),marker='*',s=17,color='black',zorder=5)
-    limit_ax.text(0,len(ORDER),'—',ha='left',va='center',fontsize=6,color='#777777')
+    for ax,counts,table in [(step_ax,n_ax,summary),(tb_step_ax,tb_n_ax,tb_summary)]:
+        for j,p in enumerate(ORDER):
+            r = table.loc[p]
+            mean,lo,hi = [(r[c]-1)*100 for c in ['ratio','ratio_lo','ratio_hi']]
+            hollow = PSTYLE[p][2]
+            ax.errorbar(mean,j,xerr=[[mean-lo],[hi-mean]],fmt='o',ms=3.1,color=pcol(p),
+                        mfc='white' if hollow else pcol(p),mec=pcol(p),mew=.7,lw=.75,capsize=1.4,zorder=4)
+            counts.text(.5,j,str(int(r.n_tasks)),ha='center',va='center',fontsize=5.9,color='#555555')
+        counts.text(.5,len(ORDER),'—',ha='center',va='center',fontsize=6,color='#777777')
+        ax.scatter(0,len(ORDER),marker='*',s=17,color='black',zorder=5)
+        ax.axvline(0,color='#777777',ls='--',lw=.6,zorder=1)
+        ax.set_xlabel('Change from FC (%)',fontsize=5.0,labelpad=2)
     step_ax.set_xlim(-23,36)
     step_ax.set_xticks([-20,0,20],['−20','0','+20'])
-    limit_ax.set_xlim(0,17)
-    limit_ax.set_xticks([0,5,10,15],['0','5','10','15'])
-    step_ax.axvline(0,color='#777777',ls='--',lw=.6,zorder=1)
-    step_ax.set_xlabel('Change from FC (%)',fontsize=5.5,labelpad=2)
-    limit_ax.set_xlabel('Tasks',fontsize=5.5,labelpad=2)
-    for ax in [step_ax,limit_ax]:
+    tb_step_ax.set_xlim(-40,360)
+    tb_step_ax.set_xticks([0,150,300],['0','+150','+300'])
+    for ax in [step_ax,tb_step_ax]:
         ax.spines[['top','right','left']].set_visible(False)
         ax.tick_params(axis='x',labelsize=5.4,length=2,pad=2)
     fig.canvas.draw()
@@ -521,7 +520,7 @@ def fig_q2(solved, summary, missed, shared):
     boxes = [legend.get_window_extent(renderer) for legend in [map_legend,right_legend]]
     for b in boxes:assert b.x0>=0 and b.x1<=fig.bbox.width and b.y1<=fig.bbox.height
     assert boxes[0].x1<boxes[1].x0
-    for ax in [step_ax,limit_ax]:
+    for ax in [step_ax,tb_step_ax]:
         assert ax.xaxis.label.get_window_extent(renderer).y0>=0
     for row in range(len(ROWS)):
         assert np.ptp([ax.transData.transform((0,row))[1] for ax in all_axes])<1e-6
@@ -535,6 +534,9 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=ROOT / "ICLR_analysis")
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/p100_all_100_tasks.json")
+    parser.add_argument("--tb-outcomes", type=Path, default=ROOT / "analysis/outcomes/terminalbench_outcomes.csv")
+    parser.add_argument("--tb-tasks", type=Path, default=ROOT / "task_lists/tbench_p40.json")
+    parser.add_argument("--run-root", type=Path, default=ROOT, help="Root for outcome source_file paths and Harbor records")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots/q1")
     parser.add_argument("--audit-dir", type=Path, help="Optional directory for Q2 values and task-order CSVs")
     parser.add_argument("--resamples", type=int, default=10000, help="Q2 paired-task bootstrap resamples")
@@ -549,6 +551,8 @@ def main():
         if args.figure in ["all", "q2"]:
             d = load_q2_runs(args.outcomes, args.tasks)
             solved, summary, missed, shared = summarize_q2(d, args.resamples, args.seed)
+            tb = load_q2_runs(args.tb_outcomes, args.tb_tasks, "terminalbench", args.run_root)
+            _, tb_summary, _, _ = summarize_q2(tb, args.resamples, args.seed)
         with plt.rc_context(PAPER_STYLE):
             if args.figure in ["all", "q1-o1"]:
                 fig = fig_o1(frontiers)
@@ -560,12 +564,13 @@ def main():
                 plt.close(fig)
         if args.figure in ["all", "q2"]:
             with plt.rc_context(Q2_STYLE):
-                fig = fig_q2(solved, summary, missed, shared)
+                fig = fig_q2(solved, summary, missed, shared, tb_summary)
                 save_figure(fig, args.output_dir, "q2_qwen_task_map_and_endings", dpi=300)
                 plt.close(fig)
             if args.audit_dir:
                 args.audit_dir.mkdir(parents=True, exist_ok=True)
                 summary.to_csv(args.audit_dir / "q2_plotted_values.csv")
+                tb_summary.to_csv(args.audit_dir / "q2_tb_plotted_values.csv")
                 task_order = pd.DataFrame({"task": missed + shared,
                                            "block": ["FC missed"]*len(missed) + ["FC solved"]*len(shared)})
                 task_order.to_csv(args.audit_dir / "q2_task_order.csv", index=False)
