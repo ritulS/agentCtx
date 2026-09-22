@@ -56,7 +56,7 @@ Evidence: [prebuild log](../logs/tb2_harbor_prebuild.log), [launcher log](../log
 - **Commits:** `8949b42` (execution/resume scripts; committed after execution), `894a907` (task lists).
 - **Commands:** Reconstructed from saved Harbor arguments; logged commands are in the appendix.
 - **Prerequisites:** Qwen vLLM at `http://localhost:8000/v1` and a running Rootless Podman API.
-- **GPU setup:** [Qwen launcher](../scripts/start_vllm_qwen35.sh) defaults to GPUs `0–3`; [vLLM log](../logs/vllm_qwen35.log) confirms `tensor_parallel_size=4`.
+- **GPU setup:** [Qwen launcher](../scripts/start_vllm_qwen35_prefix_cache_ablation.sh) (`start_vllm_qwen35.sh` at the time) defaults to GPUs `0–3`; [vLLM log](../logs/vllm_qwen35.log) confirms `tensor_parallel_size=4`.
 - **Configs:** `configs/config-qwen-vllm.yaml` and `configs/config-tbench.yaml`.
 - **Environment:**
 

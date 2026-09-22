@@ -122,7 +122,7 @@ Run exactly one of these profiles before using the common workflow below:
   # Qwen3.5-35B-A3B
   MODEL=qwen
   MODEL_KEY=qwen35b
-  START_SCRIPT=scripts/start_vllm_qwen35.sh
+  START_SCRIPT=scripts/start_vllm_qwen35.sh   # since 2026-09-21: scripts/start_vllm_qwen35_prefix_cache_ablation.sh
   PORT=8000
   PID_FILE=logs/vllm_qwen35.pid
   ```

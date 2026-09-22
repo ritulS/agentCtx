@@ -16,7 +16,6 @@ ICLR_results/
 │   │   └── glm47flash/
 │   ├── summarizer_ablation/
 │   └── prefix_cache_ablation/      # vLLM --enable-prefix-caching reruns
-│       └── qwen35b-prefixcache/    # ABL-25, 15K, canonical depth, all primitives
 │       └── qwen35b-prefixcache/    # ABL-25, 15K + FC/OTRC at inf, canonical depth, all primitives
 │
 └── terminalbench/

@@ -9,7 +9,9 @@ and re-executes exactly those (task, condition, run_num) triples with a larger
 
 The original runner (``scripts/run_experiment.py``) is imported unchanged and
 only its module-level limits and its result directory are overridden, in the
-same way ``scripts/run_experiment_iclr.py`` does.  Nothing under
+same way ``scripts/run_experiment_iclr.py`` does.  Agent launches go through
+the runner's SWE-bench adapter (``bench_adapters.swe_bench.SweBench._run_agent``),
+which is where ``run_experiment.run_agent`` moved.  Nothing under
 ``ICLR_results/`` is touched: results go to a fresh directory under
 ``results/adaptive_context_management/swebench/reruns/`` (gitignored via
 ``results/*``) so they never leak into
@@ -73,6 +75,16 @@ ORIG_AGENT_TIMEOUT = runner.AGENT_TIMEOUT    # 1500 s
 DEFAULT_CAUSES_CSV = HERE / "results" / "model=qwen35b__primitive=fc" / "failure_causes.csv"
 DEFAULT_OUT_ROOT = ROOT / "results" / "adaptive_context_management" / "swebench" / "reruns"
 DEFAULT_AGENT_CONFIG = ROOT / "configs" / "config-qwen-vllm.yaml"
+
+
+def run_key(instance_id: str, condition: str, run_num: int) -> str:
+    """Result-row key, as ``SweBench._run_key`` builds it."""
+    return f"{instance_id}__{condition}__r{run_num}"
+
+
+def run_dir(instance_id: str, condition: str, run_num: int) -> Path:
+    """Per-run output directory below the (overridden) result directory."""
+    return runner.model_results_dir() / instance_id / condition / f"run_{run_num}"
 MANIFEST_COLS = [
     "key", "task", "condition", "run", "model", "cell", "budget", "depth", "difficulty",
     "original_cause", "original_exit_status", "original_returncode", "original_step_count",
@@ -253,7 +265,7 @@ def write_manifest(rows, out_dir: Path) -> None:
         w.writeheader()
         for r in rows:
             w.writerow({
-                "key": runner.run_key(r["task"], r["condition"], int(r["run"])),
+                "key": run_key(r["task"], r["condition"], int(r["run"])),
                 "task": r["task"], "condition": r["condition"], "run": r["run"],
                 "model": r["model"], "cell": r["cell"], "budget": r["budget"], "depth": r["depth"],
                 "difficulty": r["difficulty"],
@@ -263,7 +275,7 @@ def write_manifest(rows, out_dir: Path) -> None:
                 "original_step_count": r["step_count"],
                 "original_latency_e2e_s": r["latency_e2e_s"],
                 "original_run_dir": r["run_dir"],
-                "new_run_dir": rel(runner.run_dir(r["task"], r["condition"], int(r["run"]))),
+                "new_run_dir": rel(run_dir(r["task"], r["condition"], int(r["run"]))),
             })
 
 
@@ -313,7 +325,7 @@ def run_selected(rows, args) -> list[dict]:
 
     work = []
     for r in rows:
-        key = runner.run_key(r["task"], r["condition"], int(r["run"]))
+        key = run_key(r["task"], r["condition"], int(r["run"]))
         if key in existing and not args.force:
             continue
         work.append((r, key))
@@ -328,8 +340,11 @@ def run_selected(rows, args) -> list[dict]:
 
     def _one(item):
         r, key = item
-        res = runner.run_agent(
-            r["task"], r["condition"], spec["primitive"], budget, int(r["run"]),
+        res = runner.BENCHMARK._run_agent(
+            instance_id=r["task"], condition=r["condition"], primitive=spec["primitive"],
+            budget=budget, run_num=int(r["run"]),
+            agent_config=runner.AGENT_CONFIG,
+            step_limit=runner.STEP_LIMIT, agent_timeout=runner.AGENT_TIMEOUT,
             config=spec.get("config"), compression_ratio=depth,
         )
         res["rerun_of"] = r["run_dir"]
@@ -355,7 +370,7 @@ def run_selected(rows, args) -> list[dict]:
 
 
 def print_outcome_summary(results, rows) -> None:
-    orig = {runner.run_key(r["task"], r["condition"], int(r["run"])): r for r in rows}
+    orig = {run_key(r["task"], r["condition"], int(r["run"])): r for r in rows}
     tab = Counter()
     for res in results:
         r = orig.get(res["key"])

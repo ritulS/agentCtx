@@ -133,7 +133,7 @@ need rebuilding for serving/tbench.
 - **Status:** ⏳ NOT LAUNCHED — tooling prepared 2026-09-21; update this entry with the
   host, launch time and PIDs when started.
 - **Why:** production Qwen Terminal-Bench runs were served with vLLM prefix caching **on**
-  (`scripts/start_vllm_qwen35.sh`; `logs/vllm_qwen35.log`: `enable_prefix_caching=True`).
+  (`scripts/start_vllm_qwen35.sh`, now `scripts/start_vllm_qwen35_prefix_cache_ablation.sh`; `logs/vllm_qwen35.log`: `enable_prefix_caching=True`).
   This grid repeats the primary-budget cells with caching **off**, all else unchanged —
   the mirror image of 5.a (SWE-Bench, production off → ablation on).
 - **Grid:** 13 cells × TB:ABL-15 × 3 runs = 585 runs: 3K / depth 0.5 (5 depth-tunable +

@@ -61,6 +61,8 @@ class AblationLaunchTests(unittest.TestCase):
                 saved = []
                 class Benchmark:
                     name = 'swe-bench'
+                    def run_experiments(self, **kwargs):
+                        return kwargs['existing_results']
                     def evaluate_results(self, selected, save):
                         self_test.assertEqual([r['instance_id'] for r in selected], ['keep'])
                         updated = [dict(selected[0], resolved=True)]
@@ -73,7 +75,6 @@ class AblationLaunchTests(unittest.TestCase):
                      patch.object(runner, 'load_tasks', return_value=[dict(instance_id='keep')]), \
                      patch.object(runner, '_write_run_info'), \
                      patch.object(runner, 'load_existing_results', return_value=rows), \
-                     patch.object(runner, 'run_all_agents', return_value=rows), \
                      patch.object(runner, 'save_results', side_effect=lambda r: saved.append(copy.deepcopy(r))), \
                      contextlib.redirect_stdout(io.StringIO()):
                     runner.main()

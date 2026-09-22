@@ -336,7 +336,11 @@ def main() -> None:
     print("=" * 72)
 
     # Write run_info.json and run_info.md for this run
-    _write_run_info(len(tasks), total, budget)
+    # run_info.json describes the launch that generated the runs (model,
+    # summary config, ...).  An evaluation-only pass generates nothing, so it
+    # must not replace that record with its own (possibly different) settings.
+    if not (args.eval_only and (model_results_dir() / "run_info.json").exists()):
+        _write_run_info(len(tasks), total, budget)
 
     if not args.eval_only:
         results = BENCHMARK.run_experiments(
@@ -358,7 +362,21 @@ def main() -> None:
             raise SystemExit(1)
 
     if args.eval_only or args.with_eval:
-        results = BENCHMARK.evaluate_results(results, save_results)
+        if BENCHMARK.name == "swe-bench" and ABLATION_NAME and TASKS_FILE_EXPLICIT:
+            # Existing cells may contain a larger historical cohort. Evaluate
+            # only this launch's tasks, while preserving every stored result.
+            task_ids = {task["instance_id"] for task in tasks}
+            selected = [row for row in results if row["instance_id"] in task_ids]
+
+            def save_selected(evaluated):
+                updates = {row["key"]: row for row in evaluated}
+                results[:] = [updates.get(row["key"], row) for row in results]
+                save_results(results)
+
+            evaluated = BENCHMARK.evaluate_results(selected, save_selected)
+            save_selected(evaluated)
+        else:
+            results = BENCHMARK.evaluate_results(results, save_results)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Start vLLM serving for Qwen3.5-35B-A3B on port 8000.
+# Start vLLM serving for Qwen3.5-35B-A3B on port 8000 with the production
+# Terminal-Bench configuration; QWEN_PREFIX_CACHING selects the prefix-cache
+# ablation (dashboard 5.b) serving condition.
+# Until 2026-09-21 this file was scripts/start_vllm_qwen35.sh; the SWE-bench
+# summarizer-ablation launcher of the same name is now
+# scripts/start_vllm_qwen35_swe_summarizer_ablation.sh.
 # TP=4 across GPUs 0-3. The 102400-token context matches the prior
 # Terminal-Bench full-context serving setup used in this repository.
 #
