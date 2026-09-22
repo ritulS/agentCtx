@@ -6,10 +6,12 @@ need benchmark-specific branches.
 """
 
 from .swe_bench import SweBench
+from .terminal_bench import TerminalBench
 
 
 BENCHMARKS = {
     "swe-bench": SweBench,
+    "terminal-bench": TerminalBench,
 }
 
 

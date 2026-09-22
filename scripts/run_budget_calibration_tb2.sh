@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
-# Run the canonical Terminal-Bench 1.0 FC@infinity run_1 calibration.
+# Run the canonical Terminal-Bench 2.0 FC@infinity run_1 calibration.
 #
 # Usage:
-#   bash scripts/run_budget_calibration_tb.sh qwen
-#   bash scripts/run_budget_calibration_tb.sh qwen-rootless
-#   bash scripts/run_budget_calibration_tb.sh qwen-subuid
-#   bash scripts/run_budget_calibration_tb.sh devstral
-#   bash scripts/run_budget_calibration_tb.sh devstral-rootless
-#   bash scripts/run_budget_calibration_tb.sh devstral-subuid
-#   bash scripts/run_budget_calibration_tb.sh glm
-#   bash scripts/run_budget_calibration_tb.sh glm-rootless
-#   bash scripts/run_budget_calibration_tb.sh glm-subuid
-#   bash scripts/run_budget_calibration_tb.sh all  # sequential
-#   bash scripts/run_budget_calibration_tb.sh all-rootless  # sequential
-#   bash scripts/run_budget_calibration_tb.sh all-subuid  # sequential
+#   bash scripts/run_budget_calibration_tb2.sh qwen [tasks-file]
+#   bash scripts/run_budget_calibration_tb2.sh devstral
+#   bash scripts/run_budget_calibration_tb2.sh glm
+#   bash scripts/run_budget_calibration_tb2.sh all  # sequential
 #
 # Prerequisites:
 #   1. Start the selected model's vLLM server.
@@ -28,11 +20,11 @@ WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PYTHON_BIN="${TB_PYTHON_BIN:-$WORKSPACE/venv-harbor/bin/python}"
 HARBOR_BIN="${HARBOR_BIN:-$WORKSPACE/venv-harbor/bin/harbor}"
 N_CONCURRENT="${N_CONCURRENT:-4}"
+AGENT_TIMEOUT_MULTIPLIER="${AGENT_TIMEOUT_MULTIPLIER:-1.0}"
 DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
 LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
 LOG_DIR="$WORKSPACE/logs"
-P80_ROOTLESS_TASKS_FILE="${P80_ROOTLESS_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_rootless.json}"
-P80_SUBUID_TASKS_FILE="${P80_SUBUID_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_subuid_required.json}"
+DATASET_PATH="${TB2_HARBOR_DATASET:-$WORKSPACE/data/tb2-harbor-prebuilt-2.0}"
 
 export DOCKER_HOST
 mkdir -p "$LOG_DIR"
@@ -55,8 +47,8 @@ check_common_prerequisites() {
 
 run_one() {
     local model="$1"
-    local phase="${2:-all}"
-    local model_key model_label agent_config health_url log_file job_name task_scope
+    local tasks_file="${2:-}"
+    local model_key model_label agent_config health_url log_file job_name
     local -a subset_args=()
 
     case "$model" in
@@ -84,40 +76,15 @@ run_one() {
             ;;
     esac
 
-    case "$phase" in
-        all)
-            task_scope="P-80"
-            job_name="tb1-${model_key}-fc-run1"
-            ;;
-        rootless)
-            if [[ ! -f "$P80_ROOTLESS_TASKS_FILE" ]]; then
-                echo "[ERROR] P-80-rootless task list not found: $P80_ROOTLESS_TASKS_FILE" >&2
-                return 1
-            fi
-            task_scope="P-80-rootless"
-            job_name="tb1-${model_key}-p80-rootless-fc-run1"
-            subset_args+=(
-                --tasks-file "$P80_ROOTLESS_TASKS_FILE"
-                --result-scope p80_rootless
-            )
-            ;;
-        subuid)
-            if [[ ! -f "$P80_SUBUID_TASKS_FILE" ]]; then
-                echo "[ERROR] P-80-subuid-required task list not found: $P80_SUBUID_TASKS_FILE" >&2
-                return 1
-            fi
-            task_scope="P-80-subuid-required"
-            job_name="tb1-${model_key}-p80-subuid-required-fc-run1"
-            subset_args+=(
-                --tasks-file "$P80_SUBUID_TASKS_FILE"
-                --result-scope p80_subuid_required
-            )
-            ;;
-        *)
-            echo "[ERROR] Unknown task scope: $phase" >&2
-            return 2
-            ;;
-    esac
+    job_name="tb2-${model_key}-fc-run1"
+    if [[ -n "$tasks_file" ]]; then
+        [[ -f "$tasks_file" ]] || {
+            echo "[ERROR] Task list not found: $tasks_file" >&2
+            return 1
+        }
+        subset_args+=(--tasks-file "$tasks_file")
+        job_name="${TB2_JOB_NAME:-tb2-${model_key}-fc-run1-resume}"
+    fi
 
     if [[ ! -f "$agent_config" ]]; then
         echo "[ERROR] Agent config not found: $agent_config" >&2
@@ -129,8 +96,8 @@ run_one() {
         return 1
     fi
 
-    log_file="$LOG_DIR/${model_key}_tb1_fc_run1.log"
-    echo "[$(date)] === $model_label: Terminal-Bench 1.0, $task_scope, FC@infinity, run_1 ===" \
+    log_file="$LOG_DIR/${model_key}_tb2_fc_run1.log"
+    echo "[$(date)] === $model_label: Terminal-Bench 2.0, 89 tasks, FC@infinity, run_1 ===" \
         | tee -a "$log_file"
 
     "$PYTHON_BIN" "$LAUNCHER" \
@@ -138,9 +105,19 @@ run_one() {
         --model-label "$model_label" \
         --agent-config "$agent_config" \
         --harbor-bin "$HARBOR_BIN" \
+        --dataset-path "$DATASET_PATH" \
         --n-concurrent "$N_CONCURRENT" \
+        --agent-timeout-multiplier "$AGENT_TIMEOUT_MULTIPLIER" \
         --docker-host "$DOCKER_HOST" \
         --job-name "$job_name" \
+        --expected-tasks 89 \
+        --benchmark-version 2.0 \
+        --dataset-name terminal-bench@2.0 \
+        --result-benchmark terminalbench2 \
+        --job-benchmark terminalbench2 \
+        --job-prefix tb2 \
+        --display-name "Terminal-Bench 2.0" \
+        --skip-postprocess \
         "${subset_args[@]}" \
         2>&1 | tee -a "$log_file"
 
@@ -150,33 +127,20 @@ run_one() {
 check_common_prerequisites
 
 selection="${1:-}"
+tasks_file="${2:-}"
+[[ "$#" -le 2 ]] || { echo "Usage: $0 {qwen|devstral|glm} [tasks-file]" >&2; exit 2; }
 case "$selection" in
     qwen|devstral|glm)
-        run_one "$selection"
-        ;;
-    qwen-rootless|devstral-rootless|glm-rootless)
-        run_one "${selection%-rootless}" rootless
-        ;;
-    qwen-subuid|devstral-subuid|glm-subuid)
-        run_one "${selection%-subuid}" subuid
+        run_one "$selection" "$tasks_file"
         ;;
     all)
+        [[ -z "$tasks_file" ]] || { echo "[ERROR] A task list cannot be combined with 'all'" >&2; exit 2; }
         run_one qwen
         run_one devstral
         run_one glm
         ;;
-    all-rootless)
-        run_one qwen rootless
-        run_one devstral rootless
-        run_one glm rootless
-        ;;
-    all-subuid)
-        run_one qwen subuid
-        run_one devstral subuid
-        run_one glm subuid
-        ;;
     *)
-        echo "Usage: $0 {qwen|qwen-rootless|qwen-subuid|devstral|devstral-rootless|devstral-subuid|glm|glm-rootless|glm-subuid|all|all-rootless|all-subuid}" >&2
+        echo "Usage: $0 {qwen|devstral|glm|all} [tasks-file]" >&2
         exit 2
         ;;
 esac

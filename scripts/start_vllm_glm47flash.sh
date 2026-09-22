@@ -6,12 +6,14 @@
 # so vLLM tool-call/reasoning parsers are intentionally not enabled here.
 #
 # Usage:  bash scripts/start_vllm_glm47flash.sh
+# Model-native context: GLM_MAX_MODEL_LEN=native bash scripts/start_vllm_glm47flash.sh
 # Tail:   tail -f logs/vllm_glm47flash.log
 # Stop:   kill -TERM "$(cat logs/vllm_glm47flash.pid)"
 set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: bash scripts/start_vllm_glm47flash.sh"
+    echo "GLM_MAX_MODEL_LEN=native omits --max-model-len (default: 65536)."
     exit 0
 fi
 if (( $# != 0 )); then
@@ -27,6 +29,10 @@ CUDA_DEVICES="${GLM_CUDA_VISIBLE_DEVICES:-0,1,2,3}"
 TENSOR_PARALLEL_SIZE="${GLM_TENSOR_PARALLEL_SIZE:-4}"
 MAX_MODEL_LEN="${GLM_MAX_MODEL_LEN:-65536}"
 MAX_NUM_SEQS="${GLM_MAX_NUM_SEQS:-64}"
+CONTEXT_ARGS=()
+if [[ "$MAX_MODEL_LEN" != "native" ]]; then
+    CONTEXT_ARGS+=(--max-model-len "$MAX_MODEL_LEN")
+fi
 
 LOG_FILE="$WORKSPACE/logs/vllm_glm47flash.log"
 PID_FILE="$WORKSPACE/logs/vllm_glm47flash.pid"
@@ -58,8 +64,9 @@ CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
     --port "$PORT" \
     --dtype auto \
     --tensor-parallel-size "$TENSOR_PARALLEL_SIZE" \
-    --max-model-len "$MAX_MODEL_LEN" \
+    "${CONTEXT_ARGS[@]}" \
     --max-num-seqs "$MAX_NUM_SEQS" \
+    --enable-prefix-caching \
     > "$LOG_FILE" 2>&1 &
 
 VLLM_PID=$!
