@@ -74,7 +74,7 @@ FIELDNAMES = [
 # model_ablation model directories are named <agent>-sum-<summarizer>.
 SUMMARIZER_SEPARATOR = "-sum-"
 # Throwaway smoke-test model directories (e.g. qwen35b-sum-qwen35-9b-smoke, as
-# in scripts/run_qwen_swe_summarizer_ablation.sh) are never aggregated.
+# in scripts/expansions/run_qwen_swe_summarizer_ablation.sh) are never aggregated.
 SMOKE_SUFFIX = "-smoke"
 
 

@@ -140,7 +140,7 @@ canonical cells.
 ## run_rerun_limits_notified.sh
 
 Slack-notified launcher for one phase of `rerun_limit_failures.py`, modelled on
-`scripts/run_agent_models_expansion_notified.sh` (start / completion / failure
+`scripts/expansions/run_agent_models_expansion_notified.sh` (start / completion / failure
 notices via `dashboard/notify_slack.py`, plus an outcome summary on success).
 
 | Phase | Difficulties | Runs |

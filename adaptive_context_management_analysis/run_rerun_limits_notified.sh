@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch one phase of the raised-limit re-run (rerun_limit_failures.py) with
 # Slack start / completion / failure notices, in the same style as
-# scripts/run_agent_models_expansion_notified.sh.
+# scripts/expansions/run_agent_models_expansion_notified.sh.
 #
 # Qwen3.5-35B / full-context runs that hit the 1500 s timeout or the 125 step
 # limit, split by SWE-bench Verified difficulty; hardest first within a phase.

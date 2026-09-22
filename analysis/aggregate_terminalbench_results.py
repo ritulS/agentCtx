@@ -23,7 +23,7 @@ be joined with the self-summarization baseline under ``main/<agent>``; the
 The prefix-cache ablation (dashboard 5.b) lives under
 ``prefix_cache_ablation/<agent>-noprefixcache/<cell>``: the main grid plus the
 unlimited-budget baselines on ABL-15, served with vLLM prefix caching off
-(scripts/run_qwen_tb_prefix_cache_ablation.sh; production runs had it on).
+(scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh; production runs had it on).
 ``agent_model_key`` strips the ``-noprefixcache`` suffix as well, so select
 the serving condition by ``experiment_section`` / ``model_key``, never by
 ``agent_model_key`` alone.
@@ -81,7 +81,7 @@ SUMMARIZER_SEPARATOR = "-sum-"
 # (Terminal-Bench production serving had prefix caching on).
 PREFIX_CACHE_SUFFIX = "-noprefixcache"
 # Throwaway smoke-test model directories (e.g. qwen35b-sum-qwen35-9b-smoke,
-# as in scripts/run_qwen_tb_summarizer_ablation.sh) are never aggregated.
+# as in scripts/expansions/run_qwen_tb_summarizer_ablation.sh) are never aggregated.
 SMOKE_SUFFIX = "-smoke"
 
 # Short primitive labels used in the ICLR result cell names.
@@ -113,7 +113,7 @@ FIELDNAMES = [
     "latency_llm_s", "compression_events", "trc_fallback_events",
     "online_trc_clears", "total_tokens_saved", "online_trc_tokens_saved",
     "summarization_prompt_tokens", "summarization_latency_s",
-    # Verdict provenance (rows written by scripts/bench_adapters/tb_verdict.py;
+    # Verdict provenance (rows written by src/agentctx/benchmarks/tb_verdict.py;
     # empty for older rows): "verifier" when Harbor's verifier produced the
     # reward, "none" when the trial was never graded.
     "verdict_source", "harbor_exception",

@@ -93,7 +93,7 @@ SMOKE_SUFFIX = "-smoke"
 # prefix-caching setting flipped relative to that benchmark's production runs.
 # Production SWE-Bench Qwen runs had it off (the vLLM default for the hybrid
 # Qwen3.5 model, see ICLR.md) and production Terminal-Bench runs had it on, so
-# the ablation is ON for SWE-Bench (scripts/run_qwen_swe_prefix_cache_ablation.sh)
+# the ablation is ON for SWE-Bench (scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh)
 # and OFF for Terminal-Bench.  Such runs form their own cells, keyed
 # additionally by this label; every other cell carries an empty prefix_cache.
 PREFIX_CACHE_TRACK = "prefix_cache_ablation"
@@ -323,7 +323,7 @@ def main():
 
     # FOLLOWUP_EXPERIMENTS 4: summarizer ablation.  SU-full (0.5) and TRC+SU
     # (DI) with a different summarizer and the main model as agent.  SWE cells
-    # follow scripts/run_qwen_swe_summarizer_ablation.sh (ABL-25 at 15k);
+    # follow scripts/expansions/run_qwen_swe_summarizer_ablation.sh (ABL-25 at 15k);
     # Terminal-Bench cells use ABL-15 at the primary budget.
     for summarizer in SUMMARIZER_LABELS.values():
         for prim in ("SU-full", "TRC+SU"):

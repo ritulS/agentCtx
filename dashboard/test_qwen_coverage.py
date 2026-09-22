@@ -246,7 +246,7 @@ class QwenCoverageTest(unittest.TestCase):
 
     def test_terminal_bench_prefix_cache_rows_carry_the_directory_tag(self):
         # Terminal-Bench records store the launcher's --model-tag in ``model``.
-        # scripts/run_qwen_tb_prefix_cache_ablation.sh tags its runs with the
+        # scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh tags its runs with the
         # model directory (qwen35b-noprefixcache); they must still be
         # attributed to the main model, in OFF cells apart from production.
         with tempfile.TemporaryDirectory() as tmp:
