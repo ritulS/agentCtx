@@ -1,7 +1,6 @@
 """Harbor bridge for the repository's compression-aware mini-swe-agent.
 
-This is intentionally independent of ``scripts.bench_adapters.agent_adapter``. Harbor owns
-the task environment; the repository's DefaultAgent runs on the host and uses
+Harbor owns the task environment; the repository's DefaultAgent runs on the host in
 a killable child process, forwarding commands to Harbor in the parent process.
 """
 
@@ -18,13 +17,18 @@ from pathlib import Path
 from typing import Any, override
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-MINI_SWE_AGENT_SRC = REPO_ROOT / "mini-swe-agent" / "src"
-for import_root in (REPO_ROOT, MINI_SWE_AGENT_SRC):
+# Harbor loads this module as ``agentctx.benchmarks.harbor_adapter``, so the
+# agentctx package is always initialized before this line runs.
+from agentctx import WORKSPACE_ROOT
+
+AGENTCTX_SRC = WORKSPACE_ROOT / "src"
+MINI_SWE_AGENT_SRC = WORKSPACE_ROOT / "mini-swe-agent" / "src"
+for import_root in (AGENTCTX_SRC, MINI_SWE_AGENT_SRC):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-import memory  # noqa: E402
+from agentctx.benchmarks.harbor_process import run_worker, write_json  # noqa: E402
+from agentctx.compression import primitives as memory  # noqa: E402
 from harbor.agents.base import BaseAgent  # noqa: E402
 from harbor.environments.base import BaseEnvironment  # noqa: E402
 from harbor.models.agent.context import AgentContext  # noqa: E402
@@ -33,12 +37,11 @@ from minisweagent.config import get_config_from_spec  # noqa: E402
 from minisweagent.exceptions import Submitted  # noqa: E402
 from minisweagent.models import get_model  # noqa: E402
 from minisweagent.utils.serialize import recursive_merge  # noqa: E402
-from scripts.bench_adapters.harbor_process import run_worker, write_json  # noqa: E402
 
 
 DEFAULT_CONFIG_SPECS = [
-    str(REPO_ROOT / "configs" / "config-qwen-vllm.yaml"),
-    str(REPO_ROOT / "configs" / "config-tbench.yaml"),
+    str(WORKSPACE_ROOT / "configs" / "config-qwen-vllm.yaml"),
+    str(WORKSPACE_ROOT / "configs" / "config-tbench.yaml"),
 ]
 DEFAULT_EXEC_TIMEOUT = 60
 

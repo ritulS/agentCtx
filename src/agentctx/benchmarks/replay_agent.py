@@ -16,7 +16,7 @@ This agent does exactly that:
   or timeout, as the original agent did;
 * it records, per command, whether the output and return code matched the
   observation stored in the trajectory (``replay_log.json``) and a summary
-  (``replay_summary.json``) that ``scripts/replay_reverify_tb.py`` uses as
+  (``replay_summary.json``) that ``scripts/maintenance/replay_reverify_tb.py`` uses as
   evidence.
 
 Only trajectories whose assistant turns are all present can be replayed; the
@@ -36,16 +36,19 @@ from typing import Any
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+# Harbor loads this module as ``agentctx.benchmarks.replay_agent``, so the
+# agentctx package is always initialized before this line runs.
+from agentctx import WORKSPACE_ROOT
+
+if str(WORKSPACE_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_ROOT / "src"))
 
 from harbor.agents.base import BaseAgent  # noqa: E402
 from harbor.environments.base import BaseEnvironment  # noqa: E402
 from harbor.models.agent.context import AgentContext  # noqa: E402
-from scripts.bench_adapters.harbor_process import write_json  # noqa: E402
+from agentctx.benchmarks.harbor_process import write_json  # noqa: E402
 
-DEFAULT_CONFIG_SPECS = [str(REPO_ROOT / "configs" / "config-tbench.yaml")]
+DEFAULT_CONFIG_SPECS = [str(WORKSPACE_ROOT / "configs" / "config-tbench.yaml")]
 DEFAULT_EXEC_TIMEOUT = 60
 
 

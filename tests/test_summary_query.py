@@ -1,18 +1,29 @@
 """Regression coverage for prose summaries through mini-swe-agent v2 models.
 
-Run with: venv/bin/python -m unittest discover -s tests -v
+Needs the model dependencies (litellm, mini-swe-agent):
+    venv/bin/python -m pytest tests/test_summary_query.py
+The lightweight runner-equivalence environment skips this module.
 """
 
 import os
+import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from litellm import ModelResponse
-from minisweagent.exceptions import FormatError
-from minisweagent.models.litellm_textbased_model import LitellmTextbasedModel
+ROOT = Path(__file__).resolve().parent.parent
+for entry in (ROOT / "src", ROOT / "mini-swe-agent" / "src"):
+    if str(entry) not in sys.path:
+        sys.path.insert(0, str(entry))
 
-import memory
+try:
+    from litellm import ModelResponse
+    from minisweagent.exceptions import FormatError
+    from minisweagent.models.litellm_textbased_model import LitellmTextbasedModel
+except ImportError as exc:  # pragma: no cover - depends on the installed venv
+    raise unittest.SkipTest(f"model dependencies not installed: {exc}")
+
+from agentctx.compression import primitives as memory  # noqa: E402
 
 
 class SummaryQueryTests(unittest.TestCase):

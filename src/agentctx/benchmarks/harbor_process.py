@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from agentctx import WORKSPACE_ROOT
+
 
 def write_json(path: Path, value: Any) -> None:
     """Keep the previous checkpoint valid if the worker is killed mid-write."""
@@ -47,11 +49,19 @@ async def run_worker(environment: Any, logs_dir: Path, payload: dict) -> dict:
     try:
         # Popen is deliberately synchronous: cancellation cannot lose the handle
         # between starting the process and assigning it to `process`.
+        # The worker imports agentctx by package name; make sure src/ is on its
+        # path even when the parent was started without PYTHONPATH.
+        worker_env = os.environ.copy()
+        worker_env["PYTHONPATH"] = os.pathsep.join(
+            entry for entry in (str(WORKSPACE_ROOT / "src"), worker_env.get("PYTHONPATH", ""))
+            if entry
+        )
         with (logs_dir / "worker.log").open("ab") as worker_log:
             process = subprocess.Popen(
-                [sys.executable, "-m", "scripts.bench_adapters.harbor_adapter",
+                [sys.executable, "-m", "agentctx.benchmarks.harbor_adapter",
                  "--worker", str(child.fileno())],
-                cwd=Path(__file__).resolve().parents[2],
+                cwd=WORKSPACE_ROOT,
+                env=worker_env,
                 pass_fds=(child.fileno(),),
                 start_new_session=True,
                 stdin=subprocess.DEVNULL,

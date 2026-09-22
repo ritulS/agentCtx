@@ -1,17 +1,31 @@
-"""Run with venv-harbor/bin/python -m unittest scripts.bench_adapters.test_harbor_cancellation."""
+"""Run with venv-harbor/bin/python -m pytest tests/test_harbor_cancellation.py.
+
+Needs Harbor and mini-swe-agent; the lightweight runner-equivalence
+environment skips this module.
+"""
 
 import asyncio
 import json
 import os
 import socket
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from scripts.bench_adapters.harbor_adapter import CompressionAgent
-from harbor.models.agent.context import AgentContext
-from minisweagent.models.test_models import DeterministicModel, make_output
+ROOT = Path(__file__).resolve().parent.parent
+for entry in (ROOT / "src", ROOT / "mini-swe-agent" / "src"):
+    if str(entry) not in sys.path:
+        sys.path.insert(0, str(entry))
+
+try:
+    from harbor.models.agent.context import AgentContext
+    from minisweagent.models.test_models import DeterministicModel, make_output
+except ImportError as exc:  # pragma: no cover - depends on the installed venv
+    raise unittest.SkipTest(f"Harbor / mini-swe-agent not installed: {exc}")
+
+from agentctx.benchmarks.harbor_adapter import CompressionAgent  # noqa: E402
 
 
 class BlockingSocketModel(DeterministicModel):
@@ -74,10 +88,6 @@ class CancellationTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(state["pid"], 0)
 
-    def test_legacy_entry_point_uses_same_adapter(self):
-        from tbench.harbor_adapter import CompressionAgent as LegacyAgent
-        self.assertIs(LegacyAgent, CompressionAgent)
-
     async def test_normal_submission_and_checkpoint(self):
         agent = self.agent()
         env = Environment()
@@ -105,7 +115,7 @@ class CancellationTests(unittest.IsolatedAsyncioTestCase):
         server = await asyncio.start_server(inference, "127.0.0.1", 0)
         async with server:
             agent = self.agent(model={
-                "model_class": "scripts.bench_adapters.test_harbor_cancellation.BlockingSocketModel",
+                "model_class": "test_harbor_cancellation.BlockingSocketModel",
                 "model_name": f"blocking:{server.sockets[0].getsockname()[1]}", "outputs": [],
             })
             task = asyncio.create_task(agent.run("test", Environment(), AgentContext()))

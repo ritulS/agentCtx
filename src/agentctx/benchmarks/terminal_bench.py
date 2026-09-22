@@ -1,28 +1,25 @@
-"""Terminal-Bench execution through Harbor for ``run_experiment.py``."""
+"""Terminal-Bench execution through Harbor for the experiment runner."""
 
 from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Any
 
 import yaml
 
+from .harbor_results import normalize_trial
+from .results import run_key
 from .tb_verdict import (
     needs_rerun,
     retry_exceptions_from_env,
     select_trials,
-    task_name as harbor_task_name,
     trial_result_files,
-    trial_verdict,
     verifier_env_args,
     verifier_timeout_args,
-    verifier_timeout_multiplier,
 )
 
 
@@ -43,7 +40,7 @@ class TerminalBench:
     benchmark_version = "1.0"
     dataset_name = "terminal-bench-core@0.1.1"
     agent_import_path = (
-        "scripts.bench_adapters.harbor_adapter:CompressionAgent"
+        "agentctx.benchmarks.harbor_adapter:CompressionAgent"
     )
 
     def __init__(self, workspace_root: Path, model_tag: str, results_dir: Path):
@@ -137,7 +134,7 @@ class TerminalBench:
                     by_key = {row["key"]: row for row in results}
                     pending = []
                     for task in tasks:
-                        key = self._run_key(
+                        key = run_key(
                             task["instance_id"], condition["condition"], run_num
                         )
                         row = by_key.get(key)
@@ -296,6 +293,7 @@ class TerminalBench:
             "DOCKER_HOST": self.docker_host,
             "COMPOSE_BAKE": "false",
             "PYTHONPATH": os.pathsep.join((
+                str(self.workspace_root / "src"),
                 str(self.workspace_root),
                 str(self.workspace_root / "mini-swe-agent" / "src"),
             )),
@@ -410,27 +408,6 @@ class TerminalBench:
     def _trial_result_paths(job_dir: Path) -> list[Path]:
         return trial_result_files(job_dir)
 
-    @staticmethod
-    def _supersede_previous_output(output: Path, harbor_result: dict) -> str | None:
-        """Move an earlier attempt's run directory aside instead of overwriting it.
-
-        Returns the relative name of the archived directory, or None when the
-        directory did not exist or already holds this very trial.
-        """
-        previous = output / "harbor_result.json"
-        if not previous.exists():
-            return None
-        try:
-            if json.loads(previous.read_text()).get("id") == harbor_result.get("id"):
-                return None
-        except (OSError, ValueError):
-            pass
-        index = 1
-        while (archived := output.with_name(f"{output.name}.superseded.{index}")).exists():
-            index += 1
-        output.rename(archived)
-        return archived.name
-
     def _normalize_trial(
         self,
         trial_dir: Path,
@@ -438,92 +415,14 @@ class TerminalBench:
         run_num: int,
         compression_ratio: float,
     ) -> dict[str, Any]:
-        result_path = trial_dir / "result.json"
-        if not result_path.exists():
-            result_path = trial_dir / "results.json"
-        harbor_result = json.loads(result_path.read_text())
-        task = harbor_task_name(harbor_result)
-        condition_name = condition["condition"]
-        output = self.results_dir / task / condition_name / f"run_{run_num}"
-        superseded_dir = self._supersede_previous_output(output, harbor_result)
-        output.mkdir(parents=True, exist_ok=True)
-
-        for source, target in (
-            (trial_dir / "agent" / "trajectory.json", output / "trajectory.json"),
-            (trial_dir / "agent" / "token_log.json", output / "token_log.json"),
-            (trial_dir / "agent" / "exit_info.json", output / "exit_info.json"),
-            (trial_dir / "trial.log", output / "agent.log"),
-            (result_path, output / "harbor_result.json"),
-        ):
-            if source.exists():
-                shutil.copy2(source, target)
-
-        token_log_path = trial_dir / "agent" / "token_log.json"
-        token_log = (
-            json.loads(token_log_path.read_text()) if token_log_path.exists() else {}
+        return normalize_trial(
+            trial_dir, self.results_dir, self.model_tag, run_num,
+            condition=condition,
+            compression_ratio=compression_ratio,
+            benchmark=self.name,
+            benchmark_version=self.benchmark_version,
+            dataset=self.dataset_name,
+            workspace_root=self.workspace_root,
+            fill_missing_timestamp=True,
+            supersede=True,
         )
-        exit_info_path = trial_dir / "agent" / "exit_info.json"
-        exit_info = (
-            json.loads(exit_info_path.read_text()) if exit_info_path.exists() else {}
-        )
-        verdict = trial_verdict(harbor_result, trial_dir)
-        timing = harbor_result.get("agent_execution") or {}
-        row = {
-            "key": self._run_key(task, condition_name, run_num),
-            "benchmark": self.name,
-            "benchmark_version": self.benchmark_version,
-            "dataset": self.dataset_name,
-            "instance_id": task,
-            "condition": condition_name,
-            "primitive": condition["primitive"],
-            "budget": condition["budget"],
-            "compression_ratio": compression_ratio,
-            "is_baseline": condition["budget"] == 999_999_999,
-            "run_num": run_num,
-            "model": self.model_tag,
-            "agent_model": self.model_tag,
-            "timestamp": harbor_result.get("started_at") or datetime.now().isoformat(),
-            "returncode": 0 if harbor_result.get("exception_info") is None else -1,
-            "e2e_latency_s": self._seconds_between(
-                harbor_result.get("started_at"), harbor_result.get("finished_at")
-            ),
-            "agent_latency_s": self._seconds_between(
-                timing.get("started_at"), timing.get("finished_at")
-            ),
-            # reward / resolved / verdict_source / harbor_exception(_message)
-            # (+ reward_file when recovered): resolved is None when no reward.
-            **verdict,
-            "verifier_timeout_multiplier": verifier_timeout_multiplier(),
-            "harbor_trial_dir": self._relative_to_workspace(trial_dir),
-            "attempts": 1,
-            "superseded_dir": superseded_dir,
-            "exit_status": exit_info.get("exit_status", "missing_exit_info"),
-            "n_calls": exit_info.get("n_calls"),
-            "submission_generated": exit_info.get("exit_status") == "Submitted",
-            "patch_generated": exit_info.get("exit_status") == "Submitted",
-        }
-        row.update(token_log)
-        row["llm_latency_s"] = token_log.get("total_latency_s", 0.0)
-        return row
-
-    def _relative_to_workspace(self, path: Path) -> str:
-        try:
-            return str(path.relative_to(self.workspace_root))
-        except ValueError:
-            return str(path)
-
-    @staticmethod
-    def _run_key(instance_id: str, condition: str, run_num: int) -> str:
-        return f"{instance_id}__{condition}__r{run_num}"
-
-    @staticmethod
-    def _seconds_between(start: str | None, finish: str | None) -> float | None:
-        if not start or not finish:
-            return None
-        try:
-            return round(
-                (datetime.fromisoformat(finish) - datetime.fromisoformat(start)).total_seconds(),
-                2,
-            )
-        except ValueError:
-            return None

@@ -7,11 +7,13 @@ be resolved without loading inference dependencies.
 import os
 from pathlib import Path
 
+from agentctx import WORKSPACE_ROOT
+
 
 def _resolve_config_path(raw: str) -> Path:
     p = Path(raw).expanduser()
     if not p.is_absolute() and not p.exists():
-        alt = Path(__file__).resolve().parent / p
+        alt = WORKSPACE_ROOT / p
         if alt.exists():
             return alt
     return p

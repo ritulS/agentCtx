@@ -1,6 +1,9 @@
 """Unit tests for the replay re-verification tooling (no containers involved).
 
-    venv-harbor/bin/python -m unittest scripts.bench_adapters.test_replay
+    venv-harbor/bin/python -m pytest tests/test_replay.py
+
+Needs Harbor (replay_agent imports it); the lightweight runner-equivalence
+environment skips this module.
 """
 
 from __future__ import annotations
@@ -16,14 +19,18 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-for p in (REPO_ROOT, REPO_ROOT / "scripts"):
+REPO_ROOT = Path(__file__).resolve().parents[1]
+for p in (REPO_ROOT / "src", REPO_ROOT):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from scripts.bench_adapters import replay_agent  # noqa: E402
+try:
+    from agentctx.benchmarks import replay_agent  # noqa: E402
+except ImportError as exc:  # pragma: no cover - depends on the installed venv
+    raise unittest.SkipTest(f"Harbor not installed: {exc}")
 
-spec = importlib.util.spec_from_file_location("replay_reverify_tb", REPO_ROOT / "scripts" / "replay_reverify_tb.py")
+spec = importlib.util.spec_from_file_location(
+    "replay_reverify_tb", REPO_ROOT / "scripts" / "maintenance" / "replay_reverify_tb.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
@@ -297,7 +304,7 @@ class RunnerPlanAndDryRunTest(unittest.TestCase):
             self.assertIn("--include-task-name t1", printed)
             self.assertIn("--verifier-timeout-multiplier 2.0", printed)
             self.assertIn("--verifier-env OMP_NUM_THREADS=8", printed)
-            self.assertIn("scripts.bench_adapters.replay_agent:ReplayAgent", printed)
+            self.assertIn("agentctx.benchmarks.replay_agent:ReplayAgent", printed)
             self.assertNotIn("--include-task-name t2", printed)              # not replayable: skipped
             self.assertFalse((Path(tmp) / "logs" / "out").exists())          # dry run writes nothing
 

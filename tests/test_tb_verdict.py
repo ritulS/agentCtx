@@ -2,7 +2,8 @@
 
 Run with either interpreter:
 
-    venv-harbor/bin/python -m unittest scripts.bench_adapters.test_tb_verdict
+    uvx --with pyyaml pytest tests/test_tb_verdict.py
+    venv-harbor/bin/python -m pytest tests/test_tb_verdict.py
 """
 
 from __future__ import annotations
@@ -17,12 +18,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from scripts.bench_adapters import tb_verdict  # noqa: E402
-from scripts.bench_adapters.terminal_bench import TerminalBench  # noqa: E402
+from agentctx.benchmarks import tb_verdict  # noqa: E402
+from agentctx.benchmarks.results import run_key  # noqa: E402
+from agentctx.benchmarks.terminal_bench import TerminalBench  # noqa: E402
 
 
 def harbor_result(task, *, reward=None, exception=None, message=None, trial_id="t1",
@@ -186,7 +188,7 @@ class RunExperimentsTest(unittest.TestCase):
                     if task not in task_names:
                         continue
                     result = harbor_result(task, reward=reward, exception=exception, trial_id=f"{task}{attempt}")
-                    row = {"key": adapter._run_key(task, condition["condition"], run_num), "instance_id": task,
+                    row = {"key": run_key(task, condition["condition"], run_num), "instance_id": task,
                            "condition": condition["condition"], "run_num": run_num, "timestamp": "t",
                            "attempts": 1, "superseded_dir": None, **tb_verdict.verdict_fields(result)}
                     rows.append(row)
@@ -222,7 +224,7 @@ class RunExperimentsTest(unittest.TestCase):
                 write_trial(job_dir, harbor_result("a", reward=1.0, trial_id="a1"))   # b never finished
                 return SimpleNamespace(returncode=1)
 
-            with mock.patch("scripts.bench_adapters.terminal_bench.subprocess.run", side_effect=fake_run), \
+            with mock.patch("agentctx.benchmarks.terminal_bench.subprocess.run", side_effect=fake_run), \
                     mock.patch.dict(os.environ, {"TB_REAP_FINISHED_HARBOR": "0"}):
                 rows = adapter._run_batch(task_names=["a", "b"], condition=condition, run_num=1,
                                           agent_config=Path(tmp) / "cfg", model_name="m", api_base="http://x",
@@ -234,7 +236,7 @@ class RunExperimentsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             adapter = self.make_adapter(Path(tmp))
             condition = {"condition": "truncation", "primitive": "truncation", "budget": 1000}
-            with mock.patch("scripts.bench_adapters.terminal_bench.subprocess.run",
+            with mock.patch("agentctx.benchmarks.terminal_bench.subprocess.run",
                             return_value=SimpleNamespace(returncode=2)), \
                     mock.patch.dict(os.environ, {"TB_REAP_FINISHED_HARBOR": "0"}), \
                     self.assertRaises(subprocess.CalledProcessError):

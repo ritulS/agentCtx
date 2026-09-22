@@ -1,8 +1,8 @@
 # Terminal-Bench prompt config for the agentCtx compression experiments.
 # Derived from mini-swe-agent/src/minisweagent/config/benchmarks/swebench_backticks.yaml
 # with SWE-bench-specific instructions (git patch, /testbed) removed.
-# Model section is supplied by configs/config-qwen-vllm.yaml (merged after this
-# file by scripts/bench_adapters/agent_adapter.py, so its model settings win).
+# Model settings come from the selected agent config (default: config-qwen-vllm.yaml).
+# src/agentctx/benchmarks/harbor_adapter.py merges this prompt config afterward.
 
 agent:
   system_template: |
