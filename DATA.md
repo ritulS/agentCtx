@@ -6,7 +6,7 @@ This file explains the split and how to obtain or regenerate the data.
 
 ## What IS in git
 
-- All code (`scripts/`, `Review1/*.py`, `memory.py`, the `mini-swe-agent`
+- All code (`scripts/`, `Review1/*.py`, `src/agentctx/`, the `mini-swe-agent`
   submodule).
 - **`Review1/Review1.csv`** — the central, distilled analysis file. This is the
   one data artifact that *is* tracked, because it's small and is what the

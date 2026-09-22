@@ -40,17 +40,42 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 
 ## Where things live
 
-- `memory.py` — compression primitive functions (`truncate`, `summarize`,
+- `src/agentctx/compression/primitives.py` — compression primitive functions (`truncate`, `summarize`,
   `summarize_partial`, `structured_summarize`, `tool_result_clear`, etc.).
+  The root-level `memory.py` is only an alias to this module: the pinned
+  mini-swe-agent commit (dec8de2) still does `import memory` from its
+  compression hook. Remove the alias once the submodule is bumped to a commit
+  that imports `agentctx.compression.primitives` directly (90624a1 exists
+  locally; it needs push rights on ritulS/mini-swe-agent).
 - `mini-swe-agent/` — submodule, fork at `github.com/ritulS/mini-swe-agent`,
   branch `agentctx-customizations`. The dispatch chain in
   `src/minisweagent/agents/default.py` calls primitives based on
   `MSWEA_PRIMITIVE` env var.
-- `scripts/run_experiment.py` — main run harness. Conditions defined in the
-  `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`
-  control a single sweep. Per-benchmark agent launching, trajectory parsing
-  and evaluation live in `scripts/bench_adapters/` (`swe_bench.py`,
-  `terminal_bench.py`); the harness selects one with `--benchmark`.
+- `src/agentctx/` — shared Python package. `compression/` (primitives),
+  `benchmarks/` (SWE-Bench and Terminal-Bench/Harbor adapters, verdict
+  handling in `tb_verdict.py`, shared result conversion in
+  `harbor_results.py` / `results.py`, the replay agent), `experiments/`
+  (`conditions.py`, `runner.py`, `iclr.py`) and `summary_config.py`
+  (summarizer-model overrides). `WORKSPACE_ROOT` and the `INFINITE_BUDGET`
+  sentinel for uncompressed baselines are defined once in
+  `src/agentctx/__init__.py`.
+- `scripts/run_experiment.py` — CLI entry point for
+  `src/agentctx/experiments/runner.py`. Conditions defined in
+  `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`,
+  `--tasks-file`, `--conditions`, `--summary-config` control a single sweep;
+  the runner selects a benchmark adapter with `--benchmark`.
+  `scripts/run_experiment_iclr.py` runs one cell of the canonical ICLR
+  results tree. Launchers are grouped under
+  `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see
+  `scripts/README.md`.
+- `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py`,
+  `scripts/run_experiment_iclr.py` and the calibration launchers from the
+  working tree and from the reference branch (`origin/akiho-clean-20260921`,
+  the pre-reorganization tree) against deterministic fakes and diffs
+  everything they write, plus unit tests for verdicts, the summarizer guard
+  and the ablation launcher. `uvx --with pyyaml pytest`; see
+  `tests/README.md`. Run it after touching `src/agentctx/experiments/` or
+  `src/agentctx/benchmarks/`.
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,
@@ -66,8 +91,8 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   observed benchmark × model × primitive × budget × depth, with scope and
   status. Dirty/archived data is excluded; fresh Terminal-Bench data is read
   from its canonical path. Regenerate with
-  `python scripts/build_coverage.py` after any run completes or Review1.csv
-  is rebuilt.
+  `python dashboard/build_coverage.py` (then `dashboard/build_dashboard.py`)
+  after any run completes or Review1.csv is rebuilt.
 
 ## Vocabulary
 

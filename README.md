@@ -62,13 +62,16 @@ Per-model serving configs live in [configs/](configs/).
 
 | Path | What |
 |------|------|
-| `memory.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. |
+| `src/agentctx/compression/primitives.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. `memory.py` at the repo root is an alias kept for the pinned mini-swe-agent commit, which still does `import memory`. |
 | `mini-swe-agent/` | Submodule — agent loop; primitives dispatched in `src/minisweagent/agents/default.py` via the `MSWEA_PRIMITIVE` env var. |
-| `scripts/run_experiment.py` | Main run harness. Conditions in the `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--max-workers`. |
+| `scripts/run_experiment.py` | CLI entry point for `src/agentctx/experiments/runner.py`. Conditions in `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--summary-config`, `--max-workers`. |
 | `dashboard/build_coverage.py` | Regenerates the coverage CSVs from experiment results. |
 | `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
-| `scripts/run_experiment_iclr.py` | Wraps the harness to write into the canonical `ICLR_results/` tree. |
-| `scripts/bench_adapters/`, `tbench/` | Per-benchmark adapters, including the Terminal-Bench harbor adapter. |
+| `scripts/run_experiment_iclr.py` | Wraps the runner to write into the canonical `ICLR_results/` tree (`src/agentctx/experiments/iclr.py`). |
+| `src/agentctx/benchmarks/` | Per-benchmark adapters (SWE-bench, Terminal-Bench through Harbor), verdict handling and shared result conversion. |
+| `src/agentctx/__init__.py` | `WORKSPACE_ROOT` and the shared `INFINITE_BUDGET` sentinel used by uncompressed baselines. |
+| `scripts/{calibration,expansions,serving,harbor,maintenance}/` | Launchers and operational tools; see [scripts/README.md](scripts/README.md). |
+| `tests/` | Runner-equivalence suite against the pre-reorganization branch plus unit tests; `uvx --with pyyaml pytest` (see [tests/README.md](tests/README.md)). |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |

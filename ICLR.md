@@ -42,7 +42,7 @@ picking one.
 | Cell coverage | `COVERAGE.csv` via `dashboard/build_coverage.py`. **The committed copy is stale** — it dates from 2026-08-28 and has no Devstral or GLM rows. Regenerate before trusting it, or use the outcomes CSV. |
 | Live run status | `Active_runs.md`, where Akiho's clone holds the live copy |
 | Terminal-Bench data | Produced on Albus, see "Terminal-Bench runs on Albus" below |
-| Run launchers | `scripts/run_experiment_iclr.py`, `scripts/run_agent_models_expansion.sh`, `scripts/run_budget_calibration_{sb,tb}.py` |
+| Run launchers | `scripts/run_experiment_iclr.py`, `scripts/expansions/run_agent_models_expansion.sh`, `scripts/calibration/run_budget_calibration_{sb,tb}.py` |
 | Cost and latency framing | `exp_plans/FRAMING_cost_latency.md` (local to Ritul's clone) |
 | Paper prose | `paper_sections_ICLR/` (local to Ritul's clone) |
 
@@ -110,7 +110,7 @@ Akiho. Do not infer TB status from this filesystem.
 
 ## Read before making any claim from the data
 
-- **Timeout confound.** `AGENT_TIMEOUT = 1500` in `scripts/run_experiment.py`
+- **Timeout confound.** `AGENT_TIMEOUT = 1500` in `scripts/run_experiment.py` (now `src/agentctx/experiments/runner.py`)
   kills long runs and labels them `silent_crash`. It hit summarization
   conditions hardest in the older Qwen data.
 - **Summarizer parser loop.** The summarizer reply was parsed as an agent

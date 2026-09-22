@@ -1,5 +1,14 @@
 # SWE-bench experiment command history: 2026-08-23–2026-09-07
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. scripts have since moved under
+> `scripts/{calibration,expansions,serving,harbor,maintenance}/` and shared
+> code into `src/agentctx/`). For present-day paths see `scripts/README.md` and
+> `CLAUDE.md`; for the code as it was at a given entry, check out the commit
+> hash recorded there.
+
 Compiled by cross-checking local `.bash_history`, execution logs, Git history, calibration artifacts, and archive records in the `akiho-expansion` workspace. All times are **CDT (UTC−5)**. Inspection snapshot: **2026-09-07 20:41 CDT**. The detailed local log history starts with the August 23 run_3 expansion; earlier experiments in `Active_runs.md` are background and are not reconstructed here.
 
 This follows the structure of [EXPERIMENT_TIMELINE_DETAIL.md on akiho-expansion-terminalbench-0829](https://github.com/ritulS/agentCtx/blob/41cd02e78d9d186a2f2c6a804b8ff18de6d03a32/ICLR_results/EXPERIMENT_TIMELINE_DETAIL.md). The remote branch tip was verified as `41cd02e78d9d186a2f2c6a804b8ff18de6d03a32` during compilation. SWE evidence below comes from this local workspace, not the Terminal-Bench host.

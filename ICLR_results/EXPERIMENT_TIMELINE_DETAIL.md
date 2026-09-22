@@ -1,5 +1,14 @@
 # Experiment command history: 2026-08-30–2026-09-05
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. scripts have since moved under
+> `scripts/{calibration,expansions,serving,harbor,maintenance}/` and shared
+> code into `src/agentctx/`). For present-day paths see `scripts/README.md` and
+> `CLAUDE.md`; for the code as it was at a given entry, check out the commit
+> hash recorded there.
+
 Compiled by cross-checking `.bash_history`, execution logs, and existing experiment records in this workspace. All times are **CDT (UTC−5)**. Since shell history has no timestamps, times generally refer to stage starts recorded in logs, not when commands were entered. August 29 entries provide background.
 
 Commands are excerpts from historical experiment launches, retaining relevant settings. Many entries omit `nohup`, `setsid`, redirection, and shared Podman environment variables. Resumes, skips, and preprocessing are included but distinguished from new trials. No new experiments were run while compiling this document.
@@ -112,7 +121,7 @@ The table below lists all cell-start entries extracted from the Main and ablatio
 ## Limits on timestamps and completion claims
 
 - `.bash_history` contains another TB1 prebuild invocation (line 566 when inspected), but no corresponding new timestamped log was identified. Its date remains unknown; it is not treated as the same execution as the August 30 full prebuild.
-- The August 30 host configuration changes are documented in [tb_prebuild.md](tb_prebuild.md). The remaining 38 tasks were built with rootless Podman while preserving ownership semantics.
+- The August 30 host configuration changes are documented in [TB_PREBUILD_LOG.md](TB_PREBUILD_LOG.md). The remaining 38 tasks were built with rootless Podman while preserving ownership semantics.
 - Qwen Main has a completion entry on September 3 at 14:32:50. Ablation has start entries through the 4K SS-partial cell on September 4 at 10:18, and the nohup log ends with `Terminated`. This does not establish completion of the full ablation grid.
 - The TB2 resume and single-task retry logs end with aggregation errors. However, the canonical `ICLR_results/terminalbench2/main/qwen35b/di__binf__fc/experiment_results.json` contained 89 records when inspected. Later postprocessing and successful completion of the original command are separate events.
 - Model switches involved `start_vllm_qwen35.sh`, `start_vllm_devstral.sh`, `start_vllm_glm47flash.sh`, or direct vLLM commands. Some logs were overwritten, so not all server start times can be reconstructed. September 5 history also records GLM starting on GPUs 4,5,6,7.

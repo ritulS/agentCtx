@@ -41,10 +41,10 @@ ICLR_results/
 `prefix_cache_ablation/` holds Qwen3.5-35B-A3B reruns with the vLLM prefix-caching
 setting flipped relative to each benchmark's production serving: production
 SWE-Bench ran with it off, so `swebench/prefix_cache_ablation/qwen35b-prefixcache/`
-has it **on** (`scripts/run_qwen_swe_prefix_cache_ablation.sh`); production
+has it **on** (`scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh`); production
 Terminal-Bench ran with it on, so
 `terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/` has it **off**
-(`scripts/run_qwen_tb_prefix_cache_ablation.sh`). The baseline of each cell is the
+(`scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh`). The baseline of each cell is the
 production cell of the same name under `main/qwen35b/`, restricted to the
 ablation cohort.
 

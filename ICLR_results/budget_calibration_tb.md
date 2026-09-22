@@ -1,5 +1,14 @@
 # Budget calibration — Terminal-Bench 1.0 (per-model A/P/B budgets)
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. scripts have since moved under
+> `scripts/{calibration,expansions,serving,harbor,maintenance}/` and shared
+> code into `src/agentctx/`). For present-day paths see `scripts/README.md` and
+> `CLAUDE.md`; for the code as it was at a given entry, check out the commit
+> hash recorded there.
+
 Created: 2026-09-09 / Scope: Terminal-Bench 1.0 P-80, agent model expansion (Qwen, Devstral, GLM)
 Related: [EXPERIMENT_LOG_TB.md](EXPERIMENT_LOG_TB.md#fc-calibration), [EXPERIMENT_TIMELINE_DETAIL.md](EXPERIMENT_TIMELINE_DETAIL.md), [FOLLOWUP_EXPERIMENTS.md §3](../exp_plans/FOLLOWUP_EXPERIMENTS.md#exp-tb), SWE version: `budget_calibration_swe.md`
 Procedures: [GLM_TB_NATIVE_CALIBRATION.md](../scripts/GLM_TB_NATIVE_CALIBRATION.md), [DEVSTRAL_TB_NATIVE_CALIBRATION.md](../scripts/DEVSTRAL_TB_NATIVE_CALIBRATION.md)

@@ -25,11 +25,11 @@ need rebuilding for serving/tbench.
   (vLLM default for the hybrid Qwen3.5 model; every startup in
   `logs/vllm_qwen35_a3b.log` 08-23..09-14 logged `enable_prefix_caching=False`, hit
   rate 0.0%). This grid repeats the 15K cells with caching **on**, all else unchanged.
-- **Server:** `bash scripts/start_vllm_qwen35_prefix_cache.sh` — the production serving
+- **Server:** `bash scripts/serving/start_vllm_qwen35_prefix_cache.sh` — the production serving
   command + `--enable-prefix-caching` only (PID 1217568, :8000, TP=4, started 14:28).
   **Do not restart it mid-run**: the launcher logs per-cell prefix-cache hit rates from
   the server's `/metrics` counters. Smoke test (1 task, su-full): 76.5% hit rate.
-- **Launch:** `nohup bash scripts/run_qwen_swe_prefix_cache_ablation_notified.sh >
+- **Launch:** `nohup bash scripts/expansions/run_qwen_swe_prefix_cache_ablation_notified.sh >
   logs/followup_sb_qwen_prefixcache.nohup.log 2>&1 &` (refuses to start unless the
   server on the agent port was started with `--enable-prefix-caching`; safe to re-run,
   completed keys are skipped).
@@ -41,7 +41,7 @@ need rebuilding for serving/tbench.
   `di__binf__otrc` (budget derived from the cell name: b15k → 15000, binf → 999999999).
   Launch only those two, so the 11 finished cells are not re-evaluated:
   `nohup env CELLS="di__binf__fc:full-context:0.5 di__binf__otrc:online-trc:0.5" bash
-  scripts/run_qwen_swe_prefix_cache_ablation_notified.sh >
+  scripts/expansions/run_qwen_swe_prefix_cache_ablation_notified.sh >
   logs/followup_sb_qwen_prefixcache_baselines.nohup.log 2>&1 &`
   Same limits as the caching-off `main/qwen35b/di__binf__*` cells (125 steps, 1500 s); compare
   against their original attempts, not the 200/300-step FC limit-failure re-runs.
@@ -117,11 +117,12 @@ need rebuilding for serving/tbench.
   `experiment_results.json`. 917 runs expected: su-partial 209, su-full 207,
   ss 128, otrc-su-partial 121, ss-partial 80, trc-su 79, trc-ss 58,
   otrc-ss-partial 35 (all b15k); tr/trc/otrc-tr/fc/otrc cells already 300/300.
-  Fixed `memory.py` (`query_summary`, commit f669241) is in use.
+  Fixed `memory.py` (`query_summary`, commit f669241; the module now lives at
+  `src/agentctx/compression/primitives.py`) is in use.
 - **Command:** `SECTIONS=main MAX_WORKERS=16 RUN_EVAL=1 QWEN_{A,P,B}_BUDGET=10000/15000/20000
-  bash scripts/run_agent_models_expansion_notified.sh qwen` (nohup, log
+  bash scripts/expansions/run_agent_models_expansion_notified.sh qwen` (nohup, log
   `logs/followup_agent_models_qwen_launcher.log`). `SECTIONS` is a new
-  override in `scripts/run_agent_models_expansion.sh` (uncommitted at launch).
+  override in `scripts/expansions/run_agent_models_expansion.sh` (uncommitted at launch).
 - **Not covered by this launch:** main 10k/20k cells (2,607 rerun rows; 1,912
   are NEW-70 tasks with no ablation counterpart). **Before running
   `SECTIONS=ablation`:** archive the 476 seeded ablation copies of archived
@@ -133,17 +134,17 @@ need rebuilding for serving/tbench.
 - **Status:** ⏳ NOT LAUNCHED — tooling prepared 2026-09-21; update this entry with the
   host, launch time and PIDs when started.
 - **Why:** production Qwen Terminal-Bench runs were served with vLLM prefix caching **on**
-  (`scripts/start_vllm_qwen35.sh`, now `scripts/start_vllm_qwen35_prefix_cache_ablation.sh`; `logs/vllm_qwen35.log`: `enable_prefix_caching=True`).
+  (`scripts/start_vllm_qwen35.sh`, now `scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh`; `logs/vllm_qwen35.log`: `enable_prefix_caching=True`).
   This grid repeats the primary-budget cells with caching **off**, all else unchanged —
   the mirror image of 5.a (SWE-Bench, production off → ablation on).
 - **Grid:** 13 cells × TB:ABL-15 × 3 runs = 585 runs: 3K / depth 0.5 (5 depth-tunable +
   6 depth-invariant) plus FC / OTRC @∞. Agent = summarizer. Baseline = the same cells
   under `main/qwen35b/` restricted to ABL-15 (⊂ P-40).
-- **Server:** `bash scripts/start_vllm_qwen35_no_prefix_cache.sh` — the production serving
+- **Server:** `bash scripts/serving/start_vllm_qwen35_no_prefix_cache.sh` — the production serving
   command with `--no-enable-prefix-caching` (log `logs/vllm_qwen35_noprefixcache.log`, so
   the production log is kept). Stop a caching-on server first:
-  `bash scripts/stop_vllm.sh logs/vllm_qwen35.pid`.
-- **Launch:** `nohup bash scripts/run_qwen_tb_prefix_cache_ablation_with_slack.sh >
+  `bash scripts/serving/stop_vllm.sh logs/vllm_qwen35.pid`.
+- **Launch:** `nohup bash scripts/expansions/run_qwen_tb_prefix_cache_ablation_with_slack.sh >
   logs/followup_tb_qwen_noprefixcache.nohup.log 2>&1 &` (refuses to start unless the
   server on the agent port was started with `--no-enable-prefix-caching`; stops the grid
   if a cell records prefix-cache hits; safe to re-run, completed keys are skipped).
@@ -171,7 +172,9 @@ need rebuilding for serving/tbench.
   damage lives in deep half. Weakens healing mode S; action-level arms
   now decisive (see exp_plans/HEALING_V1.md). Figure:
   `results/killtest/figs/damage_map_qwen2.5-coder-0.5b.png`.
-- **What:** `scripts/killtest_damage_map.py measure` on all 86 clean TRC
+- **What:** `scripts/killtest_damage_map.py measure` (script since removed
+  from the tree; retrieve with `git show 9b20afd:scripts/archive/killtest_damage_map.py`)
+  on all 86 clean TRC
   events (`results/killtest/events_b15000_d050.json`, extracted from
   p100-inf full-context runs; budget 15k, depth 0.5) with
   Qwen2.5-Coder-0.5B-Instruct on **CPU** (A100s dead — MIG incident above).
@@ -198,14 +201,19 @@ need rebuilding for serving/tbench.
   truncation/tool-result-clear/structured-summarize @15k), pilot 25 tasks →
   main grid 15 tasks × 4 cond × 3 runs = 180 runs. Custom adapter
   `tbench/agent_adapter.py` reuses fork's DefaultAgent (compression path
-  identical to SWE-bench); orchestrator `scripts/run_tbench.py`.
+  identical to SWE-bench); orchestrator `scripts/run_tbench.py`. Both have
+  since been removed; the Harbor-based successor is
+  `src/agentctx/benchmarks/harbor_adapter.py` driven by `scripts/run_experiment.py`.
 - **Host:** Dobby. vLLM Qwen3.5-35B-A3B on :8000 (TP=4, PID in
   `logs/vllm_qwen35_a3b.pid`). Podman API service on rootless socket
   (`podman system service`, started manually — restart after reboot).
 - **Infra notes:** tb 0.2.18 in `venv-tb` (Python 3.12 via uv);
   venv-local lchown patch (`scripts/patch_tb_lchown.py`); task images
   prebuilt natively (`scripts/tb_prebuild_images.sh`) because docker-buildx
-  fails over rootless podman; oracle smoke 3/3.
+  fails over rootless podman; oracle smoke 3/3. Both scripts have since been
+  removed from the tree (superseded by
+  `scripts/harbor/tb_harbor_prebuild_images.sh`); retrieve the originals with
+  `git show 9b20afd:scripts/archive/<name>`.
 
 
 ### Logit Pilot (Tier-A) — Devstral logit-rank measurement on Dobby
@@ -568,9 +576,9 @@ No partial results expected to be useful — all child processes killed.
   - `results/ablations/stacked-15000/` — trc-su 65.0% / trc-ss 58.3%
   - `results/ablations/stacked-20000/` — trc-su 66.7% / trc-ss 76.7%
 - **Code changes that landed**:
-  - `memory.py`: `tool_result_clear(..., fallback_truncate=False)` skips built-in TR fallback so a caller can run a second primitive
+  - `memory.py` (now `src/agentctx/compression/primitives.py`): `tool_result_clear(..., fallback_truncate=False)` skips built-in TR fallback so a caller can run a second primitive
   - `mini-swe-agent/.../default.py`: new primitives `trc_summarize` and `trc_structured_summarize` (TRC then SU/SS)
-  - `scripts/run_experiment.py`: new conditions `trc-su` and `trc-ss`
+  - `scripts/run_experiment.py` (conditions now live in `src/agentctx/experiments/conditions.py`): new conditions `trc-su` and `trc-ss`
 - **Headline finding**: stacking lift narrows with budget — +11.7pp at 10k (trc-ss vs best single), +13.3pp at 15k (trc-su vs best single matched), only +5.0pp at 20k for trc-ss and **−5.0pp at 20k for trc-su**. At loose budgets where TRC alone already works well, the cascade's extra summarization step destroys capability TRC was preserving. This budget-dependent pattern motivates the OCC two-tier framing (proactive online-TRC keeps headroom; reactive cascade only fires when budget is tight).
 
 ---

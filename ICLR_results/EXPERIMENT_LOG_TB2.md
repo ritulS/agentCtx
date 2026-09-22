@@ -1,5 +1,14 @@
 # ICLR 2027 Experiment Log — Terminal-Bench 2.0
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. scripts have since moved under
+> `scripts/{calibration,expansions,serving,harbor,maintenance}/` and shared
+> code into `src/agentctx/`). For present-day paths see `scripts/README.md` and
+> `CLAUDE.md`; for the code as it was at a given entry, check out the commit
+> hash recorded there.
+
 Recorded: 2026-09-05. Experiments executed: 2026-09-04. Execution times below use CDT (UTC−05:00), as explicitly recorded in the shell logs.
 
 ## 1. Experiment and current results

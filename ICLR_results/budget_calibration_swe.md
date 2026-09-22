@@ -1,5 +1,14 @@
 # Budget calibration (per-model A/P/B budgets)
 
+> **Note: this file is a historical log.** Commands, script paths, and code
+> locations are recorded exactly as they were when each entry was written and
+> are intentionally not updated when the repository is reorganized, so they may
+> not match the current tree (e.g. scripts have since moved under
+> `scripts/{calibration,expansions,serving,harbor,maintenance}/` and shared
+> code into `src/agentctx/`). For present-day paths see `scripts/README.md` and
+> `CLAUDE.md`; for the code as it was at a given entry, check out the commit
+> hash recorded there.
+
 Created: 2026-09-09 / Scope: SWE-Bench P100, agent model expansion (Devstral, GLM)
 Related: [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md#budget-calibration-protocol), [EXPERIMENT_TIMELINE_DETAIL_SWE.md](EXPERIMENT_TIMELINE_DETAIL_SWE.md#budget-and-cohort-decisions), [FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EXPERIMENTS.md)
 
