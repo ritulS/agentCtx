@@ -17,19 +17,37 @@ ICLR_results/
 │   ├── summarizer_ablation/
 │   └── prefix_cache_ablation/      # vLLM --enable-prefix-caching reruns
 │       └── qwen35b-prefixcache/    # ABL-25, 15K, canonical depth, all primitives
+│       └── qwen35b-prefixcache/    # ABL-25, 15K + FC/OTRC at inf, canonical depth, all primitives
 │
 └── terminalbench/
     ├── main/
-    │   ├── qwen35b/
-    │   ├── devstral24b/
-    │   └── glm47flash/
+    │   ├── qwen35b/                  # Complete P-80 results
+    │   ├── devstral24b/             # Complete P-80 results
+    │   ├── glm47flash/              # Complete P-80 results
+    │   └── p80_rootless/            # Rootless-buildable P-80 subset
+    │       ├── qwen35b/
+    │       │   └── di__binf__fc/
+    │       ├── devstral24b/
+    │       └── glm47flash/
     ├── ablation/
     │   ├── qwen35b/
     │   ├── devstral24b/
     │   └── glm47flash/
-    └── summarizer_ablation/
+    ├── summarizer_ablation/
+    └── prefix_cache_ablation/      # vLLM --no-enable-prefix-caching reruns
+        └── qwen35b-noprefixcache/  # ABL-15, 3K + FC/OTRC at inf, canonical depth, all primitives
 
 ```
+
+`prefix_cache_ablation/` holds Qwen3.5-35B-A3B reruns with the vLLM prefix-caching
+setting flipped relative to each benchmark's production serving: production
+SWE-Bench ran with it off, so `swebench/prefix_cache_ablation/qwen35b-prefixcache/`
+has it **on** (`scripts/run_qwen_swe_prefix_cache_ablation.sh`); production
+Terminal-Bench ran with it on, so
+`terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/` has it **off**
+(`scripts/run_qwen_tb_prefix_cache_ablation.sh`). The baseline of each cell is the
+production cell of the same name under `main/qwen35b/`, restricted to the
+ablation cohort.
 
 ## Naming
 ```text

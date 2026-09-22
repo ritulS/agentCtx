@@ -1,8 +1,7 @@
 # Summarizer-model override for the summarizer ablation (FOLLOWUP_EXPERIMENTS.md §4).
 # Only the `model:` section is read (summary_config.summary_model_config), via
 # `run_experiment.py --summary-config` -> MSWEA_SUMMARY_MODEL_CONFIG.
-# Server: bash scripts/start_vllm_summarizer.sh qwen35-9b  (port 8001, GPUs 0-3 shared with the agent).
-# Launched by scripts/run_qwen_swe_summarizer_ablation.sh.
+# Server: scripts/start_vllm_qwen35_9b.sh (GPUs 4-5, port 8001).
 # Sampling settings mirror the agent config (configs/config-qwen-vllm.yaml).
 model:
   model_name: "hosted_vllm/Qwen/Qwen3.5-9B"

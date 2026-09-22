@@ -7,6 +7,8 @@ __pycache__/
 
 # ── Virtual environments ──────────────────────────────────────────────────────
 venv/
+# The workspace may reuse an existing environment via a symlink.
+/venv
 venv-tb/
 .venv/
 env/
@@ -15,6 +17,7 @@ env/
 # All collected experiment data lives in data/ (see data/README.md).
 # results/ablations, results/tbench, Review1/raw are compatibility symlinks.
 data/
+calibration_results/
 results/*
 !results/.gitkeep
 logs/*
@@ -68,9 +71,29 @@ ICLR_results/swebench
 quarantined_results/
 venv-glm/
 backups/
+ICLR_results/terminalbench/main/qwen35b-smoke
+ICLR_results/terminalbench
+.tools
+venv-glm/
+venv-glm-cu129-clean
+ICLR_results/terminalbench2
+analysis/reports
 
 # Archives are ignored by default; keep only the selected tooling and reports.
 /archives/**
+
+# Archive notes and task lists for the glm/devstral archives (no run data).
+!/archives/glm_since_20260905_145712_CDT/
+!/archives/glm_since_20260905_145712_CDT/README.md
+!/archives/glm_since_20260905_145712_CDT/tasks.tsv
+!/archives/glm_since_20260905_145712_CDT/partial_tasks.tsv
+!/archives/devstral_since_20260905_145630_CDT/
+!/archives/devstral_since_20260905_145630_CDT/README.md
+!/archives/devstral_since_20260905_145630_CDT/tasks.tsv
+# Notes and task lists for the 2026-09-08 summary-bug rerun archives (no run data).
+!/archives/*_summary_bug_rerun2_*/
+!/archives/*_summary_bug_rerun2_*/README.md
+!/archives/*_summary_bug_rerun2_*/tasks.tsv
 
 !/archives/summary_bug_rerun_tooling_20260907_175359_CDT/
 !/archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md
@@ -79,6 +102,11 @@ backups/
 !/archives/summary_bug_rerun_tooling_20260907_175359_CDT/rerun_list/
 !/archives/summary_bug_rerun_tooling_20260907_175359_CDT/rerun_list/*.csv
 !/archives/summary_bug_rerun_tooling_20260907_175359_CDT/rerun_list/*.txt
+!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/
+!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/rerun_runs_tb_additions.csv
+!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/tb_condition_summary.csv
+!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/method_anomalies.csv
+!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/tb_README.txt
 
 !/archives/summary-bug-audit-20260907_185802_CDT/
 !/archives/summary-bug-audit-20260907_185802_CDT/README.md

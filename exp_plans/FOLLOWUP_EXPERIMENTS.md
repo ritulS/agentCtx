@@ -4,6 +4,7 @@ Last update: September 11, 2026
 Future SWE-bench ablation launches for Qwen, Devstral, and GLM use
 `task_lists/ablation_25tasks.json` (25 tasks, 3 runs/task). Existing ABL-30
 results are retained; only ABL-25 tasks are scheduled and counted.
+Last update: September 3, 2026
 
 ## Overview
 
@@ -13,6 +14,10 @@ results are retained; only ABL-25 tasks are scheduled and counted.
 | 2 | [Add 2 agent models](#exp-models) | SWE: P100 + ABL-25 | **3–7 days** (7800 runs) + TBD (7800 runs) |
 | 3 | [Terminal-Bench evaluation](#exp-tb) | TB: Full + ABL-20 | TBD (31,200 runs) |
 | 4 | [Summarizer ablation](#exp-summarizer) | SWE: ABL-25; TB: ABL-20 | TBD (700 runs) |
+| 1 | [Increase runs/task](#exp-runs) | SWE: P100 + ABL-30 | **3–5 days** (4400 runs) |
+| 2 | [Add 2 agent models](#exp-models) | SWE: P100 + ABL-30 | **3–7 days** (8580 runs) + TBD (8580 runs) |
+| 3 | [Terminal-Bench evaluation](#exp-tb) | TB: P-40 + P-15 | **~22 days total; ~19 days remaining** (11,700 runs; one GPU host) |
+| 4 | [Summarizer ablation](#exp-summarizer) | SWE: ABL-30; TB: ABL-20 | TBD (760 runs) |
 | 5 | [Quantization ablation](#exp-quantization) | TBD | TBD |
 | 6 | [Add ACON](#exp-acon) | SWE: P100 | TBD |
 
@@ -51,6 +56,8 @@ ABL-25 tasks; copies in ablation are deduplicated by task, condition and run num
 | [(2.b) GLM Main](#exp-models-glm-main) | GLM-4.7-Flash (30B-A3B MoE)|SB:P-100 | Depth: 0.5 or depth-invariant / Budget: 13K (or ∞) | 3900|TBD|
 | [(2.c) Devstral-24B Ablation](#exp-models-devstral-abl) | Devstral-Small-2-24B|SB:ABL-25 |depth & budget ablation|3900|TBD|
 | [(2.d) GLM Ablation](#exp-models-glm-abl) | GLM-4.7-Flash (30B-A3B MoE)|SB:ABL-25 | depth & budget ablation |3900|TBD|
+| [(2.c) Devstral-24B Ablation](#exp-models-devstral-abl) | Devstral-Small-2-24B|SB:ABL-30 |depth & budget ablation|4680|1.6-3.9 days|
+| [(2.d) GLM Ablation](#exp-models-glm-abl) | GLM-4.7-Flash (30B-A3B MoE)|SB:ABL-30 | depth & budget ablation |4680|TBD|
 
 <a id="exp-models-devstral-main"></a>
 ### (2.a) Devstral-24B Main
@@ -79,6 +86,9 @@ ABL-25 tasks; copies in ablation are deduplicated by task, condition and run num
 | TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 17K / 21K / 24K | SB:ABL-25 | 2250 |
 | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 17K / 24K | SB:ABL-25 | 750 |
 | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |17K / 24K | SB:ABL-25 | 900 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 17K / 21K / 24K | SB:ABL-30 | 2700 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 17K / 24K | SB:ABL-30 | 900 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |17K / 24K | SB:ABL-30 | 1080 |
 
 <a id="exp-models-glm-abl"></a>
 ### (2.d) GLM Ablation
@@ -88,6 +98,9 @@ ABL-25 tasks; copies in ablation are deduplicated by task, condition and run num
 | TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 10K / 13K / 15K | SB:ABL-25 | 2250 |
 | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 15K | SB:ABL-25 | 750|
 | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K | SB:ABL-25 | 900|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 10K / 13K / 15K | SB:ABL-30 | 2700 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 15K | SB:ABL-30 | 900|
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K | SB:ABL-30 | 1080|
 
 <a id="exp-tb"></a>
 ## 3. [Priority] Terminal-Bench Evaluation
@@ -100,6 +113,27 @@ ABL-25 tasks; copies in ablation are deduplicated by task, condition and run num
 |---|---|---|---|---|
 | [(3.a) TB Main](#exp-tb-main) | TB:P-40| Depth: 0.5 or depth-invariant / Budget: model-calibrated primary (or ∞) | 4680|TBD|
 | [(3.b) TB Ablation](#exp-tb-abl) | TB:P-15 |depth & budget ablation|7020|TBD|
+| [(3.a) TB Main](#exp-tb-main) | TB:P-40| Depth: 0.5 or depth-invariant / Budget: model-calibrated primary (or ∞) | 4680|**~9 days total; ~6–7 days remaining if prioritized**|
+| [(3.b) TB Ablation](#exp-tb-abl) | TB:P-15 |depth & budget ablation|7020|**~13–15 days total; ~13–15 days remaining if prioritized**|
+
+ETA basis (updated 2026-09-03 20:21 CDT; runs started August 31): Qwen TB Main completed
+1,560/1,560 runs in about 68 hours elapsed. Its newly executed cells account
+for about 64 active hours, implying a full-grid rate of approximately 22
+runs/hour. The first 120 Qwen ablation runs took about 5.5 hours (21.8
+runs/hour), independently supporting the same projection rate. Current
+coverage is Main 1,560/4,680 and ablation 120/7,020. The Qwen ablation launcher
+is currently stopped, so calendar dates below assume an immediate restart,
+24-hour operation, and short model-switch downtime. Across both sections,
+10,020 runs remain, corresponding to about 19 days of pure runtime at the
+observed rate.
+
+- If all remaining Main cells are prioritized before ablations: Main completes
+  around **September 9–10**, followed by all ablations around **September
+  23–25**.
+- If the current model-by-model order is retained (Qwen Main -> Qwen ablation
+  -> Devstral Main -> Devstral ablation -> GLM Main -> GLM ablation): all Main
+  cells complete around **September 18–20**, and all ablations around
+  **September 23–25**.
 
 <a id="exp-tb-main"></a>
 ### (3.a) TB Main

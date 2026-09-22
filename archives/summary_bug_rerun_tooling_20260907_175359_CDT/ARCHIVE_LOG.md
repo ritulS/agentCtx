@@ -119,6 +119,137 @@ Made with one-off scripts (`archive_operation.py` in each directory), selecting 
 
 Both running launchers use the runtime tree with the `6b45448` fix.
 
+## 2026-09-08: Terminal-Bench counterpart of the SWE-bench agent.log expansion (update NOT yet applied)
+
+On SWE-bench (branch `akiho-expansion`, commit `25b7ca7`, cherry-picked as `fcef550`) `attribute_agentlog.py`
+recovered FormatErrors that a later successful compression had erased from `trajectory.json` by reading the
+mini-swe-agent console output (`agent.log`, written by `scripts/run_experiment.py`), and appended 4,203 rows.
+
+That method has no input on Terminal-Bench:
+
+- The Harbor adapter runs a `DefaultAgent` subclass (`CheckpointAgent`) that prints nothing per step.
+  `agent.log` in a TB run directory is a copy of Harbor's `trial.log` (docker/environment messages).
+  `worker.log` (Harbor trial `agent/`, only after the 2026-09-06 zombie fix) holds the banner and tracebacks;
+  0 step headers in 1,400 files.
+- `model_stats.api_calls` in `trajectory.json` is the agent's own `n_calls` (`default.py`), not a model-side counter.
+
+`scripts/attribute_tb_erasure.py` therefore uses the only per-run evidence there is. A failed pre-fix summary call
+left a `Format error` user message that only a successful rewrite of the compressible window removes
+(successful summary; or any event for the `*_partial` variants, whose fallback is `truncate()`). TRC and online TRC
+stub message *content* but keep `extra` (`interrupt_type`, `model_response`), so they never remove the evidence;
+for `trc_summarize` / `trc_structured_summarize` only the stage-2 summary (`summarization_prompt_tokens > 0`) counts.
+Runs where such a rewrite happened and no summary failure was established are `probable / tb_erasure_possible`;
+runs with no retained error and no possible rewrite are clean (`no_evidence_intact`). The intact verdicts assume
+`token_log.json` describes the same state as `trajectory.json`; before the 2026-09-06 zombie fix a Harbor timeout
+wrote `token_log.json` while the agent thread kept saving `trajectory.json`, so runs whose trajectory is newer than
+the token_log by more than 5 s, or whose `api_calls` lead `step_prompt_tokens` by more than one call, are
+`token_log_stale` → `probable / tb_unverifiable` instead (reviewer feedback of 2026-09-08). Nothing can be
+confirmed, so no TB addition is `priority`. Pre-fix = Harbor `started_at` before the runtime fix (`6b45448`,
+17:23:33 CDT); the 899 reruns started after it are skipped. Runs are read from `ICLR_results/` and the four
+`*_summary_marker_error_*` archives (no path appears twice).
+
+Outputs in `erasure-terminalbench/` (committed: additions, condition summary, README, anomalies; the two per-run
+CSVs are gitignored):
+
+| Verdict | Runs |
+|---|---|
+| summary-condition pre-fix runs scanned | 2981 |
+| already_listed | 1874 |
+| erasure_possible → **addition** `probable / tb_erasure_possible` | **485** (452 error-free, 33 previously `not_established`) |
+| token_log_stale → **addition** `probable / tb_unverifiable` | **133** (113 error-free, 20 previously `not_established`; 118 with trajectory >60 s after exit, 15 by the api_calls gap only) |
+| errors_intact_not_established (unchanged, not added) | 47 |
+| no_evidence_intact (clean, not added) | 442 |
+| source_changed / unreadable | 0 / 0 |
+| non-summary runs with summary-marker errors (must be 0) | 0 |
+
+Additions total 618: devstral24b main 256, glm47flash main 167, qwen35b main 138, qwen35b ablation 57. The largest
+cells are `devstral24b d05__b4k__su-full` and `di__b4k__trc-su`: runs whose summaries succeeded and so erased
+whatever failed before. Per-cell counts: `erasure-terminalbench/tb_condition_summary.csv`.
+
+Command used (read-only on experiment files):
+
+```bash
+cd /home/ak58925/agentCtx
+T=archives/summary_bug_rerun_tooling_20260907_175359_CDT; S=/home/ak58925/agentCtx-summarization/results
+python3 $T/scripts/attribute_tb_erasure.py \
+  --audit-dir $S/query-error-audit-20260907 --audit-dir $S/query-error-audit-20260907-1731 \
+  --review-dir $S/query-error-review-870-20260907 --review-dir $S/query-error-review-20260907-1731 \
+  --rerun-list $T/rerun_list/rerun_runs.csv --output-dir $T/erasure-terminalbench --all-conditions
+```
+
+**Pending update command** (not run; verified with `--dry-run`: headers equal, no duplicates, 1874 → 2492 rows).
+It backs up the list as `rerun_runs.before-tb-erasure-update-<ts>.csv` and appends an "Update history" line to
+`rerun_README.txt`:
+
+```bash
+python3 $T/scripts/append_rerun_additions.py --rerun-list $T/rerun_list/rerun_runs.csv \
+  --additions $T/erasure-terminalbench/rerun_runs_tb_additions.csv --label tb-erasure
+```
+
+Archiving for rerun is a separate step. Note that the 2026-09-07 archives covered only `summary_marker_error`; the
+`summary_failure_accounting` (604) and `summary_related_response` (169) rows are still in `ICLR_results/` (verified
+2026-09-08 from `erasure-terminalbench/tb_attribution.csv`, all 773 at `location=workspace`). One archive per cohort
+with all four pending reasons covers both (dry run 2026-09-08: devstral24b 151+256, glm47flash 240+167,
+qwen35b 382+195 = 1,391 runs):
+
+```bash
+for c in devstral24b glm47flash qwen35b; do
+  python3 $T/scripts/archive_rerun_targets.py --rerun-csv $T/rerun_list/rerun_runs.csv \
+    --cohort-model-path $c \
+    --rerun-reason summary_failure_accounting summary_related_response tb_erasure_possible tb_unverifiable \
+    --archive-name ${c}_summary_bug_rerun2_$(date +%Y%m%d_%H%M%S)_CDT --execute
+done
+```
+
+565 of the 618 new rows have no FormatError at all, so those are a judgement call on erased or unrecorded evidence,
+not a detected bug.
+
+**Applied 2026-09-08 19:13-19:14 CDT.** `rerun_runs.csv` 1874 → 2492 rows (backup
+`rerun_list/rerun_runs.before-tb-erasure-update-20260908-1913.csv`), then the three archives below with the four
+reasons above. Each archive's `README.md` and `tasks.tsv` are committed; the run data are not.
+
+Provenance (agentCtx, branch `akiho-expansion-terminalbench-0829`):
+
+| Item | Commit | Notes |
+|---|---|---|
+| Code that ran all three commands below | `26d5fbc` | `attribute_tb_erasure.py` and `append_rerun_additions.py` are first committed here, identical to the files that were executed; `archive_rerun_targets.py` is unchanged since `f64dbe6` (2026-09-07). |
+| Runtime fix the reruns will use | `6b45448` | `memory.py` `query_summary`; unchanged since. |
+| SWE-bench method this replaces | `fcef550` | cherry-pick of `25b7ca7` on `akiho-expansion`. |
+| Audit inputs | — | `agentCtx-summarization` (HEAD `cd1716f`) `results/query-error-audit-20260907{,-1731}`, `query-error-review-870-20260907`, `query-error-review-20260907-1731`. |
+
+Commands, in the order executed (all from `/home/ak58925/agentCtx`, `T=archives/summary_bug_rerun_tooling_20260907_175359_CDT`):
+
+```bash
+# 1. attribution (18:58 CDT; read-only on experiment files)
+S=/home/ak58925/agentCtx-summarization/results
+python3 $T/scripts/attribute_tb_erasure.py \
+  --audit-dir $S/query-error-audit-20260907 --audit-dir $S/query-error-audit-20260907-1731 \
+  --review-dir $S/query-error-review-870-20260907 --review-dir $S/query-error-review-20260907-1731 \
+  --rerun-list $T/rerun_list/rerun_runs.csv --output-dir $T/erasure-terminalbench --all-conditions
+
+# 2. rerun list update (19:13 CDT): 1874 -> 2492 rows
+python3 $T/scripts/append_rerun_additions.py --rerun-list $T/rerun_list/rerun_runs.csv \
+  --additions $T/erasure-terminalbench/rerun_runs_tb_additions.csv --label tb-erasure
+
+# 3. archive (19:14 CDT): one archive per cohort, dry run passed beforehand for each
+for c in devstral24b glm47flash qwen35b; do
+  python3 $T/scripts/archive_rerun_targets.py --rerun-csv $T/rerun_list/rerun_runs.csv \
+    --cohort-model-path $c \
+    --rerun-reason summary_failure_accounting summary_related_response tb_erasure_possible tb_unverifiable \
+    --archive-name ${c}_summary_bug_rerun2_$(date +%Y%m%d_%H%M%S)_CDT --execute
+done
+```
+
+| Archive directory | Time (CDT) | Selection | Runs | Cells | Result rows |
+|---|---|---|---|---|---|
+| `devstral24b_summary_bug_rerun2_20260908_191403_CDT` | 19:14:03 | devstral24b, 4 reasons | 407 (151 old + 256 new) | 8 | 960 → 553 |
+| `glm47flash_summary_bug_rerun2_20260908_191403_CDT` | 19:14:03 | glm47flash, 4 reasons | 407 (240 + 167) | 6 | 698 → 291 |
+| `qwen35b_summary_bug_rerun2_20260908_191404_CDT` | 19:14:04 | qwen35b main + ablation, 4 reasons | 577 (382 + 195) | 16 | 1148 → 571 |
+
+`trajectory.json` count in `ICLR_results/terminalbench` afterwards: 3487. Next: relaunch
+`run_agent_models_expansion_tb.sh` for devstral main, qwen main, qwen ablation, glm main (see "Rerun status"),
+then `python scripts/build_coverage.py`.
+
 ## Rebuilding rerun_runs.csv
 
 ```bash
@@ -142,174 +273,3 @@ venv/bin/python scripts/build_rerun_runs.py \
 - Nothing was deleted. To restore an archive, move each `moves_completed.jsonl` destination back to its source
   and restore `experiment_results.json` from `before/`.
 - `COVERAGE.csv` and `COVERAGE_TB.csv` do not reflect the archives. Regenerate with `python scripts/build_coverage.py` after the reruns.
-
-## Local SWE-bench candidate CSV (2026-09-07)
-
-The local `akiho-expansion` workspace contains SWE-bench results. A fresh scan of
-22,979 trajectories produced outputs under
-`archives/summary-bug-audit-20260907_185802_CDT/`:
-
-- `archive_targets.csv`: 2,359 runs with `rerun_reason=summary_marker_error`,
-  matching the selection rule used in the Terminal-Bench archives above.
-- `archive_target_summary.csv`: counts by benchmark, section, and model.
-- `rerun-list/rerun_runs.csv`: all 5,119 candidates, including 2,498 additional
-  call-accounting cases and 262 response-content cases.
-- `manual_review_inconsistent_counters.csv`: unmarked runs whose counters cannot
-  support classification. These are excluded from the rerun list.
-- `README.md`: local commands, selection details, and limitations.
-
-The exporter now falls back to the matching `experiment_results.json` row when
-`exit_info.json` is absent, and to condition directory names for legacy rows
-without a primitive. Metadata provenance is recorded in `runs_with_errors.csv`.
-The reviewer reports inconsistent counters as `not_established` instead of
-stopping the whole audit or drawing an invalid accounting conclusion.
-
-One marker candidate has no matching result-index row; it is flagged with
-`result_index_status=missing` in `archive_targets.csv`. All candidate run paths exist.
-No runs were moved and no experiment result indexes were modified.
-`archive_rerun_targets.py` still assumes Terminal-Bench Harbor files and must be
-adapted before using it to move SWE-bench runs.
-
-### SWE-bench archive command
-
-Use `scripts/archive_swebench_rerun_targets.py` in this tooling directory for
-SWE-bench. It selects only `summary_marker_error`, moves run directories, and
-removes matching result-index rows. Missing index rows are recorded in the
-manifest and do not prevent archiving their run directories. Original indexes,
-the source CSV, a move journal, and file checksums are kept in the destination.
-Stop experiment launchers/workers before execution and keep them stopped until
-completion. The script refuses execution when it detects active SWE-bench runners.
-
-```bash
-tooling=archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts
-csv=archives/summary-bug-audit-20260907_185802_CDT/archive_targets.csv
-archive_name="swebench_summary_marker_error_$(date +%Y%m%d_%H%M%S_%Z)"
-
-# Preview only; does not create the archive.
-venv/bin/python "$tooling/archive_swebench_rerun_targets.py" \
-  --root "$PWD" --rerun-csv "$csv" --archive-name "$archive_name"
-
-# Execute after checking the preview and stopping experiment writers.
-venv/bin/python "$tooling/archive_swebench_rerun_targets.py" \
-  --root "$PWD" --rerun-csv "$csv" --archive-name "$archive_name" --execute
-```
-
-Dry-run validation: 2,359 run directories, 58 cells, 2,358 recorded result rows,
-and one unindexed run. Real data was not moved during command preparation.
-The execute path was checked on temporary sample data, including an unindexed
-run, preservation of an unrelated run, and backup/index consistency.
-
-## 2026-09-07 19:44: Qwen main 10K/20K cells reused for ablation (SWE-bench)
-
-Script: `scripts/reuse_qwen_main_for_ablation.py` (commit `4d9d2e4`). Copies the
-ABL-30 subset of the legacy P100 `main/qwen35b` cells at 10K/20K (d05 singles and
-di invariants) into `ablation/qwen35b`. Sources preserved; each destination cell
-carries a `REUSE_MANIFEST.json` with per-run SHA-256 and pending keys.
-
-```bash
-venv/bin/python scripts/reuse_qwen_main_for_ablation.py            # dry run
-venv/bin/python scripts/reuse_qwen_main_for_ablation.py --execute  # 19:44 CDT
-```
-
-Result: 22 cells, 1,761 runs copied, 219 pending (all "missing result row or
-trajectory", i.e. runs already moved by the summary-marker archive above; no new
-marker exclusions). Pending runs are filled by
-`bash scripts/run_agent_models_expansion.sh qwen`, which skips keys already
-recorded in the destination cell. Note: these runs now exist in both `main`
-(P100) and `ablation` (ABL-30) for qwen35b; filter by `experiment_section`.
-
-## 2026-09-08: agent.log attribution and archive of the remaining rerun targets (SWE-bench)
-
-Why: trajectory.json only keeps the post-compression history, so FormatErrors from summary
-calls that were later compressed away are invisible to the 2026-09-07 audit. agent.log
-(subprocess stdout) keeps every message and the `step N` headers, which lets each
-FormatError be attributed: a normal-agent failure consumes a step number, a summary
-failure does not. Details: `scripts/attribute_agentlog.py` docstring and
-`archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/agentlog_README.txt`.
-
-### Step 1: attribution scan — commit `25b7ca7` (2026-09-08 16:21 CDT)
-
-Script: `scripts/attribute_agentlog.py` (sha256 `a20ad23d…`, identical to the file that
-produced the outputs). Inputs: the 2026-09-07 audit directory and the marker archive
-(audited copies of the 2,359 already-moved runs). Read-only on experiment files.
-
-```bash
-venv/bin/python archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/attribute_agentlog.py \
-  --audit-dir archives/summary-bug-audit-20260907_185802_CDT \
-  --source-root ICLR_results \
-  --archive-root archives/swebench_summary_marker_error_20260907_192635_CDT \
-  --output-dir archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench --workers 32
-# self-check on non-summary conditions (must report 0 summary_confirmed):
-#   same command with --all-conditions and --output-dir .../agentlog-swebench-allconditions
-```
-
-Result (16,166 summary-condition runs, all matching the audited trajectory/token_log):
-
-| verdict | runs |
-|---|---:|
-| summary_confirmed (compression-event corroborated) | 6,367 |
-| uncorroborated (mostly OTRC family) | 442 |
-| tail_unresolved (killed in a summary loop) | 1,908 |
-| inconsistent / multi_run_log (log-trajectory mismatch / launched twice) | 241 / 358 |
-| no_summary_evidence | 6,850 |
-
-Self-check: 6,813 non-summary runs, 0 `summary_confirmed`; 169 fail the structure checks
-(`agentlog-swebench-allconditions/nonsummary_integrity.csv`, mostly TR runs launched twice
-on 2026-08-23/24; not part of the summary-bug rerun).
-
-### Step 2: rerun_runs.csv update — commit `25b7ca7`
-
-`rerun-list/rerun_runs.csv` went from 5,119 rows (commit `be69dca`) to 9,322 rows by
-appending `agentlog-swebench/rerun_runs_agentlog_additions.csv` (4,203 rows, same columns,
-no duplicate trajectory keys). Backup kept locally as
-`rerun-list/rerun_runs.before-agentlog-20260908-1605.csv` (not committed).
-
-```bash
-AUD=archives/summary-bug-audit-20260907_185802_CDT
-cp $AUD/rerun-list/rerun_runs.csv $AUD/rerun-list/rerun_runs.before-agentlog-$(date +%Y%m%d-%H%M).csv
-tail -n +2 $AUD/agentlog-swebench/rerun_runs_agentlog_additions.csv >> $AUD/rerun-list/rerun_runs.csv
-```
-
-| rerun_reason (new) | rerun_priority | rows |
-|---|---|---:|
-| agentlog_summary_failure | priority | 3,824 |
-| agentlog_unverifiable | probable | 328 |
-| agentlog_uncorroborated | probable | 42 |
-| agentlog_tail_unresolved | probable | 9 |
-
-`summary_failure_lower_bound` is filled only for `agentlog_summary_failure` rows.
-
-### Step 3: archive of all remaining rerun targets — commit `16dacec` (2026-09-08 16:23 CDT)
-
-Script: `scripts/archive_swebench_rerun_targets.py` with the new `--rerun-reason`
-(repeatable) and `--source-stats` options. Non-marker rows are moved only if their
-trajectory.json and token_log.json still have the audited size and mtime. The copy saved in
-the archive (`archive_operation.py`, sha256 `e9c01912…`) is byte-identical to the committed
-script. Executed 2026-09-08 16:20:42–16:20:59 CDT, no launcher running.
-
-```bash
-venv/bin/python archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/archive_swebench_rerun_targets.py \
-  --rerun-csv archives/summary-bug-audit-20260907_185802_CDT/rerun-list/rerun_runs.csv \
-  --source-stats archives/summary-bug-audit-20260907_185802_CDT/source_file_stats.json \
-  --rerun-reason summary_failure_accounting --rerun-reason summary_related_response \
-  --rerun-reason agentlog_summary_failure --rerun-reason agentlog_uncorroborated \
-  --rerun-reason agentlog_tail_unresolved --rerun-reason agentlog_unverifiable \
-  --archive-name swebench_summary_bug_remaining_20260908_162042_CDT --execute
-```
-
-| Archive directory | Selection | Runs | Cells | Index rows removed | Unindexed |
-|---|---|---:|---:|---:|---:|
-| `swebench_summary_bug_remaining_20260908_162042_CDT` | 6 reasons above | 6,963 | 98 | 6,952 | 11 |
-
-| cohort / section | runs |
-|---|---:|
-| qwen35b / main | 2,719 |
-| qwen35b / ablation | 933 |
-| devstral24b / ablation | 1,795 |
-| devstral24b / main | 840 |
-| glm47flash / main | 676 |
-
-Together with the 2026-09-07 marker archive (2,359 runs) every row of `rerun_runs.csv`
-(9,322) is now out of `ICLR_results` and out of the result indexes, so the launcher's resume
-re-executes all of them. `status.json` reports `complete`; `before/` holds the original
-indexes and `moves_completed.jsonl` the move journal.

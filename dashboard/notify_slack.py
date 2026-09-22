@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Post experiment lifecycle notifications to a Slack incoming webhook.
+
+The webhook is intentionally read only from SLACK_WEBHOOK_URL, never a file.
+"""
+
+from __future__ import annotations
 
 import json
 import os
@@ -15,28 +21,24 @@ def post_to_slack(text: str) -> None:
         raise RuntimeError("SLACK_WEBHOOK_URL is not configured")
 
     payload = json.dumps({"text": text}).encode("utf-8")
-    request = urllib.request.Request(
-        webhook,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    last_error = None
+    last_error: Exception | None = None
     for attempt in range(3):
+        request = urllib.request.Request(
+            webhook,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
                 body = response.read().decode("utf-8", errors="replace")
                 if response.status != 200:
-                    raise RuntimeError(
-                        f"Slack returned HTTP {response.status}: {body}"
-                    )
+                    raise RuntimeError(f"Slack returned HTTP {response.status}: {body}")
                 return
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover - depends on network
             last_error = exc
             if attempt < 2:
                 time.sleep(5)
-
     raise RuntimeError(f"Slack notification failed: {last_error}")
 
 
@@ -44,48 +46,27 @@ def main() -> int:
     event = sys.argv[1] if len(sys.argv) > 1 else "test"
     unit = sys.argv[2] if len(sys.argv) > 2 else "manual-test"
     result = sys.argv[3] if len(sys.argv) > 3 else ""
-    exit_code = sys.argv[4] if len(sys.argv) > 4 else ""
-    exit_status = sys.argv[5] if len(sys.argv) > 5 else ""
-    log_path = sys.argv[6] if len(sys.argv) > 6 else "logs/run3_expansion.log"
-
+    exit_status = sys.argv[4] if len(sys.argv) > 4 else ""
+    log_path = sys.argv[5] if len(sys.argv) > 5 else ""
     host = socket.gethostname()
     now = datetime.now().astimezone().isoformat(timespec="seconds")
 
     if event == "start":
         text = (
             "🧪 *ICLR27 experiment started*\n"
-            f"• host: `{host}`\n"
-            f"• unit: `{unit}`\n"
-            f"• time: `{now}`"
+            f"• host: `{host}`\n• unit: `{unit}`\n• time: `{now}`"
         )
     elif event == "stop":
-        successful = (
-            result == "success"
-            and exit_code == "exited"
-            and exit_status == "0"
-        )
-
-        if successful:
-            headline = "✅ *ICLR27 experiment completed*"
-        else:
-            headline = "🚨 *ICLR27 experiment terminated*"
-
+        successful = result == "success" and exit_status == "0"
+        headline = "✅ *ICLR27 experiment completed*" if successful else "🚨 *ICLR27 experiment terminated*"
         text = (
-            f"{headline}\n"
-            f"• host: `{host}`\n"
-            f"• unit: `{unit}`\n"
+            f"{headline}\n• host: `{host}`\n• unit: `{unit}`\n"
             f"• result: `{result or 'unknown'}`\n"
-            f"• exit code: `{exit_code or 'unknown'}`\n"
             f"• exit status: `{exit_status or 'unknown'}`\n"
-            f"• log: `{log_path}`\n"
-            f"• time: `{now}`"
+            f"• log: `{log_path or 'unknown'}`\n• time: `{now}`"
         )
     else:
-        text = (
-            "🔔 *ICLR27 Experiment Notifier test*\n"
-            f"• host: `{host}`\n"
-            f"• time: `{now}`"
-        )
+        text = f"🔔 *ICLR27 Experiment Notifier test*\n• host: `{host}`\n• time: `{now}`"
 
     post_to_slack(text)
     return 0

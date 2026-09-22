@@ -129,6 +129,27 @@ need rebuilding for serving/tbench.
   archive script refuses `--execute` while this launcher is alive).
 - **Infra:** vLLM Qwen3.5-35B-A3B :8000 (TP=4, PID in `logs/vllm_qwen35_a3b.pid`);
   rootless podman API socket already up (PID 4142791).
+### Qwen3.5-35B-A3B — prefix-cache ablation, Terminal-Bench (dashboard 5.b)
+- **Status:** ⏳ NOT LAUNCHED — tooling prepared 2026-09-21; update this entry with the
+  host, launch time and PIDs when started.
+- **Why:** production Qwen Terminal-Bench runs were served with vLLM prefix caching **on**
+  (`scripts/start_vllm_qwen35.sh`; `logs/vllm_qwen35.log`: `enable_prefix_caching=True`).
+  This grid repeats the primary-budget cells with caching **off**, all else unchanged —
+  the mirror image of 5.a (SWE-Bench, production off → ablation on).
+- **Grid:** 13 cells × TB:ABL-15 × 3 runs = 585 runs: 3K / depth 0.5 (5 depth-tunable +
+  6 depth-invariant) plus FC / OTRC @∞. Agent = summarizer. Baseline = the same cells
+  under `main/qwen35b/` restricted to ABL-15 (⊂ P-40).
+- **Server:** `bash scripts/start_vllm_qwen35_no_prefix_cache.sh` — the production serving
+  command with `--no-enable-prefix-caching` (log `logs/vllm_qwen35_noprefixcache.log`, so
+  the production log is kept). Stop a caching-on server first:
+  `bash scripts/stop_vllm.sh logs/vllm_qwen35.pid`.
+- **Launch:** `nohup bash scripts/run_qwen_tb_prefix_cache_ablation_with_slack.sh >
+  logs/followup_tb_qwen_noprefixcache.nohup.log 2>&1 &` (refuses to start unless the
+  server on the agent port was started with `--no-enable-prefix-caching`; stops the grid
+  if a cell records prefix-cache hits; safe to re-run, completed keys are skipped).
+- **Results:** `ICLR_results/terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/<cell>`.
+  Coverage: `prefix_cache=OFF` rows in `COVERAGE_TB.csv`, dashboard Priority 5.
+- **Log:** `logs/followup_tb_qwen_qwen35b-noprefixcache.log`
 
 ### Kill test — damage map, 7B GPU run — Dobby
 - **Status:** ✅ COMPLETE 2026-08-07 ~14:20 CDT (fast — ~25 min on one
