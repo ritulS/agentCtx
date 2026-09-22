@@ -2,7 +2,7 @@
 # Start vLLM serving for Qwen3.5-9B on port 8001 as the *summarizer* model for
 # the summarizer ablation (FOLLOWUP_EXPERIMENTS.md §4). TP=2 across GPUs 4-5,
 # leaving GPUs 0-3 for the Qwen3.5-35B-A3B agent server
-# (scripts/start_vllm_qwen35.sh). Consumed by configs/config-summary-qwen35-9b.yaml.
+# (scripts/start_vllm_qwen35_prefix_cache_ablation.sh). Consumed by configs/config-summary-qwen35-9b.yaml.
 #
 # Usage:  bash scripts/start_vllm_qwen35_9b.sh
 # Tail:   tail -f logs/vllm_qwen35_9b.log

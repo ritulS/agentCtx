@@ -335,6 +335,7 @@ class SweBench:
             "llm_latency_s": token_log.get("total_latency_s", 0.0),
             "mean_latency_s": token_log.get("mean_latency_s", 0.0),
             "step_prompt_tokens": token_log.get("step_prompt_tokens", []),
+            "step_completion_tokens": token_log.get("step_completion_tokens"),
             "compression_events": token_log.get("compression_events", 0),
             "compression_event_steps": token_log.get("compression_event_steps", []),
             "context_tokens_at_compression": token_log.get("context_tokens_at_compression", []),

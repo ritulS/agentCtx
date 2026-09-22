@@ -3,7 +3,7 @@
 # Qwen3.5-35B-A3B primitives against a vLLM server started WITHOUT prefix caching.
 #
 # The production Qwen runs (ICLR_results/terminalbench/{main,ablation}/qwen35b)
-# were served with prefix caching on (scripts/start_vllm_qwen35.sh passes
+# were served with prefix caching on (scripts/start_vllm_qwen35_prefix_cache_ablation.sh passes
 # --enable-prefix-caching; logs/vllm_qwen35.log: enable_prefix_caching=True).
 # This launcher repeats the 3K / canonical-depth grid and the unlimited-budget
 # baselines with caching off, everything else unchanged — the mirror image of

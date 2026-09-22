@@ -10,17 +10,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
 
 import run_experiment as runner
-from summary_config import summary_model_info
 
 
 ROOT = Path(__file__).resolve().parent.parent
-ICLR_SWEBENCH = ROOT / "ICLR_results" / "swebench"
+ICLR_ROOTS = {
+    "swe-bench": ROOT / "ICLR_results" / "swebench",
+    "terminal-bench": ROOT / "ICLR_results" / "terminalbench",
+}
 CELL_RE = re.compile(r"^(d03|d05|d07|di)__(b(?:[1-9][0-9]*k|A|P|B|inf))__[a-z0-9+-]+$")
 MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 CONDITION_TO_PRIMITIVE = {
@@ -44,13 +45,19 @@ INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc"}
 def parse_adapter_args() -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
+        "--iclr-benchmark",
+        choices=tuple(ICLR_ROOTS),
+        default="swe-bench",
+    )
+    parser.add_argument(
         "--iclr-section", required=True,
         choices=("main", "ablation", "model_ablation", "prefix_cache_ablation"),
-        help="result section below ICLR_results/swebench/; model_ablation holds "
-             "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4), "
-             "under <agent>-sum-<summarizer> model directories; prefix_cache_ablation "
-             "holds self-summarized runs served with vLLM prefix caching on "
-             "(scripts/run_qwen_swe_prefix_cache_ablation.sh)",
+        help="result section below ICLR_results/<benchmark>/; model_ablation holds "
+             "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4); "
+             "prefix_cache_ablation holds self-summarized runs served with vLLM prefix "
+             "caching flipped relative to the benchmark's production runs: on for "
+             "SWE-Bench (scripts/run_qwen_swe_prefix_cache_ablation.sh), off for "
+             "Terminal-Bench (scripts/run_qwen_tb_prefix_cache_ablation.sh)",
     )
     parser.add_argument("--iclr-model", required=True)
     parser.add_argument("--iclr-cell", required=True)
@@ -66,76 +73,22 @@ def canonical_cell(args: argparse.Namespace) -> Path:
             "{b10k|bA|bP|bB|binf}__{primitive}"
         )
     destination = (
-        ICLR_SWEBENCH / args.iclr_section / args.iclr_model / args.iclr_cell
+        ICLR_ROOTS[args.iclr_benchmark]
+        / args.iclr_section / args.iclr_model / args.iclr_cell
     ).resolve()
-    expected_parent = (ICLR_SWEBENCH / args.iclr_section / args.iclr_model).resolve()
+    expected_parent = (
+        ICLR_ROOTS[args.iclr_benchmark] / args.iclr_section / args.iclr_model
+    ).resolve()
     if destination.parent != expected_parent:
         raise SystemExit(f"refusing non-canonical ICLR destination: {destination}")
     return destination
 
 
 def option_value(argv: list[str], option: str) -> str:
-    """Value of ``option`` in ``--opt value`` or ``--opt=value`` form (last wins)."""
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument(option, default=None)
-    value = getattr(parser.parse_known_args(argv)[0], option.lstrip("-").replace("-", "_"))
-    if value is None:
-        raise SystemExit(f"{option} is required by the ICLR runner")
-    return value
-
-
-def validate_summarizer(section: str, runner_args: list[str], destination: Path) -> None:
-    """The summarizer is part of a cell's identity, like budget and depth.
-
-    ``model_ablation`` cells hold runs whose summarizer differs from the agent,
-    so they require ``--summary-config``; ``main``/``ablation``/
-    ``prefix_cache_ablation`` cells are self-summarized and must not get one.
-    Within a cell, every existing run
-    that recorded its summarizer must match this launch's, so changing
-    SUMMARY_CONFIG without changing the destination is refused instead of
-    silently filling the remaining keys with a different summarizer.
-    """
-    # Resolve the *effective* summarizer the agents will see: the CLI option
-    # (either ``--summary-config x`` or ``--summary-config=x``, parsed like the
-    # runner does) exported to the environment, or, without it, whatever
-    # MSWEA_SUMMARY_MODEL_CONFIG / _NAME / _API_BASE are already set to.
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--summary-config", default=None)
-    config_arg = parser.parse_known_args(runner_args)[0].summary_config
-    if config_arg is not None:
-        config_path = Path(config_arg).resolve()
-        if not config_path.is_file():
-            raise SystemExit(f"--summary-config not found: {config_path}")
-        os.environ["MSWEA_SUMMARY_MODEL_CONFIG"] = str(config_path)
-    launch = summary_model_info()
-    launch_identity = (launch["source"], launch.get("model_name"))
-    overridden = launch["source"] == "override"
-    origin = (f"--summary-config {config_arg}" if config_arg is not None
-              else "MSWEA_SUMMARY_MODEL_CONFIG/_NAME/_API_BASE in the environment")
-    if section == "model_ablation" and not overridden:
-        raise SystemExit("model_ablation cells require a summarizer override "
-                         "(--summary-config); none is in effect")
-    if section != "model_ablation" and overridden:
-        raise SystemExit(f"a summarizer override is in effect ({origin}: {launch.get('model_name')}) "
-                         f"but section {section!r} holds self-summarized cells; use model_ablation")
-
-    results_file = destination / "experiment_results.json"
-    if not results_file.exists():
-        return
-    payload = json.loads(results_file.read_text())
-    rows = payload.get("results", []) if isinstance(payload, dict) else payload
-    recorded = {
-        (row["summarization_model"].get("source"), row["summarization_model"].get("model_name"))
-        for row in rows
-        if isinstance(row.get("summarization_model"), dict)
-        and row["summarization_model"].get("source")
-    }
-    if recorded - {launch_identity}:
-        raise SystemExit(
-            f"existing runs in {destination} recorded summarizer(s) "
-            f"{sorted(recorded - {launch_identity})}, but this launch uses {launch_identity}; "
-            "use a different --iclr-model (<agent>-sum-<summarizer>) for a different summarizer"
-        )
+    try:
+        return argv[argv.index(option) + 1]
+    except (ValueError, IndexError):
+        raise SystemExit(f"{option} is required by the ICLR runner") from None
 
 
 def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path) -> None:
@@ -203,16 +156,22 @@ def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path
 
 def main() -> None:
     adapter_args, runner_args = parse_adapter_args()
-    if "--benchmark" in runner_args and option_value(runner_args, "--benchmark") != "swe-bench":
-        raise SystemExit("run_experiment_iclr.py only writes SWE-Bench cells")
+    runner_benchmark = (
+        option_value(runner_args, "--benchmark")
+        if "--benchmark" in runner_args
+        else "swe-bench"
+    )
+    if runner_benchmark != adapter_args.iclr_benchmark:
+        raise SystemExit(
+            "--iclr-benchmark and --benchmark must select the same benchmark"
+        )
     destination = canonical_cell(adapter_args)
     validate_cell_semantics(adapter_args.iclr_cell, runner_args, destination)
-    validate_summarizer(adapter_args.iclr_section, runner_args, destination)
 
     # A non-empty ablation name makes the original runner honor the explicit
     # task file without changing its source. model_results_dir is the only
     # output-routing behavior replaced by this adapter.
-    if "--ablation" not in runner_args:
+    if runner_benchmark == "swe-bench" and "--ablation" not in runner_args:
         runner_args = ["--ablation", f"iclr-{adapter_args.iclr_cell}", *runner_args]
     runner.model_results_dir = lambda: destination
     sys.argv = [sys.argv[0], *runner_args]

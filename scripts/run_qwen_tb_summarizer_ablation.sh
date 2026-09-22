@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # FOLLOWUP_EXPERIMENTS.md §4.b: summarizer ablation on Terminal-Bench.
-#   Agent      : Qwen3.5-35B-A3B  (scripts/start_vllm_qwen35.sh,    GPUs 0-3, :8000)
+#   Agent      : Qwen3.5-35B-A3B  (scripts/start_vllm_qwen35_prefix_cache_ablation.sh,    GPUs 0-3, :8000)
 #   Summarizer : Qwen3.5-9B       (scripts/start_vllm_qwen35_9b.sh, GPUs 4-5, :8001)
 #   Cells      : d05__b3k__su-full (summarization, depth 0.5)
 #                di__b3k__trc-su   (trc-su, depth-invariant)

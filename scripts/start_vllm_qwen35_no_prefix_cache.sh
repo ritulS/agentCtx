@@ -3,14 +3,14 @@
 # serving configuration, minus prefix caching (dashboard 5.b).
 #
 # The production Qwen Terminal-Bench runs were served by
-# scripts/start_vllm_qwen35.sh, which passes --enable-prefix-caching
+# scripts/start_vllm_qwen35_prefix_cache_ablation.sh, which passes --enable-prefix-caching
 # (logs/vllm_qwen35.log: enable_prefix_caching=True). This is that same script
 # with --no-enable-prefix-caching as the only changed argument — the mirror
 # image of scripts/start_vllm_qwen35_prefix_cache.sh, which turns caching ON
 # for SWE-Bench, whose production runs had it off.
 #
 # Every other serving argument is pinned to the production default on purpose:
-# the QWEN_* overrides of start_vllm_qwen35.sh are refused here, so the two
+# the QWEN_* overrides of start_vllm_qwen35_prefix_cache_ablation.sh are refused here, so the two
 # serving conditions cannot drift apart through a stray environment variable.
 #
 # Usage:  bash scripts/start_vllm_qwen35_no_prefix_cache.sh
@@ -25,9 +25,9 @@ for var in QWEN_VLLM_PORT QWEN_MODEL QWEN_CUDA_VISIBLE_DEVICES \
            QWEN_TENSOR_PARALLEL_SIZE QWEN_MAX_MODEL_LEN QWEN_MAX_NUM_SEQS; do
     if [[ -n "${!var:-}" ]]; then
         echo "[ERROR] $var is set; the prefix-cache ablation server must use the" \
-             "production defaults of scripts/start_vllm_qwen35.sh. Unset it." >&2
+             "production defaults of scripts/start_vllm_qwen35_prefix_cache_ablation.sh. Unset it." >&2
         exit 1
     fi
 done
 
-QWEN_PREFIX_CACHING=0 exec bash "$WS/scripts/start_vllm_qwen35.sh"
+QWEN_PREFIX_CACHING=0 exec bash "$WS/scripts/start_vllm_qwen35_prefix_cache_ablation.sh"
