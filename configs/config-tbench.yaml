@@ -2,7 +2,7 @@
 # Derived from mini-swe-agent/src/minisweagent/config/benchmarks/swebench_backticks.yaml
 # with SWE-bench-specific instructions (git patch, /testbed) removed.
 # Model section is supplied by configs/config-qwen-vllm.yaml (merged after this
-# file by tbench/agent_adapter.py, so its model settings win).
+# file by scripts/bench_adapters/agent_adapter.py, so its model settings win).
 
 agent:
   system_template: |

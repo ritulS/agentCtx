@@ -244,6 +244,65 @@ class QwenCoverageTest(unittest.TestCase):
                 dashboard.coverage_progress(tb_view, dashboard.MAIN, ['TRC'], '3k', 'DI', 15, 3),
                 (True, 45, 45))
 
+    def test_terminal_bench_prefix_cache_rows_carry_the_directory_tag(self):
+        # Terminal-Bench records store the launcher's --model-tag in ``model``.
+        # scripts/run_qwen_tb_prefix_cache_ablation.sh tags its runs with the
+        # model directory (qwen35b-noprefixcache); they must still be
+        # attributed to the main model, in OFF cells apart from production.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'task_lists').mkdir()
+            tasks = [{'instance_id': f'task{i}'} for i in range(15)]
+            for name in ('ablation_25tasks.json', 'p100_all_100_tasks.json',
+                         'tbench_tasks.json'):
+                (root / 'task_lists' / name).write_text(json.dumps([]))
+
+            def write_cell(section, model_dir, cell_name, condition, budget, runs):
+                rows = [dict(benchmark='terminal-bench', model=model_dir,
+                             instance_id=t['instance_id'], condition=condition,
+                             budget=budget, compression_ratio=0.5, run_num=rn)
+                        for t in tasks for rn in range(1, runs + 1)]
+                cell = root / 'ICLR_results/terminalbench' / section / model_dir / cell_name
+                cell.mkdir(parents=True)
+                (cell / 'experiment_results.json').write_text(json.dumps(rows))
+
+            write_cell('main', 'qwen35b', 'di__b3k__trc', 'tool-result-clear', 3000, 3)
+            write_cell('prefix_cache_ablation', 'qwen35b-noprefixcache',
+                       'di__b3k__trc', 'tool-result-clear', 3000, 3)
+            write_cell('prefix_cache_ablation', 'qwen35b-noprefixcache',
+                       'di__binf__otrc', 'online-trc', 999_999_999, 1)
+            write_cell('prefix_cache_ablation', 'qwen35b-noprefixcache-smoke',
+                       'di__b3k__trc', 'tool-result-clear', 3000, 1)
+
+            with patch.object(coverage, 'ROOT', root), \
+                 patch.object(coverage, 'ICLR_RESULTS', root / 'ICLR_results'), \
+                 patch('sys.argv', ['build_coverage.py', '--output', str(root / 'COVERAGE.csv'),
+                                    '--tb-output', str(root / 'COVERAGE_TB.csv')]), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                coverage.main()
+            with (root / 'COVERAGE_TB.csv').open() as stream:
+                tb_rows = list(csv.DictReader(stream))
+
+            self.assertEqual({r['model'] for r in tb_rows}, {coverage.MAIN_MODEL})
+            by_key = {(r['prefix_cache'], r['primitive']): r for r in tb_rows}
+            self.assertEqual(set(by_key), {('', 'TRC'), ('OFF', 'TRC'), ('OFF', 'OTRC')})
+            self.assertEqual(by_key[('', 'TRC')]['runs_on_disk'], '45')
+            self.assertNotIn('prefix_cache_ablation', by_key[('', 'TRC')]['source_dirs'])
+            off_cell = by_key[('OFF', 'TRC')]
+            self.assertEqual((off_cell['runs_on_disk'], off_cell['required_cohort'],
+                              off_cell['status']), ('45', 'TB-15', 'COMPLETE'))
+            otrc_cell = by_key[('OFF', 'OTRC')]
+            self.assertEqual((otrc_cell['budget'], otrc_cell['required_cohort'],
+                              otrc_cell['status']), ('inf', 'TB-15', 'PARTIAL'))
+
+            with patch.object(dashboard, 'ROOT', root):
+                _, tb_cells, _, prefix_cache_cells = dashboard.load_cells()
+            self.assertEqual(list(tb_cells), [(dashboard.MAIN, 'TRC', '3k', 'DI')])
+            tb_view = dashboard.prefix_cache_view(prefix_cache_cells, 'terminal-bench', 'OFF')
+            self.assertEqual(
+                dashboard.coverage_progress(tb_view, dashboard.MAIN, ['FC', 'OTRC'], 'inf', 'DI', 15, 3),
+                (False, 15, 90))
+
     def test_partial_runs_count_toward_total(self):
         # One task with one run and one with two runs must contribute three,
         # even though neither task has a third run yet.

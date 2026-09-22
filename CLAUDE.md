@@ -48,7 +48,9 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `MSWEA_PRIMITIVE` env var.
 - `scripts/run_experiment.py` — main run harness. Conditions defined in the
   `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`
-  control a single sweep.
+  control a single sweep. Per-benchmark agent launching, trajectory parsing
+  and evaluation live in `scripts/bench_adapters/` (`swe_bench.py`,
+  `terminal_bench.py`); the harness selects one with `--benchmark`.
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,

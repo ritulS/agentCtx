@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start a vLLM *summarizer* server on port 8001 for the summarizer ablation
 # (FOLLOWUP_EXPERIMENTS.md §4), sharing GPUs 0-3 with the Qwen3.5-35B-A3B agent
-# server (scripts/start_vllm_qwen35.sh, :8000). Consumed by
+# server (scripts/start_vllm_qwen35_swe_summarizer_ablation.sh, :8000). Consumed by
 # configs/config-summary-<name>.yaml.
 #
 #   qwen35-9b    Qwen/Qwen3.5-9B        default venv (vLLM 0.17)

@@ -20,7 +20,10 @@ from summary_config import summary_model_info
 
 
 ROOT = Path(__file__).resolve().parent.parent
-ICLR_SWEBENCH = ROOT / "ICLR_results" / "swebench"
+ICLR_ROOTS = {
+    "swe-bench": ROOT / "ICLR_results" / "swebench",
+    "terminal-bench": ROOT / "ICLR_results" / "terminalbench",
+}
 CELL_RE = re.compile(r"^(d03|d05|d07|di)__(b(?:[1-9][0-9]*k|A|P|B|inf))__[a-z0-9+-]+$")
 MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 CONDITION_TO_PRIMITIVE = {
@@ -44,13 +47,19 @@ INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc"}
 def parse_adapter_args() -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
+        "--iclr-benchmark",
+        choices=tuple(ICLR_ROOTS),
+        default="swe-bench",
+    )
+    parser.add_argument(
         "--iclr-section", required=True,
         choices=("main", "ablation", "model_ablation", "prefix_cache_ablation"),
-        help="result section below ICLR_results/swebench/; model_ablation holds "
-             "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4), "
-             "under <agent>-sum-<summarizer> model directories; prefix_cache_ablation "
-             "holds self-summarized runs served with vLLM prefix caching on "
-             "(scripts/run_qwen_swe_prefix_cache_ablation.sh)",
+        help="result section below ICLR_results/<benchmark>/; model_ablation holds "
+             "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4); "
+             "prefix_cache_ablation holds self-summarized runs served with vLLM prefix "
+             "caching flipped relative to the benchmark's production runs: on for "
+             "SWE-Bench (scripts/run_qwen_swe_prefix_cache_ablation.sh), off for "
+             "Terminal-Bench (scripts/run_qwen_tb_prefix_cache_ablation.sh)",
     )
     parser.add_argument("--iclr-model", required=True)
     parser.add_argument("--iclr-cell", required=True)
@@ -66,9 +75,12 @@ def canonical_cell(args: argparse.Namespace) -> Path:
             "{b10k|bA|bP|bB|binf}__{primitive}"
         )
     destination = (
-        ICLR_SWEBENCH / args.iclr_section / args.iclr_model / args.iclr_cell
+        ICLR_ROOTS[args.iclr_benchmark]
+        / args.iclr_section / args.iclr_model / args.iclr_cell
     ).resolve()
-    expected_parent = (ICLR_SWEBENCH / args.iclr_section / args.iclr_model).resolve()
+    expected_parent = (
+        ICLR_ROOTS[args.iclr_benchmark] / args.iclr_section / args.iclr_model
+    ).resolve()
     if destination.parent != expected_parent:
         raise SystemExit(f"refusing non-canonical ICLR destination: {destination}")
     return destination
@@ -203,8 +215,15 @@ def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path
 
 def main() -> None:
     adapter_args, runner_args = parse_adapter_args()
-    if "--benchmark" in runner_args and option_value(runner_args, "--benchmark") != "swe-bench":
-        raise SystemExit("run_experiment_iclr.py only writes SWE-Bench cells")
+    runner_benchmark = (
+        option_value(runner_args, "--benchmark")
+        if "--benchmark" in runner_args
+        else "swe-bench"
+    )
+    if runner_benchmark != adapter_args.iclr_benchmark:
+        raise SystemExit(
+            "--iclr-benchmark and --benchmark must select the same benchmark"
+        )
     destination = canonical_cell(adapter_args)
     validate_cell_semantics(adapter_args.iclr_cell, runner_args, destination)
     validate_summarizer(adapter_args.iclr_section, runner_args, destination)
@@ -212,7 +231,7 @@ def main() -> None:
     # A non-empty ablation name makes the original runner honor the explicit
     # task file without changing its source. model_results_dir is the only
     # output-routing behavior replaced by this adapter.
-    if "--ablation" not in runner_args:
+    if runner_benchmark == "swe-bench" and "--ablation" not in runner_args:
         runner_args = ["--ablation", f"iclr-{adapter_args.iclr_cell}", *runner_args]
     runner.model_results_dir = lambda: destination
     sys.argv = [sys.argv[0], *runner_args]

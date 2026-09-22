@@ -11,7 +11,7 @@
 # added argument. Every other serving argument is pinned to the production
 # value on purpose: no env overrides, and no --gpu-memory-utilization or
 # --served-model-name (production left both at the vLLM default). Use
-# scripts/start_vllm_qwen35.sh instead when sharing the GPUs with a summarizer.
+# scripts/start_vllm_qwen35_swe_summarizer_ablation.sh instead when sharing the GPUs with a summarizer.
 #
 # Usage:  bash scripts/start_vllm_qwen35_prefix_cache.sh
 # Tail:   tail -f logs/vllm_qwen35_a3b.log

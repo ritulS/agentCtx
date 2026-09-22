@@ -17,3 +17,4 @@ Classifications based on summary markers or response content do not establish th
 
 Update history:
 - 20260907-1735: cohort_model_path=glm47flash rows replaced with rescan results from query-error-audit-20260907-1731 (query-error-review-20260907-1731) (442 rows -> 464 rows). Other cohorts retain their original snapshot rows. Previous files saved as *.before-glm47flash-update-20260907-1735.*.
+- 20260908-1913: appended 618 rows from rerun_runs_tb_additions.csv (tb-erasure): probable/tb_erasure_possible=485, probable/tb_unverifiable=133. 1874 rows -> 2492 rows. Previous file saved as rerun_runs.before-tb-erasure-update-20260908-1913.csv.

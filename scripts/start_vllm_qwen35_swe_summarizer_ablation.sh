@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Start vLLM serving for Qwen3.5-35B-A3B on port 8000.
+# Start vLLM serving for Qwen3.5-35B-A3B on port 8000 for the SWE-bench
+# summarizer ablation (scripts/run_qwen_swe_summarizer_ablation.sh).
+# Until 2026-09-21 this file was scripts/start_vllm_qwen35.sh; the Terminal-Bench
+# launcher of the same name is now scripts/start_vllm_qwen35_prefix_cache_ablation.sh.
 # TP=4 across GPUs 0-3. The 102400-token context matches the prior
 # Terminal-Bench full-context serving setup used in this repository.
 #
@@ -9,8 +12,8 @@
 # startup, so start this server first. Set 0.90 to reclaim the GPUs when no
 # summarizer is needed.
 #
-# Usage:  bash scripts/start_vllm_qwen35.sh
-# Native context: QWEN_MAX_MODEL_LEN=native bash scripts/start_vllm_qwen35.sh
+# Usage:  bash scripts/start_vllm_qwen35_swe_summarizer_ablation.sh
+# Native context: QWEN_MAX_MODEL_LEN=native bash scripts/start_vllm_qwen35_swe_summarizer_ablation.sh
 # Tail:   tail -f logs/vllm_qwen35.log
 # Stop:   bash scripts/stop_vllm.sh logs/vllm_qwen35.pid
 set -euo pipefail

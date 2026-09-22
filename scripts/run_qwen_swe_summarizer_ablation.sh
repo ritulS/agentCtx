@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # FOLLOWUP_EXPERIMENTS.md §4.a: summarizer ablation on SWE-Bench.
-#   Agent      : Qwen3.5-35B-A3B  (scripts/start_vllm_qwen35.sh,                :8000, GPUs 0-3 @0.70)
+#   Agent      : Qwen3.5-35B-A3B  (scripts/start_vllm_qwen35_swe_summarizer_ablation.sh,                :8000, GPUs 0-3 @0.70)
 #   Summarizer : Qwen3.5-9B       (scripts/start_vllm_summarizer.sh qwen35-9b, :8001, GPUs 0-3 @0.15)
 #                Gemma-4-12B: SUMMARY_CONFIG=configs/config-summary-gemma4-12b.yaml ICLR_MODEL=qwen35b-sum-gemma4-12b
 #   Cells      : d05__b15k__su-full (summarization, depth 0.5)

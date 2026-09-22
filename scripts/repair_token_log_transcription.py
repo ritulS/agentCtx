@@ -2,7 +2,7 @@
 """
 Repair the token_log.json -> experiment_results.json transcription.
 
-`run_experiment.run_agent` copies the per-run token log into the result row at
+`bench_adapters.swe_bench.SweBench._run_agent` copies the per-run token log into the result row at
 the moment the run finishes.  Three things break that copy after the fact:
 
   1. A run directory is overwritten by a *later* execution (an interrupted
@@ -44,7 +44,7 @@ from pathlib import Path
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 
 # token_log.json key -> experiment_results.json key, mirroring the result dict
-# built in scripts/run_experiment.py::run_agent.  Order matters: new fields are
+# built in scripts/bench_adapters/swe_bench.py::SweBench._run_agent.  Order matters: new fields are
 # appended to a row in this order.
 FIELD_MAP: list[tuple[str, str, object]] = [
     # (token_log key, row key, harness default)
