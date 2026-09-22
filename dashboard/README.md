@@ -82,3 +82,27 @@ python dashboard/publish.py
 The GitHub Actions workflow builds `DASHBOARD.html` from both coverage CSVs,
 puts it below the configured `DASHBOARD_PATH`, and deploys that artifact to
 GitHub Pages.
+
+Priority 1 tracks all three runs per task (`run_1`–`run_3`), including the
+first two runs, across the P100 main cells and ABL-25 ablation cells. Its
+total target is 7,800 runs. Main and Ablation have separate progress bars. Progress history uses
+`p1a_all_runs_v3` and `p1b_abl25_v4` so throughput
+is not compared with older snapshots that counted only the additional run.
+
+SWE-Bench ablations use `task_lists/ablation_25tasks.json`, a strict subset of
+ABL-30. Coverage counts only those 25 task IDs, including existing runs from
+ABL-30/P100 cells. Each model has a 3,900-run ablation target; Priority 2 totals
+15,600 runs and the summarizer ablation totals 480 runs including Terminal-Bench
+(TB:ABL-15 × 3 runs × 2 primitives × 2 summarizers = 180 runs).
+Priority 5 (prefix-cache ablation) totals 1,560 runs: Qwen3.5-35B-A3B as agent
+and summarizer, every primitive at depth 0.5/DI and the primary budget plus
+FC/OTRC at ∞, on SB:ABL-25 at 15K with vLLM prefix caching ON (5.a, 975 runs)
+and on TB:ABL-15 at 3K with it OFF (5.b, 585 runs) — the opposite of each benchmark's production serving.
+Coverage counts only runs below `ICLR_results/<benchmark>/prefix_cache_ablation/`;
+they become separate cells with a non-empty `prefix_cache` column (`ON`/`OFF`)
+and never merge into the production cell of the same primitive, budget and
+depth. Model directories there are named `<agent>-prefixcache` or
+`<agent>-noprefixcache`. Its history key is `p5_prefix_cache_v1`.
+Regenerate `COVERAGE.csv` before rendering: old ABL-30 totals cannot be
+converted proportionally. The affected history keys are `p1b_abl25_v4`,
+`p2c_abl25_v2`, `p2d_abl25_v2`, `p2_abl25_v2`, and `p4_abl25_tbabl15_v3`.

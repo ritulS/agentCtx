@@ -20,6 +20,14 @@ be joined with the self-summarization baseline under ``main/<agent>``; the
 ``summarizer_model`` / ``summarizer_source`` columns come from the cell's
 ``run_info.json`` (``agent_model`` = the agent summarized for itself).
 
+The prefix-cache ablation (dashboard 5.b) lives under
+``prefix_cache_ablation/<agent>-noprefixcache/<cell>``: the main grid plus the
+unlimited-budget baselines on ABL-15, served with vLLM prefix caching off
+(scripts/run_qwen_tb_prefix_cache_ablation.sh; production runs had it on).
+``agent_model_key`` strips the ``-noprefixcache`` suffix as well, so select
+the serving condition by ``experiment_section`` / ``model_key``, never by
+``agent_model_key`` alone.
+
 Per-step prompt and completion token arrays are stored as JSON in CSV cells;
 missing or null arrays produce empty cells.
 
@@ -54,6 +62,7 @@ SECTION_TASK_LISTS = {
     "main": DEFAULT_P40_TASKS,
     "ablation": DEFAULT_ABL15_TASKS,
     "model_ablation": DEFAULT_P40_TASKS,
+    "prefix_cache_ablation": DEFAULT_ABL15_TASKS,
     "main/p80_rootless": DEFAULT_P80_ROOTLESS_TASKS,
     "main/p80_subuid_required": DEFAULT_P80_SUBUID_TASKS,
 }
@@ -68,6 +77,9 @@ INVARIANT_PRIMITIVES = {"trc", "trc-su", "trc-ss", "otrc-tr", "otrc-su-partial",
 BASELINE_CELLS = {"di__binf__fc", "di__binf__otrc"}
 # model_ablation model directories are named <agent>-sum-<summarizer>.
 SUMMARIZER_SEPARATOR = "-sum-"
+# prefix_cache_ablation model directories are named <agent>-noprefixcache
+# (Terminal-Bench production serving had prefix caching on).
+PREFIX_CACHE_SUFFIX = "-noprefixcache"
 # Throwaway smoke-test model directories (e.g. qwen35b-sum-qwen35-9b-smoke,
 # as in scripts/run_qwen_tb_summarizer_ablation.sh) are never aggregated.
 SMOKE_SUFFIX = "-smoke"
@@ -184,8 +196,8 @@ def path_metadata(path: Path, source_root: Path) -> tuple[str, str, str]:
 
 
 def agent_model_key(model_key: str) -> str:
-    """Strip the ``-sum-<summarizer>`` suffix used by model_ablation dirs."""
-    return model_key.split(SUMMARIZER_SEPARATOR, 1)[0]
+    """Strip the ``-sum-<summarizer>`` / ``-noprefixcache`` directory suffixes."""
+    return model_key.split(SUMMARIZER_SEPARATOR, 1)[0].removesuffix(PREFIX_CACHE_SUFFIX)
 
 
 _RUN_INFO_CACHE: dict[Path, dict[str, Any]] = {}
@@ -290,8 +302,14 @@ def expected_cells(section: str, model: str) -> set[str]:
 
     ``model_ablation`` cells (run_qwen_tb_summarizer_ablation.sh) reuse the
     main-grid layout at the agent's primary budget, keyed by the agent part of
-    the ``<agent>-sum-<summarizer>`` directory name.
+    the ``<agent>-sum-<summarizer>`` directory name.  ``prefix_cache_ablation``
+    cells (run_qwen_tb_prefix_cache_ablation.sh) are the main grid including
+    the baselines, under ``<agent>-noprefixcache``.
     """
+    if section == "prefix_cache_ablation":
+        if not model.endswith(PREFIX_CACHE_SUFFIX):
+            return set()
+        section, model = "main", agent_model_key(model)
     if section == "model_ablation":
         model = agent_model_key(model)
     if model not in MODEL_BUDGETS:
@@ -333,7 +351,8 @@ def result_files(
     Sections are matched on the full path below the source root, so
     ``main/<model>/<cell>`` and ``main/p80_rootless/<model>/<cell>`` are
     distinct sections.  The grid of expected cells is taken from the section's
-    top-level directory (``main``, ``ablation`` or ``model_ablation``).
+    top-level directory (``main``, ``ablation``, ``model_ablation`` or
+    ``prefix_cache_ablation``).
     """
     known = set(sections)
     for path in sorted(source_root.rglob("experiment_results.json")):
@@ -408,6 +427,10 @@ def parse_args() -> argparse.Namespace:
         help="task list for model_ablation/<agent>-sum-<summarizer> cells (default: P-40)",
     )
     parser.add_argument(
+        "--prefix-cache-ablation-tasks", type=Path, default=DEFAULT_ABL15_TASKS,
+        help="task list for prefix_cache_ablation/<agent>-noprefixcache cells (default: ABL-15)",
+    )
+    parser.add_argument(
         "--p80-rootless-tasks", type=Path, default=DEFAULT_P80_ROOTLESS_TASKS
     )
     parser.add_argument(
@@ -426,6 +449,7 @@ def main() -> None:
         "main": args.p40_tasks.resolve(),
         "ablation": args.abl15_tasks.resolve(),
         "model_ablation": args.model_ablation_tasks.resolve(),
+        "prefix_cache_ablation": args.prefix_cache_ablation_tasks.resolve(),
         "main/p80_rootless": args.p80_rootless_tasks.resolve(),
         "main/p80_subuid_required": args.p80_subuid_tasks.resolve(),
     }
