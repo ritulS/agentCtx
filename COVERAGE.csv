@@ -176,6 +176,7 @@ swebench,GLM-4.7-Flash,,,SU-partial,13k,0.3,in-scope,ABL-25,COMPLETE,25,75,3,ABL
 swebench,GLM-4.7-Flash,,,SU-partial,13k,0.5,in-scope,P100,COMPLETE,100,300,3,P100,0,ICLR_results/swebench/main/glm47flash/d05__bP__su-partial,,25,25,50,75,75,75,100,100,200,300,300,300,0,0,0,0,0,0,100,100,200,300,300,300
 swebench,GLM-4.7-Flash,,,SU-partial,13k,0.7,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d07__bP__su-partial,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
 swebench,GLM-4.7-Flash,,,SU-partial,15k,0.3,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d03__bB__su-partial,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
+swebench,GLM-4.7-Flash,,,SU-partial,15k,0.7,in-scope,ABL-25,PARTIAL,5,10,0,"partial (5/25 ABL-25, 5 total)",0,ICLR_results/swebench/ablation/glm47flash/d07__bB__su-partial,,5,5,8,10,10,10,5,5,8,10,10,10,0,0,0,0,0,0,5,5,8,10,10,10
 swebench,GLM-4.7-Flash,,,TR,10k,0.3,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d03__bA__tr,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
 swebench,GLM-4.7-Flash,,,TR,10k,0.7,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d07__bA__tr,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
 swebench,GLM-4.7-Flash,,,TR,13k,0.3,in-scope,ABL-25,COMPLETE,25,75,3,ABL-25,0,ICLR_results/swebench/ablation/glm47flash/d03__bP__tr,,25,25,50,75,75,75,25,25,50,75,75,75,0,0,0,0,0,0,25,25,50,75,75,75
