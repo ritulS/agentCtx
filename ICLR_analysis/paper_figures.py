@@ -3,11 +3,18 @@
 Run from the repo root (Python with numpy, pandas, matplotlib):
     venv/bin/python ICLR_analysis/paper_figures.py
     venv/bin/python ICLR_analysis/paper_figures.py --figure q2 --output-dir /tmp/figs
+    venv/bin/python ICLR_analysis/paper_figures.py --figure q1-qwen-overview
     venv/bin/python ICLR_analysis/paper_figures.py --help
 
 Outputs (PDF + PNG, default ICLR_analysis/plots/q1):
     q1_20_o1_frontier, q1_21_o2_bill_latency,
     q2_qwen_task_map_and_endings
+The optional q1-qwen-overview target exports a wide 2x5 Qwen overview and
+two 5.5-inch companion figures (token comparisons and success comparisons).
+It also requires resolve, time_lo, time_hi in the Qwen frontier exports and
+token_cost_ledger[_tb]_qwen35b.csv (policy, task, resolved) to bootstrap
+absolute resolve-rate intervals. Paired difference intervals are not reused
+as absolute resolve-rate intervals.
 
 Data are read only and are NOT bundled in this plotting source. Supply the
 following existing analysis exports locally, or via the CLI paths:
@@ -76,64 +83,14 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 ROOT = Path(__file__).resolve().parent.parent
-PAPER_STYLE = {
-    "font.family": "DejaVu Sans", "font.size": 7.5, "axes.titlesize": 8,
-    "axes.labelsize": 7.5, "xtick.labelsize": 7, "ytick.labelsize": 7,
-    "legend.fontsize": 7, "axes.linewidth": 0.6, "pdf.fonttype": 42,
-    "savefig.facecolor": "white",
-}
-Q2_STYLE = {**PAPER_STYLE, "font.size": 6}
-MODELS = [("qwen35b", "Qwen", "o"), ("devstral24b", "Devstral", "^"), ("glm47flash", "GLM", "D")]
-MK = {m: k for m, _, k in MODELS}
-ORDER = ["TR", "TRC", "SU", "SU-p", "SS", "SS-p", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-p", "OTRC+SS-p", "OTRC"]
-# Hue = policy family; shade = primitive; hollow = partial rewrite.
-PDARK = {"rule": "#2171b5", "llm": "#d94801", "stack": "#238b45", "step": "#525252"}
-PLIGHT = {"rule": "#6baed6", "llm": "#fd8d3c", "stack": "#74c476", "step": "#969696"}
-PSTYLE = {"TR": ("rule", "d", False), "TRC": ("rule", "l", False),
-          "SU": ("llm", "d", False), "SU-p": ("llm", "d", True), "SS": ("llm", "l", False), "SS-p": ("llm", "l", True),
-          "TRC+SU": ("stack", "d", False), "TRC+SS": ("stack", "l", False),
-          "OTRC+TR": ("step", "d", False), "OTRC+SU-p": ("step", "d", True), "OTRC+SS-p": ("step", "l", True),
-          "OTRC": ("otrc", "d", True)}
-def pcol(p):
-    """Policy color shared by all three figures (FC is black)."""
-    if p == "FC":
-        return "#000000"
-    g, shade, _ = PSTYLE[p]
-    if g == "otrc":
-        return "#000000"
-    return PDARK[g] if shade == "d" else PLIGHT[g]
-
-
-def pmark(ax, x, y, p, marker, s=22, force_hollow=False):
-    """Draw a policy marker; marker shape encodes the model."""
-    c = pcol(p)
-    hollow = PSTYLE[p][2] or force_hollow
-    if hollow:
-        ax.scatter(x, y, marker=marker, s=s, facecolors="white", edgecolors=c,
-                   linewidths=1.0, zorder=3)
-    else:
-        ax.scatter(x, y, marker=marker, s=s, color=c, edgecolors="#444444",
-                   linewidths=0.3, zorder=3)
-
-
-def prim_handles():
-    h = []
-    for p in ORDER:
-        c = pcol(p); hollow = PSTYLE[p][2]
-        h.append(Line2D([], [], marker="o", ls="", ms=4.5, mfc="white" if hollow else c, mec=c, mew=1.0 if hollow else 0.3, label=p))
-    return h
-
-def model_handles():
-    return [Line2D([], [], marker=k, ls="", color="#555555", ms=5, label=n) for _, n, k in MODELS]
-
-
-
-def save_figure(fig, output_dir, name, dpi=200):
-    """Write a fixed-size PDF and PNG; preserve the selected layout margins."""
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for suffix in ("pdf", "png"):
-        fig.savefig(output_dir / f"{name}.{suffix}", dpi=dpi)
+try:
+    from .plot_style import (PAPER_STYLE, Q2_STYLE, MODELS, MK, ORDER, PDARK,
+                             PLIGHT, PSTYLE, pcol, pmark, prim_handles,
+                             model_handles, save_figure)
+except ImportError:  # Direct script invocation.
+    from plot_style import (PAPER_STYLE, Q2_STYLE, MODELS, MK, ORDER, PDARK,
+                            PLIGHT, PSTYLE, pcol, pmark, prim_handles,
+                            model_handles, save_figure)
 
 
 def read_csv(path, required):
@@ -319,6 +276,54 @@ def fig_o2_bill(frontiers, step_factors):
     fig.legend(handles=[h for pair in zip(row1, row2) for h in pair], loc="upper center", ncol=8, frameon=False,
                handletextpad=0.2, columnspacing=0.8, fontsize=6, bbox_to_anchor=(0.5, 1.0))
     return fig
+
+
+def load_qwen_overview(data_dir, resamples=10000, seed=210926):
+    """Preserve Q1 estimates and add genuine absolute-success intervals."""
+    frames = {}
+    columns = ["policy", "resolve", "dres", "dres_lo", "dres_hi", "usage",
+               "bill", "bill_lo", "bill_hi", "time", "time_lo", "time_hi"]
+    for benchmark, tag in [("swebench", ""), ("terminalbench", "tb_")]:
+        path = data_dir / f"q1_frontier_{tag}qwen35b.csv"
+        frame = read_csv(path, columns).set_index("policy", verify_integrity=True)
+        missing = set(["FC"] + ORDER) - set(frame.index)
+        if missing:
+            raise ValueError(f"{path}: missing policies {sorted(missing)}")
+        frame = frame.loc[["FC"] + ORDER].copy()
+        if not np.isfinite(frame[columns[1:]].to_numpy(float)).all():
+            raise ValueError(f"{path}: non-finite plotted values")
+        for metric in ["dres", "bill", "time"]:
+            if not ((frame[metric + "_lo"] <= frame[metric]) &
+                    (frame[metric] <= frame[metric + "_hi"])).all():
+                raise ValueError(f"{path}: invalid {metric} intervals")
+
+        ledger_path = data_dir / f"token_cost_ledger_{tag}qwen35b.csv"
+        ledger = read_csv(ledger_path, ["policy", "task", "resolved"])
+        if ledger.resolved.isna().any() or not ledger.resolved.isin([True, False, 0, 1]).all():
+            raise ValueError(f"{ledger_path}: resolved must contain nonmissing boolean values")
+        ledger["success"] = ledger.resolved.astype(float)
+        for policy in frame.index:
+            values = ledger[ledger.policy.eq(policy)].groupby("task").success.mean().to_numpy()
+            if not len(values) or not np.isclose(values.mean() * 100, frame.loc[policy, "resolve"], atol=1e-6):
+                raise ValueError(f"{ledger_path}: {policy} success differs from {path.name}; use matched exports")
+            # All runs, including capped runs as unresolved, as in q1_frontier.
+            rng = np.random.default_rng(seed)
+            idx = rng.integers(0, len(values), (resamples, len(values)))
+            lo, hi = np.percentile(values[idx].mean(axis=1) * 100, [2.5, 97.5])
+            frame.loc[policy, "resolve_lo"] = lo
+            frame.loc[policy, "resolve_hi"] = hi
+            frame.loc[policy, "n_success_tasks"] = len(values)
+        frames[benchmark] = frame
+    return frames
+
+
+def fig_qwen_overview(frames, columns=(0, 1, 2, 3, 4)):
+    """Compatibility entry point; selected figure code lives in the plot bank."""
+    try:
+        from .Iclr_plot_bank import fig_qwen_overview as draw
+    except ImportError:
+        from Iclr_plot_bank import fig_qwen_overview as draw
+    return draw(frames, columns)
 
 
 # Q2: reconstruct memberships and successful-run steps on shared solved tasks.
@@ -530,7 +535,7 @@ def fig_q2(solved, summary, missed, shared, tb_summary):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--figure", choices=["all", "q1-o1", "q1-o2", "q2"], default="all")
+    parser.add_argument("--figure", choices=["all", "q1-o1", "q1-o2", "q1-qwen-overview", "q2"], default="all")
     parser.add_argument("--data-dir", type=Path, default=ROOT / "ICLR_analysis")
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/p100_all_100_tasks.json")
@@ -539,8 +544,8 @@ def main():
     parser.add_argument("--run-root", type=Path, default=ROOT, help="Root for outcome source_file paths and Harbor records")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots/q1")
     parser.add_argument("--audit-dir", type=Path, help="Optional directory for Q2 values and task-order CSVs")
-    parser.add_argument("--resamples", type=int, default=10000, help="Q2 paired-task bootstrap resamples")
-    parser.add_argument("--seed", type=int, default=210926, help="Q2 bootstrap seed, reset for each policy")
+    parser.add_argument("--resamples", type=int, default=10000, help="Q2 and Qwen overview task-bootstrap resamples")
+    parser.add_argument("--seed", type=int, default=210926, help="Bootstrap seed, reset for each policy")
     args = parser.parse_args()
     if args.resamples < 1000 or args.seed < 0:
         parser.error("Use at least 1000 bootstrap resamples and a non-negative seed")
@@ -548,12 +553,22 @@ def main():
         # Read/validate requested inputs before creating any figures.
         if args.figure in ["all", "q1-o1", "q1-o2"]:
             frontiers, factors = load_q1(args.data_dir, args.figure in ["all", "q1-o2"])
+        if args.figure == "q1-qwen-overview":
+            overview = load_qwen_overview(args.data_dir, args.resamples, args.seed)
         if args.figure in ["all", "q2"]:
             d = load_q2_runs(args.outcomes, args.tasks)
             solved, summary, missed, shared = summarize_q2(d, args.resamples, args.seed)
             tb = load_q2_runs(args.tb_outcomes, args.tb_tasks, "terminalbench", args.run_root)
             _, tb_summary, _, _ = summarize_q2(tb, args.resamples, args.seed)
         with plt.rc_context(PAPER_STYLE):
+            if args.figure == "q1-qwen-overview":
+                for columns, suffix in [((0, 1, 2, 3, 4), ""), ((0, 1, 2), "_tokens"), ((3, 4), "_success")]:
+                    fig = fig_qwen_overview(overview, columns)
+                    save_figure(fig, args.output_dir, "q1_24_qwen_overview" + suffix)
+                    plt.close(fig)
+                if args.audit_dir:
+                    args.audit_dir.mkdir(parents=True, exist_ok=True)
+                    pd.concat(overview, names=["benchmark", "policy"]).to_csv(args.audit_dir / "q1_24_qwen_overview_values.csv")
             if args.figure in ["all", "q1-o1"]:
                 fig = fig_o1(frontiers)
                 save_figure(fig, args.output_dir, "q1_20_o1_frontier")
