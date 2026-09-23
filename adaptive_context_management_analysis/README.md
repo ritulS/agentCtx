@@ -92,7 +92,7 @@ Re-runs **only** the runs that a `failure_causes.csv` classified as `timeout`
 and/or `step_limit`, with `STEP_LIMIT` / `AGENT_TIMEOUT` raised. The runner
 `scripts/run_experiment.py` is imported unchanged; only its two limit constants
 and its result directory are overridden (same technique as
-`scripts/run_experiment_iclr.py`). `ICLR_results/` is never written to.
+`scripts/run_experiment_iclr.py`). `ICLR_experiments/` is never written to.
 
 ```bash
 S=adaptive_context_management_analysis/rerun_limit_failures.py
@@ -134,14 +134,18 @@ The run numbers are kept from the original runs, so `run_2` in the new
 directory is the re-run of the original `run_2`.
 
 The output lives under `results/` (gitignored via `results/*`) on purpose: the outcomes aggregator
-scans `ICLR_results/swebench/**`, and the re-runs must not be mixed into the
+scans `ICLR_experiments/swebench/**`, and the re-runs must not be mixed into the
 canonical cells.
 
 ## run_rerun_limits_notified.sh
 
-Slack-notified launcher for one phase of `rerun_limit_failures.py`, modelled on
-`scripts/run_agent_models_expansion_notified.sh` (start / completion / failure
-notices via `dashboard/notify_slack.py`, plus an outcome summary on success).
+Slack-notified launcher for one phase of `rerun_limit_failures.py`: it runs the
+preflight checks (webhook, vLLM, Podman socket), then hands the runner to
+`scripts/notify_run.sh` (background launch, start / completion / failure
+notices, per-phase lock, PID file, signal forwarding) with
+`post_rerun_summary.py` as the on-success hook that posts the outcome counts.
+The launch returns at once and prints the wrapper PID; `FOREGROUND=1` keeps it
+attached.
 
 | Phase | Difficulties | Runs |
 |---|---|---|
@@ -155,10 +159,11 @@ Both phases run hardest-first within the phase (`--order hard-first`).
 L=adaptive_context_management_analysis/run_rerun_limits_notified.sh
 DRY_RUN=1 bash $L                    # print the plan; no Slack, nothing written
 export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'
-nohup bash $L > logs/rerun_qwen35b_fc_limits_phase1_launcher.log 2>&1 &
-PHASE=2 nohup bash $L > logs/rerun_qwen35b_fc_limits_phase2_launcher.log 2>&1 &
-PHASE=3 nohup bash $L > logs/rerun_qwen35b_fc_limits_phase3_launcher.log 2>&1 &
-kill $(cat logs/rerun_qwen35b_fc_limits_phase1.pid)   # stop (sends a "terminated" notice)
+bash $L                              # phase 1; detaches, prints the wrapper PID
+PHASE=2 bash $L
+PHASE=3 bash $L
+kill $(cat logs/experiments/rerun_qwen35b_fc_limits_phase1.pid)   # stop (sends a "terminated" notice)
+tail -f logs/experiments/rerun_qwen35b_fc_limits_phase1.latest.log
 ```
 
 Preflight refuses to start unless `SLACK_WEBHOOK_URL` is set (or
@@ -173,7 +178,7 @@ the matching `.pid`. Remember to add an `Active_runs.md` entry before launching.
 ## build_rerun_outcomes.py
 
 Overlays the raised-limit re-run results on `analysis/outcomes/swebench_outcomes.csv`
-and writes a second outcomes table (the canonical CSV and `ICLR_results/` are
+and writes a second outcomes table (the canonical CSV and `ICLR_experiments/` are
 never modified):
 
 ```bash

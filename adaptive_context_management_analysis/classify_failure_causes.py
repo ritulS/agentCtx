@@ -48,7 +48,7 @@ DEFAULT_OUT_ROOT = os.path.join(HERE, "results")
 
 STEP_LIMIT = 125       # scripts/run_experiment.py
 AGENT_TIMEOUT_S = 1500  # scripts/run_experiment.py
-MODEL_CTX_WINDOW = {   # vLLM --max-model-len (ICLR_results/budget_calibration_swe.md, scripts/start_vllm_*.sh)
+MODEL_CTX_WINDOW = {   # vLLM --max-model-len (ICLR_experiments/budget_calibration_swe.md, scripts/start_vllm_*.sh)
     "qwen35b": 102400,
     "devstral24b": 65536,
     "glm47flash": 65536,

@@ -53,13 +53,13 @@ class QwenCoverageTest(unittest.TestCase):
                              budget=budget, compression_ratio=depth, run_num=rn)
                         for i, t in enumerate(tasks)
                         for rn in range(1, 4 if i < 25 else 3)]
-                source = root / 'ICLR_results/swebench/main/qwen35b' / cell
+                source = root / 'ICLR_experiments/swebench/main/qwen35b' / cell
                 source.mkdir(parents=True)
                 (source / 'experiment_results.json').write_text(json.dumps(rows))
 
             def build():
                 with patch.object(coverage, 'ROOT', root), \
-                     patch.object(coverage, 'ICLR_RESULTS', root / 'ICLR_results'), \
+                     patch.object(coverage, 'ICLR_EXPERIMENTS', root / 'ICLR_experiments'), \
                      patch('sys.argv', ['build_coverage.py', '--output', str(root / 'COVERAGE.csv'),
                                         '--tb-output', str(root / 'COVERAGE_TB.csv')]), \
                      contextlib.redirect_stdout(io.StringIO()):
@@ -69,8 +69,8 @@ class QwenCoverageTest(unittest.TestCase):
 
             before = build()
             for cell, _, _, _ in examples:
-                source = root / 'ICLR_results/swebench/main/qwen35b' / cell
-                destination = root / 'ICLR_results/swebench/ablation/qwen35b' / cell
+                source = root / 'ICLR_experiments/swebench/main/qwen35b' / cell
+                destination = root / 'ICLR_experiments/swebench/ablation/qwen35b' / cell
                 destination.mkdir(parents=True)
                 rows = json.loads((source / 'experiment_results.json').read_text())
                 (destination / 'experiment_results.json').write_text(json.dumps(rows[:90]))
@@ -108,7 +108,7 @@ class QwenCoverageTest(unittest.TestCase):
                 rows = [dict(instance_id=t['instance_id'], condition='summarization',
                              budget=15000, compression_ratio=0.5, run_num=rn)
                         for t in tasks[:n_tasks] for rn in range(1, runs + 1)]
-                cell = root / 'ICLR_results/swebench' / section / model_dir / 'd05__b15k__su-full'
+                cell = root / 'ICLR_experiments/swebench' / section / model_dir / 'd05__b15k__su-full'
                 cell.mkdir(parents=True)
                 (cell / 'experiment_results.json').write_text(json.dumps(rows))
                 if run_info is not None:
@@ -124,7 +124,7 @@ class QwenCoverageTest(unittest.TestCase):
             write_cell('model_ablation', 'qwen35b-sum-qwen35-9b-smoke', 1, 1)
 
             with patch.object(coverage, 'ROOT', root), \
-                 patch.object(coverage, 'ICLR_RESULTS', root / 'ICLR_results'), \
+                 patch.object(coverage, 'ICLR_EXPERIMENTS', root / 'ICLR_experiments'), \
                  patch('sys.argv', ['build_coverage.py', '--output', str(root / 'COVERAGE.csv'),
                                     '--tb-output', str(root / 'COVERAGE_TB.csv')]), \
                  contextlib.redirect_stdout(io.StringIO()):
@@ -179,7 +179,7 @@ class QwenCoverageTest(unittest.TestCase):
                 rows = [dict(instance_id=t['instance_id'], condition=condition,
                              budget=budget, compression_ratio=0.5, run_num=rn)
                         for t in tasks[:n_tasks] for rn in range(1, runs + 1)]
-                cell = root / 'ICLR_results' / benchmark_dir / section / model_dir / cell_name
+                cell = root / 'ICLR_experiments' / benchmark_dir / section / model_dir / cell_name
                 cell.mkdir(parents=True)
                 (cell / 'experiment_results.json').write_text(json.dumps(rows))
 
@@ -194,7 +194,7 @@ class QwenCoverageTest(unittest.TestCase):
                        'di__b3k__trc', 'tool-result-clear', 3000, 15, 3)
 
             with patch.object(coverage, 'ROOT', root), \
-                 patch.object(coverage, 'ICLR_RESULTS', root / 'ICLR_results'), \
+                 patch.object(coverage, 'ICLR_EXPERIMENTS', root / 'ICLR_experiments'), \
                  patch('sys.argv', ['build_coverage.py', '--output', str(root / 'COVERAGE.csv'),
                                     '--tb-output', str(root / 'COVERAGE_TB.csv')]), \
                  contextlib.redirect_stdout(io.StringIO()):
@@ -246,7 +246,7 @@ class QwenCoverageTest(unittest.TestCase):
 
     def test_terminal_bench_prefix_cache_rows_carry_the_directory_tag(self):
         # Terminal-Bench records store the launcher's --model-tag in ``model``.
-        # scripts/run_qwen_tb_prefix_cache_ablation.sh tags its runs with the
+        # scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh tags its runs with the
         # model directory (qwen35b-noprefixcache); they must still be
         # attributed to the main model, in OFF cells apart from production.
         with tempfile.TemporaryDirectory() as tmp:
@@ -262,7 +262,7 @@ class QwenCoverageTest(unittest.TestCase):
                              instance_id=t['instance_id'], condition=condition,
                              budget=budget, compression_ratio=0.5, run_num=rn)
                         for t in tasks for rn in range(1, runs + 1)]
-                cell = root / 'ICLR_results/terminalbench' / section / model_dir / cell_name
+                cell = root / 'ICLR_experiments/terminalbench' / section / model_dir / cell_name
                 cell.mkdir(parents=True)
                 (cell / 'experiment_results.json').write_text(json.dumps(rows))
 
@@ -275,7 +275,7 @@ class QwenCoverageTest(unittest.TestCase):
                        'di__b3k__trc', 'tool-result-clear', 3000, 1)
 
             with patch.object(coverage, 'ROOT', root), \
-                 patch.object(coverage, 'ICLR_RESULTS', root / 'ICLR_results'), \
+                 patch.object(coverage, 'ICLR_EXPERIMENTS', root / 'ICLR_experiments'), \
                  patch('sys.argv', ['build_coverage.py', '--output', str(root / 'COVERAGE.csv'),
                                     '--tb-output', str(root / 'COVERAGE_TB.csv')]), \
                  contextlib.redirect_stdout(io.StringIO()):

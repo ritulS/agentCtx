@@ -67,16 +67,16 @@ Review1/figures_n100/
 *.csv.bak.*
 DASHBOARD.html
 Review1/archived_experiment_data/
-ICLR_results/swebench
+ICLR_experiments/swebench
 quarantined_results/
 venv-glm/
 backups/
-ICLR_results/terminalbench/main/qwen35b-smoke
-ICLR_results/terminalbench
+ICLR_experiments/terminalbench/main/qwen35b-smoke
+ICLR_experiments/terminalbench
 .tools
 venv-glm/
 venv-glm-cu129-clean
-ICLR_results/terminalbench2
+ICLR_experiments/terminalbench2
 analysis/reports
 
 # Archives are ignored by default; keep only the selected tooling and reports.
@@ -128,11 +128,11 @@ analysis/reports
 !/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/nonsummary_integrity.csv
 !/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/agentlog_README.txt
 
-ICLR_results/issue/devstral_rule_otrc_20260910
-ICLR_results/issue/devstral_summary_20260910
-ICLR_results/issue/qwen_main_20260910
-ICLR_results/issue/qwen_fc_15min_1hour_20260910
-ICLR_results/terminalbench
+ICLR_experiments/issue/devstral_rule_otrc_20260910
+ICLR_experiments/issue/devstral_summary_20260910
+ICLR_experiments/issue/qwen_main_20260910
+ICLR_experiments/issue/qwen_fc_15min_1hour_20260910
+ICLR_experiments/terminalbench
 backups/
 
 # Keep the canonical analysis snapshot; ignore filtered result copies.

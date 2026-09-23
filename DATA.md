@@ -6,7 +6,7 @@ This file explains the split and how to obtain or regenerate the data.
 
 ## What IS in git
 
-- All code (`scripts/`, `Review1/*.py`, `memory.py`, the `mini-swe-agent`
+- All code (`scripts/`, `Review1/*.py`, `src/agentctx/`, the `mini-swe-agent`
   submodule).
 - **`Review1/Review1.csv`** — the central, distilled analysis file. This is the
   one data artifact that *is* tracked, because it's small and is what the
@@ -32,7 +32,7 @@ symlinks into `data/`, so every script path in this repo keeps working.
 | Path | Size | Note |
 |------|------|------|
 | `data/` | ~9.9 GB | Older (EMNLP-era) run outputs; grid in `data/swebench/ablations/`. |
-| `ICLR_results/swebench` | large | Canonical ICLR run data; see [ICLR.md](ICLR.md). |
+| `ICLR_experiments/swebench` | large | Canonical ICLR run data; see [ICLR.md](ICLR.md). |
 | `venv/` | ~11 GB | Python env; recreate locally (see README). |
 | `logs/`, `archive/`, `temp/` | varies | Run logs and scratch. |
 | `Review1/figures*/`, `figures/`, `paper_sections_ICLR/`, `paper_layout_EMNLP/` | varies | Regeneratable / paper-local. |

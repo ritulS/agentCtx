@@ -1,6 +1,7 @@
-"""run_experiment_iclr.validate_summarizer: the summarizer is part of a cell's identity.
+"""agentctx.experiments.iclr.validate_summarizer: the summarizer is part of a cell's identity.
 
-Run with: PYTHONPATH=. venv/bin/python -m unittest discover -s tests -v
+Run with: uvx --with pyyaml pytest tests/test_iclr_summarizer_guard.py
+(or PYTHONPATH=src venv/bin/python -m unittest discover -s tests -v)
 """
 
 import contextlib
@@ -14,9 +15,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
-import run_experiment_iclr as iclr  # noqa: E402
+from agentctx.experiments import iclr  # noqa: E402
 
 
 class SummarizerGuardTest(unittest.TestCase):
