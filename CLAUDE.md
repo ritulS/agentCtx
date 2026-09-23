@@ -49,6 +49,13 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 - `scripts/run_experiment.py` — main run harness. Conditions defined in the
   `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`
   control a single sweep.
+- Event log (failure analysis): `run_experiment.py` sets `MSWEA_EVENT_LOG_DIR`
+  so each run dir also gets `events.jsonl` (every message as added, before
+  compression, with a stable `extra.uid`) and `compression_events.jsonl`
+  (per event: dropped/replaced/added uids, summary text, before/after uid
+  order). `scripts/reconstruct_context.py <run_dir> [--step N] [--event K]`
+  replays them and verifies against trajectory.json / token_log.json.
+  Runs before 2026-09-23 only have the final trajectory.
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,

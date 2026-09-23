@@ -23,6 +23,9 @@ Directory layout
     trajectory.json   full message history + exit_status + submission patch
     token_log.json    per-step + compression stats
     agent.log         subprocess stdout/stderr
+    events.jsonl      every message as added (pre-compression), with a stable uid
+    compression_events.jsonl  per compression event: dropped/replaced/added uids,
+                      summary text, before/after uid order (see scripts/reconstruct_context.py)
 
 Usage
 -----
@@ -181,6 +184,7 @@ def run_agent(instance_id: str, condition: str, primitive: str, budget: int, run
     env["MSWEA_COMPRESSION_RATIO"]  = str(compression_ratio)
     env["MSWEA_TOKEN_LOG_PATH"]     = str(token_log_file)
     env["MSWEA_RUN_KEY"]            = key   # used by staggered_random for reproducible seeding
+    env["MSWEA_EVENT_LOG_DIR"]      = str(out)  # events.jsonl + compression_events.jsonl (failure analysis)
     if SUMMARY_CONFIG is not None:
         env["MSWEA_SUMMARY_MODEL_CONFIG"] = str(SUMMARY_CONFIG)
     env.update(BENCHMARK.agent_environment())
