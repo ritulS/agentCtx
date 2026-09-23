@@ -106,6 +106,7 @@ ICLR_results/issue/qwen_main_20260910
 ICLR_results/issue/qwen_fc_15min_1hour_20260910
 ICLR_results/terminalbench
 backups/
+ICLR_results/ICLR_analysis
 
 # Keep the canonical analysis snapshot; ignore filtered result copies.
 /adaptive_context_management_analysis/results/*
@@ -113,3 +114,7 @@ backups/
 !/adaptive_context_management_analysis/results/all/**
 !/adaptive_context_management_analysis/results/model=qwen35b__primitive=fc/
 !/adaptive_context_management_analysis/results/model=qwen35b__primitive=fc/**
+
+# re-evaluation evidence (harness logs); keep manifest/results/summary only
+ICLR_results/ICLR_reeval/*/jobs/
+ICLR_results/ICLR_reeval/.*.lock

@@ -210,6 +210,31 @@ need rebuilding for serving/tbench.
 
 ## Recently Completed
 
+### Qwen3.5-35B-A3B — SWE-bench verdict re-evaluation, 253 review rows ✅ COMPLETE — Dobby
+- **Launched** 2026-09-23 11:32 CDT (nohup, PID not recorded). **Completed** 13:42 CDT
+  (2 h 10 min; 253/253 verified, 0 unverified). CPU/podman only, no LLM; ran alongside the
+  idle GLM-4.7-Flash vLLM server.
+- **What:** the 253 `review` rows from the 2026-09-10 Qwen main evaluation audit
+  (140 error_ids-recorded-as-False, 60 legacy_evaluation_reports_missing, 46
+  prediction/patch mismatch, 7 top-report verdict mismatch), re-run through
+  `scripts/reevaluate_swebench_candidates.py run --model-tag qwen35-a3b --continue-on-error`.
+- **Candidates:** `ICLR_results/issue/reeval_candidates_qwen35b_review253_20260923/candidates.csv`
+  (`already_reevaluated_20260911` flags the 140 rows already applied on 09-11).
+- **Output (evidence only):** `ICLR_results/ICLR_reeval/qwen35b_main_review253_20260923/`
+  — `manifest.json`, `results.json`, `verdict_comparison.csv`, `jobs/` (gitignored harness logs).
+  Log: `logs/reeval_qwen35b_review253_20260923.log`.
+- **Canonical indexes NOT updated** (`apply` deliberately not run). Decision pending on
+  whether to apply.
+- **Result:** vs the 09-10 audit values, 134/253 flipped False→True, 0 True→False. The 140
+  rows re-evaluated on 09-11 reproduced exactly (74 True / 66 False). The 60 Group-A
+  early-batch rows (2026-03-30..04-09, cells FC / b15k-tr / b15k-trc / b15k-ss / b15k-su-full)
+  came back 53 True — confirms those verdicts were an evaluation defect, not agent failures.
+  Applying would add +60 resolved vs the current index: b15k-trc +14, b15k-tr +13, FC +12,
+  b15k-ss +8, b15k-su-full +8, three 20k cells +1..2, all other cells unchanged.
+- **Harness guard change:** `reevaluate_swebench_candidates.py run` now refuses only output
+  dirs under `ICLR_results/swebench` (was: all of `ICLR_results`), so evidence can live in
+  `ICLR_results/ICLR_reeval/`.
+
 ### Qwen2.5-Coder-32B-Instruct — reduced-scope model expansion on Dobby ✅ COMPLETE
 - **Status:** DONE Sat May 23 17:37 CDT — `phase DONE — 780 runs complete`;
   790 trajectories on disk (`qwen25-coder-32b-{inf,budgeted-15000,pilot}`).

@@ -132,8 +132,8 @@ def checked_report(item, evidence):
 def run(args):
     items = candidates(args.candidates)
     output = args.output_dir.resolve()
-    if output.is_relative_to(ROOT / "ICLR_results"):
-        raise ValueError("Use an output directory outside ICLR_results")
+    if output.is_relative_to(ROOT / "ICLR_results/swebench"):
+        raise ValueError("Use an output directory outside the canonical ICLR_results/swebench tree")
     manifest_path = output / "manifest.json"
     if output.exists():
         if not args.resume or not manifest_path.is_file():
