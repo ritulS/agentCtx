@@ -270,3 +270,25 @@ nohup env MAX_WORKERS=16 RUN_EVAL=1 \
   >> logs/followup_agent_models_qwen_launcher.log 2>&1 < /dev/null &
 echo $! > logs/followup_agent_models_qwen_launcher.pid
 ```
+
+## Harness bug — online-TRC hook cleared the task statement (fixed 2026-09-23)
+- Affects every OTRC-family cell (`otrc`, `otrc-tr`, `otrc-su-partial`,
+  `otrc-ss-partial`) run before submodule commit `b54c485`
+  (`takeshiho0531/mini-swe-agent`, branch `event-log`), i.e. all OTRC data
+  currently under `ICLR_results/` for both benchmarks and all models.
+- Mechanism: `DefaultAgent.query()` rewrote `messages[-9]` by position.
+  FormatErrors (user message, no assistant reply) and odd-count truncations
+  shift message parity; with `len(messages) == 10` the hook overwrote
+  `messages[1]` (the task statement) with `[tool-result cleared …]`, and with
+  a FormatError inside the last 9 messages it cleared assistant turns.
+- Detection: `messages[1].content` starts with `[tool-result cleared`.
+  qwen35b SWE-bench main: 225/2483 OTRC runs affected, 0/225 resolved
+  (169 LimitsExceeded, 56 silent_crash); worst cell `di__b10k__otrc-tr`
+  111/300. devstral24b main ≈ 55/300 per cell; Terminal-Bench main up to
+  78/120 (`glm47flash di__b3k__otrc-tr`). 1651/2483 qwen35b main OTRC runs
+  had at least one assistant turn cleared.
+- Fix: target selected by role (user messages at index ≥ `N_PROTECTED`,
+  excluding summaries/stubs; newest FREEZE_K kept verbatim). Regression
+  tests: `mini-swe-agent/tests/agents/test_online_trc.py`.
+- Existing OTRC results are NOT re-run yet; any OTRC number quoted from
+  pre-fix data must either exclude affected runs or be re-collected.
