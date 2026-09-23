@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """Post experiment lifecycle notifications to a Slack incoming webhook.
 
+Usage:
+    notify_slack.py start <unit>
+    notify_slack.py stop  <unit> <result> <exit-status> <log-path>
+    notify_slack.py test  [<unit>]
+
+``scripts/notify_run.sh`` is the normal caller; ``result`` is one of
+``success`` / ``failed`` / ``killed`` and the notice is a ✅ only when the
+result is ``success`` and the exit status is ``0``.
+
 The webhook is intentionally read only from SLACK_WEBHOOK_URL, never a file.
 """
 
@@ -42,12 +51,18 @@ def post_to_slack(text: str) -> None:
     raise RuntimeError(f"Slack notification failed: {last_error}")
 
 
-def main() -> int:
-    event = sys.argv[1] if len(sys.argv) > 1 else "test"
-    unit = sys.argv[2] if len(sys.argv) > 2 else "manual-test"
-    result = sys.argv[3] if len(sys.argv) > 3 else ""
-    exit_status = sys.argv[4] if len(sys.argv) > 4 else ""
-    log_path = sys.argv[5] if len(sys.argv) > 5 else ""
+def format_message(argv: list[str]) -> str:
+    event = argv[0] if argv else "test"
+    expected = {"start": 2, "stop": 5}.get(event)
+    if expected is not None and len(argv) != expected:
+        raise ValueError(
+            f"'{event}' takes {expected - 1} argument(s), got {len(argv) - 1}: {argv[1:]} "
+            "(usage: start <unit> | stop <unit> <result> <exit-status> <log-path>)"
+        )
+    unit = argv[1] if len(argv) > 1 else "manual-test"
+    result = argv[2] if len(argv) > 2 else ""
+    exit_status = argv[3] if len(argv) > 3 else ""
+    log_path = argv[4] if len(argv) > 4 else ""
     host = socket.gethostname()
     now = datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -67,8 +82,11 @@ def main() -> int:
         )
     else:
         text = f"🔔 *ICLR27 Experiment Notifier test*\n• host: `{host}`\n• time: `{now}`"
+    return text
 
-    post_to_slack(text)
+
+def main() -> int:
+    post_to_slack(format_message(sys.argv[1:]))
     return 0
 
 

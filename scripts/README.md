@@ -9,6 +9,7 @@ operational launchers.
 | `run_experiment.py` | General SWE-Bench / Terminal-Bench experiment CLI (`agentctx.experiments.runner`). |
 | `run_experiment_iclr.py` | Run a cell in the canonical ICLR results tree (`agentctx.experiments.iclr`). |
 | `swebench_eval_wrapper.py` | SWE-bench harness wrapper the SWE-bench adapter launches for evaluation (thread cap inside eval containers). |
+| `notify_run.sh` | Run any launcher with Slack start / completion / failure notices (see below). |
 | `calibration/` | Collect full-context trajectories and calibrate token budgets. |
 | `expansions/` | Launch model grids, additional repetitions and the summarizer / prefix-cache ablations. |
 | `serving/` | Start and stop model-specific vLLM servers. |
@@ -37,21 +38,59 @@ bash scripts/calibration/run_budget_calibration_tb.sh qwen-rootless
 ## Expansions
 
 - `run_agent_models_expansion.sh`: SWE-Bench Qwen / Devstral / GLM grids.
-- `run_agent_models_expansion_notified.sh`: the same launcher with Slack notices.
-- `run_agent_models_expansion_tb.sh`: Terminal-Bench Qwen / Devstral / GLM grids;
-  `run_{qwen,devstral,glm}_tb_main_with_slack.sh`, `run_glm_tb_ablation_with_slack.sh`
-  and `run_qwen_tb_with_slack.sh` wrap it with Slack notices.
+- `run_agent_models_expansion_tb.sh`: Terminal-Bench Qwen / Devstral / GLM grids.
+- `run_glm_tb_ablation_split.sh {gpu0-3|gpu4-7}`: the GLM Terminal-Bench
+  ablation split across two vLLM servers (sets `ABLATION_PARTS`, config and
+  health URL per half, then launches through `notify_run.sh`).
 - `run_terminalbench_rootless_fc_expansion.sh`: FC run_2 through run_5 on the
   Terminal-Bench rootless subset.
-- `run_qwen_{swe,tb}_summarizer_ablation.sh` (+ `_notified` / `_with_slack`):
-  summarizer-model ablation (`--summary-config`, `model_ablation` section).
-- `run_qwen_{swe,tb}_prefix_cache_ablation.sh` (+ `_notified` / `_with_slack`):
-  vLLM prefix-caching ablation (`prefix_cache_ablation` section).
+- `run_qwen_{swe,tb}_summarizer_ablation.sh`: summarizer-model ablation
+  (`--summary-config`, `model_ablation` section).
+- `run_qwen_{swe,tb}_prefix_cache_ablation.sh`: vLLM prefix-caching ablation
+  (`prefix_cache_ablation` section).
 
 ```bash
 bash scripts/expansions/run_agent_models_expansion.sh devstral
 bash scripts/expansions/run_agent_models_expansion_tb.sh qwen both
 ```
+
+### Slack notices: `notify_run.sh`
+
+Every launcher above is plain; wrap it in `scripts/notify_run.sh` to get a
+start notice, a completion / failure notice with the exit status and log path,
+signal forwarding (HUP / INT / TERM stop the launcher and everything it
+spawned before the notice goes out) and an optional per-experiment lock. The
+launcher's stdout / stderr are appended to `--log` (default
+`logs/<unit>.log`). Environment overrides of the launcher pass through
+unchanged.
+
+```bash
+export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'   # or ALLOW_NO_SLACK=1
+
+# Terminal-Bench main grid (previously run_qwen_tb_main_with_slack.sh)
+nohup bash scripts/notify_run.sh --unit qwen-terminal-bench-main --lock qwen_tb_main \
+    -- bash scripts/expansions/run_agent_models_expansion_tb.sh qwen main \
+    > logs/followup_tb_qwen_main.nohup.log 2>&1 &
+
+# SWE-Bench model grid (previously run_agent_models_expansion_notified.sh)
+nohup env MAX_WORKERS=16 RUN_EVAL=1 bash scripts/notify_run.sh --unit agent-model-expansion/glm \
+    --log logs/followup_agent_models_glm_launcher.log \
+    -- bash scripts/expansions/run_agent_models_expansion.sh glm > /dev/null 2>&1 &
+
+# Summarizer / prefix-cache ablations (previously *_notified.sh / *_with_slack.sh)
+nohup env SUMMARY_CONFIG=configs/config-summary-gemma4-12b.yaml ICLR_MODEL=qwen35b-sum-gemma4-12b \
+    bash scripts/notify_run.sh --unit summarizer-ablation/swebench/qwen35b-sum-gemma4-12b \
+    -- bash scripts/expansions/run_qwen_swe_summarizer_ablation.sh > /dev/null 2>&1 &
+nohup bash scripts/notify_run.sh --unit qwen-terminal-bench-prefix-cache-ablation --lock qwen_tb_noprefixcache \
+    -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh > /dev/null 2>&1 &
+```
+
+`--on-success '<command>'` runs a follow-up (for example a results summary)
+after a clean exit; `--pid-file` records the launcher's PID for chained
+scripts. `dashboard/notify_slack.py` is the notifier it calls
+(`start <unit>` / `stop <unit> <result> <status> <log>`); `python3
+dashboard/notify_slack.py test` checks the webhook. `tests/test_notify_run.py`
+covers the wrapper.
 
 ## Serving and Harbor setup
 

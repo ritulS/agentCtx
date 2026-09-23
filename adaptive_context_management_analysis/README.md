@@ -139,9 +139,11 @@ canonical cells.
 
 ## run_rerun_limits_notified.sh
 
-Slack-notified launcher for one phase of `rerun_limit_failures.py`, modelled on
-`scripts/expansions/run_agent_models_expansion_notified.sh` (start / completion / failure
-notices via `dashboard/notify_slack.py`, plus an outcome summary on success).
+Slack-notified launcher for one phase of `rerun_limit_failures.py`: it runs the
+preflight checks (webhook, vLLM, Podman socket), then hands the runner to
+`scripts/notify_run.sh` (start / completion / failure notices, per-phase lock,
+PID file, signal forwarding) with `post_rerun_summary.py` as the on-success
+hook that posts the outcome counts.
 
 | Phase | Difficulties | Runs |
 |---|---|---|

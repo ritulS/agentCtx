@@ -33,7 +33,7 @@ def write_json(path, obj):
 
 def active_writers():
     names = {"run_experiment.py", "run_experiment_iclr.py",
-             "run_agent_models_expansion.sh", "run_agent_models_expansion_notified.sh",
+             "run_agent_models_expansion.sh", "notify_run.sh",
              "reevaluate_swebench_candidates.py", "swebench.harness.run_evaluation",
              "minisweagent.run.benchmarks.swebench_single"}
     found = []
