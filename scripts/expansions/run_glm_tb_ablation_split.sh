@@ -4,12 +4,13 @@
 #   GPUs 0-3 -> port 8003 (configs/config-glm47flash-vllm.yaml)
 #   GPUs 4-7 -> port 8004 (configs/config-glm47flash-vllm-8004.yaml)
 #
-# Usage: SLACK_WEBHOOK_URL=... nohup bash scripts/expansions/run_glm_tb_ablation_split.sh {gpu0-3|gpu4-7} &
+# Usage: SLACK_WEBHOOK_URL=... bash scripts/expansions/run_glm_tb_ablation_split.sh {gpu0-3|gpu4-7}
+#   (detaches into the background; FOREGROUND=1 keeps it attached)
 #   gpu0-3 : depth-tunable singles @ depth 0.3 + depth 0.7 (A/P/B each)      = 1,350 runs
 #   gpu4-7 : depth-invariant @ 0.5 (A/B) + depth-tunable singles @ 0.5 (A/B) =   990 runs
 # Override the split with ABLATION_PARTS (subset of "d05 d03 d07 di"); all other
 # settings match run_agent_models_expansion_tb.sh exactly. Completed runs are skipped.
-# Slack notices, the per-group lock and log come from scripts/notify_run.sh.
+# Slack notices, the per-group lock, log and backgrounding come from scripts/notify_run.sh.
 set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
@@ -29,7 +30,7 @@ esac
 export TB_LOG_SUFFIX="ablation_${group}"
 export N_CONCURRENT="${N_CONCURRENT:-4}"
 
-exec bash scripts/notify_run.sh \
+exec bash scripts/notify_run.sh ${FOREGROUND:+--foreground} \
     --unit "glm-terminal-bench-ablation-${group}" \
     --lock "glm_tb_ablation_${group}" \
     --log "${GLM_TB_LOG_FILE:-logs/followup_tb_glm_ablation_${group}.nohup.log}" \

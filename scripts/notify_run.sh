@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Run a command with Slack start / completion / failure notices.
+# Run a command in the background with Slack start / completion / failure notices.
 #
 # Usage:
 #   bash scripts/notify_run.sh --unit <name> [--log <file>] [--lock <name>]
 #                              [--pid-file <file>] [--on-success <command>]
-#                              -- <command> [args...]
+#                              [--foreground] -- <command> [args...]
 #
 #   --unit NAME        label shown in the Slack notices (required)
 #   --log FILE         the command's stdout/stderr are appended here and the path is
@@ -16,6 +16,15 @@
 #   --pid-file FILE    write the command's PID here while it runs
 #   --on-success CMD   run `bash -c CMD` after the completion notice when the
 #                      command exited 0 (UNIT and LOG_FILE are exported to it)
+#   --foreground       stay attached: run the command in this terminal, mirror
+#                      its output to stdout and return its exit status
+#
+# By default the wrapper validates its arguments, takes the lock, checks the
+# webhook, then detaches itself (nohup + setsid, output to --log) and returns
+# at once, printing the wrapper PID and the log path. The detached wrapper
+# survives the terminal closing; `kill <wrapper PID>` stops the command and
+# posts a "killed" notice. Sequential drivers (overnight chains) and dry runs
+# should pass --foreground.
 #
 # Environment:
 #   SLACK_WEBHOOK_URL   incoming-webhook URL (required unless ALLOW_NO_SLACK=1;
@@ -25,14 +34,15 @@
 #
 # The command runs in its own session (setsid), so HUP / INT / TERM sent to the
 # wrapper are forwarded to the whole process group and the completion notice is
-# posted after the command has actually stopped. The exit status of the wrapper
-# is the exit status of the command (129 / 130 / 143 when it was signalled).
+# posted after the command has actually stopped. In --foreground mode the exit
+# status of the wrapper is the exit status of the command (129 / 130 / 143 when
+# it was signalled).
 #
-# Example:
-#   SLACK_WEBHOOK_URL=... nohup bash scripts/notify_run.sh \
+# Examples:
+#   SLACK_WEBHOOK_URL=... bash scripts/notify_run.sh \
 #       --unit qwen-terminal-bench-main --lock qwen_tb_main \
-#       -- bash scripts/expansions/run_agent_models_expansion_tb.sh qwen main \
-#       > logs/followup_tb_qwen_main.nohup.log 2>&1 &
+#       -- bash scripts/expansions/run_agent_models_expansion_tb.sh qwen main
+#   bash scripts/notify_run.sh --foreground --unit smoke -- bash scripts/... 
 set -uo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -48,6 +58,7 @@ LOG_FILE=""
 LOCK_NAME=""
 PID_FILE=""
 ON_SUCCESS=""
+FOREGROUND=0
 while (( $# )); do
     case "$1" in
         --unit)        UNIT="${2:-}"; shift 2 ;;
@@ -55,6 +66,7 @@ while (( $# )); do
         --lock)        LOCK_NAME="${2:-}"; shift 2 ;;
         --pid-file)    PID_FILE="${2:-}"; shift 2 ;;
         --on-success)  ON_SUCCESS="${2:-}"; shift 2 ;;
+        --foreground)  FOREGROUND=1; shift ;;
         --) shift; break ;;
         -h|--help) usage ;;
         *) echo "notify_run.sh: unknown option: $1" >&2; usage ;;
@@ -65,7 +77,10 @@ done
 [[ -n "$LOG_FILE" ]] || LOG_FILE="logs/${UNIT//\//_}.log"
 mkdir -p logs "$(dirname "$LOG_FILE")"
 
-if [[ -n "$LOCK_NAME" ]]; then
+# NOTIFY_RUN_DETACHED=1 marks the re-executed background copy: it inherits the
+# lock on fd 9 from the parent below and must not open it again.
+DETACHED="${NOTIFY_RUN_DETACHED:-0}"
+if [[ -n "$LOCK_NAME" && "$DETACHED" != "1" ]]; then
     exec 9>"logs/${LOCK_NAME}.lock"
     flock -n 9 || { echo "notify_run.sh: '$LOCK_NAME' is already running (logs/${LOCK_NAME}.lock)." >&2; exit 1; }
 fi
@@ -75,11 +90,26 @@ if [[ -z "${SLACK_WEBHOOK_URL:-}" && "${ALLOW_NO_SLACK:-0}" != "1" ]]; then
     exit 2
 fi
 
+stamp() { date '+%Y-%m-%d %H:%M:%S %Z'; }
+
+if (( ! FOREGROUND )) && [[ "$DETACHED" != "1" ]]; then
+    # Re-run this script detached from the terminal; fd 9 (the lock) is inherited.
+    NOTIFY_RUN_DETACHED=1 nohup setsid bash "${BASH_SOURCE[0]}" \
+        --unit "$UNIT" --log "$LOG_FILE" ${LOCK_NAME:+--lock "$LOCK_NAME"} \
+        ${PID_FILE:+--pid-file "$PID_FILE"} ${ON_SUCCESS:+--on-success "$ON_SUCCESS"} \
+        -- "$@" >>"$LOG_FILE" 2>&1 </dev/null &
+    wrapper_pid=$!
+    echo "notify_run.sh: started '$UNIT' in the background (wrapper PID $wrapper_pid)."
+    echo "  log:  $LOG_FILE"
+    echo "  stop: kill $wrapper_pid"
+    exit 0
+fi
+
 PY="${NOTIFY_PYTHON:-python3}"
 NOTIFIER="$WS/dashboard/notify_slack.py"
 notify() {
     [[ -n "${SLACK_WEBHOOK_URL:-}" ]] || return 0
-    "$PY" "$NOTIFIER" "$@" || echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] Slack notification failed; experiment status is unchanged." >&2
+    "$PY" "$NOTIFIER" "$@" || echo "[$(stamp)] Slack notification failed; experiment status is unchanged." >&2
 }
 
 child_pid=""
@@ -115,12 +145,19 @@ trap 'handle_signal 130' INT
 trap 'handle_signal 143' TERM
 
 notify start "$UNIT"
-echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] notify_run.sh: unit=$UNIT log=$LOG_FILE command: $*" | tee -a "$LOG_FILE"
+header="[$(stamp)] notify_run.sh: unit=$UNIT log=$LOG_FILE wrapper=$$ command: $*"
 
 # Own session/process group so a stop signal reaches the command and everything
-# it spawned. The process substitution keeps $! pointing at the command (whose
+# it spawned. Detached: stdout is already the log file. Foreground: the process
+# substitution mirrors the output and keeps $! pointing at the command (whose
 # PID is its group id) rather than at tee.
-setsid "$@" > >(tee -a "$LOG_FILE") 2>&1 &
+if [[ "$DETACHED" == "1" ]]; then
+    echo "$header"
+    setsid "$@" >>"$LOG_FILE" 2>&1 &
+else
+    echo "$header" | tee -a "$LOG_FILE"
+    setsid "$@" > >(tee -a "$LOG_FILE") 2>&1 &
+fi
 child_pid=$!
 [[ -n "$PID_FILE" ]] && echo "$child_pid" > "$PID_FILE"
 wait "$child_pid"

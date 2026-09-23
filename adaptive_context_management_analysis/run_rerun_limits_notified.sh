@@ -17,15 +17,16 @@
 #
 # Usage:
 #   DRY_RUN=1 bash adaptive_context_management_analysis/run_rerun_limits_notified.sh     # plan only, no Slack
-#   nohup bash adaptive_context_management_analysis/run_rerun_limits_notified.sh \
-#       > logs/rerun_qwen35b_fc_limits_phase1_launcher.log 2>&1 &
-#   PHASE=2 nohup bash adaptive_context_management_analysis/run_rerun_limits_notified.sh \
-#       > logs/rerun_qwen35b_fc_limits_phase2_launcher.log 2>&1 &
+#   bash adaptive_context_management_analysis/run_rerun_limits_notified.sh               # phase 1, detaches
+#   PHASE=2 bash adaptive_context_management_analysis/run_rerun_limits_notified.sh
 #   PHASE=3 ... (same, "<15 min fix")
+# The launch detaches into the background (scripts/notify_run.sh) and prints the
+# wrapper PID; FOREGROUND=1 keeps it attached (used by run_rerun_limits_overnight.sh).
 #
 # Overrides (environment): PHASE=1|2|3, STEP_LIMIT=200, TIMEOUT=3600, MAX_WORKERS=8,
 #   ORDER=hard-first, WITH_EVAL=1, DIFFICULTY="u15 15m1h" (replaces the phase preset),
-#   EXTRA_ARGS="--limit 4" (appended verbatim), ALLOW_NO_SLACK=1 (run without a webhook).
+#   EXTRA_ARGS="--limit 4" (appended verbatim), ALLOW_NO_SLACK=1 (run without a webhook),
+#   FOREGROUND=1 (do not detach).
 set -uo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -107,7 +108,7 @@ log "runner log: $LOG_PATH"
 # overnight chain polls, the signal forwarding and the start/stop notices; the
 # outcome summary is posted after a clean exit.
 summary_cmd="$(printf '%q ' "$PY" "$WS/adaptive_context_management_analysis/post_rerun_summary.py" "$UNIT" "${RUNNER_ARGS[@]}")"
-exec bash "$WS/scripts/notify_run.sh" \
+exec bash "$WS/scripts/notify_run.sh" ${FOREGROUND:+--foreground} \
     --unit "$UNIT" \
     --log "$LOG_PATH" \
     --lock "rerun_qwen35b_fc_limits_phase${PHASE}" \

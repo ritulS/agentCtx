@@ -29,9 +29,9 @@ need rebuilding for serving/tbench.
   command + `--enable-prefix-caching` only (PID 1217568, :8000, TP=4, started 14:28).
   **Do not restart it mid-run**: the launcher logs per-cell prefix-cache hit rates from
   the server's `/metrics` counters. Smoke test (1 task, su-full): 76.5% hit rate.
-- **Launch:** `nohup bash scripts/notify_run.sh --unit prefix-cache-ablation/swebench/qwen35b-prefixcache
-  -- bash scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh >
-  logs/followup_sb_qwen_prefixcache.nohup.log 2>&1 &` (launched with the former
+- **Launch:** `bash scripts/notify_run.sh --unit prefix-cache-ablation/swebench/qwen35b-prefixcache
+  --log logs/followup_sb_qwen_prefixcache.nohup.log
+  -- bash scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh` (launched with the former
   `run_qwen_swe_prefix_cache_ablation_notified.sh`, now folded into `notify_run.sh`; refuses to start unless the
   server on the agent port was started with `--enable-prefix-caching`; safe to re-run,
   completed keys are skipped).
@@ -42,10 +42,10 @@ need rebuilding for serving/tbench.
 - **Baselines:** the launcher's default `CELLS` now also holds `di__binf__fc` and
   `di__binf__otrc` (budget derived from the cell name: b15k → 15000, binf → 999999999).
   Launch only those two, so the 11 finished cells are not re-evaluated:
-  `nohup env CELLS="di__binf__fc:full-context:0.5 di__binf__otrc:online-trc:0.5" bash
+  `CELLS="di__binf__fc:full-context:0.5 di__binf__otrc:online-trc:0.5" bash
   scripts/notify_run.sh --unit prefix-cache-ablation/swebench/qwen35b-prefixcache-baselines
-  -- bash scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh >
-  logs/followup_sb_qwen_prefixcache_baselines.nohup.log 2>&1 &`
+  --log logs/followup_sb_qwen_prefixcache_baselines.nohup.log
+  -- bash scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh`
   Same limits as the caching-off `main/qwen35b/di__binf__*` cells (125 steps, 1500 s); compare
   against their original attempts, not the 200/300-step FC limit-failure re-runs.
 - **5.b** (Terminal-Bench, caching OFF, 3K) runs on Albus.
@@ -149,9 +149,9 @@ need rebuilding for serving/tbench.
   command with `--no-enable-prefix-caching` (log `logs/vllm_qwen35_noprefixcache.log`, so
   the production log is kept). Stop a caching-on server first:
   `bash scripts/serving/stop_vllm.sh logs/vllm_qwen35.pid`.
-- **Launch:** `nohup bash scripts/notify_run.sh --unit qwen-terminal-bench-prefix-cache-ablation/qwen35b-noprefixcache
-  --lock qwen_tb_noprefixcache -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh >
-  logs/followup_tb_qwen_noprefixcache.nohup.log 2>&1 &` (launched with the former
+- **Launch:** `bash scripts/notify_run.sh --unit qwen-terminal-bench-prefix-cache-ablation/qwen35b-noprefixcache
+  --lock qwen_tb_noprefixcache --log logs/followup_tb_qwen_noprefixcache.nohup.log
+  -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh` (launched with the former
   `run_qwen_tb_prefix_cache_ablation_with_slack.sh`, now folded into `notify_run.sh`; refuses to start unless the
   server on the agent port was started with `--no-enable-prefix-caching`; stops the grid
   if a cell records prefix-cache hits; safe to re-run, completed keys are skipped).

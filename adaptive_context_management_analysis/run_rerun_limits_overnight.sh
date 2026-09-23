@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Overnight chain for the Qwen3.5-35B / full-context raised-limit re-runs.
 # First waits for any running phase-3 runner (logs/rerun_qwen35b_fc_limits_phase3.pid)
-# to exit, then runs two launches of run_rerun_limits_notified.sh back to back
+# to exit, then runs two launches of run_rerun_limits_notified.sh (FOREGROUND=1) back to back
 # (never in parallel: concurrent runners on the shared vLLM inflate per-step
 # latency, which is what produced the original timeouts):
 #   A. phase 2  — "1-4 hours" + ">4 hours"       (17 runs)  at P2_STEP_LIMIT /
@@ -36,13 +36,13 @@ fi
 
 if [[ "${SKIP_PHASE2:-0}" != "1" ]]; then
     log "=== stage A: phase 2 at ${P2_STEP_LIMIT} steps / ${P2_TIMEOUT} s ==="
-    PHASE=2 STEP_LIMIT="$P2_STEP_LIMIT" TIMEOUT="$P2_TIMEOUT" \
+    FOREGROUND=1 PHASE=2 STEP_LIMIT="$P2_STEP_LIMIT" TIMEOUT="$P2_TIMEOUT" \
     bash "$W" > logs/rerun_qwen35b_fc_limits_phase2_launcher.log 2>&1
     log "stage A exit=$?"
 fi
 if [[ "${SKIP_AGAIN:-0}" != "1" ]]; then
     log "=== stage B: phase-1 again-19 at ${AGAIN_STEP_LIMIT} steps / ${AGAIN_TIMEOUT} s ==="
-    PHASE=1 STEP_LIMIT="$AGAIN_STEP_LIMIT" TIMEOUT="$AGAIN_TIMEOUT" \
+    FOREGROUND=1 PHASE=1 STEP_LIMIT="$AGAIN_STEP_LIMIT" TIMEOUT="$AGAIN_TIMEOUT" \
     EXTRA_ARGS="--causes-csv $AGAIN_CSV --name qwen35b__di__binf__fc__step_limit+timeout__step${AGAIN_STEP_LIMIT}__t${AGAIN_TIMEOUT}__p1again19" \
     bash "$W" > logs/rerun_qwen35b_fc_limits_p1again19_launcher.log 2>&1
     log "stage B exit=$?"

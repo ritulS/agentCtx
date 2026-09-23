@@ -56,38 +56,44 @@ bash scripts/expansions/run_agent_models_expansion_tb.sh qwen both
 
 ### Slack notices: `notify_run.sh`
 
-Every launcher above is plain; wrap it in `scripts/notify_run.sh` to get a
-start notice, a completion / failure notice with the exit status and log path,
-signal forwarding (HUP / INT / TERM stop the launcher and everything it
-spawned before the notice goes out) and an optional per-experiment lock. The
+Every launcher above is plain; wrap it in `scripts/notify_run.sh` to run it
+in the background with a start notice, a completion / failure notice with the
+exit status and log path, signal forwarding (HUP / INT / TERM stop the
+launcher and everything it spawned before the notice goes out) and an
+optional per-experiment lock. The wrapper validates its arguments, takes the
+lock and checks the webhook, then detaches (nohup + setsid) and prints the
+wrapper PID; `kill <PID>` stops the run and posts a "killed" notice. The
 launcher's stdout / stderr are appended to `--log` (default
 `logs/<unit>.log`). Environment overrides of the launcher pass through
-unchanged.
+unchanged. `--foreground` keeps the run attached to the terminal (smoke
+tests, sequential chains).
 
 ```bash
 export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'   # or ALLOW_NO_SLACK=1
 
 # Terminal-Bench main grid (previously run_qwen_tb_main_with_slack.sh)
-nohup bash scripts/notify_run.sh --unit qwen-terminal-bench-main --lock qwen_tb_main \
-    -- bash scripts/expansions/run_agent_models_expansion_tb.sh qwen main \
-    > logs/followup_tb_qwen_main.nohup.log 2>&1 &
+bash scripts/notify_run.sh --unit qwen-terminal-bench-main --lock qwen_tb_main \
+    -- bash scripts/expansions/run_agent_models_expansion_tb.sh qwen main
 
 # SWE-Bench model grid (previously run_agent_models_expansion_notified.sh)
-nohup env MAX_WORKERS=16 RUN_EVAL=1 bash scripts/notify_run.sh --unit agent-model-expansion/glm \
+MAX_WORKERS=16 RUN_EVAL=1 bash scripts/notify_run.sh --unit agent-model-expansion/glm \
     --log logs/followup_agent_models_glm_launcher.log \
-    -- bash scripts/expansions/run_agent_models_expansion.sh glm > /dev/null 2>&1 &
+    -- bash scripts/expansions/run_agent_models_expansion.sh glm
 
 # Summarizer / prefix-cache ablations (previously *_notified.sh / *_with_slack.sh)
-nohup env SUMMARY_CONFIG=configs/config-summary-gemma4-12b.yaml ICLR_MODEL=qwen35b-sum-gemma4-12b \
+SUMMARY_CONFIG=configs/config-summary-gemma4-12b.yaml ICLR_MODEL=qwen35b-sum-gemma4-12b \
     bash scripts/notify_run.sh --unit summarizer-ablation/swebench/qwen35b-sum-gemma4-12b \
-    -- bash scripts/expansions/run_qwen_swe_summarizer_ablation.sh > /dev/null 2>&1 &
-nohup bash scripts/notify_run.sh --unit qwen-terminal-bench-prefix-cache-ablation --lock qwen_tb_noprefixcache \
-    -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh > /dev/null 2>&1 &
+    -- bash scripts/expansions/run_qwen_swe_summarizer_ablation.sh
+bash scripts/notify_run.sh --unit qwen-terminal-bench-prefix-cache-ablation --lock qwen_tb_noprefixcache \
+    -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh
+
+# Attached, e.g. a one-task smoke test
+bash scripts/notify_run.sh --foreground --unit smoke -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh
 ```
 
 `--on-success '<command>'` runs a follow-up (for example a results summary)
-after a clean exit; `--pid-file` records the launcher's PID for chained
-scripts. `dashboard/notify_slack.py` is the notifier it calls
+after a clean exit; `--pid-file` records the launched command's PID for
+chained scripts. `dashboard/notify_slack.py` is the notifier it calls
 (`start <unit>` / `stop <unit> <result> <status> <log>`); `python3
 dashboard/notify_slack.py test` checks the webhook. `tests/test_notify_run.py`
 covers the wrapper.

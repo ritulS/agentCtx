@@ -141,9 +141,11 @@ canonical cells.
 
 Slack-notified launcher for one phase of `rerun_limit_failures.py`: it runs the
 preflight checks (webhook, vLLM, Podman socket), then hands the runner to
-`scripts/notify_run.sh` (start / completion / failure notices, per-phase lock,
-PID file, signal forwarding) with `post_rerun_summary.py` as the on-success
-hook that posts the outcome counts.
+`scripts/notify_run.sh` (background launch, start / completion / failure
+notices, per-phase lock, PID file, signal forwarding) with
+`post_rerun_summary.py` as the on-success hook that posts the outcome counts.
+The launch returns at once and prints the wrapper PID; `FOREGROUND=1` keeps it
+attached.
 
 | Phase | Difficulties | Runs |
 |---|---|---|
@@ -157,9 +159,9 @@ Both phases run hardest-first within the phase (`--order hard-first`).
 L=adaptive_context_management_analysis/run_rerun_limits_notified.sh
 DRY_RUN=1 bash $L                    # print the plan; no Slack, nothing written
 export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'
-nohup bash $L > logs/rerun_qwen35b_fc_limits_phase1_launcher.log 2>&1 &
-PHASE=2 nohup bash $L > logs/rerun_qwen35b_fc_limits_phase2_launcher.log 2>&1 &
-PHASE=3 nohup bash $L > logs/rerun_qwen35b_fc_limits_phase3_launcher.log 2>&1 &
+bash $L                              # phase 1; detaches, prints the wrapper PID
+PHASE=2 bash $L
+PHASE=3 bash $L
 kill $(cat logs/rerun_qwen35b_fc_limits_phase1.pid)   # stop (sends a "terminated" notice)
 ```
 

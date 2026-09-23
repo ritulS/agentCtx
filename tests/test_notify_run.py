@@ -12,6 +12,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -61,8 +62,11 @@ def notices(ws: Path) -> list[list[str]]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def run(ws: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["bash", str(NOTIFY_RUN), *args], cwd=ws, env=env or env_for(ws),
+def run(ws: Path, *args: str, env: dict[str, str] | None = None,
+        foreground: bool = True) -> subprocess.CompletedProcess[str]:
+    """Run notify_run.sh; attached (--foreground) unless told otherwise."""
+    flags = ["--foreground"] if foreground else []
+    return subprocess.run(["bash", str(NOTIFY_RUN), *flags, *args], cwd=ws, env=env or env_for(ws),
                           capture_output=True, text=True, timeout=60)
 
 
@@ -166,7 +170,7 @@ def test_signal_stops_the_command_group_then_notifies(ws: Path, sig: signal.Sign
     pid_file = ws / "child.pid"
     # The command spawns a grandchild; both must be gone before the stop notice.
     cmd = "sleep 300 & echo $! > grandchild.pid; wait"
-    proc = subprocess.Popen(["bash", str(NOTIFY_RUN), "--unit", "u", "--pid-file", str(pid_file),
+    proc = subprocess.Popen(["bash", str(NOTIFY_RUN), "--foreground", "--unit", "u", "--pid-file", str(pid_file),
                              "--", "bash", "-c", cmd],
                             cwd=ws, env=env_for(ws), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
@@ -186,9 +190,88 @@ def test_signal_stops_the_command_group_then_notifies(ws: Path, sig: signal.Sign
 
 
 def test_usage_errors(ws: Path) -> None:
-    assert run(ws, "--", "true").returncode == 2                 # no --unit
-    assert run(ws, "--unit", "u").returncode == 2                # no command
-    assert run(ws, "--unit", "u", "--bogus", "--", "true").returncode == 2
+    for fg in (True, False):
+        assert run(ws, "--", "true", foreground=fg).returncode == 2                 # no --unit
+        assert run(ws, "--unit", "u", foreground=fg).returncode == 2                # no command
+        assert run(ws, "--unit", "u", "--bogus", "--", "true", foreground=fg).returncode == 2
+    assert notices(ws) == []
+
+
+# ── background (default) mode ──────────────────────────────────────────────────
+
+def wrapper_pid_from(stdout: str) -> int:
+    m = re.search(r"wrapper PID (\d+)", stdout)
+    assert m, stdout
+    return int(m.group(1))
+
+
+def test_default_detaches_and_returns_at_once(ws: Path) -> None:
+    done = ws / "done"
+    proc = run(ws, "--unit", "exp/bg", "--log", "logs/bg.log", "--pid-file", str(ws / "child.pid"),
+               "--on-success", "echo hook=$UNIT > hook.out",
+               "--", "bash", "-c", f"echo working; sleep 0.5; echo finished; touch {done}", foreground=False)
+    assert proc.returncode == 0, proc.stderr
+    assert not done.exists()                      # returned before the command finished
+    assert "log:  logs/bg.log" in proc.stdout and "stop: kill" in proc.stdout
+    wrapper = wrapper_pid_from(proc.stdout)
+    assert alive(wrapper)
+    def is_wrapper() -> bool:
+        # /proc/<pid>/cmdline is briefly empty while the nohup -> setsid -> bash exec chain runs
+        try:
+            cmdline = Path(f"/proc/{wrapper}/cmdline").read_bytes().split(b"\0")
+        except FileNotFoundError:
+            return False
+        return cmdline[:2] == [b"bash", str(NOTIFY_RUN).encode()]
+    wait_for(is_wrapper)                          # the PID is the wrapper itself
+    assert os.getpgid(wrapper) == wrapper         # ... in its own session
+    wait_for(lambda: done.exists() and not alive(wrapper))
+    wait_for(lambda: (ws / "hook.out").exists())
+    assert notices(ws) == [["start", "exp/bg"], ["stop", "exp/bg", "success", "0", "logs/bg.log"]]
+    lines = (ws / "logs" / "bg.log").read_text().splitlines()
+    assert lines[0].startswith("[") and "notify_run.sh: unit=exp/bg" in lines[0]
+    assert lines[1:] == ["working", "finished"]   # each line once: no double tee in the log
+    assert (ws / "hook.out").read_text().strip() == "hook=exp/bg"
+    assert not (ws / "child.pid").exists()
+
+
+def test_detached_wrapper_survives_hangup_and_stops_on_term(ws: Path) -> None:
+    pid_file = ws / "child.pid"
+    proc = run(ws, "--unit", "u", "--pid-file", str(pid_file), "--", "sleep", "300", foreground=False)
+    assert proc.returncode == 0, proc.stderr
+    wrapper = wrapper_pid_from(proc.stdout)
+    wait_for(pid_file.exists)
+    child = int(pid_file.read_text())
+    os.kill(wrapper, signal.SIGHUP)               # a closing terminal: ignored under nohup
+    time.sleep(0.5)
+    assert alive(wrapper) and alive(child)
+    os.kill(wrapper, signal.SIGTERM)              # the documented way to stop it
+    wait_for(lambda: not alive(wrapper) and not alive(child))
+    assert notices(ws) == [["start", "u"], ["stop", "u", "killed", "143", "logs/u.log"]]
+
+
+def test_detached_lock_is_taken_before_returning(ws: Path) -> None:
+    (ws / "logs").mkdir()
+    with open(ws / "logs" / "job.lock", "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        proc = run(ws, "--unit", "u", "--lock", "job", "--", "true", foreground=False)
+        assert proc.returncode == 1               # reported to the caller, not just the log
+        assert "already running" in proc.stderr
+    # The detached wrapper keeps the lock for the whole run.
+    proc = run(ws, "--unit", "u", "--lock", "job", "--", "sleep", "2", foreground=False)
+    assert proc.returncode == 0, proc.stderr
+    wrapper = wrapper_pid_from(proc.stdout)
+    wait_for(lambda: notices(ws) == [["start", "u"]])
+    second = run(ws, "--unit", "u", "--lock", "job", "--", "true", foreground=False)
+    assert second.returncode == 1 and "already running" in second.stderr
+    wait_for(lambda: not alive(wrapper))
+    assert notices(ws)[-1] == ["stop", "u", "success", "0", "logs/u.log"]
+
+
+def test_detached_missing_webhook_is_reported_to_the_caller(ws: Path) -> None:
+    env = env_for(ws)
+    del env["SLACK_WEBHOOK_URL"]
+    proc = run(ws, "--unit", "u", "--", "true", env=env, foreground=False)
+    assert proc.returncode == 2 and "SLACK_WEBHOOK_URL" in proc.stderr
 
 
 # ── dashboard/notify_slack.py ──────────────────────────────────────────────────
@@ -229,7 +312,7 @@ def test_glm_split_script_dispatches_to_notify_run(ws: Path) -> None:
     fake = scripts / "expansions" / "run_agent_models_expansion_tb.sh"
     fake.write_text('#!/usr/bin/env bash\necho "args=$* parts=$ABLATION_PARTS health=$GLM_HEALTH_URL suffix=$TB_LOG_SUFFIX"\n')
     proc = subprocess.run(["bash", str(scripts / "expansions" / "run_glm_tb_ablation_split.sh"), "gpu4-7"],
-                          cwd=ws, env=env_for(ws), capture_output=True, text=True, timeout=60)
+                          cwd=ws, env=env_for(ws, FOREGROUND="1"), capture_output=True, text=True, timeout=60)
     assert proc.returncode == 0, proc.stderr
     assert "args=glm ablation parts=di d05 health=http://localhost:8004/v1/models suffix=ablation_gpu4-7" in proc.stdout
     assert notices(ws) == [["start", "glm-terminal-bench-ablation-gpu4-7"],
