@@ -39,7 +39,7 @@ def parse_adapter_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument(
         "--iclr-section", required=True,
         choices=ICLR_SECTIONS,
-        help="result section below ICLR_results/<benchmark>/; model_ablation holds "
+        help="result section below ICLR_experiments/<benchmark>/; model_ablation holds "
              "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4); "
              "prefix_cache_ablation holds self-summarized runs served with vLLM prefix "
              "caching flipped relative to the benchmark's production runs: on for "

@@ -31,13 +31,13 @@ picking one.
 
 | Topic | Where |
 |---|---|
-| Experiment grid and status | `ICLR_analysis/exp_grid.md` |
+| Experiment grid and status | `ICLR_experiments/exp_grid.md` |
 | Task cohorts | `task_lists/`, manifest in `task_lists/README.md`. Ablation analysis filters to `ablation_25tasks.json`. |
-| Experiment plan | `ICLR_analysis/exp_grid.md` is the plan of record. `exp_plans/FOLLOWUP_EXPERIMENTS.md` is the Aug 24 background write-up and predates the ABL-25 switch. |
-| Run data (canonical) | `/home/ak58925/agentCtx/ICLR_results/<bench>/<track>/<model>/<cell>/`, layout in `ICLR_results/README.md` |
-| Run history | `ICLR_results/EXPERIMENT_LOG.md`, `ICLR_results/EXPERIMENT_TIMELINE_DETAIL_SWE.md` |
-| Budget calibration | `ICLR_results/budget_calibration_swe.md` |
-| Known data problems | `ICLR_results/issue/` |
+| Experiment plan | `ICLR_experiments/exp_grid.md` is the plan of record. `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md` is the Aug 24 background write-up and predates the ABL-25 switch. |
+| Run data (canonical) | `/home/ak58925/agentCtx/ICLR_experiments/<bench>/<track>/<model>/<cell>/`, layout in `ICLR_experiments/README.md` |
+| Run history | `ICLR_experiments/EXPERIMENT_LOG.md`, `ICLR_experiments/EXPERIMENT_TIMELINE_DETAIL_SWE.md` |
+| Budget calibration | `ICLR_experiments/budget_calibration_swe.md` |
+| Known data problems | `ICLR_experiments/issue/` |
 | What runs exist (SWE-bench) | `analysis/outcomes/swebench_outcomes.csv`, built by `analysis/aggregate_benchmark_results.py` (see `analysis/README.md`) |
 | Cell coverage | `COVERAGE.csv` via `dashboard/build_coverage.py`. **The committed copy is stale** — it dates from 2026-08-28 and has no Devstral or GLM rows. Regenerate before trusting it, or use the outcomes CSV. |
 | Live run status | `Active_runs.md`, where Akiho's clone holds the live copy |
@@ -66,7 +66,7 @@ picking one.
   `bB` for its lower, primary and upper budgets rather than a token count, so
   a search for `b13k` finds nothing.
 - Terminal-Bench cohorts have three spellings for the same sets. Ritul says
-  P40 and P15, `ICLR_analysis/exp_grid.md` says ABL-15 and ABL-20, and
+  P40 and P15, `ICLR_experiments/exp_grid.md` says ABL-15 and ABL-20, and
   `dashboard/build_coverage.py` says TB-40, TB-15 and TB-20. Settle this when
   TB analysis starts.
 - 3 runs per task everywhere, except the Terminal-Bench summarizer ablation at
@@ -83,12 +83,12 @@ picking one.
 - Paper prose goes in `paper_sections_ICLR/`, and only after the draft has
   been shown in chat.
 - Read run data through `analysis/outcomes/*.csv` rather than walking
-  `ICLR_results/` by hand, unless you need the raw trajectories.
+  `ICLR_experiments/` by hand, unless you need the raw trajectories.
 
 ## Terminal-Bench runs on Albus
 
 Terminal-Bench runs on **Albus** (8× A6000), not on Dobby. Neither clone here
-has an `ICLR_results/terminalbench/` tree, and the local `COVERAGE_TB.csv` is
+has an `ICLR_experiments/terminalbench/` tree, and the local `COVERAGE_TB.csv` is
 header-only, so an empty file here is not evidence that the runs are missing.
 
 TB analysis has not started. The mismatches below are known and deliberately
@@ -120,11 +120,11 @@ Akiho. Do not infer TB status from this filesystem.
 - **Qwen prefix caching was off** in the production Qwen runs, a vLLM default
   for hybrid models. Other models had it on. Any cache or prefill claim has to
   account for this.
-- **Some verdicts are under re-evaluation.** `ICLR_results/issue/` holds the
+- **Some verdicts are under re-evaluation.** `ICLR_experiments/issue/` holds the
   candidate lists, currently for qwen35b and glm47flash main runs (dated
   2026-09-10) plus a resume audit. Check it before trusting a resolve rate.
 - **Filter ablations to ABL-25.** Most ablation runs were launched on the
-  older 30-task cohort, so `ICLR_results/swebench/ablation/` holds 30 tasks
+  older 30-task cohort, so `ICLR_experiments/swebench/ablation/` holds 30 tasks
   per cell. ABL-25 is a strict subset, so analysis filters to
   `task_lists/ablation_25tasks.json` rather than re-running anything. See
   `task_lists/README.md`. Cells are still filling, so report the

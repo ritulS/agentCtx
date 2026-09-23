@@ -1,6 +1,6 @@
 # ICLR experiment grid
 
-Last update: 2026-09-11. Sources: `exp_plans/FOLLOWUP_EXPERIMENTS.md`, `COVERAGE.csv`.
+Last update: 2026-09-11. Sources: `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md`, `COVERAGE.csv`.
 Status: Done = finished · In progress = started, not finished · blank = not started.
 Runs/task = 3 everywhere except the TB summarizer ablation (5).
 Priority: 1 SWE main → 2 SWE ablation → 3 summarizer ablation → 4 TB main → 5 TB ablation.
@@ -53,4 +53,4 @@ Notes
   budget only (Qwen 15K, Devstral 21K, GLM 13K) plus the unlimited-budget
   baseline. Qwen P100 runs exist on disk at 10K and 20K as well; they are out
   of scope and analysis excludes them.
-- Results: `ICLR_results/<bench>/{main,ablation}/<model>/<cell>`.
+- Results: `ICLR_experiments/<bench>/{main,ablation}/<model>/<cell>`.

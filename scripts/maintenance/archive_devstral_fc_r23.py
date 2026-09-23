@@ -16,7 +16,7 @@ import shutil
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-CELL = Path("ICLR_results/swebench/main/devstral24b/di__binf__fc")
+CELL = Path("ICLR_experiments/swebench/main/devstral24b/di__binf__fc")
 
 
 def require(ok, message):

@@ -18,7 +18,7 @@ recover: no containers. For candidates whose raw trial directory holds a
          original container's own grading, only never parsed by Harbor.
 run:     starts Harbor jobs, one per replayable candidate (recoverable ones
          are skipped unless --include-recoverable), writing evidence only under
-         --output-dir (must lie outside ICLR_results, results and data).
+         --output-dir (must lie outside ICLR_experiments, results and data).
          --dry-run prints the commands without starting anything.
 apply:   previews index changes; --write backs up and updates reward/resolved
          with provenance (verdict_source="replay_verifier" or
@@ -72,10 +72,10 @@ from agentctx.benchmarks.tb_verdict import (  # noqa: E402
 )
 
 DEFAULT_ROOTS = (
-    ROOT / "ICLR_results" / "terminalbench",
-    ROOT / "ICLR_results" / "terminalbench2",
+    ROOT / "ICLR_experiments" / "terminalbench",
+    ROOT / "ICLR_experiments" / "terminalbench2",
 )
-PROTECTED_ROOTS = ("ICLR_results", "results", "data")
+PROTECTED_ROOTS = ("ICLR_experiments", "results", "data")
 DATASETS = {
     "terminal-bench-core@0.1.1": ROOT / "data" / "tb1-harbor-0.1.1",
     "terminal-bench@2.0": ROOT / "data" / "tb2-harbor-prebuilt-2.0",
@@ -310,7 +310,7 @@ def recover_evidence(item: dict) -> dict:
 def recover(args) -> int:
     output = args.output_dir.resolve()
     if any(output.is_relative_to(root) for root in resolved_roots(PROTECTED_ROOTS)):
-        raise ValueError("Use an output directory outside ICLR_results, results and data")
+        raise ValueError("Use an output directory outside ICLR_experiments, results and data")
     items = load_candidates(args.candidates, only=args.only, limit=args.limit, mode="recover")
     manifest_path = output / "manifest.json"
     if output.exists():
@@ -516,7 +516,7 @@ def collect_evidence(item: dict, job_dir: Path, *, accept_output_mismatch: bool 
 def run(args) -> int:
     output = args.output_dir.resolve()
     if any(output.is_relative_to(root) for root in resolved_roots(PROTECTED_ROOTS)):
-        raise ValueError("Use an output directory outside ICLR_results, results and data "
+        raise ValueError("Use an output directory outside ICLR_experiments, results and data "
                          "(for example logs/replay_reverify/<name>)")
     items = load_candidates(args.candidates, only=args.only, limit=args.limit,
                             include_recoverable=args.include_recoverable)

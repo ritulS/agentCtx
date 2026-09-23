@@ -9,8 +9,8 @@
 #   scripts/maintenance/reuse_qwen_main_for_ablation.py --execute (dry run without the flag).
 #   Completed keys are skipped only within the destination cell.
 #
-# Output follows ICLR_results/README.md exactly. Each primitive gets one cell:
-#   ICLR_results/swebench/{main|ablation}/{model}/{depth}__{budget}__{primitive}/
+# Output follows ICLR_experiments/README.md exactly. Each primitive gets one cell:
+#   ICLR_experiments/swebench/{main|ablation}/{model}/{depth}__{budget}__{primitive}/
 # Safe to re-run: the underlying runner skips completed task/condition/run keys.
 # Run after the current experiment has finished; this script does not stop or
 # wait for an existing experiment automatically.

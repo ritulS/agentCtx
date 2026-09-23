@@ -28,9 +28,9 @@ ROOT = Path(__file__).resolve().parents[2]
 # Trees that hold canonical SWE-bench indexes. ``results/ablations`` is a
 # symlink into ``data/swebench/ablations`` on the machines that use the
 # pre-ICLR layout, so both spellings are accepted (paths are resolved first).
-RESULT_ROOTS = ("ICLR_results/swebench", "results", "data/swebench")
+RESULT_ROOTS = ("ICLR_experiments/swebench", "results", "data/swebench")
 # Evaluation evidence must not be written into any canonical tree.
-PROTECTED_ROOTS = ("ICLR_results", "results", "data")
+PROTECTED_ROOTS = ("ICLR_experiments", "results", "data")
 
 
 def resolved_roots(names):
@@ -162,7 +162,7 @@ def run(args):
         args.model_tag = model_tag_from_candidates(args.candidates)
     output = args.output_dir.resolve()
     if any(output.is_relative_to(root) for root in resolved_roots(PROTECTED_ROOTS)):
-        raise ValueError("Use an output directory outside ICLR_results, results and data "
+        raise ValueError("Use an output directory outside ICLR_experiments, results and data "
                          "(for example logs/reeval/<name>)")
     manifest_path = output / "manifest.json"
     if output.exists():

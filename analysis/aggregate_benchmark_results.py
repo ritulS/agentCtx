@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build one task × primitive outcome CSV per benchmark.
 
-The canonical inputs are ``ICLR_results/swebench/**/experiment_results.json``
-and ``ICLR_results/terminalbench/**/experiment_results.json``.  Copying a
-Terminal-Bench result tree from another machine beneath ``ICLR_results/`` is
+The canonical inputs are ``ICLR_experiments/swebench/**/experiment_results.json``
+and ``ICLR_experiments/terminalbench/**/experiment_results.json``.  Copying a
+Terminal-Bench result tree from another machine beneath ``ICLR_experiments/`` is
 therefore sufficient; re-run this script to refresh its CSV.
 
 Per-step prompt and completion token arrays are stored as JSON in CSV cells;
@@ -303,7 +303,7 @@ def main() -> None:
         raise SystemExit("--source-root requires exactly one --benchmark")
     errors = 0
     for benchmark in benchmarks:
-        source_root = args.source_root or ROOT / "ICLR_results" / benchmark
+        source_root = args.source_root or ROOT / "ICLR_experiments" / benchmark
         errors += build(benchmark, source_root, args.output_dir / f"{benchmark}_outcomes.csv")
     if errors:
         raise SystemExit(1)

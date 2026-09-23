@@ -3,7 +3,7 @@
 #
 # The budget-calibration launch already supplies run_1. This launcher preserves
 # it and fills the remaining four repetitions in the same canonical cell:
-#   ICLR_results/terminalbench/main/p80_rootless/<model>/di__binf__fc/
+#   ICLR_experiments/terminalbench/main/p80_rootless/<model>/di__binf__fc/
 #
 # Usage:
 #   bash scripts/expansions/run_terminalbench_rootless_fc_expansion.sh qwen

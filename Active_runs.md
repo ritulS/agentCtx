@@ -34,7 +34,7 @@ need rebuilding for serving/tbench.
   `run_qwen_swe_prefix_cache_ablation_notified.sh`, now folded into `notify_run.sh`; refuses to start unless the
   server on the agent port was started with `--enable-prefix-caching`; safe to re-run,
   completed keys are skipped).
-- **Results:** `ICLR_results/swebench/prefix_cache_ablation/qwen35b-prefixcache/<cell>`
+- **Results:** `ICLR_experiments/swebench/prefix_cache_ablation/qwen35b-prefixcache/<cell>`
   (new `prefix_cache_ablation` section in `scripts/run_experiment_iclr.py`). Coverage:
   `prefix_cache=ON` rows in `COVERAGE.csv`, dashboard Priority 5.
 - **Log:** `logs/followup_sb_qwen_qwen35b-prefixcache.log`
@@ -104,14 +104,14 @@ need rebuilding for serving/tbench.
 - **Command:** `nohup bash adaptive_context_management_analysis/run_rerun_limits_notified.sh`
   (log `logs/rerun_qwen35b_fc_limits_phase1_launcher.log`).
 - **Output:** `results/adaptive_context_management/swebench/reruns/qwen35b__di__binf__fc__step_limit+timeout__step200__t3600__diff=15m1h/`
-  (outside `ICLR_results/`; see `EXPERIMENT_LOG.md` in the parent dir).
+  (outside `ICLR_experiments/`; see `EXPERIMENT_LOG.md` in the parent dir).
 - **Infra:** vLLM Qwen3.5-35B-A3B :8000 (TP=4), rootless podman socket.
 
 ### Qwen3.5-35B-A3B — summary-bug rerun, ICLR main section only (SWE-bench) — Dobby
 - **Status:** 🟢 RUNNING since 2026-09-08 16:48 CDT (launcher PID 3862052,
   `logs/followup_agent_models_qwen_launcher.pid`). Slack unit
   `agent-model-expansion/qwen` (start/stop notices).
-- **What:** resume of `ICLR_results/swebench/main/qwen35b/` after the
+- **What:** resume of `ICLR_experiments/swebench/main/qwen35b/` after the
   summary-bug archives (marker 09-07 + remaining 09-08; see
   `archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md`).
   `run_experiment_iclr.py` re-executes every key missing from each cell's
@@ -154,7 +154,7 @@ need rebuilding for serving/tbench.
   `run_qwen_tb_prefix_cache_ablation_with_slack.sh`, now folded into `notify_run.sh`; refuses to start unless the
   server on the agent port was started with `--no-enable-prefix-caching`; stops the grid
   if a cell records prefix-cache hits; safe to re-run, completed keys are skipped).
-- **Results:** `ICLR_results/terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/<cell>`.
+- **Results:** `ICLR_experiments/terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/<cell>`.
   Coverage: `prefix_cache=OFF` rows in `COVERAGE_TB.csv`, dashboard Priority 5.
 - **Log:** `logs/followup_tb_qwen_qwen35b-noprefixcache.log`
 

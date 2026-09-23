@@ -2,7 +2,7 @@
 
 ## Directory Structure
 ```text
-ICLR_results/
+ICLR_experiments/
 ├── README.md
 |
 ├── swebench/

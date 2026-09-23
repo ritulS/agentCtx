@@ -60,7 +60,7 @@ test asserts:
 1. identical exit codes (each command declares the code it expects, so a
    scenario in which both sides crash the same way cannot pass by accident);
 2. identical stdout/stderr lines after normalization;
-3. identical files under `results/`, `ICLR_results/` and `logs/`, including
+3. identical files under `results/`, `ICLR_experiments/` and `logs/`, including
    `experiment_results.json`, `run_info.{json,md}`, copied Harbor artifacts,
    superseded attempts, calibration manifests and the recorded agent/Harbor
    invocations.
@@ -84,7 +84,8 @@ Rewritten before comparison, in `harness.py`:
 
 The reorganization moved `memory.py` to `src/agentctx/compression/primitives.py`
 (a root-level `memory.py` alias remains for the pinned mini-swe-agent commit)
-and the Harbor adapter to `agentctx.benchmarks.harbor_adapter`. Two things
+and the Harbor adapter to `agentctx.benchmarks.harbor_adapter`, and the ICLR
+result tree was renamed `ICLR_experiments/`. Three things
 therefore differ on purpose and are normalized away for the equivalence check
 but asserted explicitly in their own tests:
 
@@ -92,6 +93,7 @@ but asserted explicitly in their own tests:
 |---|---|---|
 | `PYTHONPATH` handed to the agent / Harbor | `<WS>[:…]` | `<WS>/src:<WS>[:…]` |
 | `harbor run --agent` | `scripts.bench_adapters.harbor_adapter:CompressionAgent` (runner) / `tbench.harbor_adapter:CompressionAgent` (calibration) | `agentctx.benchmarks.harbor_adapter:CompressionAgent` |
+| canonical ICLR result tree | `ICLR_results/` | `ICLR_experiments/` |
 
 ### Adding a scenario
 

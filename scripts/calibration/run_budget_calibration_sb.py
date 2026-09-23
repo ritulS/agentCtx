@@ -4,7 +4,7 @@
 These are not calibration-only duplicate runs. They are written directly to
 the canonical FC cell and count as run_1 of FOLLOWUP_EXPERIMENTS 2.a/2.b:
 
-  ICLR_results/swebench/main/<model-key>/di__binf__fc/
+  ICLR_experiments/swebench/main/<model-key>/di__binf__fc/
 
 After a successful run, COVERAGE.csv and DASHBOARD.html are rebuilt.  The
 per-step ``step_prompt_tokens`` arrays, raw artifacts, and a machine-readable
@@ -110,7 +110,7 @@ def main() -> None:
         raise SystemExit("unknown --model-key: provide --model-label explicitly")
 
     destination = (
-        ROOT / "ICLR_results" / "swebench" / "main" /
+        ROOT / "ICLR_experiments" / "swebench" / "main" /
         args.model_key / "di__binf__fc"
     )
     selected_count = args.n_tasks or task_count(tasks)

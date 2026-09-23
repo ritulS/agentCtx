@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build a SWE-bench re-evaluation candidate list for one model (read-only scan).
 
-Scans ICLR_results/swebench/<section>/<model>/*/experiment_results.json and the
+Scans ICLR_experiments/swebench/<section>/<model>/*/experiment_results.json and the
 harness artifacts next to them, and writes an evaluate_only CSV compatible with
 scripts/maintenance/reevaluate_swebench_candidates.py.
 
@@ -91,13 +91,13 @@ def classify(row: dict, cell_dir: Path, tag: str) -> str | None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", default=None, choices=sorted(DEFAULT_TAG),
-                    help="model directory under ICLR_results/swebench/<section>/ (ICLR layout)")
+                    help="model directory under ICLR_experiments/swebench/<section>/ (ICLR layout)")
     ap.add_argument("--model-tag", default=None,
                     help="harness model_name_or_path; required with --results-root")
     ap.add_argument("--section", default="main", choices=("main", "ablation"))
     ap.add_argument("--results-root", type=Path, default=None,
                     help="directory whose subdirectories are cells with experiment_results.json "
-                         "(e.g. results/ablations); replaces the ICLR_results/swebench layout")
+                         "(e.g. results/ablations); replaces the ICLR_experiments/swebench layout")
     ap.add_argument("--cell", action="append", default=[], metavar="GLOB",
                     help="only scan cells whose directory name matches (repeatable)")
     ap.add_argument("--include-unevaluated", action="store_true")
@@ -115,9 +115,9 @@ def main() -> int:
         if not args.model:
             ap.error("--model is required unless --results-root is given")
         tag = args.model_tag or DEFAULT_TAG[args.model]
-        base = ROOT / "ICLR_results" / "swebench" / args.section / args.model
+        base = ROOT / "ICLR_experiments" / "swebench" / args.section / args.model
         label = f"{args.model}/{args.section}"
-        out = args.out or (ROOT / "ICLR_results" / "issue" /
+        out = args.out or (ROOT / "ICLR_experiments" / "issue" /
                            f"reeval_candidates_{args.model}_{args.section}_{today}" / "candidates.csv")
     if not base.is_dir():
         raise SystemExit(f"results directory not found: {base}")

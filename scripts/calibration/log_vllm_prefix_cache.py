@@ -20,9 +20,9 @@ class PrefixCacheRecorder:
             raise ValueError("metrics interval must be positive")
         self.url = url
         self.output = output.resolve()
-        protected = (Path(__file__).resolve().parent.parent / "ICLR_results").resolve()
+        protected = (Path(__file__).resolve().parent.parent / "ICLR_experiments").resolve()
         if self.output.is_relative_to(protected):
-            raise ValueError("metrics output must be outside ICLR_results")
+            raise ValueError("metrics output must be outside ICLR_experiments")
         self.interval = interval
         self.session_id = str(uuid.uuid4())
         self.stop = threading.Event()
@@ -83,7 +83,7 @@ class PrefixCacheRecorder:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", required=True, help="e.g. http://localhost:8003/metrics")
-    parser.add_argument("--output", required=True, type=Path, help="append-only JSONL outside ICLR_results")
+    parser.add_argument("--output", required=True, type=Path, help="append-only JSONL outside ICLR_experiments")
     parser.add_argument("--interval", type=float, default=10.0)
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()

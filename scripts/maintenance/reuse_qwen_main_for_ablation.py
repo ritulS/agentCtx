@@ -66,7 +66,7 @@ def build_plan(root):
     tasks = [r['instance_id'] for r in json.loads(tasks_raw)]
     require(len(tasks) == len(set(tasks)) == 25, 'Expected 25 unique ABL-25 tasks')
     require(all(Path(t).name == t and t not in {'.', '..'} for t in tasks), 'Invalid task ID')
-    base = root / 'ICLR_results/swebench'
+    base = root / 'ICLR_experiments/swebench'
     plan = []
     for budget in (10000, 20000):
         for condition, primitive in CONDITIONS.items():

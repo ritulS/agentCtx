@@ -50,7 +50,7 @@ python3 analysis/aggregate_benchmark_results.py
 ```
 
 Terminal-Bench results made elsewhere should be copied under
-`ICLR_results/terminalbench/` (preserving the canonical result tree), then the
+`ICLR_experiments/terminalbench/` (preserving the canonical result tree), then the
 same command rebuilds `terminalbench_outcomes.csv`.  To aggregate a copied tree
 without first placing it there:
 

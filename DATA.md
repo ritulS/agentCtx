@@ -32,7 +32,7 @@ symlinks into `data/`, so every script path in this repo keeps working.
 | Path | Size | Note |
 |------|------|------|
 | `data/` | ~9.9 GB | Older (EMNLP-era) run outputs; grid in `data/swebench/ablations/`. |
-| `ICLR_results/swebench` | large | Canonical ICLR run data; see [ICLR.md](ICLR.md). |
+| `ICLR_experiments/swebench` | large | Canonical ICLR run data; see [ICLR.md](ICLR.md). |
 | `venv/` | ~11 GB | Python env; recreate locally (see README). |
 | `logs/`, `archive/`, `temp/` | varies | Run logs and scratch. |
 | `Review1/figures*/`, `figures/`, `paper_sections_ICLR/`, `paper_layout_EMNLP/` | varies | Regeneratable / paper-local. |

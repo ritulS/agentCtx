@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Build COVERAGE.csv and COVERAGE_TB.csv — sheets tracking every (model,
-primitive, budget, depth) cell found in the canonical ICLR_results tree and
+primitive, budget, depth) cell found in the canonical ICLR_experiments tree and
 annotating its paper scope and completion status.
 
 Sources of truth:
-  - disk:  ICLR_results/swebench/<track>/<model>/<cell>/experiment_results.json
-           ICLR_results/terminalbench/<track>/[<namespace>/]<model>/<cell>/
+  - disk:  ICLR_experiments/swebench/<track>/<model>/<cell>/experiment_results.json
+           ICLR_experiments/terminalbench/<track>/[<namespace>/]<model>/<cell>/
              experiment_results.json
            (per-record condition, budget, compression_ratio, instance_id)
            <model> may be <agent>-sum-<summarizer> (track model_ablation): those
@@ -25,7 +25,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ICLR_RESULTS = ROOT / "ICLR_results"
+ICLR_EXPERIMENTS = ROOT / "ICLR_experiments"
 DEFAULT_OUT = ROOT / "COVERAGE.csv"
 DEFAULT_TB_OUT = ROOT / "COVERAGE_TB.csv"
 
@@ -77,7 +77,7 @@ ICLR_MODEL_LABELS = {
 
 # Summarizer ablation (FOLLOWUP_EXPERIMENTS.md §4): result model directories
 # are named <agent>-sum-<summarizer>, e.g.
-# ICLR_results/swebench/model_ablation/qwen35b-sum-qwen35-9b/<cell>.
+# ICLR_experiments/swebench/model_ablation/qwen35b-sum-qwen35-9b/<cell>.
 # Such runs form their own cells, keyed additionally by the summarizer label;
 # ordinary cells (the agent summarizes for itself) carry an empty summarizer.
 SUMMARIZER_SEPARATOR = "-sum-"
@@ -89,7 +89,7 @@ SUMMARIZER_LABELS = {
 SMOKE_SUFFIX = "-smoke"
 
 # Prefix-cache ablation (dashboard Priority 5): every run below
-# ICLR_results/<benchmark>/prefix_cache_ablation/ was served with the vLLM
+# ICLR_experiments/<benchmark>/prefix_cache_ablation/ was served with the vLLM
 # prefix-caching setting flipped relative to that benchmark's production runs.
 # Production SWE-Bench Qwen runs had it off (the vLLM default for the hybrid
 # Qwen3.5 model, see ICLR.md) and production Terminal-Bench runs had it on, so
@@ -194,29 +194,29 @@ def main():
     # Some dirs are copies of other dirs' runs (see seed_depth_dirs.py) — dedupe
     # by (cell, instance_id, run_num) so copies don't inflate run counts.
     #
-    # ICLR_results/ holds the canonical, deduped, run-complete copies built by
+    # ICLR_experiments/ holds the canonical, deduped, run-complete copies built by
     # the archive scripts (see ICLR_CELL_MANIFEST.json in each cell). It is the
     # only result tree scanned here; raw data directories are intentionally
     # excluded from coverage.
     disk = defaultdict(lambda: {"tasks": set(), "runs": 0, "dirs": set(), "task_runs": Counter()})
     seen_runs = set()
     iclr_sources = [
-        ("swebench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
-        for meta in ICLR_RESULTS.glob("swebench/*/*/*/experiment_results.json")
+        ("swebench", f"ICLR_experiments/{meta.parent.relative_to(ICLR_EXPERIMENTS)}", meta)
+        for meta in ICLR_EXPERIMENTS.glob("swebench/*/*/*/experiment_results.json")
     ] + [
-        ("terminal-bench", f"ICLR_results/{meta.parent.relative_to(ICLR_RESULTS)}", meta)
+        ("terminal-bench", f"ICLR_experiments/{meta.parent.relative_to(ICLR_EXPERIMENTS)}", meta)
         # Terminal-Bench tracks may contain an additional result namespace,
         # e.g. main/p80_rootless/<model>/<cell>.  Match recursively so adding
         # such a namespace does not silently remove live runs from coverage.
-        for meta in ICLR_RESULTS.glob("terminalbench/**/experiment_results.json")
+        for meta in ICLR_EXPERIMENTS.glob("terminalbench/**/experiment_results.json")
     ]
     for benchmark, source_name, meta in sorted(iclr_sources):
-        model_key = meta.parents[1].name if ICLR_RESULTS in meta.parents else ""
+        model_key = meta.parents[1].name if ICLR_EXPERIMENTS in meta.parents else ""
         if model_key.endswith(SMOKE_SUFFIX):
             continue
         agent_key, summarizer = split_model_key(model_key)
         # <benchmark dir>/<track>/...: the track is the first component.
-        track = meta.relative_to(ICLR_RESULTS).parts[1]
+        track = meta.relative_to(ICLR_EXPERIMENTS).parts[1]
         prefix_cache = prefix_cache_for(benchmark, track)
         if prefix_cache:
             agent_key = strip_prefix_cache_suffix(agent_key)

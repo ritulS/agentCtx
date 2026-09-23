@@ -14,7 +14,7 @@ index file.
 Read-only by default:
 
     python3 scripts/maintenance/audit_tb_verdicts.py
-    python3 scripts/maintenance/audit_tb_verdicts.py --source-root ICLR_results/terminalbench2
+    python3 scripts/maintenance/audit_tb_verdicts.py --source-root ICLR_experiments/terminalbench2
     python3 scripts/maintenance/audit_tb_verdicts.py --write            # backs up, then rewrites
 """
 
@@ -33,8 +33,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from agentctx.benchmarks.tb_verdict import VERDICT_FIELDS, trial_verdict  # noqa: E402
 
 DEFAULT_ROOTS = (
-    ROOT / "ICLR_results" / "terminalbench",
-    ROOT / "ICLR_results" / "terminalbench2",
+    ROOT / "ICLR_experiments" / "terminalbench",
+    ROOT / "ICLR_experiments" / "terminalbench2",
 )
 # Classifications that --write rewrites. Reward-file recoveries are listed
 # but left to scripts/maintenance/replay_reverify_tb.py (plan/recover/apply), which keeps
@@ -107,7 +107,7 @@ def rewrite(rows: list[dict], findings, stamp: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--source-root", type=Path, action="append", default=None,
-                        help="result tree to scan (repeatable; default: ICLR_results/terminalbench and terminalbench2)")
+                        help="result tree to scan (repeatable; default: ICLR_experiments/terminalbench and terminalbench2)")
     parser.add_argument("--write", action="store_true", help="rewrite discrepant rows after backing up each index file")
     parser.add_argument("--backup-dir", type=Path, default=None,
                         help="where index backups go (default: logs/tb_verdict_audit/<timestamp>)")

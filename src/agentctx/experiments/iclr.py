@@ -13,10 +13,10 @@ from agentctx.summary_config import summary_model_info
 
 
 ICLR_ROOTS = {
-    "swe-bench": WORKSPACE_ROOT / "ICLR_results" / "swebench",
-    "terminal-bench": WORKSPACE_ROOT / "ICLR_results" / "terminalbench",
+    "swe-bench": WORKSPACE_ROOT / "ICLR_experiments" / "swebench",
+    "terminal-bench": WORKSPACE_ROOT / "ICLR_experiments" / "terminalbench",
 }
-# Result sections below ICLR_results/<benchmark>/. model_ablation holds runs
+# Result sections below ICLR_experiments/<benchmark>/. model_ablation holds runs
 # whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4);
 # prefix_cache_ablation holds self-summarized runs served with vLLM prefix
 # caching flipped relative to the benchmark's production runs.

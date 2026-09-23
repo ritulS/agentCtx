@@ -6,8 +6,8 @@
 #   Cells      : d05__b15k__su-full (summarization, depth 0.5)
 #                di__b15k__trc-su   (trc-su, depth-invariant)
 #   Tasks      : ABL-25 x 3 runs (paired with the self-summarization baseline
-#                cells ICLR_results/swebench/{main,ablation}/qwen35b/*__b15k__*).
-# Results go to ICLR_results/swebench/model_ablation/<ICLR_MODEL>/<cell>
+#                cells ICLR_experiments/swebench/{main,ablation}/qwen35b/*__b15k__*).
+# Results go to ICLR_experiments/swebench/model_ablation/<ICLR_MODEL>/<cell>
 # (section + model dir both distinct from main/qwen35b), so the existing
 # self-summarization cells are neither skipped-as-complete nor mixed with these
 # runs. Start both vLLM servers and the Podman socket separately.

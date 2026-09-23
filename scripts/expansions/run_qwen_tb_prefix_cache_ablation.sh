@@ -2,7 +2,7 @@
 # Prefix-caching ablation on Terminal-Bench (dashboard 5.b): rerun the
 # Qwen3.5-35B-A3B primitives against a vLLM server started WITHOUT prefix caching.
 #
-# The production Qwen runs (ICLR_results/terminalbench/{main,ablation}/qwen35b)
+# The production Qwen runs (ICLR_experiments/terminalbench/{main,ablation}/qwen35b)
 # were served with prefix caching on (scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh passes
 # --enable-prefix-caching; logs/servers/vllm_qwen35_<ts>.log: enable_prefix_caching=True).
 # This launcher repeats the 3K / canonical-depth grid and the unlimited-budget
@@ -19,7 +19,7 @@
 #   Tasks      : TB:ABL-15 x 3 runs  ->  13 cells x 15 x 3 = 585 runs
 #                (paired with the caching-on cells main/qwen35b/{*__b3k__*,di__binf__*},
 #                which hold P-40; ABL-15 is a subset of it).
-# Results go to ICLR_results/terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/<cell>.
+# Results go to ICLR_experiments/terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/<cell>.
 # The section keeps these runs out of main/ and ablation/, so the caching-on
 # cells are neither skipped-as-complete nor mixed with them; the model dir also
 # differs from qwen35b because analysis/aggregate_terminalbench_results.py
@@ -52,7 +52,7 @@ AGENT_CONFIG="${QWEN_AGENT_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
 OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 TASKS_FILE="${TB_TASKS_FILE:-$WS/task_lists/tbench_abl15.json}"
-ICLR_SECTION="prefix_cache_ablation"                # ICLR_results/terminalbench/prefix_cache_ablation/
+ICLR_SECTION="prefix_cache_ablation"                # ICLR_experiments/terminalbench/prefix_cache_ablation/
 ICLR_MODEL="${ICLR_MODEL:-qwen35b-noprefixcache}"   # lowercase/digits/hyphens
 INF_BUDGET=999999999
 RUNS_PER_TASK="${RUNS_PER_TASK:-3}"

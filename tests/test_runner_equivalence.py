@@ -5,7 +5,7 @@ calibration launchers from the working tree are run side by side with the same
 scripts taken from each reference branch (see ``conftest.REFERENCE_BRANCHES``),
 inside sandboxes that differ only in the code under test. Every command line in
 a scenario must exit with the same status, print the same lines, and leave the
-same files under ``results/``, ``ICLR_results/`` and ``logs/``, including the
+same files under ``results/``, ``ICLR_experiments/`` and ``logs/``, including the
 exact agent/Harbor invocation captured by the fakes.
 
 Scenarios that need a capability a reference branch predates (Terminal-Bench,
@@ -470,8 +470,8 @@ def test_tb_calibration_writes_canonical_cell(working_tree: Tree, tmp_path):
         pytest.skip("working tree has no Terminal-Bench calibration launcher")
     sandbox = build_sandbox(tmp_path, working_tree)
     execute(sandbox, _scenario("calibration-tb-fc-run1-then-subset-run2"))
-    cell = sandbox.root / "ICLR_results/terminalbench/main/qwen35b/di__binf__fc"
-    rows = _rows(sandbox.root, "ICLR_results/terminalbench/main/qwen35b/di__binf__fc/experiment_results.json")
+    cell = sandbox.root / "ICLR_experiments/terminalbench/main/qwen35b/di__binf__fc"
+    rows = _rows(sandbox.root, "ICLR_experiments/terminalbench/main/qwen35b/di__binf__fc/experiment_results.json")
 
     assert len(rows) == 6 and {row["run_num"] for row in rows} == {1}
     assert all(row["condition"] == "full-context" and row["is_baseline"] for row in rows)
@@ -480,7 +480,7 @@ def test_tb_calibration_writes_canonical_cell(working_tree: Tree, tmp_path):
     assert all(row["verifier_timeout_multiplier"] == 1.0 for row in rows)
     manifest = json.loads((cell / "ICLR_CELL_MANIFEST.json").read_text())
     assert manifest["complete"] and manifest["completed_tasks"] == 6
-    subset = _rows(sandbox.root, "ICLR_results/terminalbench/main/p80_rootless/qwen35b/di__binf__fc/experiment_results.json")
+    subset = _rows(sandbox.root, "ICLR_experiments/terminalbench/main/p80_rootless/qwen35b/di__binf__fc/experiment_results.json")
     assert sorted(row["instance_id"] for row in subset) == sorted(TB_TASK_LIST_TASKS)
     assert all(row["run_num"] == 2 and row["verifier_timeout_multiplier"] == 2.0 for row in subset)
 
@@ -532,3 +532,13 @@ def test_current_calibration_invocation_targets_agentctx_package(working_tree: T
         assert argv[argv.index("--agent") + 1] == "agentctx.benchmarks.harbor_adapter:CompressionAgent"
         entries = invocation["env"]["PYTHONPATH"].split(":")
         assert entries[0] == str(sandbox.root / "src")
+
+
+def test_current_iclr_tree_is_named_iclr_experiments(working_tree: Tree, tmp_path):
+    """The canonical ICLR result tree is ICLR_experiments/ (formerly ICLR_results/)."""
+    sandbox = build_sandbox(tmp_path, working_tree)
+    execute(sandbox, _scenario("iclr-swe-d03-b10k-tr"))
+    assert (sandbox.root / "ICLR_experiments/swebench").is_dir()
+    assert not (sandbox.root / "ICLR_results").exists()
+    written = {str(p.relative_to(sandbox.root)) for p in (sandbox.root / "ICLR_experiments").rglob("*") if p.is_file()}
+    assert any(path.endswith("experiment_results.json") for path in written), sorted(written)

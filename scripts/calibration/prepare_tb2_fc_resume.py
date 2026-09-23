@@ -96,7 +96,7 @@ def main() -> None:
         raise SystemExit("job contains unknown tasks: " + ", ".join(unknown))
     remaining = sorted(set(dataset_tasks) - preserved)
 
-    destination = ROOT / "ICLR_results/terminalbench2/main/qwen35b/di__binf__fc"
+    destination = ROOT / "ICLR_experiments/terminalbench2/main/qwen35b/di__binf__fc"
     current_rows, aggregate_rows = collect_results(
         job_dir, destination, args.model_label, 1,
         benchmark_version="2.0",

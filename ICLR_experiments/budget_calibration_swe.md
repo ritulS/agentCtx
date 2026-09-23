@@ -10,7 +10,7 @@
 > hash recorded there.
 
 Created: 2026-09-09 / Scope: SWE-Bench P100, agent model expansion (Devstral, GLM)
-Related: [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md#budget-calibration-protocol), [EXPERIMENT_TIMELINE_DETAIL_SWE.md](EXPERIMENT_TIMELINE_DETAIL_SWE.md#budget-and-cohort-decisions), [FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EXPERIMENTS.md)
+Related: [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md#budget-calibration-protocol), [EXPERIMENT_TIMELINE_DETAIL_SWE.md](EXPERIMENT_TIMELINE_DETAIL_SWE.md#budget-and-cohort-decisions), [FOLLOWUP_EXPERIMENTS.md](../ICLR_experiments/FOLLOWUP_EXPERIMENTS.md)
 
 ## 1. Purpose
 
@@ -87,7 +87,7 @@ Trigger rate at candidate budgets (%, fraction with `peak > budget`):
 | 30K | – | ~~50~~ | ~~32~~ |
 
 - Trend: Devstral grows context the most. GLM has a smaller median but a longer tail.
-- Source: `ICLR_results/swebench/main/<model>/di__binf__fc/{calibration_report.txt, fc_context_distribution.json}`
+- Source: `ICLR_experiments/swebench/main/<model>/di__binf__fc/{calibration_report.txt, fc_context_distribution.json}`
 
 ## 4. Computed vs adopted budgets
 

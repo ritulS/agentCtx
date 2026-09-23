@@ -3,20 +3,20 @@
 
 The full 80-task, one-attempt Harbor job is stored in the canonical ICLR cell:
 
-  ICLR_results/terminalbench/main/<model-key>/di__binf__fc/
+  ICLR_experiments/terminalbench/main/<model-key>/di__binf__fc/
 
 Named subsets can be kept separate beneath the track directory, for example:
 
-  ICLR_results/terminalbench/main/p80_rootless/<model-key>/di__binf__fc/
-  ICLR_results/terminalbench/main/p80_subuid_required/<model-key>/di__binf__fc/
+  ICLR_experiments/terminalbench/main/p80_rootless/<model-key>/di__binf__fc/
+  ICLR_experiments/terminalbench/main/p80_subuid_required/<model-key>/di__binf__fc/
 
-Harbor's raw job is retained outside ``ICLR_results`` under ``logs/harbor_jobs``.
+Harbor's raw job is retained outside ``ICLR_experiments`` under ``logs/harbor_jobs``.
 Each trial's canonical artifacts are normalized to
 ``<task>/full-context/run_<N>``.  The aggregate keeps the same token fields as
 the SWE-Bench runner, including ``step_prompt_tokens``. Conversion and result
 merging live in ``agentctx.benchmarks.harbor_results``.
 
-Use --calibration-dir for an isolated collection outside ICLR_results. Both
+Use --calibration-dir for an isolated collection outside ICLR_experiments. Both
 normalized results and raw Harbor state stay there; dashboard updates are disabled.
 """
 
@@ -136,7 +136,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--job-name", default=None)
     parser.add_argument(
         "--calibration-dir", type=Path, default=None,
-        help="isolated collection directory outside ICLR_results (also disables postprocess)",
+        help="isolated collection directory outside ICLR_experiments (also disables postprocess)",
     )
     parser.add_argument(
         "--dry-run", action="store_true",
@@ -150,7 +150,7 @@ def parse_args() -> argparse.Namespace:
         "--result-scope",
         choices=("p80_rootless", "p80_subuid_required"),
         default=None,
-        help="optional result namespace beneath ICLR_results/terminalbench/main",
+        help="optional result namespace beneath ICLR_experiments/terminalbench/main",
     )
     parser.add_argument("--docker-host", default=None,
                         help="rootless Podman API socket (default: /run/user/<uid>/podman/podman.sock)")
@@ -251,12 +251,12 @@ def main() -> None:
         raise SystemExit("unknown --model-key: provide --model-label explicitly")
 
     model_name, api_base = load_model_config(config)
-    result_root = ROOT / "ICLR_results" / args.result_benchmark / "main"
+    result_root = ROOT / "ICLR_experiments" / args.result_benchmark / "main"
     if args.result_scope:
         result_root /= args.result_scope
     destination = result_root / args.model_key / "di__binf__fc"
     # Keep infrastructure-specific Harbor state out of the canonical ICLR
-    # results hierarchy documented in ICLR_results/README.md.
+    # results hierarchy documented in ICLR_experiments/README.md.
     jobs_dir = (
         ROOT / "logs" / "harbor_jobs" / args.job_benchmark / "main"
         / args.model_key / "di__binf__fc"
@@ -272,10 +272,10 @@ def main() -> None:
         jobs_dir = (calibration_dir / "harbor_jobs").resolve()
         # Resolve symlinks as well: neither results nor infrastructure state
         # may enter the canonical tree, even through an existing directory link.
-        protected = (ROOT / "ICLR_results").resolve()
+        protected = (ROOT / "ICLR_experiments").resolve()
         for path in (calibration_dir, destination, jobs_dir, (jobs_dir / job_name).resolve()):
             if path.is_relative_to(protected) or protected.is_relative_to(path):
-                raise SystemExit("--calibration-dir must be separate from ICLR_results")
+                raise SystemExit("--calibration-dir must be separate from ICLR_experiments")
         args.skip_postprocess = True
     elif args.metrics_url:
         raise SystemExit("--metrics-url requires --calibration-dir")

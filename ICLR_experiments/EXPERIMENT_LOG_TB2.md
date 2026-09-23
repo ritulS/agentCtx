@@ -24,7 +24,7 @@ FC@∞ `run_1` was attempted on all 89 Terminal-Bench 2.0 tasks with Qwen3.5-35B
 | GPUs | 4 GPUs, configured as `0,1,2,3`; vLLM tensor parallelism = 4 |
 | Runtime | Rootless Podman, with Harbor flags `--env docker --cpus ignore` |
 | Condition | `full-context`, `run_num=1`, `budget=999999999` (implementation value for ∞) |
-| Result cell | `ICLR_results/terminalbench2/main/qwen35b/di__binf__fc/` |
+| Result cell | `ICLR_experiments/terminalbench2/main/qwen35b/di__binf__fc/` |
 | Saved results | One row per task, 89 rows, no duplicate keys |
 | Successes in saved results | `resolved=true`: 27/89 (30.34%) |
 | Compression | `compression_events=0` in all 89 rows |

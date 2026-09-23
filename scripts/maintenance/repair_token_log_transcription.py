@@ -220,7 +220,7 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", action="append", default=None,
                     help="Directory to scan for experiment_results.json "
-                         "(repeatable; default: ICLR_results)")
+                         "(repeatable; default: ICLR_experiments)")
     ap.add_argument("--apply", action="store_true",
                     help="Write the repairs. Without this the script only reports.")
     ap.add_argument("--no-backup", action="store_true",
@@ -229,7 +229,7 @@ def main() -> int:
                     help="Write the list of stale (row/token_log mismatched) runs here.")
     args = ap.parse_args()
 
-    roots = [Path(r) for r in (args.root or ["ICLR_results"])]
+    roots = [Path(r) for r in (args.root or ["ICLR_experiments"])]
     roots = [r if r.is_absolute() else WORKSPACE_ROOT / r for r in roots]
 
     cells: list[Path] = []

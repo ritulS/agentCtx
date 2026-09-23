@@ -13,11 +13,11 @@ limits and its result directory are overridden, in the same way
 ``scripts/run_experiment_iclr.py`` does.  Agent launches go through the
 runner's SWE-bench adapter (``agentctx.benchmarks.swe_bench.SweBench._run_agent``),
 which is where ``run_experiment.run_agent`` moved.  Nothing under
-``ICLR_results/`` is touched: results go to a fresh directory under
+``ICLR_experiments/`` is touched: results go to a fresh directory under
 ``results/adaptive_context_management/swebench/reruns/`` (gitignored via
 ``results/*``) so they never leak into
 ``analysis/aggregate_benchmark_results.py``, which scans
-``ICLR_results/swebench/**``.
+``ICLR_experiments/swebench/**``.
 
 Typical use (Qwen3.5-35B / full-context, the 82 timeout + step-limit runs):
 

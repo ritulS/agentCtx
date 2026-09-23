@@ -32,7 +32,7 @@ This audit covers Qwen SWE-bench from its resumption at 2026-09-07 20:01:53 CDT 
 - `audited_runs.csv`: the 645 audited runs.
 - `counts.json`: counts by condition. `log_tracebacks` counts string matches, not failures.
 
-Representative example: in `ICLR_results/swebench/ablation/qwen35b/d03__b10k__ss-partial/django__django-11299/structured-summarize-partial/run_3/trajectory.json`, `messages[2]` contains a summary and `messages[3]` contains the FormatError for a response that summarizes again.
+Representative example: in `ICLR_experiments/swebench/ablation/qwen35b/d03__b10k__ss-partial/django__django-11299/structured-summarize-partial/run_3/trajectory.json`, `messages[2]` contains a summary and `messages[3]` contains the FormatError for a response that summarizes again.
 
 Code references: `memory.py:73`, `memory.py:283`, `memory.py:300`; `scripts/run_experiment.py:204`, `scripts/run_experiment.py:282`; `scripts/bench_adapters/swe_bench.py:193`.
 Parent-process log lines for evaluation timeouts: 915, 982, 1019, 1073, 1118, 1421, 1520, 1557.

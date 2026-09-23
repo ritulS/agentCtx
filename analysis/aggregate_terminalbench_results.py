@@ -2,7 +2,7 @@
 """Build a task x primitive outcome CSV from Terminal-Bench results.
 
 By default, the P-40 main and ABL-15 ablation result cells below
-``ICLR_results/terminalbench`` are aggregated into
+``ICLR_experiments/terminalbench`` are aggregated into
 ``analysis/outcomes/terminalbench_outcomes.csv``.  Namespaced result trees
 such as ``main/p80_rootless/<model>/<cell>`` and
 ``main/p80_subuid_required/<model>/<cell>`` are also collected; each section
@@ -48,7 +48,7 @@ from typing import Any, Iterable
 
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_SOURCE_ROOT = ROOT / "ICLR_results" / "terminalbench"
+DEFAULT_SOURCE_ROOT = ROOT / "ICLR_experiments" / "terminalbench"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "outcomes" / "terminalbench_outcomes.csv"
 DEFAULT_P40_TASKS = ROOT / "task_lists" / "tbench_p40.json"
 DEFAULT_ABL15_TASKS = ROOT / "task_lists" / "tbench_abl15.json"

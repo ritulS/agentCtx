@@ -4,10 +4,10 @@
 #   Summarizer : Qwen3.5-9B       (scripts/serving/start_vllm_qwen35_9b.sh, GPUs 4-5, :8001)
 #   Cells      : d05__b3k__su-full (summarization, depth 0.5)
 #                di__b3k__trc-su   (trc-su, depth-invariant)
-# Results go to ICLR_results/terminalbench/model_ablation/<ICLR_MODEL>/<cell>
+# Results go to ICLR_experiments/terminalbench/model_ablation/<ICLR_MODEL>/<cell>
 # (section + model dir both distinct from main/qwen35b), so the existing
 # self-summarization baseline cells
-# (ICLR_results/terminalbench/main/qwen35b/{d05__b3k__su-full,di__b3k__trc-su})
+# (ICLR_experiments/terminalbench/main/qwen35b/{d05__b3k__su-full,di__b3k__trc-su})
 # are neither skipped-as-complete nor mixed with these runs.
 # Start vLLM (both servers) and the Podman socket separately.
 #

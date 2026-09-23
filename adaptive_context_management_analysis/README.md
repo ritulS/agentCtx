@@ -92,7 +92,7 @@ Re-runs **only** the runs that a `failure_causes.csv` classified as `timeout`
 and/or `step_limit`, with `STEP_LIMIT` / `AGENT_TIMEOUT` raised. The runner
 `scripts/run_experiment.py` is imported unchanged; only its two limit constants
 and its result directory are overridden (same technique as
-`scripts/run_experiment_iclr.py`). `ICLR_results/` is never written to.
+`scripts/run_experiment_iclr.py`). `ICLR_experiments/` is never written to.
 
 ```bash
 S=adaptive_context_management_analysis/rerun_limit_failures.py
@@ -134,7 +134,7 @@ The run numbers are kept from the original runs, so `run_2` in the new
 directory is the re-run of the original `run_2`.
 
 The output lives under `results/` (gitignored via `results/*`) on purpose: the outcomes aggregator
-scans `ICLR_results/swebench/**`, and the re-runs must not be mixed into the
+scans `ICLR_experiments/swebench/**`, and the re-runs must not be mixed into the
 canonical cells.
 
 ## run_rerun_limits_notified.sh
@@ -178,7 +178,7 @@ the matching `.pid`. Remember to add an `Active_runs.md` entry before launching.
 ## build_rerun_outcomes.py
 
 Overlays the raised-limit re-run results on `analysis/outcomes/swebench_outcomes.csv`
-and writes a second outcomes table (the canonical CSV and `ICLR_results/` are
+and writes a second outcomes table (the canonical CSV and `ICLR_experiments/` are
 never modified):
 
 ```bash

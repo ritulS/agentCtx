@@ -369,6 +369,8 @@ INTENTIONAL_TEXT_REWRITES = (
         "tbench.harbor_adapter:CompressionAgent",
         "agentctx.benchmarks.harbor_adapter:CompressionAgent",
     ),
+    # The canonical ICLR result tree was renamed ICLR_results/ -> ICLR_experiments/.
+    ("ICLR_results/", "ICLR_experiments/"),
 )
 INTENTIONAL_PYTHONPATH_ENTRIES = ("<WS>/src",)
 
@@ -437,7 +439,9 @@ def _normalize_lines(text: str, root: Path) -> list[str]:
     return sorted(line.rstrip() for line in text.splitlines() if line.strip())
 
 
-SNAPSHOT_DIRS = ("results", "ICLR_results", "logs")
+# Reference branches still write the ICLR tree as ICLR_results/; its files are
+# keyed under ICLR_experiments/ by the rewrite above so both sides compare.
+SNAPSHOT_DIRS = ("results", "ICLR_experiments", "ICLR_results", "logs")
 
 
 def snapshot(sandbox: Sandbox) -> dict[str, str]:

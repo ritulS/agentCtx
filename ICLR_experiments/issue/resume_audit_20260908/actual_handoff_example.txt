@@ -1,4 +1,4 @@
-Source: /home/ak58925/agentCtx/ICLR_results/swebench/ablation/qwen35b/d03__b10k__ss-partial/django__django-11299/structured-summarize-partial/run_3/trajectory.json
+Source: /home/ak58925/agentCtx/ICLR_experiments/swebench/ablation/qwen35b/d03__b10k__ss-partial/django__django-11299/structured-summarize-partial/run_3/trajectory.json
 Message indices are zero-based.
 
 === messages[2]: summary passed to agent; role=user ===

@@ -98,7 +98,7 @@ Priority 5 (prefix-cache ablation) totals 1,560 runs: Qwen3.5-35B-A3B as agent
 and summarizer, every primitive at depth 0.5/DI and the primary budget plus
 FC/OTRC at ∞, on SB:ABL-25 at 15K with vLLM prefix caching ON (5.a, 975 runs)
 and on TB:ABL-15 at 3K with it OFF (5.b, 585 runs) — the opposite of each benchmark's production serving.
-Coverage counts only runs below `ICLR_results/<benchmark>/prefix_cache_ablation/`;
+Coverage counts only runs below `ICLR_experiments/<benchmark>/prefix_cache_ablation/`;
 they become separate cells with a non-empty `prefix_cache` column (`ON`/`OFF`)
 and never merge into the production cell of the same primitive, budget and
 depth. Model directories there are named `<agent>-prefixcache` or

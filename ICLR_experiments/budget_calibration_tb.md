@@ -10,7 +10,7 @@
 > hash recorded there.
 
 Created: 2026-09-09 / Scope: Terminal-Bench 1.0 P-80, agent model expansion (Qwen, Devstral, GLM)
-Related: [EXPERIMENT_LOG_TB.md](EXPERIMENT_LOG_TB.md#fc-calibration), [EXPERIMENT_TIMELINE_DETAIL.md](EXPERIMENT_TIMELINE_DETAIL.md), [FOLLOWUP_EXPERIMENTS.md §3](../exp_plans/FOLLOWUP_EXPERIMENTS.md#exp-tb), SWE version: `budget_calibration_swe.md`
+Related: [EXPERIMENT_LOG_TB.md](EXPERIMENT_LOG_TB.md#fc-calibration), [EXPERIMENT_TIMELINE_DETAIL.md](EXPERIMENT_TIMELINE_DETAIL.md), [FOLLOWUP_EXPERIMENTS.md §3](../ICLR_experiments/FOLLOWUP_EXPERIMENTS.md#exp-tb), SWE version: `budget_calibration_swe.md`
 Procedures: [GLM_TB_NATIVE_CALIBRATION.md](../scripts/GLM_TB_NATIVE_CALIBRATION.md), [DEVSTRAL_TB_NATIVE_CALIBRATION.md](../scripts/DEVSTRAL_TB_NATIVE_CALIBRATION.md)
 
 ## 1. Purpose
@@ -69,12 +69,12 @@ Shared by all three models ([configs/config-*-vllm.yaml](../configs/) merged ont
 
 | Model | Data | Start (CDT) | End (CDT) | Concurrency | code | Output |
 |---|---|---|---|---:|---|---|
-| Qwen | rootless 42 | 2026-08-29 17:05 | 2026-08-29 17:44 | 4 | `77b6da5` | `ICLR_results/terminalbench/main/p80_rootless/qwen35b/di__binf__fc/` |
-| Qwen | subuid 38 | 2026-08-30 20:22 | 2026-08-30 21:02 | 4 | `55d9ea5` | `ICLR_results/terminalbench/main/p80_subuid_required/qwen35b/di__binf__fc/` |
+| Qwen | rootless 42 | 2026-08-29 17:05 | 2026-08-29 17:44 | 4 | `77b6da5` | `ICLR_experiments/terminalbench/main/p80_rootless/qwen35b/di__binf__fc/` |
+| Qwen | subuid 38 | 2026-08-30 20:22 | 2026-08-30 21:02 | 4 | `55d9ea5` | `ICLR_experiments/terminalbench/main/p80_subuid_required/qwen35b/di__binf__fc/` |
 | Devstral | **native P-80** | 2026-09-09 09:58 | 2026-09-09 12:35 | 2 | `26d5fbc` + uncommitted diff | `calibration_results/terminalbench/devstral24b_native_p80/` |
 | GLM | **native P-80** | 2026-09-09 09:15 | 2026-09-09 10:54 | 4 | `26d5fbc` + uncommitted diff | `calibration_results/terminalbench/glm47flash_native_p80/` |
 
-- Launcher for the native collections: `scripts/run_budget_calibration_tb.py --calibration-dir ...` (`--calibration-dir` and the prefix-cache recording were uncommitted as of 9/9; `scripts/log_vllm_prefix_cache.py` is also untracked). Nothing is written to the canonical `ICLR_results/`; everything is isolated under `calibration_results/`.
+- Launcher for the native collections: `scripts/run_budget_calibration_tb.py --calibration-dir ...` (`--calibration-dir` and the prefix-cache recording were uncommitted as of 9/9; `scripts/log_vllm_prefix_cache.py` is also untracked). Nothing is written to the canonical `ICLR_experiments/`; everything is isolated under `calibration_results/`.
 - Each native collection directory contains `results/experiment_results.json`, `results/<task>/full-context/run_1/`, `results/CALIBRATION_MANIFEST.json` (80/80 complete), `harbor_jobs/`, `metrics/*/prefix_cache.jsonl`, and, for Devstral only, `vllm_startup.log` and `vllm_models.json`.
 - The 65K-setting Devstral / GLM FC run_1 (comparison only) lives in the same `p80_rootless` / `p80_subuid_required` cells as Qwen (8/30 03:44–04:33 and 23:05–23:54 / 8/30 11:52–12:50 and 8/31 00:25–01:33 CDT).
 
@@ -149,7 +149,7 @@ The derivation rule is the same **P5 / P15 / P25 rule** as the SWE version (P5 /
 
 - "Percentile landed on" is the fraction of trajectories with `peak ≤ budget` in the native distribution (Devstral 3K: 6/73, 4K: 12/73, 7K: 22/73; GLM 2K: 5/74, 3K: 13/74, 5K: 21/74).
 - The adopted values are the ones used for Main (P-40) and ablation (P-15). Devstral / GLM A/B differ from the native-computed values by 1K, but they still land at P7–P8 / P15–P18 / P28–P30 in the native distribution, so the intended tight / primary / loose positioning holds. **Primary (P) matches the native-computed value for all three models.**
-- Launcher defaults: [run_agent_models_expansion_tb.sh:18-26](../scripts/run_agent_models_expansion_tb.sh#L18-L26). Plan: [FOLLOWUP_EXPERIMENTS.md §3](../exp_plans/FOLLOWUP_EXPERIMENTS.md#exp-tb).
+- Launcher defaults: [run_agent_models_expansion_tb.sh:18-26](../scripts/run_agent_models_expansion_tb.sh#L18-L26). Plan: [FOLLOWUP_EXPERIMENTS.md §3](../ICLR_experiments/FOLLOWUP_EXPERIMENTS.md#exp-tb).
 - Cell names: Qwen `b2k/b3k/b4k`, Devstral `b3k/b4k/b7k`, GLM `b2k/b3k/b5k`.
 
 ### Where the adopted budgets are used
@@ -208,8 +208,8 @@ cd /home/ak58925/agentCtx
 venv/bin/python - <<'PY'
 import json, numpy as np
 src = {
-  "qwen":     ["ICLR_results/terminalbench/main/p80_rootless/qwen35b/di__binf__fc/experiment_results.json",
-               "ICLR_results/terminalbench/main/p80_subuid_required/qwen35b/di__binf__fc/experiment_results.json"],
+  "qwen":     ["ICLR_experiments/terminalbench/main/p80_rootless/qwen35b/di__binf__fc/experiment_results.json",
+               "ICLR_experiments/terminalbench/main/p80_subuid_required/qwen35b/di__binf__fc/experiment_results.json"],
   "devstral": ["calibration_results/terminalbench/devstral24b_native_p80/results/experiment_results.json"],
   "glm":      ["calibration_results/terminalbench/glm47flash_native_p80/results/experiment_results.json"],
 }

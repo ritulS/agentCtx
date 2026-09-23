@@ -1,5 +1,5 @@
 # ICLR 2027 Experiment Log
-Experiment Plan → [exp_plans/FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EXPERIMENTS.md)
+Experiment Plan → [ICLR_experiments/FOLLOWUP_EXPERIMENTS.md](../ICLR_experiments/FOLLOWUP_EXPERIMENTS.md)
 
 > **Note: this file is a historical log.** Commands, script paths, and code
 > locations are recorded exactly as they were when each entry was written and
@@ -38,7 +38,7 @@ Experiment Plan → [exp_plans/FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EX
 - [DONE] 2026-08-28: Ran `scripts/archive_and_organize_qwen35b_swebench.py`
   (HEAD `cb5d3771791cbca0e05f1ff1f71177ec4e902051`, script last changed in
   `8f9a50bf8fe7943059148af11cc09525453a0eed`) to copy the result files under
-  `ICLR_results/`:
+  `ICLR_experiments/`:
   ```bash
   python3 scripts/archive_and_organize_qwen35b_swebench.py \
     --backup-root /home/ak58925/agentCtx_backups/run3-complete-2026-08-28
@@ -84,8 +84,8 @@ The calculation and 1K rounding are implemented in
 3. Inspect the generated file and require `ALL_WITHIN_TOLERANCE=true`:
 
    ```bash
-   cat ICLR_results/swebench/main/devstral24b/di__binf__fc/calibrated_budgets.sh
-   cat ICLR_results/swebench/main/glm47flash/di__binf__fc/calibrated_budgets.sh
+   cat ICLR_experiments/swebench/main/devstral24b/di__binf__fc/calibrated_budgets.sh
+   cat ICLR_experiments/swebench/main/glm47flash/di__binf__fc/calibrated_budgets.sh
    ```
 
    The earlier ABL-30 × 2 Devstral estimate was `A/P/B = 15000/20000/24000`.
@@ -99,7 +99,7 @@ The calculation and 1K rounding are implemented in
    `A/P/B = 17000/21000/24000` defaults; GLM remains explicit:
 
    ```bash
-   source ICLR_results/swebench/main/glm47flash/di__binf__fc/calibrated_budgets.sh
+   source ICLR_experiments/swebench/main/glm47flash/di__binf__fc/calibrated_budgets.sh
    GLM_A_BUDGET="$TIGHT_BUDGET" \
    GLM_P_BUDGET="$MEDIUM_BUDGET" \
    GLM_B_BUDGET="$LOOSE_BUDGET" \
@@ -110,10 +110,10 @@ The calculation and 1K rounding are implemented in
 
 Artifacts to retain for provenance:
 
-- `ICLR_results/swebench/main/<model>/di__binf__fc/experiment_results.json`
-- `ICLR_results/swebench/main/<model>/di__binf__fc/<instance>/full-context/run_1/`
-- `ICLR_results/swebench/main/<model>/di__binf__fc/fc_context_distribution.json`
-- `ICLR_results/swebench/main/<model>/di__binf__fc/{calibration_report.txt,calibrated_budgets.sh}`
+- `ICLR_experiments/swebench/main/<model>/di__binf__fc/experiment_results.json`
+- `ICLR_experiments/swebench/main/<model>/di__binf__fc/<instance>/full-context/run_1/`
+- `ICLR_experiments/swebench/main/<model>/di__binf__fc/fc_context_distribution.json`
+- `ICLR_experiments/swebench/main/<model>/di__binf__fc/{calibration_report.txt,calibrated_budgets.sh}`
 - the launch PID, code version, model ID, context-window setting, and approval
   decision recorded below
 
@@ -136,7 +136,7 @@ venv/bin/python scripts/run_budget_calibration_sb.py \
 ```
 
 Outputs are stored under
-`ICLR_results/swebench/main/<model>/di__binf__fc/`, including
+`ICLR_experiments/swebench/main/<model>/di__binf__fc/`, including
 `experiment_results.json` (all per-step prompt-token arrays), raw per-task
 artifacts, `fc_context_distribution.json`, `calibration_report.txt`, and
 `calibrated_budgets.sh`. FC never

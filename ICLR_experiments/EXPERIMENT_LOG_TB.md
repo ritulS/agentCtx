@@ -9,7 +9,7 @@
 > `CLAUDE.md`; for the code as it was at a given entry, check out the commit
 > hash recorded there.
 
-Experiment Plan → [FOLLOWUP_EXPERIMENTS.md](../exp_plans/FOLLOWUP_EXPERIMENTS.md)
+Experiment Plan → [FOLLOWUP_EXPERIMENTS.md](../ICLR_experiments/FOLLOWUP_EXPERIMENTS.md)
 
 Code provenance below identifies commits containing the relevant implementation.
 A workspace HEAD at launch does not identify executed code when the working tree
@@ -193,8 +193,8 @@ Run exactly one of these profiles before using the common workflow below:
 Repeat these three steps for Qwen, Devstral, and GLM. Canonical outputs are:
 
 ```text
-ICLR_results/terminalbench/main/p80_rootless/<model-key>/di__binf__fc/
-ICLR_results/terminalbench/main/p80_subuid_required/<model-key>/di__binf__fc/
+ICLR_experiments/terminalbench/main/p80_rootless/<model-key>/di__binf__fc/
+ICLR_experiments/terminalbench/main/p80_subuid_required/<model-key>/di__binf__fc/
 ```
 
 The model keys are `qwen35b`, `devstral24b`, and `glm47flash`.
@@ -254,7 +254,7 @@ planned runs per model**. The primary budgets are Qwen **3K**, Devstral
 **4K**, and GLM **3K**; FC and OTRC use an effectively unlimited budget.
 The five depth-tunable primitives use depth 0.5; the six remaining finite-budget
 primitives and the two baselines are recorded as depth-invariant cells.
-Outputs are under `ICLR_results/terminalbench/main/<model-key>/<cell>/`.
+Outputs are under `ICLR_experiments/terminalbench/main/<model-key>/<cell>/`.
 
 ### (a) Qwen — P-40 Main, then P-15 ablation
 
@@ -268,7 +268,7 @@ P-80 launcher was uncommitted, with no exact committed version identified.
       > logs/run_agent_models_expansion_tb_qwen_b3k.nohup.log 2>&1 < /dev/null &
     ```
 
-    Results were written under `ICLR_results/terminalbench/main/qwen35b/`, to
+    Results were written under `ICLR_experiments/terminalbench/main/qwen35b/`, to
     `d05__b3k__tr/` and `d05__b3k__su-full/` (the latter was interrupted).
     These directories were subsequently reused by P-40 Main.
 
@@ -302,14 +302,14 @@ nohup env \
 
 The wrapper runs `qwen both`: Main completion was logged on **September 3
 at 14:32:50**, followed by P-15 ablation. Ablation was stopped before full
-completion; outputs are in `ICLR_results/terminalbench/ablation/qwen35b/`.
+completion; outputs are in `ICLR_experiments/terminalbench/ablation/qwen35b/`.
 
 ### (b) Devstral — P-40 Main
 
 - **First launch:** 2026-09-03 22:56:29.
 - **Workspace HEAD:** `9a024e7`.
 - **Experiment launcher/output-routing reference:** `9db3edb`.
-- **Budget:** 4K; outputs: `ICLR_results/terminalbench/main/devstral24b/`.
+- **Budget:** 4K; outputs: `ICLR_experiments/terminalbench/main/devstral24b/`.
 - **Log:** [followup_tb_devstral.log](../logs/followup_tb_devstral.log).
 
 The serving command in shell history used GPUs `4,5,6,7`, port 8002,
@@ -349,7 +349,7 @@ commit for the recovered runtime**. No full Main completion line is recorded.
 - **First launch:** 2026-09-04 20:14:24.
 - **Workspace HEAD:** `9b1ce3c`.
 - **Experiment launcher/output-routing reference:** `9db3edb`.
-- **Budget:** 3K; outputs: `ICLR_results/terminalbench/main/glm47flash/`.
+- **Budget:** 3K; outputs: `ICLR_experiments/terminalbench/main/glm47flash/`.
 - **Log:** [followup_tb_glm.log](../logs/followup_tb_glm.log).
 
 ```bash

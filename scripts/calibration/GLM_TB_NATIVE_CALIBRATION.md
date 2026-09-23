@@ -7,7 +7,7 @@ P-80-rootless subset.
 Do not use `run_budget_calibration_tb.sh glm` for this collection: that wrapper
 writes to the canonical main results. Use the Python command below with
 `--calibration-dir`. This mode stores both normalized results and Harbor jobs
-outside `ICLR_results`, rejects destinations inside that tree, and skips
+outside `ICLR_experiments`, rejects destinations inside that tree, and skips
 coverage/dashboard postprocessing automatically.
 
 ## Start the server
