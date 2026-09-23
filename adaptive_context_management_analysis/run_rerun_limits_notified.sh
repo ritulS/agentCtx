@@ -11,7 +11,7 @@
 #
 # Prerequisites:
 #   export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'
-#   vLLM Qwen3.5-35B-A3B serving on :8000 (logs/vllm_qwen35_a3b.pid)
+#   vLLM Qwen3.5-35B-A3B serving on :8000 (logs/servers/vllm_qwen35_a3b.pid)
 #   rootless podman API socket up (SWE-bench containers + evaluation)
 #   an entry in Active_runs.md for this launch
 #
@@ -31,7 +31,7 @@ set -uo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$WS/scripts/lib/logpaths.sh"
 
 PHASE="${PHASE:-1}"
 case "$PHASE" in
@@ -55,8 +55,7 @@ QWEN_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 PODMAN_SOCK="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
 
 UNIT="adaptive-context-management/rerun-qwen35b-fc-limits-phase${PHASE}"
-LOG_PATH="logs/rerun_qwen35b_fc_limits_phase${PHASE}.log"
-PID_PATH="logs/rerun_qwen35b_fc_limits_phase${PHASE}.pid"
+PID_PATH="$EXPERIMENT_LOG_DIR/rerun_qwen35b_fc_limits_phase${PHASE}.pid"
 
 # shellcheck disable=SC2206
 RUNNER_ARGS=(--step-limit "$STEP_LIMIT" --timeout "$TIMEOUT" --max-workers "$MAX_WORKERS"
@@ -100,6 +99,7 @@ fi
 log "REMINDER: add/update the Active_runs.md entry for unit $UNIT"
 
 # ── Slack-wrapped launch ───────────────────────────────────────────────────────
+LOG_PATH="$(experiment_log "rerun_qwen35b_fc_limits_phase${PHASE}")"
 log "phase=$PHASE  difficulty='$DIFFICULTY'  step_limit=$STEP_LIMIT  timeout=${TIMEOUT}s  workers=$MAX_WORKERS  order=$ORDER  with_eval=$WITH_EVAL"
 log "command: $PY $RUNNER ${RUNNER_ARGS[*]}"
 log "runner log: $LOG_PATH"

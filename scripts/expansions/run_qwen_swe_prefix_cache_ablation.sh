@@ -42,7 +42,7 @@ set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"
@@ -73,7 +73,7 @@ di__b15k__otrc-su-partial:otrc-su-partial:0.5 \
 di__b15k__otrc-ss-partial:otrc-ss-partial:0.5 \
 di__binf__fc:full-context:0.5 \
 di__binf__otrc:online-trc:0.5}"
-LOG_FILE="${SB_PREFIXCACHE_LOG_FILE:-$WS/logs/followup_sb_qwen_${ICLR_MODEL}.log}"
+LOG_FILE="${SB_PREFIXCACHE_LOG_FILE:-$(experiment_log "followup_sb_qwen_${ICLR_MODEL}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
@@ -89,7 +89,7 @@ if [[ -n "$N_TASKS" ]]; then
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
 fi
 
-exec 9>"logs/qwen_sb_${ICLR_MODEL}.lock"
+exec 9>"$EXPERIMENT_LOG_DIR/qwen_sb_${ICLR_MODEL}.lock"
 flock -n 9 || { echo "Prefix-cache ablation launcher for $ICLR_MODEL already running." >&2; exit 1; }
 
 curl -fsS --max-time 5 "$AGENT_HEALTH_URL" >/dev/null || {
@@ -120,7 +120,7 @@ if [[ " $server_cmdline " != *" --enable-prefix-caching "* || " $server_cmdline 
     exit 1
 fi
 
-log() { echo "[$(date)] $*" | tee -a "$LOG_FILE"; }
+log() { echo "[$(date)] $*" | emit; }
 
 # "queries hits" token counters of the server's prefix cache (vLLM /metrics).
 METRICS_URL="${AGENT_HEALTH_URL%/v1/models}/metrics"
@@ -152,7 +152,7 @@ run_runner() {
         --agent-config "$AGENT_CONFIG" --otrc-config "$OTRC_CONFIG" \
         --budget "$4" --depth "$3" --tasks-file "$TASKS_FILE" \
         --conditions "$2" --runs-per-task "$RUNS_PER_TASK" \
-        --max-workers "$MAX_WORKERS" "${EXTRA_ARGS[@]}" "${@:5}" 2>&1 | tee -a "$LOG_FILE"
+        --max-workers "$MAX_WORKERS" "${EXTRA_ARGS[@]}" "${@:5}" 2>&1 | emit
 }
 
 # Validate every cell before the first run, so a typo in CELLS cannot stop the

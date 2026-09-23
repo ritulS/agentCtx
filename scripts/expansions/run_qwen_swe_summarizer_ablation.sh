@@ -25,7 +25,7 @@ set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"
@@ -45,7 +45,7 @@ RUN_EVAL="${RUN_EVAL:-1}"
 N_TASKS="${N_TASKS:-}"          # empty = every task in TASKS_FILE
 # "cell:condition:depth" triples; override CELLS to run a subset.
 CELLS="${CELLS:-d05__b15k__su-full:summarization:0.5 di__b15k__trc-su:trc-su:0.5}"
-LOG_FILE="${SB_SUMABL_LOG_FILE:-$WS/logs/followup_sb_qwen_sumabl_${ICLR_MODEL}.log}"
+LOG_FILE="${SB_SUMABL_LOG_FILE:-$(experiment_log "followup_sb_qwen_sumabl_${ICLR_MODEL}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
@@ -71,7 +71,7 @@ if [[ -n "$N_TASKS" ]]; then
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
 fi
 
-exec 9>"logs/qwen_sb_sumabl_${ICLR_MODEL}.lock"
+exec 9>"$EXPERIMENT_LOG_DIR/qwen_sb_sumabl_${ICLR_MODEL}.lock"
 flock -n 9 || { echo "Summarizer-ablation launcher for $ICLR_MODEL already running." >&2; exit 1; }
 
 for url in "$AGENT_HEALTH_URL" "$SUMMARY_HEALTH_URL"; do
@@ -87,7 +87,7 @@ if [[ -n "$summary_api_base" && "$summary_api_base" == "$agent_api_base" ]]; the
     exit 1
 fi
 
-log() { echo "[$(date)] $*" | tee -a "$LOG_FILE"; }
+log() { echo "[$(date)] $*" | emit; }
 log "=== Summarizer ablation (SWE-Bench) | dest: $ICLR_SECTION/$ICLR_MODEL | agent: $AGENT_CONFIG | summarizer: $SUMMARY_CONFIG ==="
 log "=== budget=$BUDGET runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL ==="
 
@@ -99,7 +99,7 @@ run_runner() {
         --agent-config "$AGENT_CONFIG" --summary-config "$SUMMARY_CONFIG" \
         --budget "$BUDGET" --depth "$3" --tasks-file "$TASKS_FILE" \
         --conditions "$2" --runs-per-task "$RUNS_PER_TASK" \
-        --max-workers "$MAX_WORKERS" "${EXTRA_ARGS[@]}" "${@:4}" 2>&1 | tee -a "$LOG_FILE"
+        --max-workers "$MAX_WORKERS" "${EXTRA_ARGS[@]}" "${@:4}" 2>&1 | emit
 }
 
 for spec in $CELLS; do

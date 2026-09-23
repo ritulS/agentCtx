@@ -30,7 +30,6 @@ need rebuilding for serving/tbench.
   **Do not restart it mid-run**: the launcher logs per-cell prefix-cache hit rates from
   the server's `/metrics` counters. Smoke test (1 task, su-full): 76.5% hit rate.
 - **Launch:** `bash scripts/notify_run.sh --unit prefix-cache-ablation/swebench/qwen35b-prefixcache
-  --log logs/followup_sb_qwen_prefixcache.nohup.log
   -- bash scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh` (launched with the former
   `run_qwen_swe_prefix_cache_ablation_notified.sh`, now folded into `notify_run.sh`; refuses to start unless the
   server on the agent port was started with `--enable-prefix-caching`; safe to re-run,
@@ -44,7 +43,6 @@ need rebuilding for serving/tbench.
   Launch only those two, so the 11 finished cells are not re-evaluated:
   `CELLS="di__binf__fc:full-context:0.5 di__binf__otrc:online-trc:0.5" bash
   scripts/notify_run.sh --unit prefix-cache-ablation/swebench/qwen35b-prefixcache-baselines
-  --log logs/followup_sb_qwen_prefixcache_baselines.nohup.log
   -- bash scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh`
   Same limits as the caching-off `main/qwen35b/di__binf__*` cells (125 steps, 1500 s); compare
   against their original attempts, not the 200/300-step FC limit-failure re-runs.
@@ -125,8 +123,9 @@ need rebuilding for serving/tbench.
 - **Command:** `SECTIONS=main MAX_WORKERS=16 RUN_EVAL=1 QWEN_{A,P,B}_BUDGET=10000/15000/20000
   bash scripts/expansions/run_agent_models_expansion_notified.sh qwen` (nohup, log
   `logs/followup_agent_models_qwen_launcher.log`; that wrapper is now
-  `bash scripts/notify_run.sh --unit agent-model-expansion/qwen --log
-  logs/followup_agent_models_qwen_launcher.log -- bash scripts/expansions/run_agent_models_expansion.sh qwen`). `SECTIONS` is a new
+  `bash scripts/notify_run.sh --unit agent-model-expansion/qwen -- bash
+  scripts/expansions/run_agent_models_expansion.sh qwen`, logging to
+  `logs/experiments/agent-model-expansion_qwen_<ts>.log`). `SECTIONS` is a new
   override in `scripts/expansions/run_agent_models_expansion.sh` (uncommitted at launch).
 - **Not covered by this launch:** main 10k/20k cells (2,607 rerun rows; 1,912
   are NEW-70 tasks with no ablation counterpart). **Before running
@@ -150,7 +149,7 @@ need rebuilding for serving/tbench.
   the production log is kept). Stop a caching-on server first:
   `bash scripts/serving/stop_vllm.sh logs/vllm_qwen35.pid`.
 - **Launch:** `bash scripts/notify_run.sh --unit qwen-terminal-bench-prefix-cache-ablation/qwen35b-noprefixcache
-  --lock qwen_tb_noprefixcache --log logs/followup_tb_qwen_noprefixcache.nohup.log
+  --lock qwen_tb_noprefixcache
   -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh` (launched with the former
   `run_qwen_tb_prefix_cache_ablation_with_slack.sh`, now folded into `notify_run.sh`; refuses to start unless the
   server on the agent port was started with `--no-enable-prefix-caching`; stops the grid

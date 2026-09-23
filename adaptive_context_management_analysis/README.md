@@ -162,7 +162,8 @@ export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'
 bash $L                              # phase 1; detaches, prints the wrapper PID
 PHASE=2 bash $L
 PHASE=3 bash $L
-kill $(cat logs/rerun_qwen35b_fc_limits_phase1.pid)   # stop (sends a "terminated" notice)
+kill $(cat logs/experiments/rerun_qwen35b_fc_limits_phase1.pid)   # stop (sends a "terminated" notice)
+tail -f logs/experiments/rerun_qwen35b_fc_limits_phase1.latest.log
 ```
 
 Preflight refuses to start unless `SLACK_WEBHOOK_URL` is set (or

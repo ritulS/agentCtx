@@ -19,7 +19,7 @@ refuses to start when the port or another GLM server is already in use.
 ```bash
 cd /home/ak58925/agentCtx
 GLM_MAX_MODEL_LEN=native bash scripts/serving/start_vllm_glm47flash.sh
-tail -f logs/vllm_glm47flash.log
+tail -f logs/servers/vllm_glm47flash.latest.log
 ```
 
 `native` omits `--max-model-len` entirely. The ordinary launcher default remains

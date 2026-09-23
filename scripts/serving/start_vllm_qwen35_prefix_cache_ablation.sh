@@ -11,18 +11,18 @@
 # Prefix caching is ON, as in every production Terminal-Bench run. The
 # prefix-cache ablation (dashboard 5.b) serves the same command with it OFF:
 # QWEN_PREFIX_CACHING=0, normally through scripts/serving/start_vllm_qwen35_no_prefix_cache.sh.
-# That server logs to logs/vllm_qwen35_noprefixcache.log, so the production
+# That server logs to logs/servers/vllm_qwen35_noprefixcache_<ts>.log, so the production
 # log (and its enable_prefix_caching=True engine config) is not overwritten.
 #
 # Usage:  bash scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh
 # Native context: QWEN_MAX_MODEL_LEN=native bash scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh
-# Tail:   tail -f logs/vllm_qwen35.log
-# Stop:   bash scripts/serving/stop_vllm.sh logs/vllm_qwen35.pid
+# Tail:   tail -f logs/servers/vllm_qwen35.latest.log
+# Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_qwen35.pid
 set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 PORT="${QWEN_VLLM_PORT:-8000}"
 MODEL="${QWEN_MODEL:-Qwen/Qwen3.5-35B-A3B}"
@@ -39,11 +39,11 @@ PYTHON_BIN="${QWEN_VLLM_PYTHON:-$WS/venv/bin/python3}"
 # model, but the flag is always passed explicitly so launchers can verify the
 # serving condition from the server's command line.
 case "${QWEN_PREFIX_CACHING:-1}" in
-    1) PREFIX_CACHE_ARG=--enable-prefix-caching;    LOG_FILE="$WS/logs/vllm_qwen35.log" ;;
-    0) PREFIX_CACHE_ARG=--no-enable-prefix-caching; LOG_FILE="$WS/logs/vllm_qwen35_noprefixcache.log" ;;
+    1) PREFIX_CACHE_ARG=--enable-prefix-caching;    LOG_FILE="$(server_log vllm_qwen35)" ;;
+    0) PREFIX_CACHE_ARG=--no-enable-prefix-caching; LOG_FILE="$(server_log vllm_qwen35_noprefixcache)" ;;
     *) echo "[ERROR] QWEN_PREFIX_CACHING must be 1 or 0: ${QWEN_PREFIX_CACHING}" >&2; exit 1 ;;
 esac
-PID_FILE="$WS/logs/vllm_qwen35.pid"
+PID_FILE="$SERVER_LOG_DIR/vllm_qwen35.pid"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
     echo "[ERROR] Python executable not found: $PYTHON_BIN" >&2

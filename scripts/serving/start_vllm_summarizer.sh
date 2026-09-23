@@ -15,8 +15,8 @@
 #
 # Usage:  bash scripts/serving/start_vllm_summarizer.sh qwen35-9b
 #         bash scripts/serving/start_vllm_summarizer.sh gemma4-12b
-# Tail:   tail -f logs/vllm_summarizer_<name>.log
-# Stop:   bash scripts/serving/stop_vllm.sh logs/vllm_summarizer_<name>.pid
+# Tail:   tail -f logs/servers/vllm_summarizer_<name>.latest.log
+# Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_summarizer_<name>.pid
 #         (a plain `kill <pid>` can leave EngineCore/Worker processes holding GPU memory)
 # Overrides: SUMMARIZER_VLLM_PORT, SUMMARIZER_CUDA_VISIBLE_DEVICES, SUMMARIZER_TENSOR_PARALLEL_SIZE,
 #   SUMMARIZER_MAX_MODEL_LEN (or "native"), SUMMARIZER_MAX_NUM_SEQS,
@@ -25,7 +25,7 @@ set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 NAME="${1:-}"
 case "$NAME" in
@@ -55,8 +55,8 @@ fi
 MAX_NUM_SEQS="${SUMMARIZER_MAX_NUM_SEQS:-64}"
 GPU_MEM_UTIL="${SUMMARIZER_GPU_MEMORY_UTILIZATION:-0.15}"
 PYTHON_BIN="${SUMMARIZER_VLLM_PYTHON:-$DEFAULT_PYTHON}"
-LOG_FILE="$WS/logs/vllm_summarizer_${NAME}.log"
-PID_FILE="$WS/logs/vllm_summarizer_${NAME}.pid"
+LOG_FILE="$(server_log "vllm_summarizer_${NAME}")"
+PID_FILE="$SERVER_LOG_DIR/vllm_summarizer_${NAME}.pid"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
     echo "[ERROR] Python executable not found: $PYTHON_BIN" >&2

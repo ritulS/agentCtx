@@ -110,7 +110,7 @@ fakes: SWE-bench ids ending in `-crash` / `-nopatch` / `-applyfail` /
 | `test_tb_verdict.py` | pyyaml | Terminal-Bench verdict handling, re-run loop, superseded attempts |
 | `test_iclr_summarizer_guard.py` | – | `agentctx.experiments.iclr.validate_summarizer` |
 | `test_ablation_launch.py` | bash | ABL-25 selection in `run_agent_models_expansion.sh`, selective evaluation |
-| `test_notify_run.py` | bash, flock | `scripts/notify_run.sh` (notices, lock, PID file, signal forwarding, `--on-success`) and `dashboard/notify_slack.py` |
+| `test_notify_run.py` | bash, flock | `scripts/notify_run.sh` (notices, lock, PID file, signal forwarding, `--on-success`, background/foreground), `scripts/lib/logpaths.sh` (timestamped logs, log ownership) and `dashboard/notify_slack.py` |
 | `test_summary_query.py` | litellm, mini-swe-agent (`venv`) | prose summaries through mini-swe-agent v2 models |
 | `test_harbor_cancellation.py` | Harbor, mini-swe-agent (`venv-harbor`) | worker cancellation in the Harbor adapter |
 | `test_replay.py` | Harbor (`venv-harbor`) | trajectory replay re-verification |

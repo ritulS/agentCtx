@@ -9,8 +9,8 @@
 #
 # Usage:  bash scripts/serving/start_vllm_devstral.sh
 # Native context: DEVSTRAL_MAX_MODEL_LEN=native bash scripts/serving/start_vllm_devstral.sh
-# Tail:   tail -f logs/vllm_devstral.log
-# Stop:   kill $(cat logs/vllm_devstral.pid)
+# Tail:   tail -f logs/servers/vllm_devstral.latest.log
+# Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_devstral.pid
 set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
@@ -37,7 +37,7 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
     exit 1
 fi
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 # Refuse if port already in use.
 if ss -ltnp 2>/dev/null | grep -q ':8002 '; then
@@ -53,6 +53,8 @@ if pgrep -f 'vllm.entrypoints.openai.api_server.*Devstral' >/dev/null; then
     exit 1
 fi
 
+LOG_FILE="$(server_log vllm_devstral)"
+PID_FILE="$SERVER_LOG_DIR/vllm_devstral.pid"
 # Keep the existing dtype/KV-cache precision; native only removes the context cap.
 CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
@@ -63,14 +65,14 @@ CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
     "${CONTEXT_ARGS[@]}" \
     --max-num-seqs "$MAX_NUM_SEQS" \
     --enable-prefix-caching \
-    < /dev/null > logs/vllm_devstral.log 2>&1 &
+    < /dev/null > "$LOG_FILE" 2>&1 &
 
 VLLM_PID=$!
-echo "$VLLM_PID" > logs/vllm_devstral.pid
+echo "$VLLM_PID" > "$PID_FILE"
 disown || true
 echo "[$(date)] vLLM Devstral-Small-2-24B-2512 launched as PID $VLLM_PID"
-echo "[$(date)] Log: logs/vllm_devstral.log"
-echo "[$(date)] PID file: logs/vllm_devstral.pid"
+echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "Wait for 'Uvicorn running on http://0.0.0.0:8002' (typically 30-90s),"
 echo "then verify with:"

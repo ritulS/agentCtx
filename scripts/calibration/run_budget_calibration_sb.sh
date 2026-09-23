@@ -14,10 +14,9 @@ WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PYTHON_BIN="${PYTHON_BIN:-$WORKSPACE/venv/bin/python}"
 TASKS_FILE="${TASKS_FILE:-$WORKSPACE/task_lists/p100_all_100_tasks.json}"
 MAX_WORKERS="${MAX_WORKERS:-16}"
-LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_sb.py"
-LOG_DIR="$WORKSPACE/logs"
+LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_sb.py"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
-mkdir -p "$LOG_DIR"
 cd "$WORKSPACE"
 
 run_one() {
@@ -55,8 +54,8 @@ run_one() {
         return 1
     fi
 
-    log_file="$LOG_DIR/${model_key}_sb_fc_run1.log"
-    echo "[$(date)] === $model_label: SWE-Bench P100, FC@infinity, run_1 ===" | tee -a "$log_file"
+    log_file="$(experiment_log "${model_key}_sb_fc_run1")"
+    echo "[$(date)] === $model_label: SWE-Bench P100, FC@infinity, run_1 ===" | emit "$log_file"
 
     "$PYTHON_BIN" "$LAUNCHER" \
         --model-key "$model_key" \
@@ -64,9 +63,9 @@ run_one() {
         --agent-config "$agent_config" \
         --tasks-file "$TASKS_FILE" \
         --max-workers "$MAX_WORKERS" \
-        2>&1 | tee -a "$log_file"
+        2>&1 | emit "$log_file"
 
-    echo "[$(date)] === $model_label DONE ===" | tee -a "$log_file"
+    echo "[$(date)] === $model_label DONE ===" | emit "$log_file"
 }
 
 selection="${1:-}"

@@ -19,6 +19,7 @@
 set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 SOURCE_DATASET="${TB2_HARBOR_SOURCE_DATASET:-}"
 WORK_DATASET="${TB2_HARBOR_WORK_DATASET:-$WS/data/tb2-harbor-prebuilt-2.0}"
 REFRESH="${TB2_REFRESH_WORKING_COPY:-0}"
@@ -73,6 +74,6 @@ fi
 
 export TB_HARBOR_DATASET="$WORK_DATASET"
 export TB_IMAGE_PREFIX="${TB_IMAGE_PREFIX:-tb2}"
-export TB_PREBUILD_LOG="${TB_PREBUILD_LOG:-$WS/logs/tb2_harbor_prebuild.log}"
+export TB_PREBUILD_LOG="${TB_PREBUILD_LOG:-$(experiment_log tb2_harbor_prebuild)}"
 
-exec bash "$WS/scripts/tb_harbor_prebuild_images.sh" "$@"
+exec bash "$WS/scripts/harbor/tb_harbor_prebuild_images.sh" "$@"

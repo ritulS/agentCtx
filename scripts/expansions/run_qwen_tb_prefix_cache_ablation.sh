@@ -4,7 +4,7 @@
 #
 # The production Qwen runs (ICLR_results/terminalbench/{main,ablation}/qwen35b)
 # were served with prefix caching on (scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh passes
-# --enable-prefix-caching; logs/vllm_qwen35.log: enable_prefix_caching=True).
+# --enable-prefix-caching; logs/servers/vllm_qwen35_<ts>.log: enable_prefix_caching=True).
 # This launcher repeats the 3K / canonical-depth grid and the unlimited-budget
 # baselines with caching off, everything else unchanged — the mirror image of
 # scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh (5.a), which turns caching ON
@@ -44,7 +44,7 @@ set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 PY="${TB_PYTHON_BIN:-$WS/venv-harbor/bin/python}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"
@@ -73,7 +73,7 @@ di__b3k__otrc-su-partial:otrc-su-partial:0.5 \
 di__b3k__otrc-ss-partial:otrc-ss-partial:0.5 \
 di__binf__fc:full-context:0.5 \
 di__binf__otrc:online-trc:0.5}"
-LOG_FILE="${TB_PREFIXCACHE_LOG_FILE:-$WS/logs/followup_tb_qwen_${ICLR_MODEL}.log}"
+LOG_FILE="${TB_PREFIXCACHE_LOG_FILE:-$(experiment_log "followup_tb_qwen_${ICLR_MODEL}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
@@ -89,7 +89,7 @@ if [[ -n "$N_TASKS" ]]; then
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
 fi
 
-exec 9>"logs/qwen_tb_${ICLR_MODEL}.lock"
+exec 9>"$EXPERIMENT_LOG_DIR/qwen_tb_${ICLR_MODEL}.lock"
 flock -n 9 || { echo "Prefix-cache ablation launcher for $ICLR_MODEL already running." >&2; exit 1; }
 
 curl -fsS --max-time 5 "$AGENT_HEALTH_URL" >/dev/null || {
@@ -118,12 +118,12 @@ server_cmdline="$(tr '\0' ' ' < "/proc/$server_pid/cmdline")"
 if [[ " $server_cmdline " != *" --no-enable-prefix-caching "* || " $server_cmdline " == *" --enable-prefix-caching "* ]]; then
     echo "[ERROR] the vLLM server on port $port (PID $server_pid) was not started with --no-enable-prefix-caching:" >&2
     echo "  $server_cmdline" >&2
-    echo "Restart it with: bash scripts/serving/stop_vllm.sh logs/vllm_qwen35.pid &&" \
+    echo "Restart it with: bash scripts/serving/stop_vllm.sh logs/servers/vllm_qwen35.pid &&" \
          "bash scripts/serving/start_vllm_qwen35_no_prefix_cache.sh" >&2
     exit 1
 fi
 
-log() { echo "[$(date)] $*" | tee -a "$LOG_FILE"; }
+log() { echo "[$(date)] $*" | emit; }
 
 # "queries hits" token counters of the server's prefix cache (vLLM /metrics).
 # With caching off the hit counter must not move.
@@ -171,7 +171,7 @@ for spec in $CELLS; do
         --agent-config "$AGENT_CONFIG" --otrc-config "$OTRC_CONFIG" \
         --budget "$budget" --depth "$depth" --tasks-file "$TASKS_FILE" \
         --conditions "$condition" --runs-per-task "$RUNS_PER_TASK" \
-        --max-workers "$N_CONCURRENT" "${EXTRA_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
+        --max-workers "$N_CONCURRENT" "${EXTRA_ARGS[@]}" 2>&1 | emit
     log_prefix_cache_delta "$cell" "$cell_q0" "$cell_h0" || {
         log "[ERROR] the server recorded prefix-cache hits during $cell: it is not serving with caching off."
         log "[ERROR] Stopping the grid; the runs of $cell are not valid caching-off runs."

@@ -10,8 +10,8 @@
 # server shares the process group whose id is the PID in the pid file; this
 # script signals that whole group and waits for it to disappear.
 #
-# Usage:  bash scripts/serving/stop_vllm.sh logs/vllm_summarizer_qwen35-9b.pid
-#         bash scripts/serving/stop_vllm.sh logs/vllm_qwen35.pid
+# Usage:  bash scripts/serving/stop_vllm.sh logs/servers/vllm_summarizer_qwen35-9b.pid
+#         bash scripts/serving/stop_vllm.sh logs/servers/vllm_qwen35.pid
 set -euo pipefail
 
 PID_FILE="${1:-}"

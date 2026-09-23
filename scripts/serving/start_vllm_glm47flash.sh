@@ -7,8 +7,8 @@
 #
 # Usage:  bash scripts/serving/start_vllm_glm47flash.sh
 # Model-native context: GLM_MAX_MODEL_LEN=native bash scripts/serving/start_vllm_glm47flash.sh
-# Tail:   tail -f logs/vllm_glm47flash.log
-# Stop:   kill -TERM "$(cat logs/vllm_glm47flash.pid)"
+# Tail:   tail -f logs/servers/vllm_glm47flash.latest.log
+# Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_glm47flash.pid
 set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
@@ -34,12 +34,11 @@ if [[ "$MAX_MODEL_LEN" != "native" ]]; then
     CONTEXT_ARGS+=(--max-model-len "$MAX_MODEL_LEN")
 fi
 
-LOG_FILE="$WORKSPACE/logs/vllm_glm47flash.log"
-PID_FILE="$WORKSPACE/logs/vllm_glm47flash.pid"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+PID_FILE="$SERVER_LOG_DIR/vllm_glm47flash.pid"
 PYTHON_BIN="${PYTHON_BIN:-$WORKSPACE/venv-glm-cu129-clean/bin/python3}"
 
 cd "$WORKSPACE"
-mkdir -p logs
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
     echo "[ERROR] Python executable not found: $PYTHON_BIN" >&2
@@ -58,8 +57,9 @@ if pgrep -f "vllm.entrypoints.openai.api_server.*GLM-4.7-Flash" >/dev/null; then
     exit 1
 fi
 
+LOG_FILE="$(server_log vllm_glm47flash)"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
-  nohup "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+  nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     --model "$MODEL" \
     --port "$PORT" \
     --dtype auto \
@@ -77,7 +77,7 @@ echo "[$(date)] Log: $LOG_FILE"
 echo "[$(date)] PID file: $PID_FILE"
 echo
 echo "The first launch may need time to download the model. Follow progress with:"
-echo "  tail -f logs/vllm_glm47flash.log"
+echo "  tail -f logs/servers/vllm_glm47flash.latest.log"
 echo
 echo "When startup completes, verify the server with:"
 echo "  curl -s http://localhost:${PORT}/v1/models | python3 -m json.tool"

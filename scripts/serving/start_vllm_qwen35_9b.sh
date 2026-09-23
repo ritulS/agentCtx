@@ -5,13 +5,13 @@
 # (scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh). Consumed by configs/config-summary-qwen35-9b.yaml.
 #
 # Usage:  bash scripts/serving/start_vllm_qwen35_9b.sh
-# Tail:   tail -f logs/vllm_qwen35_9b.log
-# Stop:   kill "$(cat logs/vllm_qwen35_9b.pid)"
+# Tail:   tail -f logs/servers/vllm_qwen35_9b.latest.log
+# Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_qwen35_9b.pid
 set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 PORT="${QWEN9B_VLLM_PORT:-8001}"
 MODEL="${QWEN9B_MODEL:-Qwen/Qwen3.5-9B}"
@@ -27,8 +27,8 @@ if [[ "$MAX_MODEL_LEN" != "native" ]]; then
 fi
 MAX_NUM_SEQS="${QWEN9B_MAX_NUM_SEQS:-64}"
 PYTHON_BIN="${QWEN9B_VLLM_PYTHON:-$WS/venv/bin/python3}"
-LOG_FILE="$WS/logs/vllm_qwen35_9b.log"
-PID_FILE="$WS/logs/vllm_qwen35_9b.pid"
+LOG_FILE="$(server_log vllm_qwen35_9b)"
+PID_FILE="$SERVER_LOG_DIR/vllm_qwen35_9b.pid"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
     echo "[ERROR] Python executable not found: $PYTHON_BIN" >&2
@@ -81,6 +81,6 @@ echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "The first launch may download the model and take several minutes."
 echo "Follow startup with:"
-echo "  tail -f logs/vllm_qwen35_9b.log"
+echo "  tail -f logs/servers/vllm_qwen35_9b.latest.log"
 echo "Verify when ready with:"
 echo "  curl -s http://localhost:${PORT}/v1/models | python3 -m json.tool"

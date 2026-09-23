@@ -10,7 +10,8 @@
 #   gpu4-7 : depth-invariant @ 0.5 (A/B) + depth-tunable singles @ 0.5 (A/B) =   990 runs
 # Override the split with ABLATION_PARTS (subset of "d05 d03 d07 di"); all other
 # settings match run_agent_models_expansion_tb.sh exactly. Completed runs are skipped.
-# Slack notices, the per-group lock, log and backgrounding come from scripts/notify_run.sh.
+# Slack notices, the per-group lock, the timestamped log under logs/experiments/ and
+# the backgrounding come from scripts/notify_run.sh.
 set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
@@ -32,6 +33,5 @@ export N_CONCURRENT="${N_CONCURRENT:-4}"
 
 exec bash scripts/notify_run.sh ${FOREGROUND:+--foreground} \
     --unit "glm-terminal-bench-ablation-${group}" \
-    --lock "glm_tb_ablation_${group}" \
-    --log "${GLM_TB_LOG_FILE:-logs/followup_tb_glm_ablation_${group}.nohup.log}" \
+    --lock "glm_tb_ablation_${group}" ${GLM_TB_LOG_FILE:+--log "$GLM_TB_LOG_FILE"} \
     -- bash scripts/expansions/run_agent_models_expansion_tb.sh glm ablation

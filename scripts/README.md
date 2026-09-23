@@ -63,8 +63,8 @@ launcher and everything it spawned before the notice goes out) and an
 optional per-experiment lock. The wrapper validates its arguments, takes the
 lock and checks the webhook, then detaches (nohup + setsid) and prints the
 wrapper PID; `kill <PID>` stops the run and posts a "killed" notice. The
-launcher's stdout / stderr are appended to `--log` (default
-`logs/<unit>.log`). Environment overrides of the launcher pass through
+launcher's stdout / stderr go to a new `logs/experiments/<unit>_<timestamp>.log`
+(or `--log FILE`). Environment overrides of the launcher pass through
 unchanged. `--foreground` keeps the run attached to the terminal (smoke
 tests, sequential chains).
 
@@ -77,7 +77,6 @@ bash scripts/notify_run.sh --unit qwen-terminal-bench-main --lock qwen_tb_main \
 
 # SWE-Bench model grid (previously run_agent_models_expansion_notified.sh)
 MAX_WORKERS=16 RUN_EVAL=1 bash scripts/notify_run.sh --unit agent-model-expansion/glm \
-    --log logs/followup_agent_models_glm_launcher.log \
     -- bash scripts/expansions/run_agent_models_expansion.sh glm
 
 # Summarizer / prefix-cache ablations (previously *_notified.sh / *_with_slack.sh)
@@ -93,7 +92,30 @@ bash scripts/notify_run.sh --foreground --unit smoke -- bash scripts/expansions/
 
 `--on-success '<command>'` runs a follow-up (for example a results summary)
 after a clean exit; `--pid-file` records the launched command's PID for
-chained scripts. `dashboard/notify_slack.py` is the notifier it calls
+chained scripts.
+
+### Log files: `lib/logpaths.sh`
+
+Every shell launcher sources `scripts/lib/logpaths.sh`, which fixes where
+logs go and who writes them:
+
+| Path | Contents |
+| --- | --- |
+| `logs/experiments/<name>_<YYYYmmdd_HHMMSS>.log` | launcher / experiment output, one file per launch |
+| `logs/experiments/<name>.latest.log` | symlink to the newest log of that name (`tail -f` target) |
+| `logs/experiments/<name>.{lock,pid}` | locks and PID files of runs |
+| `logs/servers/vllm_<name>_<YYYYmmdd_HHMMSS>.log` (+ `.latest.log`) | vLLM output, one file per start |
+| `logs/servers/vllm_<name>.pid` | the server's process-group id, for `serving/stop_vllm.sh` |
+
+The outermost script owns the log: it creates the file, captures its own
+stdout there and exports `AGENTCTX_LOG_FILE`. Launchers underneath call
+`experiment_log <name>`, which returns the owner's file when one exists and
+otherwise creates their own, and pipe through `emit`, which only tee's when
+the launcher owns the file. So `bash scripts/expansions/...` on its own
+writes `logs/experiments/followup_..._<ts>.log`, and the same launcher under
+`notify_run.sh` writes only into the wrapper's log, never twice. Data
+directories under `logs/` (`harbor_jobs/`, `replay_reverify/`, `reeval/`,
+`tb_verdict_audit/`) are unaffected. `dashboard/notify_slack.py` is the notifier it calls
 (`start <unit>` / `stop <unit> <result> <status> <log>`); `python3
 dashboard/notify_slack.py test` checks the webhook. `tests/test_notify_run.py`
 covers the wrapper.
@@ -101,9 +123,11 @@ covers the wrapper.
 ## Serving and Harbor setup
 
 `serving/start_vllm_{qwen35_prefix_cache_ablation,qwen35_prefix_cache,qwen35_no_prefix_cache,qwen35_9b,qwen35_swe_summarizer_ablation,devstral,glm47flash,summarizer}.sh`
-start the selected model; `serving/stop_vllm.sh <pid file>` stops a server with
-its process group. Check each script's environment overrides and GPU
-requirements before use.
+start the selected model, logging to `logs/servers/vllm_<name>_<timestamp>.log`
+(`vllm_<name>.latest.log` follows the newest start) with the process-group id
+in `logs/servers/vllm_<name>.pid`; `serving/stop_vllm.sh <pid file>` stops a
+server with its process group. Check each script's environment overrides and
+GPU requirements before use.
 
 `harbor/tb_harbor_prebuild_images.sh` builds Terminal-Bench 1.0 task images and
 calls `harbor/configure_tb_harbor_prebuilt.py` to update task and Compose

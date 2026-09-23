@@ -19,7 +19,7 @@ DEVSTRAL_MAX_MODEL_LEN=native \
 DEVSTRAL_MAX_NUM_SEQS=4 \
 bash scripts/serving/start_vllm_devstral.sh
 
-tail -f logs/vllm_devstral.log
+tail -f logs/servers/vllm_devstral.latest.log
 ```
 
 The server is detached with nohup/setsid. Ctrl-C on `tail` only stops tail.
@@ -57,7 +57,7 @@ print(m["id"], "max_model_len =", m.get("max_model_len"))
 assert m.get("max_model_len") == 393216, m
 '
 rg -o 'max_seq_len=[0-9]+|enable_prefix_caching=(True|False)|kv_cache_dtype=[^, ]+' \
-  logs/vllm_devstral.log
+  logs/servers/vllm_devstral.latest.log
 curl -fsS http://localhost:8002/metrics \
   | rg '^vllm:prefix_cache_(hits|queries)_total'
 ```
@@ -90,7 +90,7 @@ checks above pass. All 80 task images must be available or buildable.
 
 ```bash
 mkdir -p "$DEV_CAL_DIR"
-cp logs/vllm_devstral.log "$DEV_CAL_DIR/vllm_startup.log"
+cp logs/servers/vllm_devstral.latest.log "$DEV_CAL_DIR/vllm_startup.log"
 cp configs/config-devstral-vllm.yaml "$DEV_CAL_DIR/agent_config.yaml"
 curl -fsS http://localhost:8002/v1/models > "$DEV_CAL_DIR/vllm_models.json"
 

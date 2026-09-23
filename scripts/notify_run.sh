@@ -8,12 +8,14 @@
 #
 #   --unit NAME        label shown in the Slack notices (required)
 #   --log FILE         the command's stdout/stderr are appended here and the path is
-#                      quoted in the completion notice (default: logs/<unit>.log,
-#                      with "/" in the unit replaced by "_")
-#   --lock NAME        refuse to start while logs/NAME.lock is held by another
-#                      notify_run.sh (flock); the lock is released when the
-#                      command and the wrapper have both exited
-#   --pid-file FILE    write the command's PID here while it runs
+#                      quoted in the completion notice (default: a new
+#                      logs/experiments/<unit>_<timestamp>.log, with "/" in the
+#                      unit replaced by "_", plus a <unit>.latest.log symlink)
+#   --lock NAME        refuse to start while logs/experiments/NAME.lock is held by
+#                      another notify_run.sh (flock); the lock is released when
+#                      the command and the wrapper have both exited
+#   --pid-file FILE    write the command's PID here while it runs (a bare name
+#                      goes to logs/experiments/NAME.pid)
 #   --on-success CMD   run `bash -c CMD` after the completion notice when the
 #                      command exited 0 (UNIT and LOG_FILE are exported to it)
 #   --foreground       stay attached: run the command in this terminal, mirror
@@ -38,6 +40,11 @@
 # status of the wrapper is the exit status of the command (129 / 130 / 143 when
 # it was signalled).
 #
+# The wrapper owns the log: AGENTCTX_LOG_FILE is exported to the command, and
+# launchers that source scripts/lib/logpaths.sh then write to stdout only, so
+# nothing is logged twice. Run from a script that already owns a log
+# (--foreground with AGENTCTX_LOG_FILE set), the wrapper keeps writing there.
+#
 # Examples:
 #   SLACK_WEBHOOK_URL=... bash scripts/notify_run.sh \
 #       --unit qwen-terminal-bench-main --lock qwen_tb_main \
@@ -47,6 +54,8 @@ set -uo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$WS"
+source "$(dirname "${BASH_SOURCE[0]}")/lib/logpaths.sh"
+NOTIFY_RUN_OUTER_LOG="${AGENTCTX_LOG_FILE:-}"
 
 usage() {
     sed -n '2,/^set -uo/p' "${BASH_SOURCE[0]}" | sed '$d' | sed 's/^# \{0,1\}//' >&2
@@ -74,15 +83,23 @@ while (( $# )); do
 done
 (( $# )) || { echo "notify_run.sh: no command given after --" >&2; usage; }
 [[ -n "$UNIT" ]] || { echo "notify_run.sh: --unit is required" >&2; usage; }
-[[ -n "$LOG_FILE" ]] || LOG_FILE="logs/${UNIT//\//_}.log"
-mkdir -p logs "$(dirname "$LOG_FILE")"
-
+mkdir -p "$EXPERIMENT_LOG_DIR"
 # NOTIFY_RUN_DETACHED=1 marks the re-executed background copy: it inherits the
-# lock on fd 9 from the parent below and must not open it again.
+# lock on fd 9 and the log file from the parent below.
 DETACHED="${NOTIFY_RUN_DETACHED:-0}"
+if [[ -z "$LOG_FILE" ]]; then
+    if (( FOREGROUND )) && [[ -n "${AGENTCTX_LOG_FILE:-}" ]]; then
+        LOG_FILE="$AGENTCTX_LOG_FILE"          # an outer script owns the log
+    else
+        LOG_FILE="$(new_log_file "$EXPERIMENT_LOG_DIR" "${UNIT//\//_}")"
+    fi
+fi
+mkdir -p "$(dirname "$LOG_FILE")"
+[[ "$PID_FILE" == */* || -z "$PID_FILE" ]] || PID_FILE="$EXPERIMENT_LOG_DIR/$PID_FILE"
+
 if [[ -n "$LOCK_NAME" && "$DETACHED" != "1" ]]; then
-    exec 9>"logs/${LOCK_NAME}.lock"
-    flock -n 9 || { echo "notify_run.sh: '$LOCK_NAME' is already running (logs/${LOCK_NAME}.lock)." >&2; exit 1; }
+    exec 9>"$EXPERIMENT_LOG_DIR/${LOCK_NAME}.lock"
+    flock -n 9 || { echo "notify_run.sh: '$LOCK_NAME' is already running ($EXPERIMENT_LOG_DIR/${LOCK_NAME}.lock)." >&2; exit 1; }
 fi
 
 if [[ -z "${SLACK_WEBHOOK_URL:-}" && "${ALLOW_NO_SLACK:-0}" != "1" ]]; then
@@ -100,10 +117,11 @@ if (( ! FOREGROUND )) && [[ "$DETACHED" != "1" ]]; then
         -- "$@" >>"$LOG_FILE" 2>&1 </dev/null &
     wrapper_pid=$!
     echo "notify_run.sh: started '$UNIT' in the background (wrapper PID $wrapper_pid)."
-    echo "  log:  $LOG_FILE"
+    echo "  log:  ${LOG_FILE#"$WS"/}"
     echo "  stop: kill $wrapper_pid"
     exit 0
 fi
+export AGENTCTX_LOG_FILE="$LOG_FILE"
 
 PY="${NOTIFY_PYTHON:-python3}"
 NOTIFIER="$WS/dashboard/notify_slack.py"
@@ -150,10 +168,14 @@ header="[$(stamp)] notify_run.sh: unit=$UNIT log=$LOG_FILE wrapper=$$ command: $
 # Own session/process group so a stop signal reaches the command and everything
 # it spawned. Detached: stdout is already the log file. Foreground: the process
 # substitution mirrors the output and keeps $! pointing at the command (whose
-# PID is its group id) rather than at tee.
+# PID is its group id) rather than at tee. When an outer script owns the log
+# (foreground, same file) stdout already flows there and nothing is tee'd.
 if [[ "$DETACHED" == "1" ]]; then
     echo "$header"
     setsid "$@" >>"$LOG_FILE" 2>&1 &
+elif [[ "$LOG_FILE" == "${NOTIFY_RUN_OUTER_LOG:-}" ]]; then
+    echo "$header"
+    setsid "$@" 2>&1 &
 else
     echo "$header" | tee -a "$LOG_FILE"
     setsid "$@" > >(tee -a "$LOG_FILE") 2>&1 &

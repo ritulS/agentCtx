@@ -85,6 +85,14 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 - `exp_plans/` — HANDOFF_COHERENCE (current direction), PRIOR_WORK_MLSys,
   DOBBY_PLAN, ALBUS_PLAN, CHARACTERIZATION_PAPER_PLAN_100tasks. Retired plans
   live in git history or `~/agentCtx_attic/exp_plans/`.
+- `logs/` — gitignored. Shell launchers write
+  `logs/experiments/<name>_<timestamp>.log` (+ `<name>.latest.log` symlink,
+  locks, pid files) and vLLM servers write `logs/servers/vllm_<name>_<timestamp>.log`
+  (+ `vllm_<name>.pid`); the outermost script owns the file through
+  `scripts/lib/logpaths.sh` (`experiment_log`, `emit`, `AGENTCTX_LOG_FILE`).
+  `scripts/notify_run.sh` wraps any launcher with Slack notices and
+  detaches by default. Data directories under `logs/` (`harbor_jobs/`, ...)
+  are separate.
 - `Active_runs.md` — live status of long-running experiments. Update on
   launch/kill/completion.
 - `COVERAGE.csv` — auto-generated cell-coverage sheet (one row per

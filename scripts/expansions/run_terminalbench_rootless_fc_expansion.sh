@@ -18,17 +18,16 @@ set -euo pipefail
 WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PYTHON_BIN="${TB_PYTHON_BIN:-$WORKSPACE/venv-harbor/bin/python}"
 HARBOR_BIN="${HARBOR_BIN:-$WORKSPACE/venv-harbor/bin/harbor}"
-LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
+LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_tb.py"
 TASKS_FILE="${P80_ROOTLESS_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_rootless.json}"
 N_CONCURRENT="${N_CONCURRENT:-4}"
 START_RUN="${START_RUN:-2}"
 END_RUN="${END_RUN:-5}"
 RUN_POSTPROCESS="${RUN_POSTPROCESS:-1}"
 DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
-LOG_DIR="$WORKSPACE/logs"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 export DOCKER_HOST
-mkdir -p "$LOG_DIR"
 cd "$WORKSPACE"
 
 if [[ ! "$START_RUN" =~ ^[2-5]$ || ! "$END_RUN" =~ ^[2-5]$ ]] || (( START_RUN > END_RUN )); then
@@ -81,14 +80,14 @@ run_model() {
     fi
 
     local run_num log_file skip_postprocess=()
-    log_file="$LOG_DIR/${model_key}_tb1_p80_rootless_fc_runs${START_RUN}-${END_RUN}.log"
+    log_file="$(experiment_log "${model_key}_tb1_p80_rootless_fc_runs${START_RUN}-${END_RUN}")"
     for ((run_num=START_RUN; run_num<=END_RUN; run_num++)); do
         skip_postprocess=(--skip-postprocess)
         if [[ "$RUN_POSTPROCESS" == 1 && "$run_num" == "$END_RUN" ]]; then
             skip_postprocess=()
         fi
         echo "[$(date)] === $model_label: TB P-80-rootless FC@infinity run_$run_num ===" \
-            | tee -a "$log_file"
+            | emit "$log_file"
         "$PYTHON_BIN" "$LAUNCHER" \
             --model-key "$model_key" \
             --model-label "$model_label" \
@@ -101,7 +100,7 @@ run_model() {
             --result-scope p80_rootless \
             --job-name "tb1-${model_key}-p80-rootless-fc-run${run_num}" \
             "${skip_postprocess[@]}" \
-            2>&1 | tee -a "$log_file"
+            2>&1 | emit "$log_file"
     done
 }
 

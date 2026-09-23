@@ -22,18 +22,18 @@
 set -uo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 DATASET="${TB_HARBOR_DATASET:-$WS/data/tb1-harbor-0.1.1}"
 PODMAN="${TB_PODMAN:-/home/rs67788/.local/bin/podman}"
 PYTHON_BIN="${TB_PYTHON_BIN:-$WS/venv-harbor/bin/python}"
 UV_BIN="${TB_UV_BIN:-$WS/.tools/uv}"
-LOG="${TB_PREBUILD_LOG:-$WS/logs/tb1_harbor_prebuild.log}"
+LOG="${TB_PREBUILD_LOG:-$(experiment_log tb1_harbor_prebuild)}"
 IMAGE_PREFIX="${TB_IMAGE_PREFIX:-tb1}"
 FORCE="${FORCE:-0}"
 ROOTLESS_CHOWN_WORKAROUND="${ROOTLESS_CHOWN_WORKAROUND:-0}"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/${IMAGE_PREFIX}-harbor-prebuild.XXXXXX")"
 trap 'rm -rf "$SCRATCH"' EXIT
 
-mkdir -p "$WS/logs"
 
 for required in "$PODMAN" "$PYTHON_BIN" "$UV_BIN"; do
     if [[ ! -x "$required" ]]; then
@@ -82,7 +82,7 @@ done
 SHIMS
 )"
 
-log() { echo "[$(date)] $*" | tee -a "$LOG"; }
+log() { echo "[$(date)] $*" | emit "$LOG"; }
 
 image_exists() {
     [[ "$FORCE" != "1" ]] && "$PODMAN" image exists "$1" >/dev/null 2>&1
@@ -253,7 +253,7 @@ PY
     fi
 
     if [[ "$task_failed" == "0" ]]; then
-        "$PYTHON_BIN" "$WS/scripts/configure_tb_harbor_prebuilt.py" \
+        "$PYTHON_BIN" "$WS/scripts/harbor/configure_tb_harbor_prebuilt.py" \
             --task-dir "$task_dir" --main-image "$main_image" "${service_args[@]}"
         OK+=("$task")
     else

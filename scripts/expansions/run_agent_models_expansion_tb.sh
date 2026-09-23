@@ -46,7 +46,7 @@ GLM_B_BUDGET="${GLM_B_BUDGET:-5000}"
 SINGLES=(truncation summarization summarization-partial structured-summarize structured-summarize-partial)
 INVARIANT=(tool-result-clear trc-su trc-ss otrc-tr otrc-su-partial otrc-ss-partial)
 BASELINES=(full-context online-trc)
-mkdir -p "$WS/logs"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 usage() { echo "Usage: $0 {qwen|devstral|glm|all} [main|ablation|both]" >&2; }
 validate_ablation_parts() {
@@ -105,14 +105,15 @@ run_model() {
     esac
 
     local otrc_config="${OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
-    local log_file="$WS/logs/followup_tb_${model}${TB_LOG_SUFFIX:+_$TB_LOG_SUFFIX}.log"
+    local log_file
+    log_file="$(experiment_log "followup_tb_${model}${TB_LOG_SUFFIX:+_$TB_LOG_SUFFIX}")"
     require_file "$config"; require_file "$otrc_config"
     validate_budgets "$model_label" "$a_budget" "$p_budget" "$b_budget"
     curl -fsS --max-time 5 "$health_url" >/dev/null || {
         echo "[ERROR] $model_label server is not responding at $health_url" >&2; return 1;
     }
 
-    log() { echo "[$(date)] $*" | tee -a "$log_file"; }
+    log() { echo "[$(date)] $*" | emit "$log_file"; }
     run_cell() {
         local cell_section="$1" tasks_file="$2" depth_tag="$3" budget="$4" depth="$5"
         shift 5
@@ -129,7 +130,7 @@ run_model() {
                 --agent-config "$config" --otrc-config "$otrc_config" \
                 --budget "$budget" --depth "$depth" --tasks-file "$tasks_file" \
                 --conditions "$condition" --runs-per-task "$RUNS_PER_TASK" \
-                --max-workers "$N_CONCURRENT" 2>&1 | tee -a "$log_file"
+                --max-workers "$N_CONCURRENT" 2>&1 | emit "$log_file"
         done
     }
 

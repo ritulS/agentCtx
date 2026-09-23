@@ -25,6 +25,7 @@ import pytest
 from harness import REPO_ROOT
 
 NOTIFY_RUN = REPO_ROOT / "scripts" / "notify_run.sh"
+LOGPATHS = REPO_ROOT / "scripts" / "lib" / "logpaths.sh"
 
 FAKE_NOTIFIER = """\
 import json, os, sys
@@ -55,6 +56,15 @@ def env_for(ws: Path, **extra: str) -> dict[str, str]:
     return env
 
 
+def latest_log(ws: Path, name: str) -> Path:
+    """The timestamped log logs/experiments/<name>.latest.log points at."""
+    link = ws / "logs" / "experiments" / f"{name}.latest.log"
+    assert link.is_symlink(), link
+    target = link.parent / os.readlink(link)
+    assert re.fullmatch(rf"{re.escape(name)}_\d{{8}}_\d{{6}}\.log", target.name), target.name
+    return target
+
+
 def notices(ws: Path) -> list[list[str]]:
     path = ws / "notices.jsonl"
     if not path.exists():
@@ -73,9 +83,9 @@ def run(ws: Path, *args: str, env: dict[str, str] | None = None,
 def test_success_posts_start_and_completion(ws: Path) -> None:
     proc = run(ws, "--unit", "exp/unit-a", "--", "bash", "-c", "echo hello from the run; exit 0")
     assert proc.returncode == 0, proc.stderr
-    log = ws / "logs" / "exp_unit-a.log"   # default log: "/" in the unit becomes "_"
+    log = latest_log(ws, "exp_unit-a")     # default log: "/" in the unit becomes "_", plus a timestamp
     assert notices(ws) == [["start", "exp/unit-a"],
-                           ["stop", "exp/unit-a", "success", "0", "logs/exp_unit-a.log"]]
+                           ["stop", "exp/unit-a", "success", "0", str(log)]]
     assert "hello from the run" in log.read_text()
     assert "hello from the run" in proc.stdout   # the tee keeps the nohup log too
 
@@ -113,8 +123,8 @@ def test_notifier_failure_does_not_change_exit_status(ws: Path) -> None:
 
 
 def test_lock_refuses_second_launcher(ws: Path) -> None:
-    (ws / "logs").mkdir()
-    with open(ws / "logs" / "job.lock", "w") as held:
+    (ws / "logs" / "experiments").mkdir(parents=True)
+    with open(ws / "logs" / "experiments" / "job.lock", "w") as held:
         fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
         marker = ws / "ran"
         proc = run(ws, "--unit", "u", "--lock", "job", "--", "touch", str(marker))
@@ -186,7 +196,7 @@ def test_signal_stops_the_command_group_then_notifies(ws: Path, sig: signal.Sign
     assert proc.returncode == status, err
     wait_for(lambda: not alive(child) and not alive(grandchild), timeout=5)
     assert not pid_file.exists()
-    assert notices(ws) == [["start", "u"], ["stop", "u", "killed", str(status), "logs/u.log"]]
+    assert notices(ws) == [["start", "u"], ["stop", "u", "killed", str(status), str(latest_log(ws, "u"))]]
 
 
 def test_usage_errors(ws: Path) -> None:
@@ -246,12 +256,12 @@ def test_detached_wrapper_survives_hangup_and_stops_on_term(ws: Path) -> None:
     assert alive(wrapper) and alive(child)
     os.kill(wrapper, signal.SIGTERM)              # the documented way to stop it
     wait_for(lambda: not alive(wrapper) and not alive(child))
-    assert notices(ws) == [["start", "u"], ["stop", "u", "killed", "143", "logs/u.log"]]
+    assert notices(ws) == [["start", "u"], ["stop", "u", "killed", "143", str(latest_log(ws, "u"))]]
 
 
 def test_detached_lock_is_taken_before_returning(ws: Path) -> None:
-    (ws / "logs").mkdir()
-    with open(ws / "logs" / "job.lock", "w") as held:
+    (ws / "logs" / "experiments").mkdir(parents=True)
+    with open(ws / "logs" / "experiments" / "job.lock", "w") as held:
         fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
         proc = run(ws, "--unit", "u", "--lock", "job", "--", "true", foreground=False)
         assert proc.returncode == 1               # reported to the caller, not just the log
@@ -264,7 +274,7 @@ def test_detached_lock_is_taken_before_returning(ws: Path) -> None:
     second = run(ws, "--unit", "u", "--lock", "job", "--", "true", foreground=False)
     assert second.returncode == 1 and "already running" in second.stderr
     wait_for(lambda: not alive(wrapper))
-    assert notices(ws)[-1] == ["stop", "u", "success", "0", "logs/u.log"]
+    assert notices(ws)[-1][:4] == ["stop", "u", "success", "0"]
 
 
 def test_detached_missing_webhook_is_reported_to_the_caller(ws: Path) -> None:
@@ -307,7 +317,9 @@ def test_glm_split_script_dispatches_to_notify_run(ws: Path) -> None:
     """run_glm_tb_ablation_split.sh keeps the GPU-group logic and delegates the rest."""
     scripts = ws / "scripts"
     (scripts / "expansions").mkdir(parents=True)
+    (scripts / "lib").mkdir()
     shutil.copy(NOTIFY_RUN, scripts / "notify_run.sh")
+    shutil.copy(LOGPATHS, scripts / "lib" / "logpaths.sh")
     shutil.copy(REPO_ROOT / "scripts" / "expansions" / "run_glm_tb_ablation_split.sh", scripts / "expansions")
     fake = scripts / "expansions" / "run_agent_models_expansion_tb.sh"
     fake.write_text('#!/usr/bin/env bash\necho "args=$* parts=$ABLATION_PARTS health=$GLM_HEALTH_URL suffix=$TB_LOG_SUFFIX"\n')
@@ -317,8 +329,99 @@ def test_glm_split_script_dispatches_to_notify_run(ws: Path) -> None:
     assert "args=glm ablation parts=di d05 health=http://localhost:8004/v1/models suffix=ablation_gpu4-7" in proc.stdout
     assert notices(ws) == [["start", "glm-terminal-bench-ablation-gpu4-7"],
                            ["stop", "glm-terminal-bench-ablation-gpu4-7", "success", "0",
-                            "logs/followup_tb_glm_ablation_gpu4-7.nohup.log"]]
-    assert (ws / "logs" / "glm_tb_ablation_gpu4-7.lock").exists()
+                            str(latest_log(ws, "glm-terminal-bench-ablation-gpu4-7"))]]
+    assert (ws / "logs" / "experiments" / "glm_tb_ablation_gpu4-7.lock").exists()
     proc = subprocess.run(["bash", str(scripts / "expansions" / "run_glm_tb_ablation_split.sh"), "gpu9"],
                           cwd=ws, env=env_for(ws), capture_output=True, text=True, timeout=60)
     assert proc.returncode == 2
+
+
+# ── log ownership: scripts/lib/logpaths.sh ─────────────────────────────────────
+
+def bash(ws: Path, script: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["bash", "-c", script], cwd=ws, env=env or env_for(ws),
+                          capture_output=True, text=True, timeout=60)
+
+
+def test_logpaths_creates_timestamped_files_and_latest_links(ws: Path) -> None:
+    proc = bash(ws, f'WS={ws}; source {LOGPATHS}; a=$(experiment_log job); s=$(server_log vllm_x); '
+                    'echo "$a"; echo "$s"; echo "$EXPERIMENT_LOG_DIR"; echo "$SERVER_LOG_DIR"')
+    assert proc.returncode == 0, proc.stderr
+    exp, srv, exp_dir, srv_dir = proc.stdout.splitlines()
+    assert exp_dir == str(ws / "logs" / "experiments") and srv_dir == str(ws / "logs" / "servers")
+    assert Path(exp) == latest_log(ws, "job") and Path(exp).exists()
+    assert Path(srv).parent == ws / "logs" / "servers"
+    assert re.fullmatch(r"vllm_x_\d{8}_\d{6}\.log", Path(srv).name)
+    assert os.readlink(ws / "logs" / "servers" / "vllm_x.latest.log") == Path(srv).name
+
+
+def test_logpaths_inner_launcher_inherits_the_outer_log(ws: Path) -> None:
+    """experiment_log returns the owner's file and emit stops tee'ing into it."""
+    outer = ws / "outer.log"
+    script = (f'WS={ws}; source {LOGPATHS}; LOG_FILE=$(experiment_log inner); echo "$LOG_FILE"; '
+              'echo line | emit')
+    # No owner: a new file is created and emit appends to it as well as stdout.
+    proc = bash(ws, script)
+    assert proc.returncode == 0, proc.stderr
+    own, out = proc.stdout.splitlines()
+    assert Path(own) == latest_log(ws, "inner") and out == "line"
+    assert Path(own).read_text() == "line\n"
+    # Owner present: the launcher writes to stdout only (the owner captures it).
+    proc = bash(ws, script, env=env_for(ws, AGENTCTX_LOG_FILE=str(outer)))
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.splitlines() == [str(outer), "line"]
+    assert not outer.exists()
+
+
+INNER_LAUNCHER = """\
+#!/usr/bin/env bash
+set -euo pipefail
+WS="${AGENTCTX_WS:?}"
+source "$WS/scripts/lib/logpaths.sh"
+LOG_FILE="$(experiment_log inner_launcher)"
+log() { echo "[stamp] $*" | emit; }
+log "starting"
+echo "payload" 2>&1 | emit
+"""
+
+
+def test_wrapper_owns_the_log_and_inner_launcher_logs_once(ws: Path) -> None:
+    (ws / "scripts" / "lib").mkdir(parents=True)
+    shutil.copy(LOGPATHS, ws / "scripts" / "lib" / "logpaths.sh")
+    inner = ws / "inner.sh"
+    inner.write_text(INNER_LAUNCHER)
+    proc = run(ws, "--unit", "outer", "--", "bash", str(inner))
+    assert proc.returncode == 0, proc.stderr
+    log = latest_log(ws, "outer")
+    lines = log.read_text().splitlines()
+    assert lines[1:] == ["[stamp] starting", "payload"]          # once each: emit did not tee
+    assert not (ws / "logs" / "experiments" / "inner_launcher.latest.log").exists()
+    assert notices(ws)[-1] == ["stop", "outer", "success", "0", str(log)]
+
+
+def test_foreground_wrapper_under_an_owner_keeps_writing_there(ws: Path) -> None:
+    """A chain that owns its log (exec > >(tee)) runs notify_run --foreground inside it."""
+    chain_log = ws / "chain.log"
+    proc = run(ws, "--unit", "stage", "--", "echo", "stage output",
+               env=env_for(ws, AGENTCTX_LOG_FILE=str(chain_log)))
+    assert proc.returncode == 0, proc.stderr
+    assert "stage output" in proc.stdout                          # went to stdout (the owner's tee)
+    assert not chain_log.exists()                                 # ... and was not tee'd separately
+    assert not (ws / "logs" / "experiments").exists() or not list((ws / "logs" / "experiments").glob("stage_*"))
+    assert notices(ws)[-1] == ["stop", "stage", "success", "0", str(chain_log)]
+
+
+def test_detached_wrapper_under_an_owner_gets_its_own_log(ws: Path) -> None:
+    proc = run(ws, "--unit", "bg", "--", "true", env=env_for(ws, AGENTCTX_LOG_FILE=str(ws / "chain.log")),
+               foreground=False)
+    assert proc.returncode == 0, proc.stderr
+    wait_for(lambda: len(notices(ws)) == 2)
+    assert notices(ws)[-1] == ["stop", "bg", "success", "0", str(latest_log(ws, "bg"))]
+
+
+def test_bare_pid_file_name_lands_in_the_experiments_dir(ws: Path) -> None:
+    proc = run(ws, "--unit", "u", "--pid-file", "job.pid", "--", "bash", "-c",
+               "cat $AGENTCTX_LOG_FILE >/dev/null; ls logs/experiments")
+    assert proc.returncode == 0, proc.stderr
+    assert "job.pid" in proc.stdout
+    assert not (ws / "logs" / "experiments" / "job.pid").exists()

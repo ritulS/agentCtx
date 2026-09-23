@@ -87,8 +87,8 @@ QWEN_CONFIG="${QWEN_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
 QWEN_OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 QWEN_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 
-LOG="$WS/logs/followup_agent_models_${MODEL}.log"
-mkdir -p "$WS/logs"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+LOG_FILE="$(experiment_log "followup_agent_models_${MODEL}")"
 
 SINGLES=(truncation summarization summarization-partial structured-summarize structured-summarize-partial)
 INVARIANT=(tool-result-clear trc-su trc-ss otrc-tr otrc-su-partial otrc-ss-partial)
@@ -122,7 +122,7 @@ numeric_budget_tag() {
     echo "b$((budget / 1000))k"
 }
 
-log() { echo "[$(date)] $*" | tee -a "$LOG"; }
+log() { echo "[$(date)] $*" | emit; }
 
 require_file() {
     if [[ ! -f "$1" ]]; then
@@ -171,7 +171,7 @@ run_cell() {
             --conditions "$condition" \
             --runs-per-task "$RUNS_PER_TASK" \
             --max-workers "$MAX_WORKERS" \
-            2>&1 | tee -a "$LOG"
+            2>&1 | emit
 
         if [[ "$RUN_EVAL" == 1 ]]; then
             "$PY" "$RUNNER" \
@@ -189,7 +189,7 @@ run_cell() {
                 --runs-per-task "$RUNS_PER_TASK" \
                 --max-workers "$MAX_WORKERS" \
                 --eval-only \
-                2>&1 | tee -a "$LOG"
+                2>&1 | emit
         fi
     done
 }

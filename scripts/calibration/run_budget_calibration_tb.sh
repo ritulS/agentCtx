@@ -29,13 +29,12 @@ PYTHON_BIN="${TB_PYTHON_BIN:-$WORKSPACE/venv-harbor/bin/python}"
 HARBOR_BIN="${HARBOR_BIN:-$WORKSPACE/venv-harbor/bin/harbor}"
 N_CONCURRENT="${N_CONCURRENT:-4}"
 DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
-LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
-LOG_DIR="$WORKSPACE/logs"
+LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_tb.py"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 P80_ROOTLESS_TASKS_FILE="${P80_ROOTLESS_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_rootless.json}"
 P80_SUBUID_TASKS_FILE="${P80_SUBUID_TASKS_FILE:-$WORKSPACE/task_lists/tbench_p80_subuid_required.json}"
 
 export DOCKER_HOST
-mkdir -p "$LOG_DIR"
 cd "$WORKSPACE"
 
 check_common_prerequisites() {
@@ -129,9 +128,9 @@ run_one() {
         return 1
     fi
 
-    log_file="$LOG_DIR/${model_key}_tb1_fc_run1.log"
+    log_file="$(experiment_log "${model_key}_tb1_fc_run1")"
     echo "[$(date)] === $model_label: Terminal-Bench 1.0, $task_scope, FC@infinity, run_1 ===" \
-        | tee -a "$log_file"
+        | emit "$log_file"
 
     "$PYTHON_BIN" "$LAUNCHER" \
         --model-key "$model_key" \
@@ -142,9 +141,9 @@ run_one() {
         --docker-host "$DOCKER_HOST" \
         --job-name "$job_name" \
         "${subset_args[@]}" \
-        2>&1 | tee -a "$log_file"
+        2>&1 | emit "$log_file"
 
-    echo "[$(date)] === $model_label DONE ===" | tee -a "$log_file"
+    echo "[$(date)] === $model_label DONE ===" | emit "$log_file"
 }
 
 check_common_prerequisites

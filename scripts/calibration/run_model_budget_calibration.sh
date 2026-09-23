@@ -40,8 +40,8 @@ case "$MODEL" in
 esac
 
 ABLATION_NAME="${MODEL_TAG}-inf"
-LOG="$WS/logs/${MODEL_TAG}_budget_calibration.log"
-mkdir -p "$WS/logs"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+LOG_FILE="$(experiment_log "${MODEL_TAG}_budget_calibration")"
 
 for required in "$PY" "$RUNNER" "$CALIBRATOR" "$TASKS" "$AGENT_CONFIG"; do
     if [[ ! -f "$required" ]]; then
@@ -55,7 +55,7 @@ if ! curl -sf "$HEALTH_URL" >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "[$(date)] === $MODEL_TAG FC budget calibration: 30 tasks x 2 runs ===" | tee -a "$LOG"
+echo "[$(date)] === $MODEL_TAG FC budget calibration: 30 tasks x 2 runs ===" | emit
 "$PY" "$RUNNER" \
     --ablation "$ABLATION_NAME" \
     --model-tag "$MODEL_TAG" \
@@ -65,11 +65,11 @@ echo "[$(date)] === $MODEL_TAG FC budget calibration: 30 tasks x 2 runs ===" | t
     --conditions full-context \
     --runs-per-task 2 \
     --max-workers "$MAX_WORKERS" \
-    2>&1 | tee -a "$LOG"
+    2>&1 | emit
 
-echo "[$(date)] === Computing A/P/B budgets from FC peaks ===" | tee -a "$LOG"
-"$PY" "$CALIBRATOR" --model-tag "$MODEL_TAG" 2>&1 | tee -a "$LOG"
+echo "[$(date)] === Computing A/P/B budgets from FC peaks ===" | emit
+"$PY" "$CALIBRATOR" --model-tag "$MODEL_TAG" 2>&1 | emit
 
 BUDGETS_FILE="$WS/logs/${MODEL_TAG}_calibrated_budgets.sh"
-echo "[$(date)] Review before launch: $BUDGETS_FILE" | tee -a "$LOG"
-echo "[$(date)] Do not launch the budgeted grid unless ALL_WITHIN_TOLERANCE=true." | tee -a "$LOG"
+echo "[$(date)] Review before launch: $BUDGETS_FILE" | emit
+echo "[$(date)] Do not launch the budgeted grid unless ALL_WITHIN_TOLERANCE=true." | emit

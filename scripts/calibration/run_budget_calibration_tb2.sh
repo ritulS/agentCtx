@@ -22,12 +22,11 @@ HARBOR_BIN="${HARBOR_BIN:-$WORKSPACE/venv-harbor/bin/harbor}"
 N_CONCURRENT="${N_CONCURRENT:-4}"
 AGENT_TIMEOUT_MULTIPLIER="${AGENT_TIMEOUT_MULTIPLIER:-1.0}"
 DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/podman/podman.sock}"
-LAUNCHER="$WORKSPACE/scripts/run_budget_calibration_tb.py"
-LOG_DIR="$WORKSPACE/logs"
+LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_tb.py"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 DATASET_PATH="${TB2_HARBOR_DATASET:-$WORKSPACE/data/tb2-harbor-prebuilt-2.0}"
 
 export DOCKER_HOST
-mkdir -p "$LOG_DIR"
 cd "$WORKSPACE"
 
 check_common_prerequisites() {
@@ -96,9 +95,9 @@ run_one() {
         return 1
     fi
 
-    log_file="$LOG_DIR/${model_key}_tb2_fc_run1.log"
+    log_file="$(experiment_log "${model_key}_tb2_fc_run1")"
     echo "[$(date)] === $model_label: Terminal-Bench 2.0, 89 tasks, FC@infinity, run_1 ===" \
-        | tee -a "$log_file"
+        | emit "$log_file"
 
     "$PYTHON_BIN" "$LAUNCHER" \
         --model-key "$model_key" \
@@ -119,9 +118,9 @@ run_one() {
         --display-name "Terminal-Bench 2.0" \
         --skip-postprocess \
         "${subset_args[@]}" \
-        2>&1 | tee -a "$log_file"
+        2>&1 | emit "$log_file"
 
-    echo "[$(date)] === $model_label DONE ===" | tee -a "$log_file"
+    echo "[$(date)] === $model_label DONE ===" | emit "$log_file"
 }
 
 check_common_prerequisites

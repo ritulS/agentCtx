@@ -4,7 +4,7 @@
 #
 # The production Qwen Terminal-Bench runs were served by
 # scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh, which passes --enable-prefix-caching
-# (logs/vllm_qwen35.log: enable_prefix_caching=True). This is that same script
+# (logs/servers/vllm_qwen35_<ts>.log: enable_prefix_caching=True). This is that same script
 # with --no-enable-prefix-caching as the only changed argument — the mirror
 # image of scripts/serving/start_vllm_qwen35_prefix_cache.sh, which turns caching ON
 # for SWE-Bench, whose production runs had it off.
@@ -14,9 +14,9 @@
 # serving conditions cannot drift apart through a stray environment variable.
 #
 # Usage:  bash scripts/serving/start_vllm_qwen35_no_prefix_cache.sh
-# Tail:   tail -f logs/vllm_qwen35_noprefixcache.log
-# Check:  grep -a -o 'enable_prefix_caching=[A-Za-z]*' logs/vllm_qwen35_noprefixcache.log | tail -1
-# Stop:   bash scripts/serving/stop_vllm.sh logs/vllm_qwen35.pid
+# Tail:   tail -f logs/servers/vllm_qwen35_noprefixcache.latest.log
+# Check:  grep -a -o 'enable_prefix_caching=[A-Za-z]*' logs/servers/vllm_qwen35_noprefixcache.latest.log | tail -1
+# Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_qwen35.pid
 set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -30,4 +30,4 @@ for var in QWEN_VLLM_PORT QWEN_MODEL QWEN_CUDA_VISIBLE_DEVICES \
     fi
 done
 
-QWEN_PREFIX_CACHING=0 exec bash "$WS/scripts/start_vllm_qwen35_prefix_cache_ablation.sh"
+QWEN_PREFIX_CACHING=0 exec bash "$WS/scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh"

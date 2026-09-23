@@ -23,7 +23,7 @@ set -euo pipefail
 
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
-mkdir -p logs
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 
 PY="${TB_PYTHON_BIN:-$WS/venv-harbor/bin/python}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"
@@ -42,7 +42,7 @@ N_CONCURRENT="${N_CONCURRENT:-4}"
 N_TASKS="${N_TASKS:-}"          # empty = every task in TB_TASKS_FILE
 # "cell:condition:depth" triples; override CELLS to run a subset.
 CELLS="${CELLS:-d05__b3k__su-full:summarization:0.5 di__b3k__trc-su:trc-su:0.5}"
-LOG_FILE="${TB_SUMABL_LOG_FILE:-$WS/logs/followup_tb_qwen_sumabl_${ICLR_MODEL}.log}"
+LOG_FILE="${TB_SUMABL_LOG_FILE:-$(experiment_log "followup_tb_qwen_sumabl_${ICLR_MODEL}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
@@ -55,7 +55,7 @@ if [[ -n "$N_TASKS" ]]; then
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
 fi
 
-exec 9>"logs/qwen_tb_sumabl_${ICLR_MODEL}.lock"
+exec 9>"$EXPERIMENT_LOG_DIR/qwen_tb_sumabl_${ICLR_MODEL}.lock"
 flock -n 9 || { echo "Summarizer-ablation launcher for $ICLR_MODEL already running." >&2; exit 1; }
 
 for url in "$AGENT_HEALTH_URL" "$SUMMARY_HEALTH_URL"; do
@@ -71,7 +71,7 @@ if [[ -n "$summary_api_base" && "$summary_api_base" == "$agent_api_base" ]]; the
     exit 1
 fi
 
-log() { echo "[$(date)] $*" | tee -a "$LOG_FILE"; }
+log() { echo "[$(date)] $*" | emit; }
 log "=== Summarizer ablation (TB) | dest: $ICLR_SECTION/$ICLR_MODEL | agent: $AGENT_CONFIG | summarizer: $SUMMARY_CONFIG ==="
 log "=== budget=$BUDGET runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} concurrency=$N_CONCURRENT ==="
 
@@ -88,6 +88,6 @@ for spec in $CELLS; do
         --agent-config "$AGENT_CONFIG" --summary-config "$SUMMARY_CONFIG" \
         --budget "$BUDGET" --depth "$depth" --tasks-file "$TASKS_FILE" \
         --conditions "$condition" --runs-per-task "$RUNS_PER_TASK" \
-        --max-workers "$N_CONCURRENT" "${EXTRA_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
+        --max-workers "$N_CONCURRENT" "${EXTRA_ARGS[@]}" 2>&1 | emit
 done
 log "=== Summarizer ablation (TB) complete for $ICLR_MODEL ==="
