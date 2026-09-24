@@ -1,4 +1,4 @@
-"""Selected ICLR plot bank: four maintained figure renderers.
+"""Selected ICLR plot bank: five maintained figure renderers.
 
 Run `venv/bin/python ICLR_analysis/Iclr_plot_bank.py` to generate all figures.
 Use --list or --help for selection and input/output options.
@@ -20,16 +20,19 @@ try:
     from .plot_style import (PAPER_STYLE, KNOB_STYLE, ORDER, MK, PSTYLE, PDARK,
                              PLIGHT, pcol, pmark, prim_handles, save_figure)
     from .paper_figures import load_qwen_overview, load_q2_runs
+    from .intro_fig import make_wrap_figure as fig_intro_policy_axes
 except ImportError:
     from plot_style import (PAPER_STYLE, KNOB_STYLE, ORDER, MK, PSTYLE, PDARK,
                             PLIGHT, pcol, pmark, prim_handles, save_figure)
     from paper_figures import load_qwen_overview, load_q2_runs
+    from intro_fig import make_wrap_figure as fig_intro_policy_axes
 
 ROOT = Path(__file__).resolve().parent.parent
 ROWS = ORDER + ["FC"]
 DT = dict(zip(["tr", "su-full", "su-partial", "ss", "ss-partial"], ["TR", "SU", "SU-p", "SS", "SS-p"]))
 MARK = {p: MK["qwen35b"] for p in DT.values()}
 FIGURES = {
+    "intro_01_policy_axes_wrap": "setup",
     "q1_24_qwen_overview": "q1",
     "q1_26_knob_execution": "q1",
     "q2_qwen_task_map_only": "q1",
@@ -392,7 +395,7 @@ def main(argv=None):
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/p100_all_100_tasks.json")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots",
-                        help="Output root; preserves q1/ and q3/ subdirectories")
+                        help="Output root; preserves setup/, q1/ and q3/ subdirectories")
     args = parser.parse_args(argv)
     if args.list:
         print("\n".join(FIGURES))
@@ -400,7 +403,9 @@ def main(argv=None):
     selected = list(FIGURES) if "all" in args.figure else list(dict.fromkeys(args.figure))
     for name in selected:
         with plt.rc_context(PAPER_STYLE):
-            if name == "q1_24_qwen_overview":
+            if name == "intro_01_policy_axes_wrap":
+                fig = fig_intro_policy_axes()
+            elif name == "q1_24_qwen_overview":
                 fig = fig_qwen_overview(load_qwen_overview(args.data_dir))
             elif name == "q1_26_knob_execution":
                 summary = pd.read_csv(args.data_dir / "q1_knob_execution.csv")
@@ -424,7 +429,7 @@ def main(argv=None):
                 fig = fig_policy_preferences(values, contrasts)
             try:
                 save_figure(fig, args.output_dir / FIGURES[name], name,
-                            dpi=300 if name.startswith("q3") else 200)
+                            dpi=300 if name.startswith(("intro", "q3")) else 200)
             finally:
                 plt.close(fig)
         print(f"Wrote {args.output_dir / FIGURES[name] / name}.{{pdf,png}}", flush=True)

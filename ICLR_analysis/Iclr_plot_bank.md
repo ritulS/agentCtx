@@ -5,14 +5,16 @@ Run from the repository root:
 ```bash
 venv/bin/python ICLR_analysis/Iclr_plot_bank.py
 venv/bin/python ICLR_analysis/Iclr_plot_bank.py --list
+venv/bin/python ICLR_analysis/Iclr_plot_bank.py --figure intro_01_policy_axes_wrap
 venv/bin/python ICLR_analysis/Iclr_plot_bank.py --figure q1_26_knob_execution
 venv/bin/python ICLR_analysis/Iclr_plot_bank.py --output-dir /tmp/paper-plots
 ```
 
-`--figure` accepts multiple names. The default generates exactly the four
+`--figure` accepts multiple names. The default generates exactly the five
 selected figures as PDF and PNG, preserving their current filenames and
-q1/q3 directories. Q2 remains in q1 for compatibility with existing references.
-The bank owns all four selected drawing functions. Older overview and knob
+setup/q1/q3 directories. Q2 remains in q1 for compatibility with existing references.
+The bank owns the four results renderers and reuses the intro renderer from
+`intro_fig.py`. Older overview and knob
 entry points delegate to it. Importing the bank does not render or write files.
 
 ## Shared style guide
@@ -40,7 +42,7 @@ Use `plt.rc_context(PAPER_STYLE)`; never update global rcParams on import.
   zero. The Q3 winner boxes retain the selected rendering.
 - Legends belong above panels; no explanatory footer text under the knob plot.
 - Export via `save_figure`; preserve fixed page dimensions (no tight cropping).
-  Current PNG resolution is 200 dpi, or 300 dpi for Q3; PDFs are vector.
+  Current PNG resolution is 200 dpi, or 300 dpi for the intro and Q3; PDFs are vector.
 
 ## Data and regeneration
 
@@ -49,6 +51,7 @@ experiments or refresh statistical estimates. No `/tmp` inputs are needed.
 
 | Figure | Inputs and generation |
 |---|---|
+| `intro_01_policy_axes_wrap` | No data inputs. Reuses `intro_fig.make_wrap_figure` to draw context growth and repeated compression with primitive, trigger and depth labels. |
 | `q1_24_qwen_overview` | `--data-dir` (default `ICLR_analysis`): Qwen `q1_frontier[_tb]_qwen35b.csv` and `token_cost_ledger[_tb]_qwen35b.csv`. Existing loader validates success estimates and bootstraps absolute resolve intervals with 10,000 task resamples, seed 210926. Upstream: `q1_frontier.py`, `token_cost_ledger.py`. |
 | `q1_26_knob_execution` | `--data-dir`: `q1_knob_execution.csv` and `q1_knob_execution_resolve_grid.csv`. Refresh both from canonical raw records with `venv/bin/python ICLR_analysis/q1_knob_execution.py`. |
 | `q2_qwen_task_map_only` | `--outcomes` defaults to `analysis/outcomes/swebench_outcomes.csv`; `--tasks` defaults to pinned P100. Uses the validated main-track Qwen 15K loader, three attempts per task/policy. Majority success requires two uncapped resolved attempts. Orders each FC block by descending policy coverage, then task ID. |
@@ -71,3 +74,20 @@ including failed/limit-exhausted attempts. Depth means fraction removed;
 stored experiment depth names encode fraction retained. Qwen load-cohort
 and timeout caveats in `ICLR.md` still apply. Q3 resource ranks and resolve
 contrasts use different cohorts; retain the original metric definitions.
+
+## Introduction figure
+
+`intro_01_policy_axes_wrap` is the compact Figure 1, 3.2 × 1.9 inches.
+Use it at its native width with `\begin{wrapfigure}{R}{3.2in}` and
+`\includegraphics[width=\linewidth]{intro_01_policy_axes_wrap.pdf}`.
+The PDF has embedded TrueType text; the PNG is for review.
+
+The legend uses Fixed prompt, New history, and Compressed history in one row.
+The hatched block is retained compressed history. The dashed threshold marks
+when compression fires, curved arrows show the primitive rewriting context,
+and the vertical drop shows depth. Only the parenthesized axis letters are
+bold. The compact figure has no policy heading, and all text is at least 6.5 pt.
+
+The intro uses the shared blue/green/orange colors to distinguish P/T/D.
+These label colors identify axes, rather than primitive families as in the
+results plots. Grey is the fixed prompt; blue blocks are newly added history.
