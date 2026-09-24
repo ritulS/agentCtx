@@ -1,0 +1,26 @@
+{
+  "dataset": "terminal-bench-core@0.1.1",
+  "name": "ABL-15",
+  "selection": {
+    "parent": "P-40",
+    "parent_task_list": "task_lists/tbench_p40.json",
+    "criterion": "Manually selected 15-task ablation set"
+  },
+  "tasks": [
+    "blind-maze-explorer-5x5",
+    "crack-7z-hash.hard",
+    "csv-to-parquet",
+    "download-youtube",
+    "gpt2-codegolf",
+    "heterogeneous-dates",
+    "hf-model-inference",
+    "incompatible-python-fasttext",
+    "processing-pipeline",
+    "prove-plus-comm",
+    "pytorch-model-cli.hard",
+    "sanitize-git-repo.hard",
+    "sqlite-with-gcov",
+    "swe-bench-fsspec",
+    "write-compressor"
+  ]
+}
