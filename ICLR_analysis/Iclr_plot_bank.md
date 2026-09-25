@@ -162,47 +162,44 @@ input recomputed from
 (Terminal-Bench from `analysis/outcomes/terminalbench_outcomes_0924.csv`,
 unchanged). It reproduces the `q1_frontier.py`, `load_qwen_overview`,
 `q1_knob_execution.py` and Q3 definitions, taking `resolved` from the
-outcomes table, and calls the unchanged plot-bank drawing functions. For
+outcomes table, and calls the plot-bank drawing functions (the renderers
+live only in `Iclr_plot_bank.py`; the driver holds no drawing code). For
 Q3 only the Qwen SWE-bench rows are recomputed; Devstral, GLM and
-Terminal-Bench rows are copied from the audited exports in `plots/q3/`.
+Terminal-Bench rows are copied from the audited exports in `plots/q3/`,
+which themselves carry the re-evaluation, so the plot bank and the driver
+render the same Figure 5.
 Run with `--outcomes analysis/outcomes/swebench_outcomes.csv` it reproduces
 the canonical exports to floating-point precision (validated 2026-09-24).
 Figure 1 (`intro_01_policy_axes`) draws no data and is not affected.
-The overview (Figure 2) is drawn by a revised copy of `fig_qwen_overview`
-carrying the reviewer notes: no "Qwen" heading, larger fonts and markers,
-black arrows in each panel pointing toward the better direction of both
-axes, both axes include 0, no y=x guide in the third column, one benchmark
-heading per row instead of panel titles, FC is a black square instead of a
-star. In every figure the script draws, the OTRC family gets purple hues
-instead of greys (OTRC+TR blue-leaning purple, filled; OTRC+SU-p red-leaning
-purple and OTRC+SS-p light blue-leaning purple, hollow) so its members are
-not confused with each other or with hollow-black OTRC; the plot-bank
-palette itself is unchanged.
-The tuning figure (Figure 3) is drawn by Ritul's 2026-09-24 local revision
-of `fig_knob_execution` (larger fonts, yellow highest-resolve and green
-lowest-cost cells, oval lowest latency, winner legend), carried in the
-script until it is committed, with the sweep x-axis labels shortened to
-"D" and "Threshold", compressions starting at 0, and billed input and
-latency plotted as ratios to FC on a range around 1.
-The policy-preference figure (Figure 5) is drawn by the plot bank's own
-`fig_policy_preferences` (revised 2026-09-24): panel (a) uses the Figure
-3(c) table encoding (grey boxed triplets per model, yellow highest resolve,
-green lowest cost, pill outline for lowest latency, bold winners, winner
-legend) with black policy labels and no rank shading or rank colour bar,
-and the panel titles are just "(a)" and "(b)" centred under each panel.
-The Q3 exports in `plots/q3/` carry the Qwen SWE-bench re-evaluation, so
-`Iclr_plot_bank.py --figure q3_policy_preferences_and_design` and
-`paper_figures_reeval.py --figure preferences` render the same figure.
-The task map (Figure 4) gains an `Oracle` row directly above FC: a task
-counts as solved when any of the thirteen policies (the twelve compression
-policies or FC) solves it (per-policy majority of three runs), i.e. the
-resolve reachable if the best policy were known per task; Gained is
-relative to FC as in every other row and Lost is 0 by construction. The script carries its own copy of `fig_task_map` with
-the row list as a parameter; the plot-bank renderer is untouched. The copy
-also applies the reviewer notes: no "Qwen · SWE-bench · 15K" heading (state
-it in the caption), centred legend closer to the map, slightly larger fonts,
-one-line column headers, and no row markers except FC's black square (the
-same FC marker as Figure 2).
+
+The plot-bank renderers carry the 2026-09-24 reviewer revisions:
+
+* Figure 2 (`fig_qwen_overview`, built on `draw_overview_rows`): no "Qwen"
+  heading, larger fonts and markers, black arrows in each panel pointing
+  toward the better direction of both axes, both axes include 0, no y=x
+  guide in the third column, one benchmark heading per row instead of panel
+  titles, FC as a black square instead of a star, legend entry "FC".
+* Figure 3 (`fig_knob_execution`, Ritul's revised table layout): larger
+  fonts and markers, yellow highest-resolve and green lowest-cost cells,
+  oval lowest latency, winner legend, sweep x-axis labels "D" and
+  "Threshold", compressions starting at 0, billed input and latency as
+  ratios to FC on a range around 1, no inline "FC" label.
+* Figure 4 (`fig_task_map`, built on `draw_task_map`): an `Oracle` row
+  directly above FC (a task counts as solved when any of the thirteen
+  policies solves it, per-policy majority of three runs; Lost is 0 by
+  construction), no heading (state it in the caption), centred legend
+  closer to the map, slightly larger fonts, one-line column headers, no row
+  markers except FC's black square.
+* Figure 5 (`fig_policy_preferences`): panel (a) uses the Figure 3(c) table
+  encoding (grey boxed triplets per model, yellow highest resolve, green
+  lowest cost, pill outline for lowest latency, bold winners, winner legend)
+  with black policy labels and no rank shading or rank colour bar; panel
+  titles are just "(a)" and "(b)" centred under each panel.
+* Palette (`plot_style.POLICY_COLORS`): the OTRC-stacked family is drawn in
+  purples instead of greys (OTRC+TR blue-leaning, filled; OTRC+SU-p
+  red-leaning and OTRC+SS-p light blue-leaning, hollow) so its members are
+  not confused with each other or with hollow-black OTRC.
+
 Outputs go to `ICLR_analysis/plots/reeval/` as PNG under the plot-bank filenames,
 with the recomputed inputs as CSVs beside them.
 

@@ -45,13 +45,15 @@ import matplotlib.pyplot as plt
 try:
     from .appendix_knob_overview import (load_runs, budget_levels, read_tasks, panel_runs,
                                          MODEL_NAMES, LEVELS, DEPTHS, BENCHMARKS)
-    from .paper_figures_reeval import (q1_frontier, draw_overview_rows, overview_legend,
-                                       overview_figure, PAPER_STYLE, REEVAL_OUTCOMES, TB_OUTCOMES)
+    from .plot_style import PAPER_STYLE
+    from .Iclr_plot_bank import draw_overview_rows, overview_legend, overview_figure
+    from .paper_figures_reeval import q1_frontier, REEVAL_OUTCOMES, TB_OUTCOMES
 except ImportError:
     from appendix_knob_overview import (load_runs, budget_levels, read_tasks, panel_runs,
                                         MODEL_NAMES, LEVELS, DEPTHS, BENCHMARKS)
-    from paper_figures_reeval import (q1_frontier, draw_overview_rows, overview_legend,
-                                      overview_figure, PAPER_STYLE, REEVAL_OUTCOMES, TB_OUTCOMES)
+    from plot_style import PAPER_STYLE
+    from Iclr_plot_bank import draw_overview_rows, overview_legend, overview_figure
+    from paper_figures_reeval import q1_frontier, REEVAL_OUTCOMES, TB_OUTCOMES
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "ICLR_analysis/plots/appendix/depth_trigger_ablation"

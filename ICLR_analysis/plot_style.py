@@ -22,10 +22,19 @@ PSTYLE = {"TR": ("rule", "d", False), "TRC": ("rule", "l", False),
           "TRC+SU": ("stack", "d", False), "TRC+SS": ("stack", "l", False),
           "OTRC+TR": ("step", "d", False), "OTRC+SU-p": ("step", "d", True), "OTRC+SS-p": ("step", "l", True),
           "OTRC": ("otrc", "d", True)}
+# Per-policy overrides of the family palette: the OTRC-stacked family gets
+# distinct purples (blue-leaning for OTRC+TR, red-leaning for OTRC+SU-p, light
+# for OTRC+SS-p) instead of greys, so its members are not confused with each
+# other or with hollow-black OTRC (2026-09-24 reviewer round).
+POLICY_COLORS = {"OTRC+TR": "#8a4fd3", "OTRC+SU-p": "#c41cad", "OTRC+SS-p": "#7f6bd0"}
+
+
 def pcol(p):
-    """Policy color shared by all three figures (FC is black)."""
+    """Policy color shared by all figures (FC is black)."""
     if p == "FC":
         return "#000000"
+    if p in POLICY_COLORS:
+        return POLICY_COLORS[p]
     g, shade, _ = PSTYLE[p]
     if g == "otrc":
         return "#000000"
@@ -65,6 +74,8 @@ def save_figure(fig, output_dir, name, dpi=200):
 
 
 
-KNOB_STYLE = {**PAPER_STYLE, "font.size": 9, "axes.titlesize": 10,
-              "axes.labelsize": 9, "xtick.labelsize": 8.5,
-              "ytick.labelsize": 8.5, "legend.fontsize": 8.5}
+KNOB_STYLE = {**PAPER_STYLE, "font.size": 13, "axes.titlesize": 14,
+              "axes.labelsize": 12.5, "xtick.labelsize": 12,
+              "ytick.labelsize": 12, "legend.fontsize": 12}
+RESOLVE_HIGHLIGHT = "#ffe680"  # highest resolve in a primitive/trigger triplet
+COST_HIGHLIGHT = "#d9edcf"     # lowest billed cost in the triplet

@@ -44,14 +44,16 @@ try:
     from .appendix_knob_overview import (MODEL_NAMES, DEPTHS, LEVELS, load_runs, budget_levels,
                                          read_tasks, panel_runs)
     from .appendix_task_map import solved_table, order_tasks, ROWS
-    from .paper_figures_reeval import (draw_task_map, task_map_legend, ORACLE, TASK_MAP_ROWS,
-                                       PAPER_STYLE, REEVAL_OUTCOMES)
+    from .plot_style import PAPER_STYLE
+    from .Iclr_plot_bank import draw_task_map, task_map_legend, ORACLE, TASK_MAP_ROWS
+    from .paper_figures_reeval import REEVAL_OUTCOMES
 except ImportError:
     from appendix_knob_overview import (MODEL_NAMES, DEPTHS, LEVELS, load_runs, budget_levels,
                                         read_tasks, panel_runs)
     from appendix_task_map import solved_table, order_tasks, ROWS
-    from paper_figures_reeval import (draw_task_map, task_map_legend, ORACLE, TASK_MAP_ROWS,
-                                      PAPER_STYLE, REEVAL_OUTCOMES)
+    from plot_style import PAPER_STYLE
+    from Iclr_plot_bank import draw_task_map, task_map_legend, ORACLE, TASK_MAP_ROWS
+    from paper_figures_reeval import REEVAL_OUTCOMES
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "ICLR_analysis/plots/appendix/task_specificity"
