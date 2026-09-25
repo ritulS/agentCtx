@@ -671,12 +671,12 @@ def draw_task_map(fig, solved, missed, shared, rows=TASK_MAP_ROWS, band=(0.0, 1.
         count = int(solved[p].sum())
         if count > fc_total:
             totals.axhspan(j - .44, j + .44, xmin=.02, xmax=.98, facecolor='#eaf2e5', edgecolor='none')
-        totals.text(.5, j, str(count), ha='center', va='center', fontsize=6.8,
+        totals.text(.5, j, str(count), ha='center', va='center', fontsize=6.2,
                     fontweight='bold' if count > fc_total else 'normal', color='#333333')
         gain = int((~solved.FC & solved[p]).sum())
         loss = int((solved.FC & ~solved[p]).sum())
-        gain_ax.text(.5, j, f'+{gain}', ha='center', va='center', fontsize=6.8, color='#333333')
-        loss_ax.text(.5, j, f'−{loss}' if loss else '0', ha='center', va='center', fontsize=6.8, color='#333333')
+        gain_ax.text(.5, j, f'+{gain}', ha='center', va='center', fontsize=6.2, color='#333333')
+        loss_ax.text(.5, j, f'−{loss}' if loss else '0', ha='center', va='center', fontsize=6.2, color='#333333')
     for ax in map_axes:
         ax.set_xticks([])
         for spine in ax.spines.values():
@@ -691,16 +691,16 @@ def draw_task_map(fig, solved, missed, shared, rows=TASK_MAP_ROWS, band=(0.0, 1.
                 ax.axhline(boundary, color='white', lw=1.4, zorder=3)
     totals.set_ylim(len(rows) - .4, -.6)
     totals.set_yticks(np.arange(len(rows)), rows)
-    totals.tick_params(axis='y', length=0, pad=4, labelsize=6.8)
+    totals.tick_params(axis='y', length=0, pad=4, labelsize=6.2)
     for ax in [totals, gain_ax, loss_ax]:
         ax.set_xlim(0, 1)
     headers = [(totals, 'Solved'), (miss_ax, f'FC missed {len(missed)} tasks'),
                (gain_ax, 'Gained'), (shared_ax, f'FC solved {len(shared)} tasks'), (loss_ax, 'Lost')]
     for ax, header in headers:
-        ax.text(.5, 1.025, header, transform=ax.transAxes, ha='center', va='bottom', fontsize=6.4)
+        ax.text(.5, 1.025, header, transform=ax.transAxes, ha='center', va='bottom', fontsize=6.0)
     for ax in map_axes:
         pos = ax.get_position()
-        ax.set_position([.15 + (pos.x0 - .144) * 2.02, y0 + .005 * yh, pos.width * 2.02, .83 * yh])
+        ax.set_position([.15 + (pos.x0 - .144) * 2.02, y0 + .005 * yh, pos.width * 2.02, .80 * yh])
     return map_axes
 
 
@@ -714,7 +714,7 @@ def fig_task_map(solved, missed, shared, rows=TASK_MAP_ROWS):
     a black square as in Figure 2. Family separators are placed after TRC, SS-p, TRC+SS, OTRC+SS-p,
     OTRC and (when present) the oracle row.
     """
-    fig = plt.figure(figsize=(5.5, 1.75))   # 1100 x 350 px at 200 dpi
+    fig = plt.figure(figsize=(5.5, 1.55))   # 1100 x 310 px at 200 dpi
     task_map_legend(fig)
     draw_task_map(fig, solved, missed, shared, rows)
     return fig
