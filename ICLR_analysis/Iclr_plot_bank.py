@@ -299,12 +299,13 @@ def better_arrows(ax, x_better, y_better, label=None):
     favours (axes fractions), optionally labelled at its tail."""
     x0 = 0.06 if x_better == "left" else 0.94
     y0 = 0.06 if y_better == "down" else 0.94
-    span = 0.26
+    span = 0.19
     xs = x0 + span if x_better == "left" else x0 - span
     ys = y0 + span if y_better == "down" else y0 - span
+    # PowerPoint-style block arrow: short, with a wide shaft and a broad head.
     ax.annotate("", xy=(x0, y0), xytext=(xs, ys), xycoords="axes fraction",
                 textcoords="axes fraction", zorder=6,
-                arrowprops=dict(arrowstyle="simple,head_length=0.9,head_width=0.9,tail_width=0.35",
+                arrowprops=dict(arrowstyle="simple,head_length=1.0,head_width=1.6,tail_width=0.8",
                                 color=BETTER_ARROW, lw=0, shrinkA=0, shrinkB=0))
     if label:
         # Beside the arrow at its tail height, hugging the corner's edge, where the
@@ -322,7 +323,6 @@ OVERVIEW_PANELS = [  # (x metric, y metric, x label, y label, better x, better y
     ("resolve", "bill", "resolve rate (%) \u2191", "billed input cost / FC \u2193", "right", "down"),
     ("resolve", "time", "resolve rate (%) \u2191", "wall-clock / FC \u2193", "right", "down"),
 ]
-BETTER_FILL = "#e6f4ea"      # region better than FC on both axes
 BETTER_ARROW = "#b5b5b5"     # arrow toward the better corner
 
 
@@ -346,10 +346,6 @@ def draw_overview_rows(axes, rows):
             ax = axes[row, position]
             ylim = bounds[ymetric]
             xlim = usage_bounds if xmetric == "usage" else bounds["resolve"]
-            xr = (xlim[0], fc[xmetric]) if xbest == "left" else (fc[xmetric], xlim[1])
-            yr = (fc[ymetric], ylim[1]) if ybest == "up" else (ylim[0], fc[ymetric])
-            ax.add_patch(Rectangle((xr[0], yr[0]), xr[1] - xr[0], yr[1] - yr[0],
-                                   facecolor=BETTER_FILL, edgecolor="none", zorder=-2))
             ax.axhline(fc[ymetric], color="#999999", lw=0.6, ls="--", zorder=0)
             ax.axvline(fc[xmetric], color="#999999", lw=0.6, ls="--", zorder=0)
             for policy in ORDER:
