@@ -1,5 +1,5 @@
 """Appendix: Figure 2 at every depth and trigger threshold, from the
-re-evaluated verdicts, in the Figure 2 layout of paper_figures_reeval.py.
+re-evaluated verdicts, in the Figure 2 layout of the plot bank.
 
 Figure 2 (q1_24_qwen_overview) fixes depth 0.5 and the primary trigger
 threshold. This script draws the same five panels (success, latency and
@@ -14,16 +14,16 @@ compression event). For Qwen the primary threshold figure has the D = 0.3
 and D = 0.7 rows only (Figure 2 shows 0.5); Devstral and GLM, which have no
 main figure, get all three rows. Terminal-Bench is drawn for Qwen only.
 
-Data and definitions follow paper_figures_reeval.py: attempts come from
+Data and definitions follow Iclr_plot_bank.py: attempts come from
 appendix_knob_overview.load_runs / panel_runs (primary setting from the main
 track, every other setting from the ablation track; depth-invariant
 policies repeat their depth-0.5 cell at 0.3 / 0.7; FC and OTRC are the
 budget-free references), all restricted to the ablation cohort (ABL-25 on
 SWE-bench, TB-15 on Terminal-Bench) so the settings are comparable, and the
-statistics are paper_figures_reeval.q1_frontier (q1_frontier.py's paired
+statistics are Iclr_plot_bank.q1_frontier (q1_frontier.py's paired
 task bootstrap, seed 0, B=5000). `resolved` is taken from --outcomes, by
 default the table carrying the 2026-09-23/24 Qwen re-evaluation. The drawing
-is paper_figures_reeval.draw_overview_rows, so the panels, arrows, markers
+is Iclr_plot_bank.draw_overview_rows, so the panels, arrows, markers
 and colours are exactly those of Figure 2.
 
 Outputs go to ICLR_analysis/plots/appendix/depth_trigger_ablation/ with
@@ -47,13 +47,13 @@ try:
                                          MODEL_NAMES, LEVELS, DEPTHS, BENCHMARKS)
     from .plot_style import PAPER_STYLE
     from .Iclr_plot_bank import draw_overview_rows, overview_legend, overview_figure
-    from .paper_figures_reeval import q1_frontier, REEVAL_OUTCOMES, TB_OUTCOMES
+    from .Iclr_plot_bank import q1_frontier, SWE_OUTCOMES, TB_OUTCOMES
 except ImportError:
     from appendix_knob_overview import (load_runs, budget_levels, read_tasks, panel_runs,
                                         MODEL_NAMES, LEVELS, DEPTHS, BENCHMARKS)
     from plot_style import PAPER_STYLE
     from Iclr_plot_bank import draw_overview_rows, overview_legend, overview_figure
-    from paper_figures_reeval import q1_frontier, REEVAL_OUTCOMES, TB_OUTCOMES
+    from Iclr_plot_bank import q1_frontier, SWE_OUTCOMES, TB_OUTCOMES
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "ICLR_analysis/plots/appendix/depth_trigger_ablation"
@@ -78,8 +78,8 @@ def threshold_figure(blocks):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--outcomes", type=Path, default=REEVAL_OUTCOMES,
-                        help="SWE-bench outcomes table (default: the re-evaluated copy)")
+    parser.add_argument("--outcomes", type=Path, default=SWE_OUTCOMES,
+                        help="SWE-bench outcomes table (carries the re-evaluation)")
     parser.add_argument("--tb-outcomes", type=Path, default=TB_OUTCOMES)
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--models", nargs="+", choices=list(MODEL_SETUP), default=list(MODEL_SETUP))

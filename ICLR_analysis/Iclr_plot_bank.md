@@ -46,16 +46,20 @@ Use `plt.rc_context(PAPER_STYLE)`; never update global rcParams on import.
 
 ## Data and regeneration
 
-The bank renders existing analysis exports; it does not silently recompute
-experiments or refresh statistical estimates. No `/tmp` inputs are needed.
+The bank computes every figure input from the tracked outcomes tables and
+the audited Q3 exports (no untracked analysis exports are needed) and writes
+the computed inputs as CSVs next to each figure. The computations reproduce
+`q1_frontier.py`, `token_cost_ledger.py`, `q1_knob_execution.py` and the Q3
+exports to floating-point precision (validated 2026-09-24); `resolved` is
+taken from the outcomes tables, which carry the Qwen re-evaluation.
 
 | Figure | Inputs and generation |
 |---|---|
 | `intro_01_policy_axes_wrap` | No data inputs. Reuses `intro_fig.make_wrap_figure` to draw context growth and repeated compression with primitive, trigger and depth labels. |
-| `q1_24_qwen_overview` | `--data-dir` (default `ICLR_analysis`): Qwen `q1_frontier[_tb]_qwen35b.csv` and `token_cost_ledger[_tb]_qwen35b.csv`. Existing loader validates success estimates and bootstraps absolute resolve intervals with 10,000 task resamples, seed 210926. Upstream: `q1_frontier.py`, `token_cost_ledger.py`. |
-| `q1_26_knob_execution` | `--data-dir`: `q1_knob_execution.csv` and `q1_knob_execution_resolve_grid.csv`. Refresh both from canonical raw records with `venv/bin/python ICLR_analysis/q1_knob_execution.py`. |
+| `q1_24_qwen_overview` | `--outcomes` (default `analysis/outcomes/swebench_outcomes.csv`) and `--tb-outcomes` (default `analysis/outcomes/terminalbench_outcomes_0924.csv`): primary setting (depth 0.5, primary threshold) on P100 / TB-40, `q1_frontier` statistics (paired task bootstrap vs FC, seed 0, B=5000; absolute resolve intervals seed 210926, 10,000 resamples). Writes `q1/q1_frontier[_tb]_qwen35b.csv`. |
+| `q1_26_knob_execution` | `--outcomes`: `knob_inputs` = the `q1_knob_execution.py` cell statistics and 45-cell resolve grid on ABL-25 (compression detector at 15% drop, seed 0, B=2000). Writes `q1/q1_knob_execution[_resolve_grid].csv`. |
 | `q2_qwen_task_map_only` | `--outcomes` defaults to `analysis/outcomes/swebench_outcomes.csv`; `--tasks` defaults to pinned P100. Uses the validated main-track Qwen 15K loader, three attempts per task/policy. Majority success requires two uncapped resolved attempts. Orders each FC block by descending policy coverage, then task ID. |
-| `q3_policy_preferences_and_design` | `--q3-data-dir` defaults to `ICLR_analysis/plots/q3`, containing `q3_combined_policy_values.csv` and `q3_combined_design_contrasts.csv`. These are the audited numerical exports used for the selected figure, not temporary plot inputs. Preserve them with the analysis snapshot. |
+| `q3_policy_preferences_and_design` | `--q3-data-dir` (default `ICLR_analysis/plots/q3`): the audited `q3_combined_policy_values.csv` and `q3_combined_design_contrasts.csv`, whose Devstral, GLM and Terminal-Bench rows are reused; the Qwen SWE-bench rows (values, ranks and the four design contrasts) are recomputed from `--outcomes`. The audited files are never overwritten. |
 
 Q3 policy values contain benchmark/model/policy/metric/value/rank/n_tasks;
 contrasts contain benchmark/model/policy pair/estimate/lo/hi. Policy ranks
@@ -155,57 +159,17 @@ maps; rerun `appendix_task_map.py` to restore them).
 
 ### Paper Figures 2-5 from the re-evaluated verdicts
 
-`paper_figures_reeval.py` re-renders the four selected figures (paper
-Figures 2-5: overview, tuning, task map, policy preferences) with every
-input recomputed from
-`ICLR_results/ICLR_analysis/outcome/swebench_outcomes_reeval.csv`
-(Terminal-Bench from `analysis/outcomes/terminalbench_outcomes_0924.csv`,
-unchanged). It reproduces the `q1_frontier.py`, `load_qwen_overview`,
-`q1_knob_execution.py` and Q3 definitions, taking `resolved` from the
-outcomes table, and calls the plot-bank drawing functions (the renderers
-live only in `Iclr_plot_bank.py`; the driver holds no drawing code). For
-Q3 only the Qwen SWE-bench rows are recomputed; Devstral, GLM and
-Terminal-Bench rows are copied from the audited exports in `plots/q3/`,
-which themselves carry the re-evaluation, so the plot bank and the driver
-render the same Figure 5.
-Run with `--outcomes analysis/outcomes/swebench_outcomes.csv` it reproduces
-the canonical exports to floating-point precision (validated 2026-09-24).
-Figure 1 (`intro_01_policy_axes`) draws no data and is not affected.
-
-The plot-bank renderers carry the 2026-09-24 reviewer revisions:
-
-* Figure 2 (`fig_qwen_overview`, built on `draw_overview_rows`): no "Qwen"
-  heading, larger fonts and markers, black arrows in each panel pointing
-  toward the better direction of both axes, both axes include 0, no y=x
-  guide in the third column, one benchmark heading per row instead of panel
-  titles, FC as a black square instead of a star, legend entry "FC".
-* Figure 3 (`fig_knob_execution`, Ritul's revised table layout): larger
-  fonts and markers, yellow highest-resolve and green lowest-cost cells,
-  oval lowest latency, winner legend, sweep x-axis labels "D" and
-  "Threshold", compressions starting at 0, billed input and latency as
-  ratios to FC on a range around 1, no inline "FC" label.
-* Figure 4 (`fig_task_map`, built on `draw_task_map`): an `Oracle` row
-  directly above FC (a task counts as solved when any of the thirteen
-  policies solves it, per-policy majority of three runs; Lost is 0 by
-  construction), no heading (state it in the caption), centred legend
-  closer to the map, slightly larger fonts, one-line column headers, no row
-  markers except FC's black square.
-* Figure 5 (`fig_policy_preferences`): panel (a) uses the Figure 3(c) table
-  encoding (grey boxed triplets per model, yellow highest resolve, green
-  lowest cost, pill outline for lowest latency, bold winners, winner legend)
-  with black policy labels and no rank shading or rank colour bar; panel
-  titles are just "(a)" and "(b)" centred under each panel.
-* Palette (`plot_style.POLICY_COLORS`): the OTRC-stacked family is drawn in
-  purples instead of greys (OTRC+TR blue-leaning, filled; OTRC+SU-p
-  red-leaning and OTRC+SS-p light blue-leaning, hollow) so its members are
-  not confused with each other or with hollow-black OTRC.
-
-Outputs go to `ICLR_analysis/plots/reeval/` as PNG under the plot-bank filenames,
-with the recomputed inputs as CSVs beside them.
+The plot bank itself is the pipeline: `Iclr_plot_bank.py` computes the
+inputs of Figures 2-5 from `analysis/outcomes/swebench_outcomes.csv`
+(which carries the 2026-09-24 Qwen re-evaluation; commit 397c232) and
+`analysis/outcomes/terminalbench_outcomes_0924.csv`, writes them as CSVs
+next to the figures, and draws. Figure 1 (`intro_01_policy_axes_wrap`)
+draws no data. `analysis/apply_reeval_outcomes.py` can still write a
+re-evaluated copy of an outcomes table for `--outcomes`.
 
 ```bash
-venv/bin/python ICLR_analysis/paper_figures_reeval.py
-venv/bin/python ICLR_analysis/paper_figures_reeval.py --figure overview tuning
+venv/bin/python ICLR_analysis/Iclr_plot_bank.py
+venv/bin/python ICLR_analysis/Iclr_plot_bank.py --figure q1_26_knob_execution
 ```
 
 `appendix_depth_trigger_ablation_reeval.py` draws the appendix companion of

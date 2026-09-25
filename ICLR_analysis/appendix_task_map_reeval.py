@@ -1,5 +1,5 @@
 """Appendix: the Figure 4 task-coverage map at every depth and trigger
-threshold, from the re-evaluated verdicts, drawn by paper_figures_reeval.py.
+threshold, from the re-evaluated verdicts, drawn by the plot bank.
 
 One figure per trigger threshold (tight / primary / loose), Qwen on
 SWE-bench, with the three depths stacked as bands headed "D = 0.3" etc. on
@@ -20,7 +20,7 @@ the primary one, is restricted to ABL-25 so the maps share a cohort
 `resolved` is taken from --outcomes, by default the table carrying the
 2026-09-23/24 Qwen re-evaluation.
 
-The drawing is paper_figures_reeval.draw_task_map, so the layout, colours
+The drawing is Iclr_plot_bank.draw_task_map, so the layout, colours
 (purple OTRC family, teal Oracle), FC square and legend are exactly those
 of Figure 4.
 
@@ -46,14 +46,14 @@ try:
     from .appendix_task_map import solved_table, order_tasks, ROWS
     from .plot_style import PAPER_STYLE
     from .Iclr_plot_bank import draw_task_map, task_map_legend, ORACLE, TASK_MAP_ROWS
-    from .paper_figures_reeval import REEVAL_OUTCOMES
+    from .Iclr_plot_bank import SWE_OUTCOMES
 except ImportError:
     from appendix_knob_overview import (MODEL_NAMES, DEPTHS, LEVELS, load_runs, budget_levels,
                                         read_tasks, panel_runs)
     from appendix_task_map import solved_table, order_tasks, ROWS
     from plot_style import PAPER_STYLE
     from Iclr_plot_bank import draw_task_map, task_map_legend, ORACLE, TASK_MAP_ROWS
-    from paper_figures_reeval import REEVAL_OUTCOMES
+    from Iclr_plot_bank import SWE_OUTCOMES
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "ICLR_analysis/plots/appendix/task_specificity"
@@ -80,8 +80,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="qwen35b", choices=list(MODEL_NAMES))
-    parser.add_argument("--outcomes", type=Path, default=REEVAL_OUTCOMES,
-                        help="SWE-bench outcomes table (default: the re-evaluated copy)")
+    parser.add_argument("--outcomes", type=Path, default=SWE_OUTCOMES,
+                        help="SWE-bench outcomes table (carries the re-evaluation)")
     parser.add_argument("--thresholds", nargs="+", choices=LEVELS, default=LEVELS)
     parser.add_argument("--primary-cohort", choices=["ablation", "full"], default="ablation",
                         help="cohort for the (0.5, primary) setting; 'full' is Figure 4's")
