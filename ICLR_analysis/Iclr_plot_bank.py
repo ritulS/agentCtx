@@ -294,26 +294,55 @@ def overview_handles():
     return handles
 
 
-def better_arrows(ax, x_better, y_better, label=None):
-    """One thick light-grey diagonal arrow pointing into the corner the panel
-    favours (axes fractions), optionally labelled at its tail."""
-    x0 = 0.06 if x_better == "left" else 0.94
-    y0 = 0.06 if y_better == "down" else 0.94
-    span = 0.19
-    xs = x0 + span if x_better == "left" else x0 - span
-    ys = y0 + span if y_better == "down" else y0 - span
-    # PowerPoint-style block arrow: short, with a wide shaft and a broad head.
-    ax.annotate("", xy=(x0, y0), xytext=(xs, ys), xycoords="axes fraction",
+def better_arrows(ax, x_better, y_better, label=None, occupied=()):
+    """One thick light-grey block arrow pointing toward the corner the panel
+    favours, optionally labelled. It sits in the favoured corner when that
+    corner is free of data; otherwise in the emptiest corner (the direction
+    never changes). `occupied` lists (x, y) in axes fractions covered by
+    markers and their intervals."""
+    dx = -1 if x_better == "left" else 1
+    dy = -1 if y_better == "down" else 1
+    span, pad = 0.19, 0.06
+    label_h = 0.14 if label else 0.0      # room for the word beside the tail
+
+    def footprint(cx, cy):
+        # cx, cy = the corner the arrow occupies (True = right / top)
+        x_edge = 0.94 if cx else 0.06
+        y_edge = 0.94 if cy else 0.06
+        xa, xb = sorted([x_edge, x_edge - span if cx else x_edge + span])
+        ya, yb = sorted([y_edge, y_edge - span if cy else y_edge + span])
+        # the arrow shaft is half as wide as it is long: pad the box modestly
+        return (xa - pad, xb + pad, ya - pad - (label_h if not cy else 0), yb + pad + (label_h if cy else 0))
+
+    preferred = (x_better == "right", y_better == "up")
+    corners = [preferred] + [c for c in [(False, False), (True, False), (False, True), (True, True)]
+                             if c != preferred]
+    best, best_hits = None, None
+    for corner in corners:
+        xa, xb, ya, yb = footprint(*corner)
+        hits = sum(1 for (x, y) in occupied if xa <= x <= xb and ya <= y <= yb)
+        if hits == 0:
+            best = corner; break
+        if best_hits is None or hits < best_hits:
+            best, best_hits = corner, hits
+    cx, cy = best
+    # Arrow centred in that corner box, pointing (dx, dy).
+    x_edge = 0.94 if cx else 0.06
+    y_edge = 0.94 if cy else 0.06
+    xmid = x_edge - span / 2 if cx else x_edge + span / 2
+    ymid = y_edge - span / 2 if cy else y_edge + span / 2
+    head = (xmid + dx * span / 2, ymid + dy * span / 2)
+    tail = (xmid - dx * span / 2, ymid - dy * span / 2)
+    ax.annotate("", xy=head, xytext=tail, xycoords="axes fraction",
                 textcoords="axes fraction", zorder=6,
                 arrowprops=dict(arrowstyle="simple,head_length=1.0,head_width=1.6,tail_width=0.8",
                                 color=BETTER_ARROW, lw=0, shrinkA=0, shrinkB=0))
     if label:
-        # Beside the arrow at its tail height, hugging the corner's edge, where the
-        # panels are empty (usage < 0.25, resolve > FC + margin).
-        ax.text(x0 + (0.02 if x_better == "left" else -0.02), ys + (0.03 if y_better == "down" else -0.03),
-                label, transform=ax.transAxes, fontsize=9, color="#8a8a8a", style="italic",
-                ha="left" if x_better == "left" else "right",
-                va="bottom" if y_better == "down" else "top", zorder=6)
+        # Just outside the arrow box on the side away from the panel edge
+        # vertically, aligned with the corner's edge horizontally.
+        ax.text(x_edge, (y_edge - span - 0.02) if cy else (y_edge + span + 0.02), label,
+                transform=ax.transAxes, fontsize=9, color="#8a8a8a", style="italic",
+                ha="right" if cx else "left", va="top" if cy else "bottom", zorder=6)
 
 
 OVERVIEW_PANELS = [  # (x metric, y metric, x label, y label, better x, better y)
@@ -356,7 +385,14 @@ def draw_overview_rows(axes, rows):
                 pmark(ax, r[xmetric], r[ymetric], policy, "o", s=64)
             ax.scatter(fc[xmetric], fc[ymetric], marker=FC_MARKER, color="black", s=80, zorder=5)
             ax.set_xlim(xlim); ax.set_ylim(ylim)
-            better_arrows(ax, xbest, ybest, label="better" if row == 0 else None)
+            # Marker centres and interval ends in axes fractions, for arrow placement.
+            fx = lambda v: (v - xlim[0]) / (xlim[1] - xlim[0])
+            fy = lambda v: (v - ylim[0]) / (ylim[1] - ylim[0])
+            occupied = [(fx(fc[xmetric]), fy(fc[ymetric]))]
+            for policy in ORDER:
+                r = frame.loc[policy]
+                occupied += [(fx(r[xmetric]), fy(v)) for v in (r[ymetric], r[ymetric + "_lo"], r[ymetric + "_hi"])]
+            better_arrows(ax, xbest, ybest, label="better" if row == 0 else None, occupied=occupied)
             if position == 0:
                 # One row heading, rotated in the left margin, centred on the row,
                 # with a thin rule between it and the y-axis label.
