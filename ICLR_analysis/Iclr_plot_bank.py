@@ -700,7 +700,7 @@ def draw_task_map(fig, solved, missed, shared, rows=TASK_MAP_ROWS, band=(0.0, 1.
         ax.text(.5, 1.025, header, transform=ax.transAxes, ha='center', va='bottom', fontsize=6.4)
     for ax in map_axes:
         pos = ax.get_position()
-        ax.set_position([.15 + (pos.x0 - .144) * 2.02, y0 + .035 * yh, pos.width * 2.02, .80 * yh])
+        ax.set_position([.15 + (pos.x0 - .144) * 2.02, y0 + .005 * yh, pos.width * 2.02, .83 * yh])
     return map_axes
 
 
