@@ -714,7 +714,7 @@ def fig_task_map(solved, missed, shared, rows=TASK_MAP_ROWS):
     a black square as in Figure 2. Family separators are placed after TRC, SS-p, TRC+SS, OTRC+SS-p,
     OTRC and (when present) the oracle row.
     """
-    fig = plt.figure(figsize=(5.5, 1.95))   # 1100 x 390 px at 200 dpi
+    fig = plt.figure(figsize=(5.5, 1.75))   # 1100 x 350 px at 200 dpi
     task_map_legend(fig)
     draw_task_map(fig, solved, missed, shared, rows)
     return fig

@@ -58,7 +58,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "ICLR_analysis/plots/appendix/task_specificity"
 LEGEND_IN = 0.3       # legend band at the top, inches
-MAP_IN = 1.95         # one map band = the Figure 4 figure height, inches
+MAP_IN = 1.75         # one map band = the Figure 4 figure height, inches
 
 
 def fig_task_map_stack(blocks):
