@@ -118,3 +118,8 @@ ICLR_results/ICLR_analysis
 # re-evaluation evidence (harness logs); keep manifest/results/summary only
 ICLR_results/ICLR_reeval/*/jobs/
 ICLR_results/ICLR_reeval/.*.lock
+
+*.png
+ICLR_analysis/plots/**/*.csv
+# audited Q3 exports are inputs of the plot bank, not outputs
+!ICLR_analysis/plots/q3/q3_combined_*.csv
