@@ -297,43 +297,66 @@ FC_MARKER = "s"
 
 
 def overview_handles():
-    handles = [Line2D([], [], marker=FC_MARKER, ls="", color="black", ms=8, label="FC")]
+    handles = [Line2D([], [], marker=FC_MARKER, ls="", color="black", ms=10, label="FC")]
     for policy in ORDER:
         c, open_ = pcol(policy), PSTYLE[policy][2]
-        handles.append(Line2D([], [], marker="o", ls="", ms=8,
+        handles.append(Line2D([], [], marker="o", ls="", ms=10,
                               mfc="white" if open_ else c, mec=c, mew=1.0 if open_ else 0.3,
                               label=policy))
     return handles
 
 
-def better_arrows(ax, x_better, y_better, label=None):
-    """One thick light-grey diagonal arrow pointing into the corner the panel
-    favours (axes fractions), optionally labelled at its tail."""
-    x0 = 0.06 if x_better == "left" else 0.94
-    y0 = 0.06 if y_better == "down" else 0.94
-    span = 0.19
-    xs = x0 + span if x_better == "left" else x0 - span
-    ys = y0 + span if y_better == "down" else y0 - span
-    # PowerPoint-style block arrow: short, with a wide shaft and a broad head.
-    ax.annotate("", xy=(x0, y0), xytext=(xs, ys), xycoords="axes fraction",
+def better_arrows(ax, x_better, y_better, label=None, occupied=()):
+    """One thick light-grey block arrow pointing toward the corner the panel
+    favours, optionally labelled. It sits in the favoured corner when that
+    corner is free of data; otherwise in the diagonally opposite corner (the
+    direction never changes). `occupied` lists (x, y) in axes fractions covered by
+    markers and their intervals."""
+    dx = -1 if x_better == "left" else 1
+    dy = -1 if y_better == "down" else 1
+    span, pad = 0.19, 0.06
+    label_h = 0.14 if label else 0.0      # room for the word beside the tail
+
+    def footprint(cx, cy):
+        # cx, cy = the corner the arrow occupies (True = right / top)
+        x_edge = 0.94 if cx else 0.06
+        y_edge = 0.94 if cy else 0.06
+        xa, xb = sorted([x_edge, x_edge - span if cx else x_edge + span])
+        ya, yb = sorted([y_edge, y_edge - span if cy else y_edge + span])
+        # the arrow shaft is half as wide as it is long: pad the box modestly
+        return (xa - pad, xb + pad, ya - pad - (label_h if not cy else 0), yb + pad + (label_h if cy else 0))
+
+    # The favoured corner when it is free of data, otherwise the opposite
+    # corner (the arrow then points across the panel toward the favoured one).
+    preferred = (x_better == "right", y_better == "up")
+    xa, xb, ya, yb = footprint(*preferred)
+    free = not any(xa <= x <= xb and ya <= y <= yb for (x, y) in occupied)
+    cx, cy = preferred if free else (not preferred[0], not preferred[1])
+    # Arrow centred in that corner box, pointing (dx, dy).
+    x_edge = 0.94 if cx else 0.06
+    y_edge = 0.94 if cy else 0.06
+    xmid = x_edge - span / 2 if cx else x_edge + span / 2
+    ymid = y_edge - span / 2 if cy else y_edge + span / 2
+    head = (xmid + dx * span / 2, ymid + dy * span / 2)
+    tail = (xmid - dx * span / 2, ymid - dy * span / 2)
+    ax.annotate("", xy=head, xytext=tail, xycoords="axes fraction",
                 textcoords="axes fraction", zorder=6,
                 arrowprops=dict(arrowstyle="simple,head_length=1.0,head_width=1.6,tail_width=0.8",
                                 color=BETTER_ARROW, lw=0, shrinkA=0, shrinkB=0))
     if label:
-        # Beside the arrow at its tail height, hugging the corner's edge, where the
-        # panels are empty (usage < 0.25, resolve > FC + margin).
-        ax.text(x0 + (0.02 if x_better == "left" else -0.02), ys + (0.03 if y_better == "down" else -0.03),
-                label, transform=ax.transAxes, fontsize=9, color="#8a8a8a", style="italic",
-                ha="left" if x_better == "left" else "right",
-                va="bottom" if y_better == "down" else "top", zorder=6)
+        # Just outside the arrow box on the side away from the panel edge
+        # vertically, aligned with the corner's edge horizontally.
+        ax.text(x_edge, (y_edge - span - 0.02) if cy else (y_edge + span + 0.02), label,
+                transform=ax.transAxes, fontsize=9, color="#8a8a8a", style="italic",
+                ha="right" if cx else "left", va="top" if cy else "bottom", zorder=6)
 
 
 OVERVIEW_PANELS = [  # (x metric, y metric, x label, y label, better x, better y)
-    ("usage", "dres", "token usage / FC \u2193", "\u0394 resolve rate (pp) \u2191", "left", "up"),
-    ("usage", "time", "token usage / FC \u2193", "wall-clock / FC \u2193", "left", "down"),
-    ("usage", "bill", "token usage / FC \u2193", "billed input cost / FC \u2193", "left", "down"),
-    ("resolve", "bill", "resolve rate (%) \u2191", "billed input cost / FC \u2193", "right", "down"),
-    ("resolve", "time", "resolve rate (%) \u2191", "wall-clock / FC \u2193", "right", "down"),
+    ("usage", "dres", "token usage / FC", "\u0394 resolve rate (pp)", "left", "up"),
+    ("usage", "time", "token usage / FC", "wall-clock / FC", "left", "down"),
+    ("usage", "bill", "token usage / FC", "billed cost / FC", "left", "down"),
+    ("resolve", "bill", "resolve rate (%)", "billed cost / FC", "right", "down"),
+    ("resolve", "time", "resolve rate (%)", "wall-clock / FC", "right", "down"),
 ]
 BETTER_ARROW = "#b5b5b5"     # arrow toward the better corner
 
@@ -368,20 +391,30 @@ def draw_overview_rows(axes, rows):
                 pmark(ax, r[xmetric], r[ymetric], policy, "o", s=64)
             ax.scatter(fc[xmetric], fc[ymetric], marker=FC_MARKER, color="black", s=80, zorder=5)
             ax.set_xlim(xlim); ax.set_ylim(ylim)
-            better_arrows(ax, xbest, ybest, label="better" if row == 0 else None)
+            # Marker centres and interval ends in axes fractions, for arrow placement.
+            fx = lambda v: (v - xlim[0]) / (xlim[1] - xlim[0])
+            fy = lambda v: (v - ylim[0]) / (ylim[1] - ylim[0])
+            occupied = [(fx(fc[xmetric]), fy(fc[ymetric]))]
+            for policy in ORDER:
+                r = frame.loc[policy]
+                occupied += [(fx(r[xmetric]), fy(v)) for v in (r[ymetric], r[ymetric + "_lo"], r[ymetric + "_hi"])]
+            better_arrows(ax, xbest, ybest, occupied=occupied)
             if position == 0:
                 # One row heading, rotated in the left margin, centred on the row,
                 # with a thin rule between it and the y-axis label.
-                ax.text(-0.62, 0.5, label, transform=ax.transAxes, fontsize=13,
-                        rotation=90, ha="center", va="center", weight="bold")
-                ax.plot([-0.52, -0.52], [-0.02, 1.02], transform=ax.transAxes, color="#555555",
-                        lw=0.8, clip_on=False)
+                # Anchored to the figure edge so the y-label width does not matter.
+                pos = ax.get_position()
+                fig = ax.figure
+                fig.text(0.014, (pos.y0 + pos.y1) / 2, label, fontsize=15, rotation=90,
+                         ha="center", va="center", weight="bold")
+                fig.add_artist(Line2D([0.032, 0.032], [pos.y0 - 0.01, pos.y1 + 0.01],
+                                      transform=fig.transFigure, color="#555555", lw=0.8))
             if row == last:
-                ax.set_xlabel(xlabel, labelpad=4, fontsize=11)
-            ax.set_ylabel(ylabel, labelpad=4, fontsize=11)
-            ax.tick_params(axis="both", labelsize=10)
+                ax.set_xlabel(xlabel, labelpad=3, fontsize=13)
+            ax.set_ylabel(ylabel, labelpad=3, fontsize=12.5)
+            ax.tick_params(axis="both", labelsize=12)
             ax.grid(alpha=0.2, lw=0.5)
-            ax.locator_params(axis="both", nbins=4)
+            ax.locator_params(axis="both", nbins=3)
 
 
 def overview_legend(fig, y=1.005):
@@ -391,7 +424,7 @@ def overview_legend(fig, y=1.005):
     top, bottom = handles[:7], handles[7:]
     handles = [h for pair in zip(top, bottom + [None]) for h in pair if h is not None]
     fig.legend(handles=handles, loc="upper center", ncol=7, frameon=False,
-               handletextpad=0.3, columnspacing=1.2, fontsize=10, bbox_to_anchor=(0.52, y))
+               handletextpad=0.3, columnspacing=1.0, fontsize=12, bbox_to_anchor=(0.52, y))
 
 
 def overview_figure(n_rows):
@@ -402,7 +435,7 @@ def overview_figure(n_rows):
     fig, axes = plt.subplots(n_rows, 5, figsize=(11.0, height), squeeze=False)
     # Left margin holds the rotated row heading; rows need less vertical
     # room without the floating heading above each.
-    fig.subplots_adjust(left=0.10, right=0.992, bottom=0.58 / height, top=1 - 0.62 / height,
+    fig.subplots_adjust(left=0.10, right=0.992, bottom=0.60 / height, top=1 - 0.66 / height,
                         wspace=0.42, hspace=0.36)
     return fig, axes
 
@@ -438,11 +471,11 @@ def fig_knob_execution(S, resolve_grid):
     with plt.rc_context(KNOB_STYLE):
         fig = plt.figure(figsize=(12.8, 5.4))
         grid = fig.add_gridspec(3, 3, width_ratios=[1, 1, 3.1],
-                                left=.052, right=.995, bottom=.085, top=.84,
+                                left=.052, right=.995, bottom=.085, top=.87,
                                 wspace=.16, hspace=.32)
         # Cost and latency are shown relative to FC (FC = 1.0 dotted line).
-        metrics = [("events", "Compressions/run", None),
-                   ("bill", "Billed input / FC", 1 / fc.bill),
+        metrics = [("events", "Compressions", None),
+                   ("bill", "Billed cost / FC", 1 / fc.bill),
                    ("e2e", "Latency / FC", 1 / fc.e2e)]
         handles = []
         for row, (col_name, ylab, scale) in enumerate(metrics):
@@ -491,30 +524,30 @@ def fig_knob_execution(S, resolve_grid):
         # The table has no x-axis labels, so let it run down to the figure edge
         # and use the taller rows for larger text.
         pos = ax.get_position()
-        ax.set_position([pos.x0, .02, pos.width, pos.y1 - .02])
+        ax.set_position([pos.x0, .005, pos.width, pos.y1 - .005])
         ax.set_axis_off()
         ax.set_title("(c) Resolve, cost, and latency", loc="left", pad=8)
         ax.set_xlim(0, 11.3)
-        ax.set_ylim(.25, 19.35)
+        ax.set_ylim(.3, 19.25)   # tight to the bottom rule and the depth headings
         left = 2.2
-        ax.text(.02, 17.92, "Primitive", fontsize=11, va="center")
-        ax.text(1.30, 17.92, "Trigger", fontsize=11, va="center")
+        ax.text(.02, 17.92, "Primitive", fontsize=10, va="center")
+        ax.text(1.52, 17.92, "Trigger", fontsize=10, ha="center", va="center")
         for j, (depth, label) in enumerate(((.3, "Shallow (0.3)"), (.5, "Depth 0.5"), (.7, "Deep (0.7)"))):
             center = left + 3*j + 1.5
-            ax.text(center, 18.93, label, ha="center", va="center", fontsize=14, fontweight="bold")
+            ax.text(center, 18.93, label, ha="center", va="center", fontsize=16, fontweight="bold")
             ax.plot([left + 3*j + .08, left + 3*j + 2.92], [18.45, 18.45], color=".65", lw=.5)
             for k, label in enumerate(("RR (%)", "Cost/FC", "Lat. (s)")):
                 ax.text(left + 3*j + k + .5, 17.92, label, ha="center", va="center", fontsize=10.5)
         ax.plot([0, 11.2], [17.36, 17.36], color=".35", lw=.65)
         for i, pol in enumerate(DT.values()):
             ytop = 16.66 - 3.4*i
-            ax.text(.02, ytop-1, pol, color="black", fontweight="bold", fontsize=14, va="center")
+            ax.text(.02, ytop-1, pol, color="black", fontweight="bold", fontsize=15, va="center")
             for k, budget in enumerate((10, 15, 20)):
                 y = ytop-k
                 g = resolve_grid[resolve_grid.policy.eq(pol) & resolve_grid.threshold_k.eq(budget)]
                 assert len(g) == 3
                 best, cheapest, fastest = g.resolve.max(), g.bill_vs_fc.min(), g.latency_all.min()
-                ax.text(1.35, y, f"{budget}K", ha="center", fontsize=12.5, va="center")
+                ax.text(1.45, y, f"{budget}K", ha="center", fontsize=14.5, va="center")
                 for j, depth in enumerate((.3, .5, .7)):
                     r = g[g.depth_removed.eq(depth)].iloc[0]
                     # One bounded triplet = one primitive/trigger/depth setting.
@@ -531,11 +564,11 @@ def fig_knob_execution(S, resolve_grid):
                     if np.isclose(r.latency_all, fastest):
                         ax.add_patch(Ellipse((xlatency, y), .94, .76, fill=False,
                                              edgecolor=".15", linewidth=.9, zorder=4))
-                    ax.text(xlatency, y, f"{r.latency_all:.0f}", ha="center", va="center", fontsize=13.5,
+                    ax.text(xlatency, y, f"{r.latency_all:.0f}", ha="center", va="center", fontsize=15.5,
                             fontweight="bold" if np.isclose(r.latency_all, fastest) else "normal")
-                    ax.text(xresolve, y, f"{100*r.resolve:.1f}", ha="center", va="center", fontsize=13.5,
+                    ax.text(xresolve, y, f"{100*r.resolve:.1f}", ha="center", va="center", fontsize=15.5,
                             fontweight="bold" if np.isclose(r.resolve, best) else "normal")
-                    ax.text(xcost, y, f"{r.bill_vs_fc:.2f}", ha="center", va="center", fontsize=13.5,
+                    ax.text(xcost, y, f"{r.bill_vs_fc:.2f}", ha="center", va="center", fontsize=15.5,
                             fontweight="bold" if np.isclose(r.bill_vs_fc, cheapest) else "normal")
             if i < 4:
                 ax.plot([0, 11.2], [ytop-2.7, ytop-2.7], color=".60", lw=.65)
@@ -545,21 +578,22 @@ def fig_knob_execution(S, resolve_grid):
         right_center = (grid[0, 2].get_position(fig).x0 + grid[0, 2].get_position(fig).x1) / 2
         fc_handle = Line2D([], [], color=".45", ls=":", lw=.9, label="FC")
         fig.legend(handles=handles + [fc_handle], loc="upper center", ncol=6, frameon=False,
-                   bbox_to_anchor=(left_center, .985), handlelength=1.1, columnspacing=.55, handletextpad=.3)
+                   bbox_to_anchor=(left_center, 1.0), handlelength=1.1, columnspacing=.55, handletextpad=.3)
         winners = [Patch(facecolor=RESOLVE_HIGHLIGHT, edgecolor="none",
                          label="Highest resolve"),
                    Patch(facecolor=COST_HIGHLIGHT, edgecolor="none",
                          label="Lowest cost"),
                    Line2D([], [], linestyle="none", marker="o", markerfacecolor="none",
-                          markeredgecolor=".15", markersize=8, label="Lowest latency"),
+                          markeredgecolor=".15", markersize=9, label="Lowest latency"),
                    ]
         fig.legend(handles=winners, loc="upper center", ncol=3, frameon=False,
-                   bbox_to_anchor=(right_center, .985), handlelength=1.4,
-                   columnspacing=.9, handletextpad=.3, fontsize=12)
-        fig.text(.993, .911,
+                   bbox_to_anchor=(right_center, 1.0), handlelength=1.4,
+                   columnspacing=.9, handletextpad=.3, fontsize=13)
+        # FC reference on the (c) title line, right-aligned.
+        fig.text(.993, .905,
                  f"FC: {100*fc.resolve:.1f}% / 1.00× / "
                  f"{resolve_grid.loc[resolve_grid.policy.eq('FC'), 'latency_all'].iloc[0]:.0f}s",
-                 ha="right", va="center", fontsize=12)
+                 ha="right", va="center", fontsize=13)
         return fig
 
 

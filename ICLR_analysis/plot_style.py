@@ -74,8 +74,8 @@ def save_figure(fig, output_dir, name, dpi=200):
 
 
 
-KNOB_STYLE = {**PAPER_STYLE, "font.size": 13, "axes.titlesize": 14,
-              "axes.labelsize": 12.5, "xtick.labelsize": 12,
-              "ytick.labelsize": 12, "legend.fontsize": 12}
+KNOB_STYLE = {**PAPER_STYLE, "font.size": 14, "axes.titlesize": 15,
+              "axes.labelsize": 12.5, "xtick.labelsize": 13,
+              "ytick.labelsize": 13, "legend.fontsize": 13}
 RESOLVE_HIGHLIGHT = "#ffe680"  # highest resolve in a primitive/trigger triplet
 COST_HIGHLIGHT = "#d9edcf"     # lowest billed cost in the triplet
