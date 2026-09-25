@@ -350,8 +350,6 @@ def draw_overview_rows(axes, rows):
             yr = (fc[ymetric], ylim[1]) if ybest == "up" else (ylim[0], fc[ymetric])
             ax.add_patch(Rectangle((xr[0], yr[0]), xr[1] - xr[0], yr[1] - yr[0],
                                    facecolor=BETTER_FILL, edgecolor="none", zorder=-2))
-            if ymetric == "bill":
-                ax.axhspan(1, ylim[1], color="#f1f1f1", zorder=-1)
             ax.axhline(fc[ymetric], color="#999999", lw=0.6, ls="--", zorder=0)
             ax.axvline(fc[xmetric], color="#999999", lw=0.6, ls="--", zorder=0)
             for policy in ORDER:
