@@ -518,8 +518,8 @@ def fig_knob_execution(S, resolve_grid):
         ax.set_xlim(0, 11.3)
         ax.set_ylim(.3, 19.25)   # tight to the bottom rule and the depth headings
         left = 2.2
-        ax.text(.02, 17.92, "Primitive", fontsize=11, va="center")
-        ax.text(1.45, 17.92, "Trigger", fontsize=11, ha="center", va="center")
+        ax.text(.02, 17.92, "Primitive", fontsize=10, va="center")
+        ax.text(1.52, 17.92, "Trigger", fontsize=10, ha="center", va="center")
         for j, (depth, label) in enumerate(((.3, "Shallow (0.3)"), (.5, "Depth 0.5"), (.7, "Deep (0.7)"))):
             center = left + 3*j + 1.5
             ax.text(center, 18.93, label, ha="center", va="center", fontsize=16, fontweight="bold")
