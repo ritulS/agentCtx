@@ -1,4 +1,4 @@
-"""Selected ICLR plot bank: five maintained figure renderers and their inputs.
+"""Selected ICLR plot bank: nine maintained figure renderers and their inputs.
 
 Run `venv/bin/python ICLR_analysis/Iclr_plot_bank.py` to generate all figures.
 Every data figure is computed from the tracked outcomes tables
@@ -11,6 +11,7 @@ written on import.
 """
 from pathlib import Path
 import argparse
+import ast
 import json
 import numpy as np
 import pandas as pd
@@ -19,9 +20,13 @@ if __name__ == "__main__":
     matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba, LinearSegmentedColormap, Normalize
+from matplotlib.ticker import FuncFormatter, MultipleLocator
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, Rectangle, Ellipse, FancyBboxPatch
 try:
+    from .step_comparison import step_inputs, fig_step_comparison
+    from .limit_rates import limit_inputs, fig_limit_rates
+    from .summarizer_ablation import summarizer_inputs, fig_summarizer_ablation
     from .plot_style import (PAPER_STYLE, KNOB_STYLE, ORDER, MK, PSTYLE, PDARK, RESOLVE_HIGHLIGHT, COST_HIGHLIGHT,
                              PLIGHT, pcol, pmark, prim_handles, save_figure)
     from .paper_figures import load_q2_runs
@@ -30,6 +35,9 @@ try:
                                          SWE_TIMEOUT)
     from .intro_fig import make_wrap_figure as fig_intro_policy_axes
 except ImportError:
+    from step_comparison import step_inputs, fig_step_comparison
+    from limit_rates import limit_inputs, fig_limit_rates
+    from summarizer_ablation import summarizer_inputs, fig_summarizer_ablation
     from plot_style import (PAPER_STYLE, KNOB_STYLE, ORDER, MK, PSTYLE, PDARK, RESOLVE_HIGHLIGHT, COST_HIGHLIGHT,
                             PLIGHT, pcol, pmark, prim_handles, save_figure)
     from paper_figures import load_q2_runs
@@ -48,6 +56,10 @@ FIGURES = {
     "q1_26_knob_execution": "q1",
     "q2_qwen_task_map_only": "q1",
     "q3_policy_preferences_and_design": "q3",
+    "budget_vs_total_explainer": "appendix",
+    "summarizer_ablation": "appendix",
+    "limit_rates": "appendix",
+    "step_comparison": "appendix",
 }
 
 # ------------------------------------------------------------ inputs
@@ -792,6 +804,65 @@ def fig_policy_preferences(l, d):
     return fig
 
 
+# ------------------------------------------------------------ Appendix figures
+# Per-call prompt sizes and cumulative prompt consumption, fixed paired runs.
+def budget_vs_total_inputs(outcomes):
+    """Read the two observed trajectories used in the appendix illustration."""
+    data = pd.read_csv(outcomes, low_memory=False)
+    data = data[(data.model_key == 'qwen35b') & (data.experiment_section == 'main')
+                & (data.task_name == 'scikit-learn__scikit-learn-13142') & (data.run_num == 1)]
+    series = []
+    for cell, title, color in [('di__binf__fc', 'Full context', '#777777'),
+                               ('d05__b15k__tr', 'Truncation', '#0072B2')]:
+        rows = data[data.cell == cell]
+        if len(rows) != 1:
+            raise ValueError(f'Expected exactly one trajectory for {cell}, got {len(rows)}')
+        row = rows.iloc[0]
+        values = np.asarray(ast.literal_eval(row.step_prompt_tokens), dtype=float)
+        if not len(values) or not np.isfinite(values).all() or (values < 0).any():
+            raise ValueError(f'Invalid prompt counts for {cell}')
+        if str(row.resolved).lower() != 'true':
+            raise ValueError(f'The illustrated trajectory is no longer marked solved: {cell}')
+        series.append((values, title, color))
+        print(f'{title}: {len(values)} calls; peak {max(values):,.0f}; total {sum(values):,.0f} prompt tokens')
+
+    return series
+
+
+def fig_budget_vs_total(series):
+    """Draw per-call bars, with panel labels below and statistics inside."""
+    fig, axes = plt.subplots(1, 2, figsize=(6.8, 4.5), sharex=True, sharey=True)
+    max_calls = max(len(v) for v, _, _ in series)
+    for i, (ax, (values, title, color)) in enumerate(zip(axes, series)):
+        calls = np.arange(1, len(values) + 1)
+        ax.barh(calls, values, height=.78, color=color, linewidth=0)
+        ax.text(.5, -.20, f'({chr(97+i)}) {title}',
+                transform=ax.transAxes, fontsize=10, ha='center', va='top')
+        ax.text(.97, .97,
+                f'{len(values)} calls\nPeak: {max(values)/1000:.1f}K\n'
+                f'Total prompt tokens: {sum(values)/1e6:.2f}M',
+                transform=ax.transAxes, fontsize=8.5, linespacing=1.5,
+                ha='right', va='top',
+                bbox=dict(facecolor='white', edgecolor='none', alpha=.95, pad=3))
+        ax.set_xlim(0, 30000)
+        ax.set_ylim(max_calls + 1, 0)
+        ax.set_yticks([1, 10, 20, 30, 40, 50, max_calls])
+        ax.xaxis.set_major_locator(MultipleLocator(10000))
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{x/1000:g}K' if x else '0'))
+        ax.set_xlabel('Prompt tokens per call')
+        ax.grid(axis='x', color='#e5e5e5', linewidth=.6)
+        ax.set_axisbelow(True)
+        ax.spines[['top', 'right']].set_visible(False)
+        ax.spines[['left', 'bottom']].set_color('#aaaaaa')
+        ax.tick_params(length=3, color='#aaaaaa')
+        if i == 1:
+            ax.axvline(15000, color='#333333', linestyle=(0, (4, 3)), linewidth=.9)
+            ax.text(15800, 53, '15K trigger\nthreshold', fontsize=8, va='center')
+    axes[0].set_ylabel('Model call')
+    fig.subplots_adjust(left=.09, right=.98, top=.97, bottom=.23, wspace=.16)
+    return fig
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -805,7 +876,7 @@ def main(argv=None):
     parser.add_argument("--q3-data-dir", type=Path, default=Q3_DATA_DIR,
                         help="audited Q3 exports; Devstral, GLM and Terminal-Bench rows are reused")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots",
-                        help="Output root; preserves setup/, q1/ and q3/ subdirectories")
+                        help="Output root; preserves setup/, q1/, q3/ and appendix/ subdirectories")
     args = parser.parse_args(argv)
     if args.list:
         print("\n".join(FIGURES))
@@ -835,6 +906,30 @@ def main(argv=None):
         with plt.rc_context(PAPER_STYLE):
             if name == "intro_01_policy_axes_wrap":
                 fig = fig_intro_policy_axes()
+            elif name == "step_comparison":
+                summary, pairs = step_inputs(args.outcomes, args.tb_outcomes)
+                write(summary, sub, "step_comparison_summary.csv", index=False)
+                write(pairs, sub, "step_comparison_pairs.csv", index=False)
+                fig = fig_step_comparison(summary)
+            elif name == "limit_rates":
+                summary, audit = limit_inputs(args.outcomes, args.tb_outcomes)
+                write(summary, sub, "limit_rates_summary.csv", index=False)
+                write(audit, sub, "limit_rates_runs.csv", index=False)
+                fig = fig_limit_rates(summary)
+            elif name == "summarizer_ablation":
+                summary, audit = summarizer_inputs(args.outcomes)
+                write(summary, sub, "summarizer_ablation_summary.csv", index=False)
+                write(audit, sub, "summarizer_ablation_runs.csv", index=False)
+                fig = fig_summarizer_ablation(summary)
+            elif name == "budget_vs_total_explainer":
+                series = budget_vs_total_inputs(args.outcomes)
+                calls = pd.DataFrame([
+                    {"policy": title, "call": call, "prompt_tokens": int(tokens)}
+                    for values, title, _ in series
+                    for call, tokens in enumerate(values, 1)
+                ])
+                write(calls, sub, "budget_vs_total_explainer_calls.csv", index=False)
+                fig = fig_budget_vs_total(series)
             elif name == "q1_24_qwen_overview":
                 _, swe = qwen_primary()
                 tb = q1_frontier(primary_setting("terminalbench", "qwen35b", args.tb_outcomes))
@@ -874,7 +969,7 @@ def main(argv=None):
                 write(contrasts, sub, "q3_combined_design_contrasts.csv", index=False)
                 fig = fig_policy_preferences(values, contrasts)
             try:
-                save_figure(fig, sub, name, dpi=300 if name.startswith(("intro", "q3")) else 200)
+                save_figure(fig, sub, name, dpi=300 if name.startswith(("intro", "q3", "budget_vs_total")) else 200)
             finally:
                 plt.close(fig)
         print(f"Wrote {sub / name}.{{pdf,png}}", flush=True)
