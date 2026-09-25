@@ -295,18 +295,17 @@ def overview_handles():
 
 
 def better_arrows(ax, x_better, y_better):
-    """Two black arrows in the corner the panel favours, in axes fractions."""
-    x0 = 0.05 if x_better == "left" else 0.95
-    y0 = 0.05 if y_better == "down" else 0.95
-    span = 0.22
+    """One thick diagonal arrow pointing into the corner the panel favours
+    (axes fractions), so the better direction reads at a glance."""
+    x0 = 0.06 if x_better == "left" else 0.94
+    y0 = 0.06 if y_better == "down" else 0.94
+    span = 0.26
     xs = x0 + span if x_better == "left" else x0 - span
     ys = y0 + span if y_better == "down" else y0 - span
-    style = dict(arrowstyle="-|>,head_length=0.35,head_width=0.18", color="black",
-                 lw=1.3, shrinkA=0, shrinkB=0)
-    ax.annotate("", xy=(x0, y0), xytext=(xs, y0), xycoords="axes fraction",
-                textcoords="axes fraction", arrowprops=style, zorder=6)
-    ax.annotate("", xy=(x0, y0), xytext=(x0, ys), xycoords="axes fraction",
-                textcoords="axes fraction", arrowprops=style, zorder=6)
+    ax.annotate("", xy=(x0, y0), xytext=(xs, ys), xycoords="axes fraction",
+                textcoords="axes fraction", zorder=6,
+                arrowprops=dict(arrowstyle="simple,head_length=0.9,head_width=0.9,tail_width=0.35",
+                                color="black", lw=0, shrinkA=0, shrinkB=0, alpha=0.85))
 
 
 OVERVIEW_PANELS = [  # (x metric, y metric, x label, y label, better x, better y)
