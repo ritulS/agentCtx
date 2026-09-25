@@ -362,9 +362,12 @@ def draw_overview_rows(axes, rows):
             ax.set_xlim(xlim); ax.set_ylim(ylim)
             better_arrows(ax, xbest, ybest, label="better" if row == 0 else None)
             if position == 0:
-                # One row heading, floated above and left of the first panel.
-                ax.text(-0.36, 1.06, label, transform=ax.transAxes, fontsize=13,
-                        ha="left", va="bottom")
+                # One row heading, rotated in the left margin, centred on the row,
+                # with a thin rule between it and the y-axis label.
+                ax.text(-0.62, 0.5, label, transform=ax.transAxes, fontsize=13,
+                        rotation=90, ha="center", va="center", weight="bold")
+                ax.plot([-0.52, -0.52], [-0.02, 1.02], transform=ax.transAxes, color="#555555",
+                        lw=0.8, clip_on=False)
             if row == last:
                 ax.set_xlabel(xlabel, labelpad=4, fontsize=11)
             ax.set_ylabel(ylabel, labelpad=4, fontsize=11)
@@ -389,8 +392,10 @@ def overview_figure(n_rows):
     px at 200 dpi)."""
     height = 1.2 + 1.75 * n_rows
     fig, axes = plt.subplots(n_rows, 5, figsize=(11.0, height), squeeze=False)
-    fig.subplots_adjust(left=0.062, right=0.992, bottom=0.54 / height, top=1 - 0.66 / height,
-                        wspace=0.42, hspace=0.44)
+    # Left margin holds the rotated row heading; rows need less vertical
+    # room without the floating heading above each.
+    fig.subplots_adjust(left=0.10, right=0.992, bottom=0.58 / height, top=1 - 0.62 / height,
+                        wspace=0.42, hspace=0.36)
     return fig, axes
 
 
