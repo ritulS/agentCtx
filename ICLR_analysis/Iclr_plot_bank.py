@@ -575,14 +575,14 @@ def draw_task_map(fig, solved, missed, shared, rows=TASK_MAP_ROWS, band=(0.0, 1.
     # Narrow number columns and small gaps leave the width to the maps
     # (reviewer note: the cells were cramped while the columns had slack).
     totals = fig.add_axes([.130, bottom, .030, height])
-    cell_width = .328 / n_tasks
+    cell_width = .324 / n_tasks
     missed_width, solved_width = len(missed) * cell_width, len(shared) * cell_width
     miss_ax = fig.add_axes([.165, bottom, missed_width, height], sharey=totals)
     # Gained sits right next to the FC-missed map, Lost right next to the
     # FC-solved map; the wider gap separates the two map halves.
     gain_left = .165 + missed_width + .003
     gain_ax = fig.add_axes([gain_left, bottom, .021, height], sharey=totals)
-    shared_left = gain_left + .021 + .014   # a visible gap between the two halves
+    shared_left = gain_left + .021 + .018   # a visible gap between the two halves
     shared_ax = fig.add_axes([shared_left, bottom, solved_width, height], sharey=totals)
     loss_ax = fig.add_axes([shared_left + solved_width + .003, bottom, .021, height], sharey=totals)
     map_axes = [totals, miss_ax, gain_ax, shared_ax, loss_ax]
