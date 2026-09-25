@@ -10,10 +10,10 @@ venv/bin/python ICLR_analysis/Iclr_plot_bank.py --figure q1_26_knob_execution
 venv/bin/python ICLR_analysis/Iclr_plot_bank.py --output-dir /tmp/paper-plots
 ```
 
-`--figure` accepts multiple names. The default generates exactly the five
+`--figure` accepts multiple names. The default generates exactly the nine
 selected figures as PDF and PNG, preserving their current filenames and
-setup/q1/q3 directories. Q2 remains in q1 for compatibility with existing references.
-The bank owns the four results renderers and reuses the intro renderer from
+setup/q1/q3/appendix directories. Q2 remains in q1 for compatibility with existing references.
+The bank includes four results renderers and four appendix renderers, and reuses the intro renderer from
 `intro_fig.py`. Older overview and knob
 entry points delegate to it. Importing the bank does not render or write files.
 
@@ -95,6 +95,28 @@ bold. The compact figure has no policy heading, and all text is at least 6.5 pt.
 The intro uses the shared blue/green/orange colors to distinguish P/T/D.
 These label colors identify axes, rather than primitive families as in the
 results plots. Grey is the fixed prompt; blue blocks are newly added history.
+
+## Appendix: per-call context versus total prompt tokens
+
+`budget_vs_total_explainer` plots Qwen3.5-35B-A3B on
+`scikit-learn__scikit-learn-13142`, run 1, comparing full context
+(`di__binf__fc`) with truncation (`d05__b15k__tr`). It reads the prompt-token
+sequence for each run from `--outcomes` and requires both runs to be resolved.
+The loader and renderer live under **Appendix figures** in `Iclr_plot_bank.py`.
+
+```bash
+venv/bin/python ICLR_analysis/Iclr_plot_bank.py --figure budget_vs_total_explainer
+```
+
+Outputs are `ICLR_analysis/plots/appendix/budget_vs_total_explainer.{pdf,png}`
+and `budget_vs_total_explainer_calls.csv`. Matching axes show one horizontal
+bar per call; the sum of bar lengths is cumulative prompt consumption.
+Panel titles sit below the axes; call counts, peaks, and prompt totals appear
+inside each panel. The dashed line marks the 15K trigger in the truncation
+panel. This illustration shows prompt tokens, not output tokens or billed cost.
+
+`budget_vs_total_explainer.py` remains a compatibility entry point using the
+same renderer, with outputs in `paper_sections_ICLR/figures/` by default.
 
 ## Appendix: Figure 1 at every depth and trigger threshold
 
@@ -201,3 +223,19 @@ plus `qwen35b_swe_task_map_counts.csv`.
 ```bash
 venv/bin/python ICLR_analysis/appendix_task_map_reeval.py
 ```
+
+### Appendix: summarizer sensitivity
+
+`--figure summarizer_ablation` renders success, token consumption, and latency for SU and TRC+SU on ABL-25, holding the Qwen3.5-35B-A3B agent fixed and comparing self, Qwen3.5-9B, and Gemma-4-12B summarization. Implementation: `summarizer_ablation.py`. Inputs use main self-summarization runs and `model_ablation` rows from the tracked SWE outcomes; smoke runs are excluded. Coverage is validated as exactly three attempts on each of the 25 pinned tasks per condition.
+
+Success includes all 75 attempts, with missing verdicts treated as unresolved (22 self-SU and 13 self-TRC+SU attempts; limit exits or silent crashes). Resources exclude runs lasting at least 1500 seconds and require at least two prompt counts. Ratios compare task means against self-summarization on tasks eligible under all three summarizers, separately per policy. Token consumption includes prompt and completion tokens from agent and summarizer calls. Intervals use 5,000 task bootstrap resamples with seed 0. The figure writes `appendix/summarizer_ablation_summary.csv` and `appendix/summarizer_ablation_runs.csv` for estimates, sample sizes, paired success differences, and per-attempt inclusion auditing. Self ratios equal one by construction. Latency is observational and does not isolate serving speed.
+
+### Appendix: run outcomes and resource limits
+
+`--figure limit_rates` renders 100% stacked outcome bars for the primary configurations, including all 300 SWE / 120 TB attempts per model and policy. `limit_rates.py` validates three attempts per pinned task. Categories are assigned in order: successful verdict, unresolved time exclusion, unresolved step limit, submitted with explicit false verdict, other/missing. Counts sum exactly to the full cohort denominator; successful outcomes override exit status. Terminal-Bench time exclusions include the documented cancelled/missing-status fallback. This is a complete-cohort success rate; main plots filtered for token-log availability may differ.
+
+`limit_rates_summary.csv` records counts, percentages, resource-excluded counts, and successful excluded counts. `limit_rates_runs.csv` records per-attempt classifications and resource exclusion flags. Resource exclusions apply even to successful runs and are not identical to unresolved timeout segments. This figure does not test sensitivity of resource rankings to exclusions.
+
+### Appendix: execution length
+
+`--figure step_comparison` plots percent changes in agent calls vs FC for primary configurations. Tasks must have >=2/3 successful attempts under both policies. Average successful attempts within each task, then take the ratio of task means. No token-log filter or timeout exclusion is applied to successful attempts. Summarizer calls are excluded (`step_count`). Paired task bootstrap: 10,000 samples, seed 210926. Panels display task counts; row-specific scales preserve readability. Summary and task-pair CSVs accompany PNG/PDF outputs. This measures conditional execution length, not an unconditional causal effect.
