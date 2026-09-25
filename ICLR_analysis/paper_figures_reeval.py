@@ -53,8 +53,8 @@ functions:
     (paired task resolve-rate differences, one fresh stream per pair, seed
     0, B=2000) are recomputed; every other row (Devstral, GLM,
     Terminal-Bench) is copied unchanged from the audited exports in
-    --q3-data-dir, which the re-evaluation does not touch. Drawn by a
-    revised copy of fig_policy_preferences: panel (a) uses the Figure 3(c)
+    --q3-data-dir, which the re-evaluation does not touch. Drawn by the
+    plot bank's fig_policy_preferences: panel (a) uses the Figure 3(c)
     table encoding (grey boxed triplets, yellow highest resolve, green lowest
     cost, oval lowest latency, bold winners) with black policy labels and no
     rank shading or rank colour bar, and the panel titles are "(a)" and
@@ -94,7 +94,7 @@ from matplotlib.patches import Patch, Rectangle, Ellipse, FancyBboxPatch
 try:
     from . import plot_style, Iclr_plot_bank as plot_bank
     from .plot_style import PAPER_STYLE, ORDER, PSTYLE, PDARK, PLIGHT
-    from .Iclr_plot_bank import ROWS, DT, MARK
+    from .Iclr_plot_bank import fig_policy_preferences, ROWS, DT, MARK
     from .paper_figures import load_q2_runs
     from .appendix_knob_overview import (load_runs, budget_levels, panel_runs, read_tasks,
                                          raw_fields, fresh_cached, per_task, ratio_ci, diff_ci,
@@ -103,7 +103,7 @@ except ImportError:
     import plot_style
     import Iclr_plot_bank as plot_bank
     from plot_style import PAPER_STYLE, ORDER, PSTYLE, PDARK, PLIGHT
-    from Iclr_plot_bank import ROWS, DT, MARK
+    from Iclr_plot_bank import fig_policy_preferences, ROWS, DT, MARK
     from paper_figures import load_q2_runs
     from appendix_knob_overview import (load_runs, budget_levels, panel_runs, read_tasks,
                                         raw_fields, fresh_cached, per_task, ratio_ci, diff_ci,
@@ -753,125 +753,6 @@ def fig_task_map(solved, missed, shared, rows=TASK_MAP_ROWS):
     fig = plt.figure(figsize=(5.5, 2.25))
     task_map_legend(fig)
     draw_task_map(fig, solved, missed, shared, rows)
-    return fig
-
-
-# ------------------------------------------------------------ Figure 5 renderer
-def fig_policy_preferences(l, d):
-    """Iclr_plot_bank.fig_policy_preferences with the reviewer revisions.
-
-    Panel (a) uses the Figure 3(c) table encoding: grey boxed triplets per
-    model, highest resolve as a yellow cell, lowest billed cost as a green
-    cell, lowest latency ratio as an oval, winners in bold, a winner legend
-    above; no rank shading or rank colour bar, policy labels in black. The
-    panel titles are reduced to "(a)" and "(b)" centred under each panel.
-    """
-    pol = ['FC'] + ORDER
-    models = ['qwen35b', 'devstral24b', 'glm47flash']
-    names = ['Qwen', 'Devstral', 'GLM']
-    pairs = [('SS-p', 'SS'), ('TRC+SS', 'SS'), ('OTRC', 'TRC'), ('OTRC+SS-p', 'OTRC')]
-    diffmap = LinearSegmentedColormap.from_list(
-        'diff', [PDARK['llm'], PLIGHT['llm'], '#fafafa', PLIGHT['rule'], PDARK['rule']])
-    dn = Normalize(-20, 20)
-
-    def clean(a, nr, nc, grid='white', labelsize=5.5):
-        a.set_xticks(np.arange(-.5, nc, 1), minor=True)
-        a.set_yticks(np.arange(-.5, nr, 1), minor=True)
-        a.grid(which='minor', color=grid, lw=.6)
-        a.tick_params(which='both', length=0, pad=2, labelsize=labelsize)
-        for sp in a.spines.values():
-            sp.set_visible(False)
-
-    with plt.rc_context(PAPER_STYLE):
-        fig = plt.figure(figsize=(6.75, 2.25))
-        # (a) policy table
-        # Wider table than the plot bank (panel (b) narrowed) for larger fonts.
-        ax = fig.add_axes([.105, .075, .455, .655])
-        vals = np.empty((13, 9))
-        for j, m in enumerate(models):
-            for k, metric in enumerate(['resolve', 'latency_ratio', 'billed_input_ratio']):
-                a = l[(l.benchmark == 'SWE-bench') & (l.model_key == m) & (l.metric == metric)]
-                vals[:, 3 * j + k] = a.set_index('policy').loc[pol].value
-        ax.set_xlim(-.5, 8.5)
-        ax.set_ylim(12.5, -.5)
-        for row in range(13):
-            for j in range(3):
-                ax.add_patch(Rectangle((3 * j - .47, row - .41), 2.94, .82, facecolor='#f3f4f6',
-                                       edgecolor='#c9cdd2', linewidth=.45, zorder=0))
-        for col in range(9):
-            v = vals[:, col]
-            kind = col % 3  # 0 resolve, 1 latency, 2 bill
-            best = np.isclose(v, v.max() if kind == 0 else v.min(), atol=1e-10, rtol=0)
-            for row in range(13):
-                if best[row] and kind == 0:
-                    ax.add_patch(Rectangle((col - .42, row - .33), .84, .66, facecolor=RESOLVE_HIGHLIGHT,
-                                           edgecolor='none', zorder=1))
-                elif best[row] and kind == 2:
-                    ax.add_patch(Rectangle((col - .42, row - .33), .84, .66, facecolor=COST_HIGHLIGHT,
-                                           edgecolor='none', zorder=1))
-                elif best[row]:
-                    # Pill rather than ellipse: the cells are too narrow for an
-                    # ellipse to clear the corners of the number.
-                    ax.add_patch(FancyBboxPatch((col - .48, row - .39), .96, .78, fill=False,
-                                                boxstyle='round,pad=0,rounding_size=0.3',
-                                                edgecolor='.15', linewidth=.7, zorder=4))
-                label = f'{v[row]:.1f}' if kind == 0 else f'{v[row]:.2f}'
-                ax.text(col, row, label, ha='center', va='center', fontsize=7.3, color='#222222',
-                        fontweight='bold' if best[row] else 'normal', zorder=5)
-        ax.set_yticks(range(13), pol)
-        ax.set_xticks(range(9), ['Res. \u2191\n(%)', 'Lat. \u2193\n/ FC', 'Bill \u2193\n/ FC'] * 3)
-        ax.xaxis.tick_top()
-        for j, (name, bud) in enumerate(zip(names, ['15K', '21K', '13K'])):
-            ax.text((j + .5) / 3, 1.19, f'{name} ({bud})', transform=ax.transAxes,
-                    ha='center', fontsize=8)
-        clean(ax, 13, 9, grid='none', labelsize=7.3)
-        ax.tick_params(axis='x', labelsize=6.4)  # metric headers must not touch
-        winners = [Patch(facecolor=RESOLVE_HIGHLIGHT, edgecolor='none', label='Highest resolve'),
-                   Patch(facecolor=COST_HIGHLIGHT, edgecolor='none', label='Lowest cost'),
-                   Line2D([], [], ls='none', marker='o', mfc='none', mec='.15', ms=4.5,
-                          label='Lowest latency')]
-        fig.legend(handles=winners, loc='upper center', ncol=3, frameon=False, fontsize=6,
-                   bbox_to_anchor=(.3325, .995), handlelength=1.2, columnspacing=1.0,
-                   handletextpad=.4, borderaxespad=0)
-        fig.text(.3325, .015, '(a)', ha='center', fontsize=7)
-
-        # (b) design contrasts
-        decisions = ['Preserve\nrecent history', 'Clear before\nrewriting',
-                     'Clear every\nstep', 'Add partial\nrewriting']
-        comparisons = ['(SS-p vs SS)', '(TRC+SS vs SS)', '(OTRC vs TRC)', '(OTRC+SS-p\nvs OTRC)']
-        for bi, bench in enumerate(['SWE-bench', 'Terminal-Bench']):
-            bottom = [.50, .205][bi]
-            ar = fig.add_axes([.66, bottom, .33, .22])
-            v = np.empty((3, 4))
-            sig = np.zeros((3, 4), bool)
-            for j, (pp, q) in enumerate(pairs):
-                for i, m in enumerate(models):
-                    r = d[(d.benchmark == bench) & (d.model_key == m) & (d.p == pp) & (d.q == q)].iloc[0]
-                    v[i, j] = r.estimate
-                    sig[i, j] = r.lo > 0 or r.hi < 0
-            dm = ar.imshow(v, cmap=diffmap, norm=dn, aspect='auto')
-            for i in range(3):
-                for j in range(4):
-                    lum = np.dot(diffmap(dn(v[i, j]))[:3], [.2126, .7152, .0722])
-                    val = 0 if abs(v[i, j]) < 1e-9 else v[i, j]
-                    ar.text(j, i, f'{val:+.1f}' + ('*' if sig[i, j] else ''), ha='center', va='center',
-                            fontsize=6, color='white' if lum < .50 else '#222222')
-            ar.set_yticks(range(3), names)
-            ar.set_xticks([])
-            clean(ar, 3, 4)
-            if bi == 0:
-                for j, (decision, comparison) in enumerate(zip(decisions, comparisons)):
-                    ar.text(j, 1.80, decision, transform=ar.get_xaxis_transform(), ha='center',
-                            va='top', fontsize=5.2, fontweight='bold', linespacing=1.05)
-                    ar.text(j, 1.46, comparison, transform=ar.get_xaxis_transform(), ha='center',
-                            va='top', fontsize=5.2, linespacing=1.05)
-            fig.text(.66, bottom + .228, bench, fontsize=5.8, fontweight='bold')
-        c = fig.colorbar(dm, cax=fig.add_axes([.66, .165, .33, .016]), orientation='horizontal')
-        c.set_ticks([-20, -10, 0, 10, 20])
-        c.outline.set_visible(False)
-        c.ax.tick_params(length=2, pad=1, labelsize=5)
-        c.set_label('Resolve-rate change (pp)', fontsize=5.5, labelpad=1)
-        fig.text(.825, .015, '(b)', ha='center', fontsize=7)
     return fig
 
 

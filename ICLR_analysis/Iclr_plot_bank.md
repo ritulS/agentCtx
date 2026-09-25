@@ -184,12 +184,15 @@ lowest-cost cells, oval lowest latency, winner legend), carried in the
 script until it is committed, with the sweep x-axis labels shortened to
 "D" and "Threshold", compressions starting at 0, and billed input and
 latency plotted as ratios to FC on a range around 1.
-The policy-preference figure (Figure 5) is drawn by a revised copy of
-`fig_policy_preferences`: panel (a) uses the Figure 3(c) table encoding
-(grey boxed triplets per model, yellow highest resolve, green lowest cost,
-oval lowest latency, bold winners, winner legend) with black policy labels
-and no rank shading or rank colour bar, and the panel titles are just "(a)" and "(b)" centred
-under each panel.
+The policy-preference figure (Figure 5) is drawn by the plot bank's own
+`fig_policy_preferences` (revised 2026-09-24): panel (a) uses the Figure
+3(c) table encoding (grey boxed triplets per model, yellow highest resolve,
+green lowest cost, pill outline for lowest latency, bold winners, winner
+legend) with black policy labels and no rank shading or rank colour bar,
+and the panel titles are just "(a)" and "(b)" centred under each panel.
+The Q3 exports in `plots/q3/` carry the Qwen SWE-bench re-evaluation, so
+`Iclr_plot_bank.py --figure q3_policy_preferences_and_design` and
+`paper_figures_reeval.py --figure preferences` render the same figure.
 The task map (Figure 4) gains an `Oracle` row directly above FC: a task
 counts as solved when any of the thirteen policies (the twelve compression
 policies or FC) solves it (per-policy majority of three runs), i.e. the
