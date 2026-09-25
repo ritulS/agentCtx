@@ -462,8 +462,8 @@ def fig_knob_execution(S, resolve_grid):
                                 left=.052, right=.995, bottom=.085, top=.84,
                                 wspace=.16, hspace=.32)
         # Cost and latency are shown relative to FC (FC = 1.0 dotted line).
-        metrics = [("events", "Compressions/run", None),
-                   ("bill", "Billed input / FC", 1 / fc.bill),
+        metrics = [("events", "Compressions", None),
+                   ("bill", "Billed cost / FC", 1 / fc.bill),
                    ("e2e", "Latency / FC", 1 / fc.e2e)]
         handles = []
         for row, (col_name, ylab, scale) in enumerate(metrics):
