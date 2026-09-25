@@ -342,8 +342,8 @@ def better_arrows(ax, x_better, y_better, label=None, occupied=()):
 OVERVIEW_PANELS = [  # (x metric, y metric, x label, y label, better x, better y)
     ("usage", "dres", "token usage / FC", "\u0394 resolve rate (pp)", "left", "up"),
     ("usage", "time", "token usage / FC", "wall-clock / FC", "left", "down"),
-    ("usage", "bill", "token usage / FC", "billed input cost / FC", "left", "down"),
-    ("resolve", "bill", "resolve rate (%)", "billed input cost / FC", "right", "down"),
+    ("usage", "bill", "token usage / FC", "billed cost / FC", "left", "down"),
+    ("resolve", "bill", "resolve rate (%)", "billed cost / FC", "right", "down"),
     ("resolve", "time", "resolve rate (%)", "wall-clock / FC", "right", "down"),
 ]
 BETTER_ARROW = "#b5b5b5"     # arrow toward the better corner
@@ -399,7 +399,7 @@ def draw_overview_rows(axes, rows):
                                       transform=fig.transFigure, color="#555555", lw=0.8))
             if row == last:
                 ax.set_xlabel(xlabel, labelpad=3, fontsize=13)
-            ax.set_ylabel(ylabel, labelpad=3, fontsize=11.5)   # longest label must fit the panel height
+            ax.set_ylabel(ylabel, labelpad=3, fontsize=12.5)
             ax.tick_params(axis="both", labelsize=12)
             ax.grid(alpha=0.2, lw=0.5)
             ax.locator_params(axis="both", nbins=3)
