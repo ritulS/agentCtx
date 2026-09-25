@@ -294,9 +294,9 @@ def overview_handles():
     return handles
 
 
-def better_arrows(ax, x_better, y_better):
-    """One thick diagonal arrow pointing into the corner the panel favours
-    (axes fractions), so the better direction reads at a glance."""
+def better_arrows(ax, x_better, y_better, label=None):
+    """One thick light-grey diagonal arrow pointing into the corner the panel
+    favours (axes fractions), optionally labelled at its tail."""
     x0 = 0.06 if x_better == "left" else 0.94
     y0 = 0.06 if y_better == "down" else 0.94
     span = 0.26
@@ -305,16 +305,25 @@ def better_arrows(ax, x_better, y_better):
     ax.annotate("", xy=(x0, y0), xytext=(xs, ys), xycoords="axes fraction",
                 textcoords="axes fraction", zorder=6,
                 arrowprops=dict(arrowstyle="simple,head_length=0.9,head_width=0.9,tail_width=0.35",
-                                color="black", lw=0, shrinkA=0, shrinkB=0, alpha=0.85))
+                                color=BETTER_ARROW, lw=0, shrinkA=0, shrinkB=0))
+    if label:
+        # Beside the arrow at its tail height, hugging the corner's edge, where the
+        # panels are empty (usage < 0.25, resolve > FC + margin).
+        ax.text(x0 + (0.02 if x_better == "left" else -0.02), ys + (0.03 if y_better == "down" else -0.03),
+                label, transform=ax.transAxes, fontsize=9, color="#8a8a8a", style="italic",
+                ha="left" if x_better == "left" else "right",
+                va="bottom" if y_better == "down" else "top", zorder=6)
 
 
 OVERVIEW_PANELS = [  # (x metric, y metric, x label, y label, better x, better y)
-    ("usage", "dres", "token usage / FC", "success vs FC (pp)", "left", "up"),
-    ("usage", "time", "token usage / FC", "wall-clock / FC", "left", "down"),
-    ("usage", "bill", "token usage / FC", "billed input cost / FC", "left", "down"),
-    ("resolve", "bill", "resolve rate (%)", "billed input cost / FC", "right", "down"),
-    ("resolve", "time", "resolve rate (%)", "wall-clock / FC", "right", "down"),
+    ("usage", "dres", "token usage / FC \u2193", "\u0394 resolve rate (pp) \u2191", "left", "up"),
+    ("usage", "time", "token usage / FC \u2193", "wall-clock / FC \u2193", "left", "down"),
+    ("usage", "bill", "token usage / FC \u2193", "billed input cost / FC \u2193", "left", "down"),
+    ("resolve", "bill", "resolve rate (%) \u2191", "billed input cost / FC \u2193", "right", "down"),
+    ("resolve", "time", "resolve rate (%) \u2191", "wall-clock / FC \u2193", "right", "down"),
 ]
+BETTER_FILL = "#e6f4ea"      # region better than FC on both axes
+BETTER_ARROW = "#b5b5b5"     # arrow toward the better corner
 
 
 def draw_overview_rows(axes, rows):
@@ -337,6 +346,10 @@ def draw_overview_rows(axes, rows):
             ax = axes[row, position]
             ylim = bounds[ymetric]
             xlim = usage_bounds if xmetric == "usage" else bounds["resolve"]
+            xr = (xlim[0], fc[xmetric]) if xbest == "left" else (fc[xmetric], xlim[1])
+            yr = (fc[ymetric], ylim[1]) if ybest == "up" else (ylim[0], fc[ymetric])
+            ax.add_patch(Rectangle((xr[0], yr[0]), xr[1] - xr[0], yr[1] - yr[0],
+                                   facecolor=BETTER_FILL, edgecolor="none", zorder=-2))
             if ymetric == "bill":
                 ax.axhspan(1, ylim[1], color="#f1f1f1", zorder=-1)
             ax.axhline(fc[ymetric], color="#999999", lw=0.6, ls="--", zorder=0)
@@ -349,7 +362,7 @@ def draw_overview_rows(axes, rows):
                 pmark(ax, r[xmetric], r[ymetric], policy, "o", s=64)
             ax.scatter(fc[xmetric], fc[ymetric], marker=FC_MARKER, color="black", s=80, zorder=5)
             ax.set_xlim(xlim); ax.set_ylim(ylim)
-            better_arrows(ax, xbest, ybest)
+            better_arrows(ax, xbest, ybest, label="better" if row == 0 else None)
             if position == 0:
                 # One row heading, floated above and left of the first panel.
                 ax.text(-0.36, 1.06, label, transform=ax.transAxes, fontsize=13,
