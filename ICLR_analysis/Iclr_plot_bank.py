@@ -340,11 +340,11 @@ def better_arrows(ax, x_better, y_better, label=None, occupied=()):
 
 
 OVERVIEW_PANELS = [  # (x metric, y metric, x label, y label, better x, better y)
-    ("usage", "dres", "tokens / FC", "\u0394 resolve (pp)", "left", "up"),
-    ("usage", "time", "tokens / FC", "latency / FC", "left", "down"),
-    ("usage", "bill", "tokens / FC", "cost / FC", "left", "down"),
-    ("resolve", "bill", "resolve (%)", "cost / FC", "right", "down"),
-    ("resolve", "time", "resolve (%)", "latency / FC", "right", "down"),
+    ("usage", "dres", "token usage / FC", "\u0394 resolve rate (pp)", "left", "up"),
+    ("usage", "time", "token usage / FC", "wall-clock / FC", "left", "down"),
+    ("usage", "bill", "token usage / FC", "billed input cost / FC", "left", "down"),
+    ("resolve", "bill", "resolve rate (%)", "billed input cost / FC", "right", "down"),
+    ("resolve", "time", "resolve rate (%)", "wall-clock / FC", "right", "down"),
 ]
 BETTER_ARROW = "#b5b5b5"     # arrow toward the better corner
 
@@ -393,14 +393,14 @@ def draw_overview_rows(axes, rows):
                 # Anchored to the figure edge so the y-label width does not matter.
                 pos = ax.get_position()
                 fig = ax.figure
-                fig.text(0.014, (pos.y0 + pos.y1) / 2, label, fontsize=16, rotation=90,
+                fig.text(0.014, (pos.y0 + pos.y1) / 2, label, fontsize=15, rotation=90,
                          ha="center", va="center", weight="bold")
                 fig.add_artist(Line2D([0.032, 0.032], [pos.y0 - 0.01, pos.y1 + 0.01],
                                       transform=fig.transFigure, color="#555555", lw=0.8))
             if row == last:
-                ax.set_xlabel(xlabel, labelpad=3, fontsize=15)
-            ax.set_ylabel(ylabel, labelpad=3, fontsize=15)
-            ax.tick_params(axis="both", labelsize=13)
+                ax.set_xlabel(xlabel, labelpad=3, fontsize=13)
+            ax.set_ylabel(ylabel, labelpad=3, fontsize=11.5)   # longest label must fit the panel height
+            ax.tick_params(axis="both", labelsize=12)
             ax.grid(alpha=0.2, lw=0.5)
             ax.locator_params(axis="both", nbins=3)
 
@@ -412,7 +412,7 @@ def overview_legend(fig, y=1.005):
     top, bottom = handles[:7], handles[7:]
     handles = [h for pair in zip(top, bottom + [None]) for h in pair if h is not None]
     fig.legend(handles=handles, loc="upper center", ncol=7, frameon=False,
-               handletextpad=0.3, columnspacing=1.0, fontsize=13, bbox_to_anchor=(0.52, y))
+               handletextpad=0.3, columnspacing=1.0, fontsize=12, bbox_to_anchor=(0.52, y))
 
 
 def overview_figure(n_rows):
@@ -423,8 +423,8 @@ def overview_figure(n_rows):
     fig, axes = plt.subplots(n_rows, 5, figsize=(11.0, height), squeeze=False)
     # Left margin holds the rotated row heading; rows need less vertical
     # room without the floating heading above each.
-    fig.subplots_adjust(left=0.108, right=0.985, bottom=0.66 / height, top=1 - 0.74 / height,
-                        wspace=0.50, hspace=0.40)
+    fig.subplots_adjust(left=0.10, right=0.992, bottom=0.60 / height, top=1 - 0.66 / height,
+                        wspace=0.42, hspace=0.36)
     return fig, axes
 
 
