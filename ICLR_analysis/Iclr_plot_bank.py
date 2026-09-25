@@ -519,7 +519,7 @@ def fig_knob_execution(S, resolve_grid):
         ax.set_ylim(.3, 19.25)   # tight to the bottom rule and the depth headings
         left = 2.2
         ax.text(.02, 17.92, "Primitive", fontsize=11, va="center")
-        ax.text(1.30, 17.92, "Trigger", fontsize=11, va="center")
+        ax.text(1.38, 17.92, "Trigger", fontsize=11, va="center")
         for j, (depth, label) in enumerate(((.3, "Shallow (0.3)"), (.5, "Depth 0.5"), (.7, "Deep (0.7)"))):
             center = left + 3*j + 1.5
             ax.text(center, 18.93, label, ha="center", va="center", fontsize=16, fontweight="bold")
@@ -535,7 +535,7 @@ def fig_knob_execution(S, resolve_grid):
                 g = resolve_grid[resolve_grid.policy.eq(pol) & resolve_grid.threshold_k.eq(budget)]
                 assert len(g) == 3
                 best, cheapest, fastest = g.resolve.max(), g.bill_vs_fc.min(), g.latency_all.min()
-                ax.text(1.35, y, f"{budget}K", ha="center", fontsize=14.5, va="center")
+                ax.text(1.45, y, f"{budget}K", ha="center", fontsize=14.5, va="center")
                 for j, depth in enumerate((.3, .5, .7)):
                     r = g[g.depth_removed.eq(depth)].iloc[0]
                     # One bounded triplet = one primitive/trigger/depth setting.
