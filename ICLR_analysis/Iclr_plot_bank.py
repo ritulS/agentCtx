@@ -297,8 +297,8 @@ def overview_handles():
 def better_arrows(ax, x_better, y_better, label=None, occupied=()):
     """One thick light-grey block arrow pointing toward the corner the panel
     favours, optionally labelled. It sits in the favoured corner when that
-    corner is free of data; otherwise in the emptiest corner (the direction
-    never changes). `occupied` lists (x, y) in axes fractions covered by
+    corner is free of data; otherwise in the diagonally opposite corner (the
+    direction never changes). `occupied` lists (x, y) in axes fractions covered by
     markers and their intervals."""
     dx = -1 if x_better == "left" else 1
     dy = -1 if y_better == "down" else 1
@@ -314,18 +314,12 @@ def better_arrows(ax, x_better, y_better, label=None, occupied=()):
         # the arrow shaft is half as wide as it is long: pad the box modestly
         return (xa - pad, xb + pad, ya - pad - (label_h if not cy else 0), yb + pad + (label_h if cy else 0))
 
+    # The favoured corner when it is free of data, otherwise the opposite
+    # corner (the arrow then points across the panel toward the favoured one).
     preferred = (x_better == "right", y_better == "up")
-    corners = [preferred] + [c for c in [(False, False), (True, False), (False, True), (True, True)]
-                             if c != preferred]
-    best, best_hits = None, None
-    for corner in corners:
-        xa, xb, ya, yb = footprint(*corner)
-        hits = sum(1 for (x, y) in occupied if xa <= x <= xb and ya <= y <= yb)
-        if hits == 0:
-            best = corner; break
-        if best_hits is None or hits < best_hits:
-            best, best_hits = corner, hits
-    cx, cy = best
+    xa, xb, ya, yb = footprint(*preferred)
+    free = not any(xa <= x <= xb and ya <= y <= yb for (x, y) in occupied)
+    cx, cy = preferred if free else (not preferred[0], not preferred[1])
     # Arrow centred in that corner box, pointing (dx, dy).
     x_edge = 0.94 if cx else 0.06
     y_edge = 0.94 if cy else 0.06
