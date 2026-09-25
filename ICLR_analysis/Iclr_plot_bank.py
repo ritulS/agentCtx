@@ -459,7 +459,7 @@ def fig_knob_execution(S, resolve_grid):
     with plt.rc_context(KNOB_STYLE):
         fig = plt.figure(figsize=(12.8, 5.4))
         grid = fig.add_gridspec(3, 3, width_ratios=[1, 1, 3.1],
-                                left=.052, right=.995, bottom=.085, top=.84,
+                                left=.052, right=.995, bottom=.085, top=.87,
                                 wspace=.16, hspace=.32)
         # Cost and latency are shown relative to FC (FC = 1.0 dotted line).
         metrics = [("events", "Compressions", None),
@@ -566,7 +566,7 @@ def fig_knob_execution(S, resolve_grid):
         right_center = (grid[0, 2].get_position(fig).x0 + grid[0, 2].get_position(fig).x1) / 2
         fc_handle = Line2D([], [], color=".45", ls=":", lw=.9, label="FC")
         fig.legend(handles=handles + [fc_handle], loc="upper center", ncol=6, frameon=False,
-                   bbox_to_anchor=(left_center, .985), handlelength=1.1, columnspacing=.55, handletextpad=.3)
+                   bbox_to_anchor=(left_center, 1.0), handlelength=1.1, columnspacing=.55, handletextpad=.3)
         winners = [Patch(facecolor=RESOLVE_HIGHLIGHT, edgecolor="none",
                          label="Highest resolve"),
                    Patch(facecolor=COST_HIGHLIGHT, edgecolor="none",
@@ -575,9 +575,10 @@ def fig_knob_execution(S, resolve_grid):
                           markeredgecolor=".15", markersize=9, label="Lowest latency"),
                    ]
         fig.legend(handles=winners, loc="upper center", ncol=3, frameon=False,
-                   bbox_to_anchor=(right_center, .985), handlelength=1.4,
+                   bbox_to_anchor=(right_center, 1.0), handlelength=1.4,
                    columnspacing=.9, handletextpad=.3, fontsize=13)
-        fig.text(.993, .895,
+        # FC reference on the (c) title line, right-aligned.
+        fig.text(.993, .905,
                  f"FC: {100*fc.resolve:.1f}% / 1.00× / "
                  f"{resolve_grid.loc[resolve_grid.policy.eq('FC'), 'latency_all'].iloc[0]:.0f}s",
                  ha="right", va="center", fontsize=13)
