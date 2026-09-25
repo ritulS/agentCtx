@@ -157,7 +157,8 @@ def make_wrap_figure():
     fig = plt.figure(figsize=(3.2, 1.9))
     # Preserve the plot and definition sizes while removing the heading space.
     vertical_scale = 2.2 / 1.9
-    plot_left, plot_right = 0.082, 0.98
+    # Left margin matched to the right one: the y-label starts ~1.8% in.
+    plot_left, plot_right = 0.052, 0.98
     plot_center = (plot_left + plot_right) / 2
     ax = fig.add_axes([plot_left, 0.28 * vertical_scale,
                        plot_right - plot_left, 0.51 * vertical_scale])
