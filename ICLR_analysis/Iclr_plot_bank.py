@@ -381,6 +381,8 @@ def draw_overview_rows(axes, rows):
             ax = axes[row, position]
             ylim = bounds[ymetric]
             xlim = usage_bounds if xmetric == "usage" else bounds["resolve"]
+            if ymetric == "bill":
+                ax.axhspan(1, ylim[1], color="#f1f1f1", zorder=-1)   # costlier than FC
             ax.axhline(fc[ymetric], color="#999999", lw=0.6, ls="--", zorder=0)
             ax.axvline(fc[xmetric], color="#999999", lw=0.6, ls="--", zorder=0)
             for policy in ORDER:
