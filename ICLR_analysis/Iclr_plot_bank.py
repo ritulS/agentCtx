@@ -572,17 +572,19 @@ def draw_task_map(fig, solved, missed, shared, rows=TASK_MAP_ROWS, band=(0.0, 1.
     y0, yh = band
     n_tasks = len(solved)
     bottom, height = y0 + .17 * yh, .58 * yh
-    totals = fig.add_axes([.144, bottom, .044, height])
-    cell_width = .236 / n_tasks  # maps widened to reclaim the tightened gaps
+    # Narrow number columns and small gaps leave the width to the maps
+    # (reviewer note: the cells were cramped while the columns had slack).
+    totals = fig.add_axes([.144, bottom, .034, height])
+    cell_width = .281 / n_tasks
     missed_width, solved_width = len(missed) * cell_width, len(shared) * cell_width
-    miss_ax = fig.add_axes([.208, bottom, missed_width, height], sharey=totals)
+    miss_ax = fig.add_axes([.190, bottom, missed_width, height], sharey=totals)
     # Gained sits right next to the FC-missed map, Lost right next to the
     # FC-solved map; the wider gap separates the two map halves.
-    gain_left = .208 + missed_width + .004
-    gain_ax = fig.add_axes([gain_left, bottom, .042, height], sharey=totals)
-    shared_left = gain_left + .042 + .024
+    gain_left = .190 + missed_width + .003
+    gain_ax = fig.add_axes([gain_left, bottom, .032, height], sharey=totals)
+    shared_left = gain_left + .032 + .016
     shared_ax = fig.add_axes([shared_left, bottom, solved_width, height], sharey=totals)
-    loss_ax = fig.add_axes([shared_left + solved_width + .004, bottom, .037, height], sharey=totals)
+    loss_ax = fig.add_axes([shared_left + solved_width + .003, bottom, .030, height], sharey=totals)
     map_axes = [totals, miss_ax, gain_ax, shared_ax, loss_ax]
 
     for ax, tasks, is_missed in [(miss_ax, missed, True), (shared_ax, shared, False)]:
@@ -605,7 +607,7 @@ def draw_task_map(fig, solved, missed, shared, rows=TASK_MAP_ROWS, band=(0.0, 1.
         lost = [i for i, t in enumerate(shared) if not solved.loc[t, p]]
         shared_ax.scatter(lost, [j] * len(lost), marker='x', s=4, color='#666666', linewidths=.4, zorder=4)
         if p == 'FC':
-            totals.scatter(-.52, j, s=11, marker=FC_MARKER, color='black', clip_on=False,
+            totals.scatter(-.95, j, s=11, marker=FC_MARKER, color='black', clip_on=False,
                            transform=totals.get_yaxis_transform(), zorder=5)
         count = int(solved[p].sum())
         if count > fc_total:
