@@ -512,20 +512,20 @@ def fig_knob_execution(S, resolve_grid):
         # The table has no x-axis labels, so let it run down to the figure edge
         # and use the taller rows for larger text.
         pos = ax.get_position()
-        ax.set_position([pos.x0, .02, pos.width, pos.y1 - .02])
+        ax.set_position([pos.x0, .005, pos.width, pos.y1 - .005])
         ax.set_axis_off()
         ax.set_title("(c) Resolve, cost, and latency", loc="left", pad=8)
         ax.set_xlim(0, 11.3)
-        ax.set_ylim(.25, 19.35)
+        ax.set_ylim(.3, 19.25)   # tight to the bottom rule and the depth headings
         left = 2.2
         ax.text(.02, 17.92, "Primitive", fontsize=11, va="center")
         ax.text(1.30, 17.92, "Trigger", fontsize=11, va="center")
         for j, (depth, label) in enumerate(((.3, "Shallow (0.3)"), (.5, "Depth 0.5"), (.7, "Deep (0.7)"))):
             center = left + 3*j + 1.5
-            ax.text(center, 18.93, label, ha="center", va="center", fontsize=15, fontweight="bold")
+            ax.text(center, 18.93, label, ha="center", va="center", fontsize=16, fontweight="bold")
             ax.plot([left + 3*j + .08, left + 3*j + 2.92], [18.45, 18.45], color=".65", lw=.5)
             for k, label in enumerate(("RR (%)", "Cost/FC", "Lat. (s)")):
-                ax.text(left + 3*j + k + .5, 17.92, label, ha="center", va="center", fontsize=11)
+                ax.text(left + 3*j + k + .5, 17.92, label, ha="center", va="center", fontsize=10.5)
         ax.plot([0, 11.2], [17.36, 17.36], color=".35", lw=.65)
         for i, pol in enumerate(DT.values()):
             ytop = 16.66 - 3.4*i
@@ -535,7 +535,7 @@ def fig_knob_execution(S, resolve_grid):
                 g = resolve_grid[resolve_grid.policy.eq(pol) & resolve_grid.threshold_k.eq(budget)]
                 assert len(g) == 3
                 best, cheapest, fastest = g.resolve.max(), g.bill_vs_fc.min(), g.latency_all.min()
-                ax.text(1.35, y, f"{budget}K", ha="center", fontsize=13.5, va="center")
+                ax.text(1.35, y, f"{budget}K", ha="center", fontsize=14.5, va="center")
                 for j, depth in enumerate((.3, .5, .7)):
                     r = g[g.depth_removed.eq(depth)].iloc[0]
                     # One bounded triplet = one primitive/trigger/depth setting.
@@ -552,11 +552,11 @@ def fig_knob_execution(S, resolve_grid):
                     if np.isclose(r.latency_all, fastest):
                         ax.add_patch(Ellipse((xlatency, y), .94, .76, fill=False,
                                              edgecolor=".15", linewidth=.9, zorder=4))
-                    ax.text(xlatency, y, f"{r.latency_all:.0f}", ha="center", va="center", fontsize=14.5,
+                    ax.text(xlatency, y, f"{r.latency_all:.0f}", ha="center", va="center", fontsize=15.5,
                             fontweight="bold" if np.isclose(r.latency_all, fastest) else "normal")
-                    ax.text(xresolve, y, f"{100*r.resolve:.1f}", ha="center", va="center", fontsize=14.5,
+                    ax.text(xresolve, y, f"{100*r.resolve:.1f}", ha="center", va="center", fontsize=15.5,
                             fontweight="bold" if np.isclose(r.resolve, best) else "normal")
-                    ax.text(xcost, y, f"{r.bill_vs_fc:.2f}", ha="center", va="center", fontsize=14.5,
+                    ax.text(xcost, y, f"{r.bill_vs_fc:.2f}", ha="center", va="center", fontsize=15.5,
                             fontweight="bold" if np.isclose(r.bill_vs_fc, cheapest) else "normal")
             if i < 4:
                 ax.plot([0, 11.2], [ytop-2.7, ytop-2.7], color=".60", lw=.65)
