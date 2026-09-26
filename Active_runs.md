@@ -223,8 +223,7 @@ need rebuilding for serving/tbench.
 - **Output (evidence only):** `ICLR_results/ICLR_reeval/qwen35b_main_review253_20260923/`
   — `manifest.json`, `results.json`, `verdict_comparison.csv`, `jobs/` (gitignored harness logs).
   Log: `logs/reeval_qwen35b_review253_20260923.log`.
-- **Canonical indexes NOT updated** (`apply` deliberately not run). Decision pending on
-  whether to apply.
+- **Canonical indexes NOT updated** (`apply` deliberately not run).
 - **Result:** vs the 09-10 audit values, 134/253 flipped False→True, 0 True→False. The 140
   rows re-evaluated on 09-11 reproduced exactly (74 True / 66 False). The 60 Group-A
   early-batch rows (2026-03-30..04-09, cells FC / b15k-tr / b15k-trc / b15k-ss / b15k-su-full)
