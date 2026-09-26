@@ -31,9 +31,9 @@ picking one.
 
 | Topic | Where |
 |---|---|
-| Experiment grid and status | `ICLR_analysis/exp_grid.md` |
+| Experiment grid and status | `ICLR_results/ICLR_analysis/exp_grid.md` |
 | Task cohorts | `task_lists/`, manifest in `task_lists/README.md`. Ablation analysis filters to `ablation_25tasks.json`. |
-| Experiment plan | `ICLR_analysis/exp_grid.md` is the plan of record. `exp_plans/FOLLOWUP_EXPERIMENTS.md` is the Aug 24 background write-up and predates the ABL-25 switch. |
+| Experiment plan | `ICLR_results/ICLR_analysis/exp_grid.md` is the plan of record. `exp_plans/FOLLOWUP_EXPERIMENTS.md` is the Aug 24 background write-up and predates the ABL-25 switch. |
 | Run data (canonical) | `/home/ak58925/agentCtx/ICLR_results/<bench>/<track>/<model>/<cell>/`, layout in `ICLR_results/README.md` |
 | Run history | `ICLR_results/EXPERIMENT_LOG.md`, `ICLR_results/EXPERIMENT_TIMELINE_DETAIL_SWE.md` |
 | Budget calibration | `ICLR_results/budget_calibration_swe.md` |
@@ -66,7 +66,7 @@ picking one.
   `bB` for its lower, primary and upper budgets rather than a token count, so
   a search for `b13k` finds nothing.
 - Terminal-Bench cohorts have three spellings for the same sets. Ritul says
-  P40 and P15, `ICLR_analysis/exp_grid.md` says ABL-15 and ABL-20, and
+  P40 and P15, `ICLR_results/ICLR_analysis/exp_grid.md` says ABL-15 and ABL-20, and
   `dashboard/build_coverage.py` says TB-40, TB-15 and TB-20. Settle this when
   TB analysis starts.
 - 3 runs per task everywhere, except the Terminal-Bench summarizer ablation at
@@ -74,11 +74,11 @@ picking one.
 
 ## Where new work goes
 
-- Analysis code and its reports go in `ICLR_analysis/`, named after the
-  question they answer, for example `ICLR_analysis/latency_decomposition.py`
-  and `ICLR_analysis/latency_decomposition.md`. Do not extend `Review1/`,
+- Analysis code and its reports go in `ICLR_results/ICLR_analysis/`, named after the
+  question they answer, for example `ICLR_results/ICLR_analysis/latency_decomposition.py`
+  and `ICLR_results/ICLR_analysis/latency_decomposition.md`. Do not extend `Review1/`,
   which analyses the older data.
-- Generated figures go in `ICLR_analysis/figures/`, which `.gitignore`
+- Generated figures go in `ICLR_results/ICLR_analysis/figures/`, which `.gitignore`
   already excludes, so they stay local and regenerable.
 - Paper prose goes in `paper_sections_ICLR/`, and only after the draft has
   been shown in chat.

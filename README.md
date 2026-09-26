@@ -16,7 +16,7 @@ transfer checks.
    depths, cohorts), scope rules, critical conventions.
 3. [ICLR.md](ICLR.md) — the current target (ICLR 2027), the framing of
    record, and the source of truth for every topic.
-4. [ICLR_analysis/exp_grid.md](ICLR_analysis/exp_grid.md) — the experiment
+4. [ICLR_results/ICLR_analysis/exp_grid.md](ICLR_results/ICLR_analysis/exp_grid.md) — the experiment
    grid and its status; [Active_runs.md](Active_runs.md) — live experiment
    status.
 
@@ -73,7 +73,7 @@ Per-model serving configs live in [configs/](configs/).
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
 | `exp_plans/` | Current experiment queue (`FOLLOWUP_EXPERIMENTS.md`); retired plans in `archived/`. |
-| `ICLR_results/`, `ICLR_analysis/`, `analysis/` | Canonical ICLR run data, the experiment grid, and per-run outcome aggregation. |
+| `ICLR_results/`, `ICLR_results/ICLR_analysis/`, `analysis/` | Canonical ICLR run data, the experiment grid, and per-run outcome aggregation. |
 
 ## Data
 
@@ -85,7 +85,7 @@ source-of-truth table, and `ICLR_results/README.md` for the cell naming.
 
 Data flow: `ICLR_results/<bench>/<track>/<model>/<cell>/`
 → `analysis/aggregate_benchmark_results.py` → `analysis/outcomes/<bench>_outcomes.csv`
-→ analysis in `ICLR_analysis/`.
+→ analysis in `ICLR_results/ICLR_analysis/`.
 
 Terminal-Bench runs on Albus; its results are not here. See the Terminal-Bench
 section of [ICLR.md](ICLR.md).

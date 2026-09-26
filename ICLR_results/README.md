@@ -4,6 +4,7 @@
 ```text
 ICLR_results/
 ├── README.md
+├── ICLR_analysis/               # Experiment grid, analysis reports, and per-task notes
 |
 ├── swebench/
 │   ├── main/

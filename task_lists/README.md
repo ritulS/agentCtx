@@ -45,7 +45,7 @@ list of task names.
 | `tbench_pilot_tasks.json` | 18 | EMNLP-era pilot pool |
 | `tbench_fc_char_batch2.json` | 17 | EMNLP-era FC characterization batch |
 
-**None of these are the ICLR cohorts.** `ICLR_analysis/exp_grid.md` names
+**None of these are the ICLR cohorts.** `ICLR_results/ICLR_analysis/exp_grid.md` names
 `tbench_p40.json` and `tbench_abl15.json`, which live with the runs on Albus and
 are not in this repo. Copy them here before TB analysis starts, and record the
 cohort-name mismatch noted in `/ICLR.md`.

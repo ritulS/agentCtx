@@ -1,0 +1,352 @@
+task,cell,run,resolved,fm,steps,maxrep,ndiff,first_edit,n_edits,comp_steps,first_comp,clears,wiped,unique_cmds
+django__django-12325,d05__b21k__ss,1,False,submitted_unresolved,65.0,1,2,14.0,10,[49],49.0,0,False,61
+django__django-12325,d05__b21k__ss,2,,limits_exceeded,125.0,1,1,16.0,17,"[58, 107]",58.0,0,False,108
+django__django-12325,d05__b21k__ss,3,,limits_exceeded,125.0,1,0,15.0,22,"[49, 106]",49.0,0,False,110
+django__django-17084,d05__b21k__ss,1,True,resolved,120.0,1,4,13.0,24,"[38, 96]",38.0,0,False,103
+django__django-17084,d05__b21k__ss,2,,limits_exceeded,125.0,1,1,30.0,20,[69],69.0,0,False,106
+django__django-17084,d05__b21k__ss,3,False,submitted_unresolved,112.0,1,4,11.0,21,"[32, 78, 107]",32.0,0,False,100
+scikit-learn__scikit-learn-10908,d05__b21k__ss,1,True,resolved,102.0,1,2,13.0,23,"[44, 97]",44.0,0,False,80
+scikit-learn__scikit-learn-10908,d05__b21k__ss,2,,limits_exceeded,125.0,2,0,10.0,17,"[14, 62, 102]",14.0,0,False,101
+scikit-learn__scikit-learn-10908,d05__b21k__ss,3,False,submitted_unresolved,67.0,3,1,13.0,20,[43],43.0,0,False,55
+scikit-learn__scikit-learn-14053,d05__b21k__ss,1,False,submitted_unresolved,64.0,1,1,3.0,21,[39],39.0,0,False,56
+scikit-learn__scikit-learn-14053,d05__b21k__ss,2,False,submitted_unresolved,113.0,1,4,3.0,27,[34],34.0,0,False,75
+scikit-learn__scikit-learn-14053,d05__b21k__ss,3,True,resolved,109.0,1,2,9.0,26,"[38, 69]",38.0,0,False,93
+scikit-learn__scikit-learn-14983,d05__b21k__ss,1,False,submitted_unresolved,69.0,1,2,13.0,11,[50],50.0,0,False,68
+scikit-learn__scikit-learn-14983,d05__b21k__ss,2,False,submitted_unresolved,95.0,1,4,21.0,15,[69],69.0,0,False,88
+scikit-learn__scikit-learn-14983,d05__b21k__ss,3,False,submitted_unresolved,61.0,1,2,8.0,9,[53],53.0,0,False,58
+scikit-learn__scikit-learn-25232,d05__b21k__ss,1,True,resolved,68.0,1,1,6.0,12,[39],39.0,0,False,62
+scikit-learn__scikit-learn-25232,d05__b21k__ss,2,True,resolved,103.0,1,3,17.0,25,[53],53.0,0,False,86
+scikit-learn__scikit-learn-25232,d05__b21k__ss,3,,limits_exceeded,125.0,1,0,6.0,29,"[47, 101]",47.0,0,False,111
+scikit-learn__scikit-learn-25931,d05__b21k__ss,1,False,submitted_unresolved,57.0,1,1,14.0,7,[36],36.0,0,False,45
+scikit-learn__scikit-learn-25931,d05__b21k__ss,2,True,resolved,77.0,1,1,10.0,9,[35],35.0,0,False,70
+scikit-learn__scikit-learn-25931,d05__b21k__ss,3,,limits_exceeded,125.0,1,5,14.0,12,"[52, 94]",52.0,0,False,94
+sympy__sympy-13757,d05__b21k__ss,1,True,resolved,122.0,1,5,5.0,21,[76],76.0,0,False,108
+sympy__sympy-13757,d05__b21k__ss,2,True,resolved,86.0,1,2,11.0,21,[83],83.0,0,False,76
+sympy__sympy-13757,d05__b21k__ss,3,True,resolved,77.0,1,5,9.0,17,[67],67.0,0,False,65
+sympy__sympy-14531,d05__b21k__ss,1,True,resolved,89.0,1,1,8.0,20,[54],54.0,0,False,81
+sympy__sympy-14531,d05__b21k__ss,2,True,resolved,106.0,1,2,8.0,19,[60],60.0,0,False,96
+sympy__sympy-14531,d05__b21k__ss,3,,limits_exceeded,125.0,1,2,14.0,20,"[66, 117]",66.0,0,False,106
+django__django-12325,d05__b21k__ss-partial,1,False,submitted_unresolved,67.0,1,1,13.0,14,[50],50.0,0,False,59
+django__django-12325,d05__b21k__ss-partial,2,,limits_exceeded,125.0,1,1,15.0,27,"[52, 104]",52.0,0,False,83
+django__django-12325,d05__b21k__ss-partial,3,False,submitted_unresolved,50.0,1,2,5.0,8,[45],45.0,0,False,44
+django__django-17084,d05__b21k__ss-partial,1,,limits_exceeded,125.0,2,0,19.0,35,"[53, 91]",53.0,0,False,105
+django__django-17084,d05__b21k__ss-partial,2,,limits_exceeded,125.0,1,1,14.0,25,"[58, 110]",58.0,0,False,97
+django__django-17084,d05__b21k__ss-partial,3,,limits_exceeded,125.0,1,2,32.0,37,"[51, 85, 109]",51.0,0,False,118
+scikit-learn__scikit-learn-10908,d05__b21k__ss-partial,1,False,submitted_unresolved,63.0,2,1,11.0,13,[39],39.0,0,False,57
+scikit-learn__scikit-learn-10908,d05__b21k__ss-partial,2,True,resolved,101.0,1,2,12.0,16,"[45, 75]",45.0,0,False,84
+scikit-learn__scikit-learn-10908,d05__b21k__ss-partial,3,True,resolved,78.0,1,2,15.0,20,[39],39.0,0,False,66
+scikit-learn__scikit-learn-14053,d05__b21k__ss-partial,1,True,resolved,55.0,1,1,6.0,8,[36],36.0,0,False,45
+scikit-learn__scikit-learn-14053,d05__b21k__ss-partial,2,False,submitted_unresolved,53.0,1,1,9.0,11,[31],31.0,0,False,49
+scikit-learn__scikit-learn-14053,d05__b21k__ss-partial,3,True,resolved,63.0,1,2,7.0,15,[56],56.0,0,False,48
+scikit-learn__scikit-learn-14983,d05__b21k__ss-partial,1,False,submitted_unresolved,53.0,1,2,9.0,8,[],,0,False,49
+scikit-learn__scikit-learn-14983,d05__b21k__ss-partial,2,False,submitted_unresolved,77.0,1,1,7.0,11,[46],46.0,0,False,71
+scikit-learn__scikit-learn-14983,d05__b21k__ss-partial,3,False,submitted_unresolved,57.0,1,2,7.0,11,[29],29.0,0,False,53
+scikit-learn__scikit-learn-25232,d05__b21k__ss-partial,1,False,submitted_unresolved,102.0,1,1,11.0,25,[46],46.0,0,False,92
+scikit-learn__scikit-learn-25232,d05__b21k__ss-partial,2,True,resolved,84.0,1,1,13.0,17,"[47, 82]",47.0,0,False,76
+scikit-learn__scikit-learn-25232,d05__b21k__ss-partial,3,True,resolved,96.0,1,1,13.0,17,[58],58.0,0,False,80
+scikit-learn__scikit-learn-25931,d05__b21k__ss-partial,1,True,resolved,63.0,1,1,6.0,10,[55],55.0,0,False,56
+scikit-learn__scikit-learn-25931,d05__b21k__ss-partial,2,True,resolved,61.0,1,1,11.0,6,[48],48.0,0,False,51
+scikit-learn__scikit-learn-25931,d05__b21k__ss-partial,3,True,resolved,55.0,1,2,13.0,12,[46],46.0,0,False,50
+sympy__sympy-13757,d05__b21k__ss-partial,1,True,resolved,80.0,1,2,12.0,11,[63],63.0,0,False,66
+sympy__sympy-13757,d05__b21k__ss-partial,2,False,submitted_unresolved,45.0,1,1,13.0,8,[],,0,False,37
+sympy__sympy-13757,d05__b21k__ss-partial,3,,limits_exceeded,125.0,1,0,12.0,22,"[63, 100]",63.0,0,False,94
+sympy__sympy-14531,d05__b21k__ss-partial,1,True,resolved,86.0,1,2,9.0,19,[72],72.0,0,False,71
+sympy__sympy-14531,d05__b21k__ss-partial,2,True,resolved,83.0,1,2,8.0,19,[67],67.0,0,False,69
+sympy__sympy-14531,d05__b21k__ss-partial,3,True,resolved,107.0,1,2,10.0,26,[79],79.0,0,False,95
+django__django-12325,d05__b21k__su-full,1,False,submitted_unresolved,87.0,1,2,19.0,21,[49],49.0,0,False,80
+django__django-12325,d05__b21k__su-full,2,True,resolved,71.0,1,1,12.0,13,[54],54.0,0,False,64
+django__django-12325,d05__b21k__su-full,3,False,submitted_unresolved,70.0,1,2,9.0,13,[42],42.0,0,False,62
+django__django-17084,d05__b21k__su-full,1,,limits_exceeded,125.0,1,0,12.0,31,"[60, 111]",60.0,0,False,107
+django__django-17084,d05__b21k__su-full,2,True,resolved,112.0,1,3,23.0,18,[54],54.0,0,False,98
+django__django-17084,d05__b21k__su-full,3,False,submitted_unresolved,81.0,1,0,13.0,7,[50],50.0,0,False,71
+scikit-learn__scikit-learn-10908,d05__b21k__su-full,1,True,resolved,58.0,1,1,12.0,12,[37],37.0,0,False,54
+scikit-learn__scikit-learn-10908,d05__b21k__su-full,2,True,resolved,88.0,1,1,17.0,17,[45],45.0,0,False,73
+scikit-learn__scikit-learn-10908,d05__b21k__su-full,3,True,resolved,71.0,1,3,10.0,13,[42],42.0,0,False,63
+scikit-learn__scikit-learn-14053,d05__b21k__su-full,1,True,resolved,69.0,1,3,7.0,17,[46],46.0,0,False,61
+scikit-learn__scikit-learn-14053,d05__b21k__su-full,2,True,resolved,69.0,1,1,11.0,16,[52],52.0,0,False,57
+scikit-learn__scikit-learn-14053,d05__b21k__su-full,3,False,submitted_unresolved,68.0,1,3,6.0,15,[38],38.0,0,False,55
+scikit-learn__scikit-learn-14983,d05__b21k__su-full,1,False,submitted_unresolved,86.0,1,2,7.0,16,[52],52.0,0,False,81
+scikit-learn__scikit-learn-14983,d05__b21k__su-full,2,False,submitted_unresolved,64.0,1,2,7.0,12,[46],46.0,0,False,63
+scikit-learn__scikit-learn-14983,d05__b21k__su-full,3,True,resolved,115.0,1,5,14.0,19,[50],50.0,0,False,97
+scikit-learn__scikit-learn-25232,d05__b21k__su-full,1,False,submitted_unresolved,79.0,1,2,11.0,15,[53],53.0,0,False,72
+scikit-learn__scikit-learn-25232,d05__b21k__su-full,2,False,submitted_unresolved,77.0,1,2,8.0,19,[38],38.0,0,False,69
+scikit-learn__scikit-learn-25232,d05__b21k__su-full,3,True,resolved,64.0,1,2,11.0,15,[47],47.0,0,False,60
+scikit-learn__scikit-learn-25931,d05__b21k__su-full,1,True,resolved,98.0,2,1,13.0,14,"[42, 86]",42.0,0,False,89
+scikit-learn__scikit-learn-25931,d05__b21k__su-full,2,True,resolved,111.0,1,2,18.0,24,[52],52.0,0,False,99
+scikit-learn__scikit-learn-25931,d05__b21k__su-full,3,False,submitted_unresolved,80.0,1,2,14.0,12,[57],57.0,0,False,66
+sympy__sympy-13757,d05__b21k__su-full,1,True,resolved,84.0,1,1,11.0,17,[79],79.0,0,False,73
+sympy__sympy-13757,d05__b21k__su-full,2,True,resolved,103.0,1,2,15.0,19,[56],56.0,0,False,88
+sympy__sympy-13757,d05__b21k__su-full,3,True,resolved,88.0,1,2,10.0,21,[72],72.0,0,False,73
+sympy__sympy-14531,d05__b21k__su-full,1,,limits_exceeded,125.0,2,0,11.0,23,"[72, 111]",72.0,0,False,108
+sympy__sympy-14531,d05__b21k__su-full,2,True,resolved,93.0,1,2,10.0,17,[64],64.0,0,False,82
+sympy__sympy-14531,d05__b21k__su-full,3,,limits_exceeded,125.0,1,0,11.0,28,[76],76.0,0,False,107
+django__django-12325,d05__b21k__su-partial,1,False,submitted_unresolved,117.0,1,4,12.0,22,"[51, 102]",51.0,0,False,96
+django__django-12325,d05__b21k__su-partial,2,False,submitted_unresolved,62.0,1,1,11.0,11,[54],54.0,0,False,54
+django__django-12325,d05__b21k__su-partial,3,False,submitted_unresolved,55.0,1,2,12.0,11,[45],45.0,0,False,51
+django__django-17084,d05__b21k__su-partial,1,False,submitted_unresolved,86.0,1,2,17.0,21,[54],54.0,0,False,83
+django__django-17084,d05__b21k__su-partial,2,False,submitted_unresolved,94.0,1,4,16.0,20,[56],56.0,0,False,77
+django__django-17084,d05__b21k__su-partial,3,False,submitted_unresolved,106.0,1,3,13.0,23,"[32, 65, 101]",32.0,0,False,100
+scikit-learn__scikit-learn-10908,d05__b21k__su-partial,1,True,resolved,102.0,1,1,16.0,17,"[50, 98]",50.0,0,False,79
+scikit-learn__scikit-learn-10908,d05__b21k__su-partial,2,False,submitted_unresolved,58.0,1,2,15.0,15,[48],48.0,0,False,52
+scikit-learn__scikit-learn-10908,d05__b21k__su-partial,3,False,submitted_unresolved,50.0,1,1,12.0,10,[45],45.0,0,False,44
+scikit-learn__scikit-learn-14053,d05__b21k__su-partial,1,True,resolved,58.0,1,1,4.0,18,[36],36.0,0,False,52
+scikit-learn__scikit-learn-14053,d05__b21k__su-partial,2,True,resolved,57.0,1,4,3.0,11,[36],36.0,0,False,50
+scikit-learn__scikit-learn-14053,d05__b21k__su-partial,3,True,resolved,62.0,1,2,6.0,18,[58],58.0,0,False,50
+scikit-learn__scikit-learn-14983,d05__b21k__su-partial,1,False,submitted_unresolved,64.0,1,1,8.0,10,[53],53.0,0,False,61
+scikit-learn__scikit-learn-14983,d05__b21k__su-partial,2,True,resolved,110.0,1,4,8.0,22,"[48, 95]",48.0,0,False,90
+scikit-learn__scikit-learn-14983,d05__b21k__su-partial,3,,limits_exceeded,125.0,1,1,8.0,29,"[60, 107]",60.0,0,False,93
+scikit-learn__scikit-learn-25232,d05__b21k__su-partial,1,True,resolved,76.0,1,1,10.0,13,[50],50.0,0,False,66
+scikit-learn__scikit-learn-25232,d05__b21k__su-partial,2,True,resolved,86.0,1,1,12.0,24,[61],61.0,0,False,75
+scikit-learn__scikit-learn-25232,d05__b21k__su-partial,3,True,resolved,73.0,1,1,12.0,13,[54],54.0,0,False,65
+scikit-learn__scikit-learn-25931,d05__b21k__su-partial,1,False,submitted_unresolved,69.0,2,2,9.0,8,[31],31.0,0,False,59
+scikit-learn__scikit-learn-25931,d05__b21k__su-partial,2,True,resolved,74.0,1,1,13.0,15,[70],70.0,0,False,62
+scikit-learn__scikit-learn-25931,d05__b21k__su-partial,3,False,submitted_unresolved,50.0,2,1,10.0,7,[42],42.0,0,False,44
+sympy__sympy-13757,d05__b21k__su-partial,1,True,resolved,69.0,1,1,5.0,15,[57],57.0,0,False,61
+sympy__sympy-13757,d05__b21k__su-partial,2,True,resolved,69.0,1,2,4.0,16,[62],62.0,0,False,61
+sympy__sympy-13757,d05__b21k__su-partial,3,True,resolved,90.0,1,2,7.0,18,[],,0,False,76
+sympy__sympy-14531,d05__b21k__su-partial,1,True,resolved,72.0,1,2,11.0,14,[54],54.0,0,False,70
+sympy__sympy-14531,d05__b21k__su-partial,2,True,resolved,115.0,1,2,13.0,24,[81],81.0,0,False,104
+sympy__sympy-14531,d05__b21k__su-partial,3,False,submitted_unresolved,99.0,2,1,11.0,33,[82],82.0,0,False,76
+django__django-12325,d05__b21k__tr,1,True,resolved,53.0,1,3,10.0,15,[],,0,False,46
+django__django-12325,d05__b21k__tr,2,False,submitted_unresolved,66.0,1,4,20.0,12,[42],42.0,0,False,60
+django__django-12325,d05__b21k__tr,3,,limits_exceeded,125.0,1,1,14.0,32,"[41, 65, 99]",41.0,0,False,100
+django__django-17084,d05__b21k__tr,1,True,resolved,55.0,1,1,17.0,12,[51],51.0,0,False,53
+django__django-17084,d05__b21k__tr,2,,limits_exceeded,125.0,1,1,19.0,26,"[51, 64, 86, 107]",51.0,0,False,108
+django__django-17084,d05__b21k__tr,3,False,submitted_unresolved,110.0,1,4,8.0,28,"[59, 102]",59.0,0,False,97
+scikit-learn__scikit-learn-10908,d05__b21k__tr,1,False,submitted_unresolved,64.0,1,1,15.0,17,[40],40.0,0,False,51
+scikit-learn__scikit-learn-10908,d05__b21k__tr,2,True,resolved,65.0,1,1,10.0,13,"[37, 54]",37.0,0,False,61
+scikit-learn__scikit-learn-10908,d05__b21k__tr,3,True,resolved,72.0,1,3,8.0,10,[46],46.0,0,False,61
+scikit-learn__scikit-learn-14053,d05__b21k__tr,1,False,submitted_unresolved,73.0,1,1,6.0,17,"[47, 70]",47.0,0,False,59
+scikit-learn__scikit-learn-14053,d05__b21k__tr,2,True,resolved,67.0,1,2,3.0,17,"[36, 51]",36.0,0,False,60
+scikit-learn__scikit-learn-14053,d05__b21k__tr,3,True,resolved,96.0,1,2,6.0,25,"[34, 66, 95]",34.0,0,False,79
+scikit-learn__scikit-learn-14983,d05__b21k__tr,1,False,submitted_unresolved,48.0,1,1,8.0,8,[34],34.0,0,False,45
+scikit-learn__scikit-learn-14983,d05__b21k__tr,2,False,submitted_unresolved,62.0,1,3,9.0,12,[58],58.0,0,False,58
+scikit-learn__scikit-learn-14983,d05__b21k__tr,3,True,resolved,67.0,1,1,9.0,15,"[43, 66]",43.0,0,False,63
+scikit-learn__scikit-learn-25232,d05__b21k__tr,1,,limits_exceeded,125.0,1,1,11.0,30,"[49, 82, 118]",49.0,0,False,86
+scikit-learn__scikit-learn-25232,d05__b21k__tr,2,True,resolved,71.0,1,1,10.0,21,[48],48.0,0,False,60
+scikit-learn__scikit-learn-25232,d05__b21k__tr,3,,limits_exceeded,125.0,1,0,6.0,40,"[61, 98]",61.0,0,False,99
+scikit-learn__scikit-learn-25931,d05__b21k__tr,1,True,resolved,81.0,1,1,19.0,11,[50],50.0,0,False,73
+scikit-learn__scikit-learn-25931,d05__b21k__tr,2,True,resolved,65.0,1,1,14.0,9,[54],54.0,0,False,54
+scikit-learn__scikit-learn-25931,d05__b21k__tr,3,,limits_exceeded,125.0,2,1,13.0,22,"[43, 70, 118]",43.0,0,False,113
+sympy__sympy-13757,d05__b21k__tr,1,True,resolved,95.0,1,1,14.0,20,[74],74.0,0,False,83
+sympy__sympy-13757,d05__b21k__tr,2,True,resolved,100.0,1,2,17.0,20,[83],83.0,0,False,87
+sympy__sympy-13757,d05__b21k__tr,3,True,resolved,71.0,1,2,12.0,20,[55],55.0,0,False,61
+sympy__sympy-14531,d05__b21k__tr,1,True,resolved,77.0,1,2,12.0,15,[54],54.0,0,False,75
+sympy__sympy-14531,d05__b21k__tr,2,True,resolved,106.0,1,3,10.0,22,"[66, 93]",66.0,0,False,82
+sympy__sympy-14531,d05__b21k__tr,3,,limits_exceeded,125.0,2,1,9.0,30,"[79, 115]",79.0,0,False,100
+django__django-12325,di__b21k__otrc-ss-partial,1,False,submitted_unresolved,94.0,2,3,17.0,23,[],,89,False,72
+django__django-12325,di__b21k__otrc-ss-partial,2,True,resolved,83.0,1,2,11.0,19,[],,78,False,62
+django__django-12325,di__b21k__otrc-ss-partial,3,,limits_exceeded,125.0,42,0,34.0,2,[],,120,True,64
+django__django-17084,di__b21k__otrc-ss-partial,1,True,resolved,100.0,1,2,24.0,21,[],,95,False,94
+django__django-17084,di__b21k__otrc-ss-partial,2,,limits_exceeded,125.0,47,0,20.0,1,[],,120,False,62
+django__django-17084,di__b21k__otrc-ss-partial,3,,limits_exceeded,125.0,1,0,18.0,19,[],,120,False,113
+scikit-learn__scikit-learn-10908,di__b21k__otrc-ss-partial,1,False,submitted_unresolved,48.0,1,3,11.0,10,[],,43,False,38
+scikit-learn__scikit-learn-10908,di__b21k__otrc-ss-partial,2,,limits_exceeded,125.0,54,2,12.0,1,[],,120,True,38
+scikit-learn__scikit-learn-10908,di__b21k__otrc-ss-partial,3,,limits_exceeded,125.0,1,0,11.0,8,[],,120,True,79
+scikit-learn__scikit-learn-14053,di__b21k__otrc-ss-partial,1,,limits_exceeded,125.0,1,0,5.0,3,[],,120,True,55
+scikit-learn__scikit-learn-14053,di__b21k__otrc-ss-partial,2,,limits_exceeded,125.0,57,0,5.0,10,[],,120,True,49
+scikit-learn__scikit-learn-14053,di__b21k__otrc-ss-partial,3,,limits_exceeded,125.0,65,0,24.0,1,[],,119,True,35
+scikit-learn__scikit-learn-14983,di__b21k__otrc-ss-partial,1,False,submitted_unresolved,66.0,1,2,17.0,9,[],,61,False,62
+scikit-learn__scikit-learn-14983,di__b21k__otrc-ss-partial,2,,limits_exceeded,125.0,1,0,23.0,24,[],,120,False,95
+scikit-learn__scikit-learn-14983,di__b21k__otrc-ss-partial,3,False,submitted_unresolved,65.0,1,2,13.0,11,[],,60,False,59
+scikit-learn__scikit-learn-25232,di__b21k__otrc-ss-partial,1,,limits_exceeded,125.0,1,0,8.0,27,[],,120,False,80
+scikit-learn__scikit-learn-25232,di__b21k__otrc-ss-partial,2,True,resolved,81.0,1,1,14.0,15,[],,76,False,76
+scikit-learn__scikit-learn-25232,di__b21k__otrc-ss-partial,3,False,submitted_unresolved,106.0,1,3,9.0,17,[],,101,False,95
+scikit-learn__scikit-learn-25931,di__b21k__otrc-ss-partial,1,,limits_exceeded,125.0,1,0,35.0,12,[],,120,True,95
+scikit-learn__scikit-learn-25931,di__b21k__otrc-ss-partial,2,,limits_exceeded,125.0,45,0,30.0,57,[],,118,True,61
+scikit-learn__scikit-learn-25931,di__b21k__otrc-ss-partial,3,False,submitted_unresolved,67.0,1,1,19.0,10,[],,61,False,61
+sympy__sympy-13757,di__b21k__otrc-ss-partial,1,True,resolved,105.0,1,2,18.0,19,[],,100,False,96
+sympy__sympy-13757,di__b21k__otrc-ss-partial,2,False,submitted_unresolved,93.0,1,1,9.0,27,[],,88,False,75
+sympy__sympy-13757,di__b21k__otrc-ss-partial,3,,limits_exceeded,125.0,5,0,17.0,31,[],,120,False,90
+sympy__sympy-14531,di__b21k__otrc-ss-partial,1,,limits_exceeded,125.0,1,2,24.0,29,[],,120,False,101
+sympy__sympy-14531,di__b21k__otrc-ss-partial,2,,limits_exceeded,125.0,1,0,6.0,25,[],,120,False,104
+sympy__sympy-14531,di__b21k__otrc-ss-partial,3,,limits_exceeded,125.0,19,0,6.0,5,[],,120,False,72
+django__django-12325,di__b21k__otrc-su-partial,1,,limits_exceeded,125.0,1,0,13.0,27,[],,120,False,86
+django__django-12325,di__b21k__otrc-su-partial,2,False,submitted_unresolved,93.0,1,1,25.0,23,[89],89.0,88,False,84
+django__django-12325,di__b21k__otrc-su-partial,3,False,submitted_unresolved,84.0,1,1,28.0,10,[],,79,False,75
+django__django-17084,di__b21k__otrc-su-partial,1,False,submitted_unresolved,109.0,2,0,25.0,17,[],,104,False,102
+django__django-17084,di__b21k__otrc-su-partial,2,,limits_exceeded,125.0,2,0,28.0,29,[122],122.0,120,False,102
+django__django-17084,di__b21k__otrc-su-partial,3,False,submitted_unresolved,112.0,2,2,35.0,20,[],,107,False,106
+scikit-learn__scikit-learn-10908,di__b21k__otrc-su-partial,1,True,resolved,78.0,1,1,15.0,11,[],,73,False,63
+scikit-learn__scikit-learn-10908,di__b21k__otrc-su-partial,2,False,submitted_unresolved,67.0,1,3,12.0,15,[],,62,False,59
+scikit-learn__scikit-learn-10908,di__b21k__otrc-su-partial,3,False,submitted_unresolved,47.0,1,1,17.0,9,[],,42,False,42
+scikit-learn__scikit-learn-14053,di__b21k__otrc-su-partial,1,,limits_exceeded,125.0,61,0,27.0,2,[],,119,True,43
+scikit-learn__scikit-learn-14053,di__b21k__otrc-su-partial,2,False,submitted_unresolved,74.0,1,4,6.0,18,[],,68,False,62
+scikit-learn__scikit-learn-14053,di__b21k__otrc-su-partial,3,,limits_exceeded,125.0,31,0,5.0,22,[],,120,True,48
+scikit-learn__scikit-learn-14983,di__b21k__otrc-su-partial,1,False,submitted_unresolved,82.0,1,1,18.0,9,[],,77,False,68
+scikit-learn__scikit-learn-14983,di__b21k__otrc-su-partial,2,False,submitted_unresolved,84.0,1,3,17.0,12,[],,79,False,78
+scikit-learn__scikit-learn-14983,di__b21k__otrc-su-partial,3,False,submitted_unresolved,90.0,1,3,15.0,16,[],,85,False,74
+scikit-learn__scikit-learn-25232,di__b21k__otrc-su-partial,1,,limits_exceeded,125.0,1,3,11.0,31,[],,120,False,98
+scikit-learn__scikit-learn-25232,di__b21k__otrc-su-partial,2,,limits_exceeded,125.0,1,0,12.0,34,[105],105.0,120,False,101
+scikit-learn__scikit-learn-25232,di__b21k__otrc-su-partial,3,False,submitted_unresolved,50.0,1,2,10.0,13,[],,45,False,48
+scikit-learn__scikit-learn-25931,di__b21k__otrc-su-partial,1,True,resolved,92.0,2,2,11.0,14,[],,87,False,83
+scikit-learn__scikit-learn-25931,di__b21k__otrc-su-partial,2,False,submitted_unresolved,99.0,1,1,11.0,14,[],,94,False,87
+scikit-learn__scikit-learn-25931,di__b21k__otrc-su-partial,3,,limits_exceeded,125.0,1,8,35.0,22,[],,118,True,90
+sympy__sympy-13757,di__b21k__otrc-su-partial,1,,limits_exceeded,125.0,2,0,10.0,30,[],,120,False,98
+sympy__sympy-13757,di__b21k__otrc-su-partial,2,True,resolved,78.0,1,3,6.0,15,[],,73,False,70
+sympy__sympy-13757,di__b21k__otrc-su-partial,3,,limits_exceeded,125.0,1,1,13.0,22,[],,120,False,103
+sympy__sympy-14531,di__b21k__otrc-su-partial,1,True,resolved,114.0,2,2,8.0,21,[],,109,False,102
+sympy__sympy-14531,di__b21k__otrc-su-partial,2,True,resolved,120.0,1,3,13.0,37,[],,114,False,96
+sympy__sympy-14531,di__b21k__otrc-su-partial,3,,limits_exceeded,125.0,1,0,9.0,26,[],,120,False,80
+django__django-12325,di__b21k__otrc-tr,1,True,resolved,67.0,1,1,12.0,20,[],,62,False,58
+django__django-12325,di__b21k__otrc-tr,2,,limits_exceeded,125.0,2,0,13.0,31,"[61, 88, 120]",61.0,120,False,103
+django__django-12325,di__b21k__otrc-tr,3,,limits_exceeded,125.0,1,2,62.0,4,[],,120,True,79
+django__django-17084,di__b21k__otrc-tr,1,,limits_exceeded,125.0,1,0,23.0,23,[],,120,False,115
+django__django-17084,di__b21k__otrc-tr,2,,limits_exceeded,125.0,1,0,22.0,14,[],,120,False,108
+django__django-17084,di__b21k__otrc-tr,3,,limits_exceeded,125.0,1,1,13.0,10,[],,120,False,102
+scikit-learn__scikit-learn-10908,di__b21k__otrc-tr,1,,limits_exceeded,125.0,1,0,12.0,38,"[77, 111]",77.0,120,False,100
+scikit-learn__scikit-learn-10908,di__b21k__otrc-tr,2,,limits_exceeded,125.0,1,0,57.0,11,[],,120,True,100
+scikit-learn__scikit-learn-10908,di__b21k__otrc-tr,3,,limits_exceeded,125.0,2,0,32.0,50,[],,120,True,31
+scikit-learn__scikit-learn-14053,di__b21k__otrc-tr,1,True,resolved,54.0,1,1,4.0,15,[],,49,False,49
+scikit-learn__scikit-learn-14053,di__b21k__otrc-tr,2,,limits_exceeded,125.0,1,0,5.0,22,[],,120,True,82
+scikit-learn__scikit-learn-14053,di__b21k__otrc-tr,3,True,resolved,49.0,1,2,4.0,11,[],,44,False,45
+scikit-learn__scikit-learn-14983,di__b21k__otrc-tr,1,False,submitted_unresolved,67.0,1,2,20.0,15,[],,62,False,62
+scikit-learn__scikit-learn-14983,di__b21k__otrc-tr,2,False,submitted_unresolved,94.0,1,1,12.0,17,[],,89,False,87
+scikit-learn__scikit-learn-14983,di__b21k__otrc-tr,3,False,submitted_unresolved,72.0,1,1,20.0,15,[],,67,False,67
+scikit-learn__scikit-learn-25232,di__b21k__otrc-tr,1,False,submitted_unresolved,69.0,1,1,6.0,13,[],,64,False,62
+scikit-learn__scikit-learn-25232,di__b21k__otrc-tr,2,False,submitted_unresolved,86.0,1,1,13.0,23,[],,81,False,74
+scikit-learn__scikit-learn-25232,di__b21k__otrc-tr,3,,limits_exceeded,125.0,1,2,8.0,42,[],,120,False,96
+scikit-learn__scikit-learn-25931,di__b21k__otrc-tr,1,True,resolved,90.0,2,2,21.0,14,[],,83,False,73
+scikit-learn__scikit-learn-25931,di__b21k__otrc-tr,2,True,resolved,52.0,1,2,16.0,5,[],,47,False,47
+scikit-learn__scikit-learn-25931,di__b21k__otrc-tr,3,,silent_crash,25.0,1,0,,0,"[5, 8, 11, 14, 18, 21, 24]",5.0,15,False,23
+sympy__sympy-13757,di__b21k__otrc-tr,1,,limits_exceeded,125.0,1,2,5.0,21,[],,120,False,108
+sympy__sympy-13757,di__b21k__otrc-tr,2,,limits_exceeded,125.0,1,0,44.0,14,[],,120,True,91
+sympy__sympy-13757,di__b21k__otrc-tr,3,,limits_exceeded,125.0,1,0,13.0,33,[],,120,False,91
+sympy__sympy-14531,di__b21k__otrc-tr,1,,limits_exceeded,125.0,1,0,10.0,37,[],,120,False,107
+sympy__sympy-14531,di__b21k__otrc-tr,2,,limits_exceeded,125.0,2,0,18.0,20,[],,120,False,106
+sympy__sympy-14531,di__b21k__otrc-tr,3,,limits_exceeded,125.0,2,0,20.0,30,[],,120,False,95
+django__django-12325,di__b21k__trc,1,False,submitted_unresolved,73.0,2,2,13.0,8,[57],57.0,0,False,64
+django__django-12325,di__b21k__trc,2,False,submitted_unresolved,72.0,1,3,14.0,19,[65],65.0,0,False,57
+django__django-12325,di__b21k__trc,3,False,submitted_unresolved,68.0,1,2,21.0,15,[56],56.0,0,False,60
+django__django-17084,di__b21k__trc,1,False,submitted_unresolved,107.0,2,2,17.0,22,"[44, 80]",44.0,0,False,101
+django__django-17084,di__b21k__trc,2,True,resolved,82.0,1,2,13.0,10,"[39, 67]",39.0,0,False,71
+django__django-17084,di__b21k__trc,3,False,submitted_unresolved,82.0,1,1,9.0,16,"[27, 67]",27.0,0,False,80
+scikit-learn__scikit-learn-10908,di__b21k__trc,1,False,submitted_unresolved,60.0,2,1,15.0,17,[40],40.0,0,False,51
+scikit-learn__scikit-learn-10908,di__b21k__trc,2,False,submitted_unresolved,49.0,1,2,11.0,9,[43],43.0,0,False,45
+scikit-learn__scikit-learn-10908,di__b21k__trc,3,True,resolved,52.0,1,2,12.0,12,[35],35.0,0,False,45
+scikit-learn__scikit-learn-14053,di__b21k__trc,1,False,submitted_unresolved,66.0,1,1,4.0,14,[39],39.0,0,False,60
+scikit-learn__scikit-learn-14053,di__b21k__trc,2,True,resolved,72.0,1,1,4.0,17,"[36, 61]",36.0,0,False,64
+scikit-learn__scikit-learn-14053,di__b21k__trc,3,True,resolved,61.0,1,2,6.0,14,"[41, 56]",41.0,0,False,50
+scikit-learn__scikit-learn-14983,di__b21k__trc,1,False,submitted_unresolved,57.0,1,1,6.0,10,[40],40.0,0,False,52
+scikit-learn__scikit-learn-14983,di__b21k__trc,2,False,submitted_unresolved,57.0,1,2,8.0,8,[46],46.0,0,False,53
+scikit-learn__scikit-learn-14983,di__b21k__trc,3,False,submitted_unresolved,59.0,1,1,7.0,12,"[36, 56]",36.0,0,False,54
+scikit-learn__scikit-learn-25232,di__b21k__trc,1,,limits_exceeded,125.0,1,0,11.0,35,"[71, 119]",71.0,0,False,88
+scikit-learn__scikit-learn-25232,di__b21k__trc,2,True,resolved,93.0,2,2,9.0,22,"[54, 83]",54.0,0,False,79
+scikit-learn__scikit-learn-25232,di__b21k__trc,3,,limits_exceeded,125.0,1,0,14.0,40,"[56, 104]",56.0,0,False,88
+scikit-learn__scikit-learn-25931,di__b21k__trc,1,True,resolved,89.0,1,2,14.0,17,[55],55.0,0,False,75
+scikit-learn__scikit-learn-25931,di__b21k__trc,2,True,resolved,71.0,1,2,11.0,13,[44],44.0,0,False,58
+scikit-learn__scikit-learn-25931,di__b21k__trc,3,True,resolved,72.0,1,1,16.0,9,[45],45.0,0,False,66
+sympy__sympy-13757,di__b21k__trc,1,,limits_exceeded,125.0,2,11,10.0,34,"[71, 122]",71.0,0,False,94
+sympy__sympy-13757,di__b21k__trc,2,True,resolved,89.0,1,6,16.0,22,[66],66.0,0,False,70
+sympy__sympy-13757,di__b21k__trc,3,False,submitted_unresolved,97.0,1,1,12.0,21,[83],83.0,0,False,80
+sympy__sympy-14531,di__b21k__trc,1,True,resolved,103.0,1,2,11.0,35,"[57, 92]",57.0,0,False,89
+sympy__sympy-14531,di__b21k__trc,2,True,resolved,100.0,1,0,12.0,17,"[71, 96]",71.0,0,False,85
+sympy__sympy-14531,di__b21k__trc,3,,limits_exceeded,125.0,1,0,12.0,31,"[71, 110]",71.0,0,False,102
+django__django-12325,di__b21k__trc-ss,1,True,resolved,87.0,1,3,16.0,22,[50],50.0,0,False,71
+django__django-12325,di__b21k__trc-ss,2,False,submitted_unresolved,103.0,1,3,12.0,29,[63],63.0,0,False,75
+django__django-12325,di__b21k__trc-ss,3,False,submitted_unresolved,92.0,1,1,19.0,21,[59],59.0,0,False,75
+django__django-17084,di__b21k__trc-ss,1,False,submitted_unresolved,84.0,1,2,14.0,18,"[47, 80]",47.0,0,False,78
+django__django-17084,di__b21k__trc-ss,2,,limits_exceeded,125.0,1,1,10.0,25,"[47, 81, 89, 111, 119]",47.0,0,False,102
+django__django-17084,di__b21k__trc-ss,3,True,resolved,113.0,1,2,13.0,19,"[43, 81]",43.0,0,False,98
+scikit-learn__scikit-learn-10908,di__b21k__trc-ss,1,True,resolved,70.0,1,3,11.0,15,"[37, 69]",37.0,0,False,60
+scikit-learn__scikit-learn-10908,di__b21k__trc-ss,2,True,resolved,75.0,1,3,13.0,14,[51],51.0,0,False,61
+scikit-learn__scikit-learn-10908,di__b21k__trc-ss,3,True,resolved,80.0,1,2,15.0,21,"[43, 68, 79]",43.0,0,False,66
+scikit-learn__scikit-learn-14053,di__b21k__trc-ss,1,False,submitted_unresolved,85.0,1,2,3.0,16,"[29, 61]",29.0,0,False,75
+scikit-learn__scikit-learn-14053,di__b21k__trc-ss,2,True,resolved,80.0,2,1,4.0,18,"[44, 71]",44.0,0,False,71
+scikit-learn__scikit-learn-14053,di__b21k__trc-ss,3,False,submitted_unresolved,57.0,1,1,5.0,9,[26],26.0,0,False,48
+scikit-learn__scikit-learn-14983,di__b21k__trc-ss,1,False,submitted_unresolved,56.0,1,2,7.0,12,[38],38.0,0,False,53
+scikit-learn__scikit-learn-14983,di__b21k__trc-ss,2,False,submitted_unresolved,54.0,1,2,8.0,10,[53],53.0,0,False,50
+scikit-learn__scikit-learn-14983,di__b21k__trc-ss,3,False,submitted_unresolved,57.0,2,2,6.0,16,"[37, 54]",37.0,0,False,53
+scikit-learn__scikit-learn-25232,di__b21k__trc-ss,1,True,resolved,56.0,1,1,6.0,15,"[35, 55]",35.0,0,False,53
+scikit-learn__scikit-learn-25232,di__b21k__trc-ss,2,True,resolved,89.0,1,4,8.0,23,"[50, 87]",50.0,0,False,75
+scikit-learn__scikit-learn-25232,di__b21k__trc-ss,3,True,resolved,58.0,1,2,11.0,16,[44],44.0,0,False,55
+scikit-learn__scikit-learn-25931,di__b21k__trc-ss,1,True,resolved,72.0,1,1,10.0,8,[39],39.0,0,False,66
+scikit-learn__scikit-learn-25931,di__b21k__trc-ss,2,False,submitted_unresolved,64.0,1,1,16.0,9,[49],49.0,0,False,58
+scikit-learn__scikit-learn-25931,di__b21k__trc-ss,3,False,submitted_unresolved,57.0,1,1,11.0,6,[55],55.0,0,False,51
+sympy__sympy-13757,di__b21k__trc-ss,1,True,resolved,125.0,1,2,10.0,26,"[69, 110]",69.0,0,False,112
+sympy__sympy-13757,di__b21k__trc-ss,2,,limits_exceeded,125.0,1,2,18.0,40,"[78, 118]",78.0,0,False,101
+sympy__sympy-13757,di__b21k__trc-ss,3,True,resolved,111.0,1,2,10.0,40,[91],91.0,0,False,89
+sympy__sympy-14531,di__b21k__trc-ss,1,False,submitted_unresolved,94.0,1,1,9.0,10,[62],62.0,0,False,85
+sympy__sympy-14531,di__b21k__trc-ss,2,,limits_exceeded,125.0,1,0,13.0,29,[88],88.0,0,False,101
+sympy__sympy-14531,di__b21k__trc-ss,3,True,resolved,79.0,1,4,6.0,22,"[53, 72]",53.0,0,False,65
+django__django-12325,di__b21k__trc-su,1,False,submitted_unresolved,75.0,1,4,16.0,16,"[47, 72]",47.0,0,False,67
+django__django-12325,di__b21k__trc-su,2,False,submitted_unresolved,63.0,1,1,13.0,12,[54],54.0,0,False,56
+django__django-12325,di__b21k__trc-su,3,False,submitted_unresolved,58.0,1,3,11.0,11,[53],53.0,0,False,57
+django__django-17084,di__b21k__trc-su,1,False,submitted_unresolved,85.0,1,0,11.0,18,"[48, 71]",48.0,0,False,83
+django__django-17084,di__b21k__trc-su,2,False,submitted_unresolved,113.0,2,1,23.0,20,"[55, 81, 92, 96, 108, 110]",55.0,0,False,101
+django__django-17084,di__b21k__trc-su,3,False,submitted_unresolved,79.0,1,3,20.0,13,[50],50.0,0,False,75
+scikit-learn__scikit-learn-10908,di__b21k__trc-su,1,False,submitted_unresolved,100.0,1,1,14.0,24,"[32, 62, 73, 94, 97]",32.0,0,False,77
+scikit-learn__scikit-learn-10908,di__b21k__trc-su,2,False,submitted_unresolved,47.0,1,2,15.0,8,[39],39.0,0,False,42
+scikit-learn__scikit-learn-10908,di__b21k__trc-su,3,True,resolved,69.0,1,2,17.0,15,[38],38.0,0,False,58
+scikit-learn__scikit-learn-14053,di__b21k__trc-su,1,False,submitted_unresolved,76.0,1,1,6.0,19,[53],53.0,0,False,58
+scikit-learn__scikit-learn-14053,di__b21k__trc-su,2,False,submitted_unresolved,74.0,2,2,9.0,16,[38],38.0,0,False,52
+scikit-learn__scikit-learn-14053,di__b21k__trc-su,3,True,resolved,52.0,1,1,7.0,13,[43],43.0,0,False,45
+scikit-learn__scikit-learn-14983,di__b21k__trc-su,1,False,submitted_unresolved,56.0,1,2,17.0,7,[],,0,False,54
+scikit-learn__scikit-learn-14983,di__b21k__trc-su,2,False,submitted_unresolved,66.0,1,1,11.0,15,[42],42.0,0,False,62
+scikit-learn__scikit-learn-14983,di__b21k__trc-su,3,False,submitted_unresolved,65.0,1,2,10.0,10,[43],43.0,0,False,61
+scikit-learn__scikit-learn-25232,di__b21k__trc-su,1,False,submitted_unresolved,109.0,1,2,9.0,24,"[54, 96]",54.0,0,False,87
+scikit-learn__scikit-learn-25232,di__b21k__trc-su,2,True,resolved,68.0,1,1,7.0,13,[53],53.0,0,False,62
+scikit-learn__scikit-learn-25232,di__b21k__trc-su,3,False,submitted_unresolved,95.0,1,2,6.0,21,[54],54.0,0,False,72
+scikit-learn__scikit-learn-25931,di__b21k__trc-su,1,True,resolved,60.0,1,1,10.0,10,[39],39.0,0,False,53
+scikit-learn__scikit-learn-25931,di__b21k__trc-su,2,True,resolved,97.0,1,2,16.0,14,"[41, 68, 88]",41.0,0,False,91
+scikit-learn__scikit-learn-25931,di__b21k__trc-su,3,True,resolved,81.0,1,1,11.0,11,[53],53.0,0,False,74
+sympy__sympy-13757,di__b21k__trc-su,1,True,resolved,103.0,1,6,10.0,25,[75],75.0,0,False,85
+sympy__sympy-13757,di__b21k__trc-su,2,True,resolved,124.0,1,3,13.0,35,"[84, 120]",84.0,0,False,89
+sympy__sympy-13757,di__b21k__trc-su,3,True,resolved,97.0,1,2,5.0,20,[91],91.0,0,False,76
+sympy__sympy-14531,di__b21k__trc-su,1,,limits_exceeded,125.0,2,0,12.0,39,"[67, 100, 116, 121]",67.0,0,False,106
+sympy__sympy-14531,di__b21k__trc-su,2,True,resolved,79.0,1,1,13.0,12,[70],70.0,0,False,65
+sympy__sympy-14531,di__b21k__trc-su,3,False,submitted_unresolved,95.0,2,7,9.0,21,"[57, 78]",57.0,0,False,83
+django__django-12325,di__binf__fc,1,False,submitted_unresolved,68.0,1,1,17.0,11,[],,0,False,60
+django__django-12325,di__binf__fc,2,True,resolved,59.0,1,2,14.0,11,[],,0,False,52
+django__django-12325,di__binf__fc,3,True,resolved,67.0,1,1,12.0,16,[],,0,False,60
+django__django-17084,di__binf__fc,1,True,resolved,106.0,1,1,23.0,22,[],,0,False,95
+django__django-17084,di__binf__fc,2,True,resolved,69.0,1,2,18.0,12,[],,0,False,64
+django__django-17084,di__binf__fc,3,False,limits_exceeded,125.0,1,0,20.0,20,[],,0,False,113
+scikit-learn__scikit-learn-10908,di__binf__fc,1,True,resolved,63.0,1,2,18.0,12,[],,0,False,55
+scikit-learn__scikit-learn-10908,di__binf__fc,2,True,resolved,54.0,1,2,14.0,11,[],,0,False,45
+scikit-learn__scikit-learn-10908,di__binf__fc,3,True,resolved,77.0,1,2,8.0,19,[],,0,False,65
+scikit-learn__scikit-learn-14053,di__binf__fc,1,True,resolved,59.0,1,1,6.0,11,[],,0,False,55
+scikit-learn__scikit-learn-14053,di__binf__fc,2,True,resolved,85.0,1,2,5.0,17,[],,0,False,73
+scikit-learn__scikit-learn-14053,di__binf__fc,3,True,resolved,61.0,1,1,6.0,12,[],,0,False,53
+scikit-learn__scikit-learn-14983,di__binf__fc,1,True,resolved,82.0,1,1,8.0,12,[],,0,False,78
+scikit-learn__scikit-learn-14983,di__binf__fc,2,True,resolved,54.0,1,1,8.0,10,[],,0,False,50
+scikit-learn__scikit-learn-14983,di__binf__fc,3,False,submitted_unresolved,56.0,2,3,10.0,8,[],,0,False,52
+scikit-learn__scikit-learn-25232,di__binf__fc,1,True,resolved,67.0,1,1,7.0,9,[],,0,False,59
+scikit-learn__scikit-learn-25232,di__binf__fc,2,True,resolved,59.0,1,3,7.0,15,[],,0,False,58
+scikit-learn__scikit-learn-25232,di__binf__fc,3,True,resolved,55.0,1,1,8.0,14,[],,0,False,51
+scikit-learn__scikit-learn-25931,di__binf__fc,1,True,resolved,64.0,2,1,17.0,9,[],,0,False,56
+scikit-learn__scikit-learn-25931,di__binf__fc,2,True,resolved,65.0,1,2,13.0,9,[],,0,False,61
+scikit-learn__scikit-learn-25931,di__binf__fc,3,True,resolved,75.0,1,2,11.0,11,[],,0,False,68
+sympy__sympy-13757,di__binf__fc,1,True,resolved,82.0,1,3,12.0,14,[],,0,False,69
+sympy__sympy-13757,di__binf__fc,2,False,limits_exceeded,125.0,1,0,11.0,35,[],,0,False,93
+sympy__sympy-13757,di__binf__fc,3,True,resolved,71.0,1,2,5.0,18,[],,0,False,59
+sympy__sympy-14531,di__binf__fc,1,False,silent_crash,125.0,1,0,11.0,37,[],,0,False,114
+sympy__sympy-14531,di__binf__fc,2,True,resolved,93.0,2,1,6.0,21,[],,0,False,82
+sympy__sympy-14531,di__binf__fc,3,True,resolved,107.0,1,1,10.0,20,[],,0,False,87
+django__django-12325,di__binf__otrc,1,False,submitted_unresolved,66.0,1,0,15.0,11,[],,61,False,59
+django__django-12325,di__binf__otrc,2,False,submitted_unresolved,79.0,1,1,18.0,19,[],,74,False,67
+django__django-12325,di__binf__otrc,3,False,submitted_unresolved,104.0,1,2,13.0,26,[],,99,False,88
+django__django-17084,di__binf__otrc,1,,limits_exceeded,125.0,1,1,28.0,8,[],,120,False,97
+django__django-17084,di__binf__otrc,2,,limits_exceeded,125.0,75,0,22.0,89,[],,120,False,31
+django__django-17084,di__binf__otrc,3,,limits_exceeded,125.0,1,1,50.0,11,[],,120,False,110
+scikit-learn__scikit-learn-10908,di__binf__otrc,1,,limits_exceeded,125.0,78,1,,0,[],,120,True,43
+scikit-learn__scikit-learn-10908,di__binf__otrc,2,,limits_exceeded,125.0,1,0,27.0,9,[],,120,True,57
+scikit-learn__scikit-learn-10908,di__binf__otrc,3,,limits_exceeded,125.0,2,0,49.0,22,[],,120,True,103
+scikit-learn__scikit-learn-14053,di__binf__otrc,1,,limits_exceeded,125.0,2,0,24.0,7,[],,119,True,59
+scikit-learn__scikit-learn-14053,di__binf__otrc,2,,limits_exceeded,125.0,47,0,20.0,1,[],,119,True,48
+scikit-learn__scikit-learn-14053,di__binf__otrc,3,,limits_exceeded,125.0,28,0,5.0,12,[],,120,True,48
+scikit-learn__scikit-learn-14983,di__binf__otrc,1,,limits_exceeded,125.0,1,0,13.0,52,[],,120,False,55
+scikit-learn__scikit-learn-14983,di__binf__otrc,2,False,submitted_unresolved,75.0,1,2,21.0,8,[],,70,False,72
+scikit-learn__scikit-learn-14983,di__binf__otrc,3,False,submitted_unresolved,56.0,1,2,14.0,9,[],,51,False,49
+scikit-learn__scikit-learn-25232,di__binf__otrc,1,False,submitted_unresolved,112.0,1,1,6.0,30,[],,107,False,94
+scikit-learn__scikit-learn-25232,di__binf__otrc,2,False,submitted_unresolved,64.0,2,2,8.0,12,[],,59,False,60
+scikit-learn__scikit-learn-25232,di__binf__otrc,3,True,resolved,124.0,1,2,11.0,25,[],,119,False,92
+scikit-learn__scikit-learn-25931,di__binf__otrc,1,,limits_exceeded,125.0,1,0,15.0,4,[],,120,False,78
+scikit-learn__scikit-learn-25931,di__binf__otrc,2,False,submitted_unresolved,114.0,1,2,11.0,16,[],,109,False,96
+scikit-learn__scikit-learn-25931,di__binf__otrc,3,True,resolved,95.0,1,1,11.0,16,[],,90,False,80
+sympy__sympy-13757,di__binf__otrc,1,True,resolved,90.0,1,3,5.0,29,[],,85,False,73
+sympy__sympy-13757,di__binf__otrc,2,,limits_exceeded,125.0,1,0,24.0,16,[],,120,False,111
+sympy__sympy-13757,di__binf__otrc,3,False,submitted_unresolved,97.0,1,2,5.0,21,[],,92,False,80
+sympy__sympy-14531,di__binf__otrc,1,,limits_exceeded,125.0,2,0,15.0,31,[],,120,False,92
+sympy__sympy-14531,di__binf__otrc,2,True,resolved,87.0,1,2,6.0,21,[],,82,False,68
+sympy__sympy-14531,di__binf__otrc,3,False,submitted_unresolved,120.0,1,2,26.0,25,[],,115,False,104

@@ -260,6 +260,7 @@ class SweBench:
             "MSWEA_COMPRESSION_RATIO": str(compression_ratio),
             "MSWEA_TOKEN_LOG_PATH": str(token_log_file),
             "MSWEA_RUN_KEY": key,
+            "MSWEA_EVENT_LOG_DIR": str(output_dir),  # events.jsonl + compression_events.jsonl (failure analysis)
         })
         env.update(self.agent_environment())
 

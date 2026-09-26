@@ -23,6 +23,9 @@ Directory layout
     trajectory.json   full message history + exit_status + submission patch
     token_log.json    per-step + compression stats
     agent.log         subprocess stdout/stderr
+    events.jsonl      every message as added (pre-compression), with a stable uid
+    compression_events.jsonl  per compression event: dropped/replaced/added uids,
+                      summary text, before/after uid order (see scripts/reconstruct_context.py)
 
 Usage
 -----
