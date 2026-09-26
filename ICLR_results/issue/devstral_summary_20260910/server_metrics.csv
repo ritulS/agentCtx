@@ -1,0 +1,7 @@
+cell,samples,max_running,max_waiting,max_kv_percent,active_hit_rate_min,active_hit_rate_max
+d05__b21k__su-full,645,16.0,5.0,17.2,79.9,97.3
+d05__b21k__su-partial,581,16.0,4.0,16.3,93.9,96.8
+d05__b21k__ss,638,16.0,4.0,17.1,93.1,96.5
+d05__b21k__ss-partial,566,16.0,5.0,16.5,93.7,96.9
+di__b21k__trc-su,177,16.0,2.0,18.0,93.9,97.3
+di__b21k__trc-ss,154,16.0,3.0,16.6,94.9,97.5

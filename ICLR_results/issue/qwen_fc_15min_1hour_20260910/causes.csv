@@ -1,0 +1,166 @@
+task,run,batch_date,outcome,cause,failing_test,detail,steps,e2e_s,llm_s,format_errors,final_prompt_tokens
+django__django-11087,1,2026-03-30,submitted_unresolved,submission_not_a_diff,,"final command printed a code excerpt (cat|grep/sed) instead of git diff; SWE-bench: ""Only garbage was found in the patch input""",88,1441.87,661.375,8,35685
+django__django-11087,2,2026-03-30,submitted_unresolved,submission_not_a_diff,,"final command printed a code excerpt (cat|grep/sed) instead of git diff; SWE-bench: ""Only garbage was found in the patch input""",85,540.07,513.953,1,40037
+django__django-11087,3,2026-08-28,submitted_unresolved,wrong_fix:incomplete_fix,test_only_referenced_fields_selected,Unconditional .only('pk') in Collector.related_objects; gold defers fields inside collect() only when no delete signals/select_related and keeps FK attnames needed by cascades. Also breaks post_delete signal P2P test.,35,258.35,227.913,1,17216
+django__django-11095,1,2026-03-30,resolved,resolved,,,39,190.72,176.202,1,18793
+django__django-11095,2,2026-03-30,resolved,resolved,,,48,322.44,293.416,0,26494
+django__django-11095,3,2026-08-28,resolved,resolved,,,34,263.94,227.317,1,15399
+django__django-11292,1,2026-03-30,resolved,resolved,,,28,109.4,98.317,1,13491
+django__django-11292,2,2026-03-30,resolved,resolved,,,24,197.09,118.401,1,12365
+django__django-11292,3,2026-08-28,resolved,resolved,,,50,691.88,643.664,1,20949
+django__django-11477,1,2026-05-03,limits_exceeded,step_limit_wandering,,"31 distinct cmds in last 40 steps, never submitted",125,986.84,864.417,0,38968
+django__django-11477,2,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 74 steps; last recorded step at 1457s,74,1500.01,1115.902,2,34210
+django__django-11477,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 114 steps; last recorded step at 1483s,114,1500.03,1122.026,3,37741
+django__django-11734,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 74 steps; last recorded step at 1473s,74,1500.0,930.301,2,42213
+django__django-11734,2,2026-03-30,silent_crash,harness_timeout_1500s,,killed at 1500s after 90 steps; last recorded step at 1457s; PROVENANCE MISMATCH: trajectory.json is from a 2026-04-16 rerun that Submitted a patch (never evaluated),90,1500.0,537.747,6,45402
+django__django-11734,3,2026-08-28,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 60 steps; last recorded step at 1354s; final LLM call in flight for ~146s,60,1500.02,584.773,4,32302
+django__django-12143,1,2026-03-30,resolved,resolved,,,19,184.77,86.438,2,8574
+django__django-12143,2,2026-03-30,resolved,resolved,,,24,99.81,93.84,0,8481
+django__django-12143,3,2026-08-28,resolved,resolved,,,25,159.6,137.816,1,7442
+django__django-12273,1,2026-03-30,submitted_unresolved,wrong_fix:wrong_location,test_create_new_instance_with_pk_equals_none[_multi_inheritance],"Gold fixes Model._set_pk_val to null parent_link target fields when pk=None; agent rewrote _save_parents sync branch (never reached), so parent is UPDATEd and child INSERT reuses user_ptr_id -> UNIQUE violation; regresses test_issue_6755.",72,1298.17,682.521,7,36919
+django__django-12273,2,2026-03-30,silent_crash,harness_timeout_1500s,,killed at 1500s after 82 steps; last recorded step at 1415s,82,1500.0,649.847,9,35761
+django__django-12273,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 74 steps; last recorded step at 1485s,74,1500.0,1457.483,0,36566
+django__django-12663,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 78 steps; last recorded step at 1469s,78,1500.0,1363.51,1,34127
+django__django-12663,2,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 92 steps; last recorded step at 1393s,92,1500.0,1132.344,3,33668
+django__django-12663,3,2026-08-28,submitted_unresolved,submission_not_a_diff,,"final command printed a code excerpt (cat|grep/sed) instead of git diff; SWE-bench: ""Only garbage was found in the patch input""",103,1327.32,1123.916,1,41203
+django__django-13012,1,2026-03-30,submitted_unresolved,eval_evidence_missing,,no report/aggregate for this patch anywhere; resolved=False unverified; needs re-eval,82,563.31,508.3,1,34469
+django__django-13012,2,2026-03-30,submitted_unresolved,eval_false_negative,,"canonical eval errored/missing, but byte-identical patch is recorded resolved=True in other eval dirs -> needs result sync / re-eval",44,254.4,236.823,1,24718
+django__django-13012,3,2026-08-28,resolved,resolved,,,47,877.62,700.833,1,21161
+django__django-13809,1,2026-05-03,resolved,resolved,,,38,608.2,583.0,1,19241
+django__django-13809,2,2026-05-03,resolved,resolved,,,33,707.52,358.401,0,14565
+django__django-13809,3,2026-08-28,resolved,resolved,,,25,497.64,206.203,0,14703
+django__django-13810,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 52 steps; last recorded step at 1471s,52,1500.01,1474.853,0,26769
+django__django-13810,2,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 49 steps; last recorded step at 1430s,49,1500.01,1228.381,3,28775
+django__django-13810,3,2026-08-28,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 46 steps; last recorded step at 615s; final LLM call in flight for ~885s,46,1500.01,579.729,6,20052
+django__django-13964,1,2026-03-30,limits_exceeded,step_limit_loop,,"most repeated cmd in last 40 steps x40: find /testbed/tests -name ""*.py"" -type f -exec grep -l ""ForeignKey.*primary_key=True"" {} \",125,623.26,486.316,0,27300
+django__django-13964,2,2026-03-30,resolved,resolved,,,114,928.07,897.037,1,48044
+django__django-13964,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 83 steps; last recorded step at 1415s,83,1500.02,1346.617,2,31377
+django__django-14351,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 74 steps; last recorded step at 1464s,74,1500.0,662.402,4,30228
+django__django-14351,2,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 103 steps; last recorded step at 1365s; final LLM call in flight for ~135s,103,1500.01,1077.901,6,46185
+django__django-14351,3,2026-08-28,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 74 steps; last recorded step at 1201s; final LLM call in flight for ~299s,74,1500.02,649.017,4,38662
+django__django-14725,1,2026-05-03,submitted_unresolved,wrong_fix:other(api_name_mismatch),test_edit_only* (TypeError: unexpected kwarg 'edit_only'),"Functionally equivalent fix with opposite-polarity name: agent added can_create=True, gold adds edit_only=False. Tests pass edit_only=True so it fails on the kwarg name alone.",99,1327.11,1275.163,1,60524
+django__django-14725,2,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 69 steps; last recorded step at 1449s,69,1500.02,1435.112,1,40034
+django__django-14725,3,2026-08-28,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 54 steps; last recorded step at 1079s; final LLM call in flight for ~421s,54,1500.02,648.335,6,34261
+django__django-15098,1,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 49 steps; last recorded step at 1351s; final LLM call in flight for ~149s,49,1500.01,1150.498,2,25117
+django__django-15098,2,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 66 steps; last recorded step at 1380s; final LLM call in flight for ~120s,66,1500.01,696.268,3,20082
+django__django-15098,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 85 steps; last recorded step at 1457s,85,1500.02,1247.761,1,43723
+django__django-15278,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 69 steps; last recorded step at 1401s,69,1500.0,1187.601,3,48113
+django__django-15278,2,2026-05-03,resolved,resolved,,,66,935.55,829.188,6,30218
+django__django-15278,3,2026-08-28,resolved,resolved,,,61,539.14,502.033,1,22883
+django__django-15525,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 29 steps; last recorded step at 1451s,29,1500.0,636.345,4,18128
+django__django-15525,2,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 114 steps; last recorded step at 1476s,114,1500.01,1071.956,3,39411
+django__django-15525,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 34 steps; last recorded step at 1392s,34,1500.02,581.148,5,14580
+django__django-16667,1,2026-05-03,submitted_unresolved,wrong_fix:wrong_semantics,test_value_from_datadict (year=9223372036854775808),"OverflowError folded into the except ValueError branch, returns '9223372036854775808-12-1'; gold adds separate except OverflowError: return '0-0-0'. Crash fixed but pinned return string differs.",26,289.29,267.751,1,9933
+django__django-16667,2,2026-05-03,submitted_unresolved,wrong_fix:wrong_semantics,test_value_from_datadict,Byte-identical patch to r1; same '0-0-0' mismatch.,25,275.44,229.673,1,9062
+django__django-16667,3,2026-08-28,submitted_unresolved,wrong_fix:wrong_semantics,test_value_from_datadict,Byte-identical patch to r1/r2; same '0-0-0' mismatch.,39,441.09,411.491,0,21696
+django__django-17084,1,2026-05-03,resolved,resolved,,,77,816.41,777.31,1,39379
+django__django-17084,2,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 87 steps; last recorded step at 1460s,87,1500.01,704.439,4,28664
+django__django-17084,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 96 steps; last recorded step at 1422s,96,1500.02,1150.761,4,41265
+scikit-learn__scikit-learn-10297,1,2026-03-31,resolved,resolved,,,38,182.29,158.872,0,18501
+scikit-learn__scikit-learn-10297,2,2026-03-31,resolved,resolved,,,41,235.27,207.476,0,23999
+scikit-learn__scikit-learn-10297,3,2026-08-28,resolved,resolved,,,58,795.48,703.345,0,26810
+scikit-learn__scikit-learn-10844,1,2026-03-31,resolved,resolved,,,57,498.34,466.558,0,30168
+scikit-learn__scikit-learn-10844,2,2026-03-31,resolved,resolved,,,27,200.99,179.583,0,17272
+scikit-learn__scikit-learn-10844,3,2026-08-28,resolved,resolved,,,24,258.27,224.677,1,12632
+scikit-learn__scikit-learn-10908,1,2026-03-31,submitted_unresolved,eval_false_negative,,"canonical eval errored/missing, but byte-identical patch is recorded resolved=True in other eval dirs -> needs result sync / re-eval",109,910.86,428.394,3,30441
+scikit-learn__scikit-learn-10908,2,2026-03-31,resolved,resolved,,,63,390.24,339.928,0,27831
+scikit-learn__scikit-learn-10908,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 59 steps; last recorded step at 1459s,59,1500.03,1025.618,1,28258
+scikit-learn__scikit-learn-11578,1,2026-03-31,resolved,resolved,,,48,314.41,293.248,0,23515
+scikit-learn__scikit-learn-11578,2,2026-03-31,submitted_unresolved,eval_false_negative,,"canonical eval errored/missing, but byte-identical patch is recorded resolved=True in other eval dirs -> needs result sync / re-eval",51,367.81,329.542,1,25385
+scikit-learn__scikit-learn-11578,3,2026-08-28,resolved,resolved,,,53,1259.05,1139.074,0,35716
+scikit-learn__scikit-learn-12682,1,2026-03-31,submitted_unresolved,eval_false_negative,,"canonical eval errored/missing, but byte-identical patch is recorded resolved=True in other eval dirs -> needs result sync / re-eval",57,414.09,362.076,1,33201
+scikit-learn__scikit-learn-12682,2,2026-03-31,resolved,resolved,,,100,511.6,470.235,0,41508
+scikit-learn__scikit-learn-12682,3,2026-08-28,resolved,resolved,,,63,632.68,587.744,0,34991
+scikit-learn__scikit-learn-12973,1,2026-03-31,submitted_unresolved,wrong_fix:incomplete_fix,test_lasso_lars_fit_copyX_behaviour[False],"Resolves copy_X only for lars_path; _preprocess_data(..., self.copy_X) still copies X so fit(copy_X=False) never mutates X. Gold resolves copy_X before check_X_y and passes it to _preprocess_data. [detailed report missing; aggregate says unresolved]",32,218.65,192.691,1,21690
+scikit-learn__scikit-learn-12973,2,2026-03-31,submitted_unresolved,wrong_fix:incomplete_fix,test_lasso_lars_fit_copyX_behaviour[False],Same gap: _preprocess_data still gets self.copy_X. [detailed report missing; aggregate says unresolved],42,232.39,201.638,2,18222
+scikit-learn__scikit-learn-12973,3,2026-08-28,submitted_unresolved,wrong_fix:incomplete_fix,test_lasso_lars_fit_copyX_behaviour[False],Same gap as r1: copy_X fallback placed just before lars_path only.,43,439.75,404.772,0,26149
+scikit-learn__scikit-learn-13124,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 49 steps; last recorded step at 1445s,49,1500.01,1231.036,2,44200
+scikit-learn__scikit-learn-13124,2,2026-03-31,submitted_unresolved,wrong_fix:regression,test_shuffle_stratifiedkfold + 11 P2P (AttributeError randint),"Seeds per-class KFold with rng.randint but left rng = self.random_state unwrapped (no check_random_state), so int/None random_state crashes across the StratifiedKFold suite. [detailed report missing; aggregate says unresolved]",54,349.44,286.919,1,34404
+scikit-learn__scikit-learn-13124,3,2026-08-28,submitted_unresolved,wrong_fix:regression,test_shuffle_stratifiedkfold + 11 P2P,Same patch as r2; same AttributeError.,76,1150.79,761.987,2,35810
+scikit-learn__scikit-learn-14053,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 44 steps; last recorded step at 1456s,44,1500.01,737.56,4,22818
+scikit-learn__scikit-learn-14053,2,2026-05-03,resolved,resolved,,,57,560.9,382.05,2,23547
+scikit-learn__scikit-learn-14053,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 52 steps; last recorded step at 1483s,52,1500.03,665.96,4,20821
+scikit-learn__scikit-learn-14087,1,2026-03-31,submitted_unresolved,wrong_fix:incomplete_fix,test_LogisticRegressionCV_no_refit[*-l2],"Only changed self.multi_class -> multi_class (half of gold); omits the penalty=='elasticnet' guard around l1_ratios_[best_indices_l1], so l2 fails with TypeError at logistic.py:2184. [detailed report missing; aggregate says unresolved]",55,372.17,266.369,1,31466
+scikit-learn__scikit-learn-14087,2,2026-05-03,submitted_unresolved,wrong_fix:wrong_semantics,test_LogisticRegressionCV_no_refit[*-l2],Misdiagnosed IndexError as axis-order bug and rewrote multinomial indexing; neither the multi_class dispatch nor the l1_ratio_ guard is fixed.,49,1424.11,854.574,3,21901
+scikit-learn__scikit-learn-14087,3,2026-08-28,submitted_unresolved,wrong_fix:wrong_semantics,test_LogisticRegressionCV_no_refit[*-l2] (+2 elasticnet P2P),Same misdiagnosis with different reindexing; wrong for multinomial layout and additionally breaks elasticnet cases.,33,990.34,559.838,2,21432
+scikit-learn__scikit-learn-14629,1,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 47 steps; last recorded step at 963s; final LLM call in flight for ~537s,47,1500.02,324.993,4,18195
+scikit-learn__scikit-learn-14629,2,2026-05-03,resolved,resolved,,,54,392.22,329.564,1,26157
+scikit-learn__scikit-learn-14629,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 102 steps; last recorded step at 1414s,102,1500.03,957.006,3,26331
+scikit-learn__scikit-learn-14710,1,2026-05-03,submitted_unresolved,eval_infra_error,,"docker ""container name already in use"" -> never evaluated; needs re-eval",70,656.52,460.315,2,25954
+scikit-learn__scikit-learn-14710,2,2026-05-03,limits_exceeded,step_limit_wandering,,"23 distinct cmds in last 40 steps, never submitted",125,1379.31,981.554,1,34750
+scikit-learn__scikit-learn-14710,3,2026-08-28,submitted_unresolved,eval_infra_error,,"docker ""container name already in use"" -> never evaluated; needs re-eval",65,560.26,510.945,0,27755
+scikit-learn__scikit-learn-14894,1,2026-03-31,resolved,resolved,,,65,379.17,352.739,0,31501
+scikit-learn__scikit-learn-14894,2,2026-03-31,resolved,resolved,,,47,301.6,265.034,1,19678
+scikit-learn__scikit-learn-14894,3,2026-08-28,resolved,resolved,,,49,556.88,514.598,0,29506
+scikit-learn__scikit-learn-15100,1,2026-03-31,submitted_unresolved,eval_evidence_missing,,no report/aggregate for this patch anywhere; resolved=False unverified; needs re-eval,22,156.98,135.395,0,11728
+scikit-learn__scikit-learn-15100,2,2026-03-31,submitted_unresolved,eval_false_negative,,"canonical eval errored/missing, but byte-identical patch is recorded resolved=True in other eval dirs -> needs result sync / re-eval",18,125.72,105.112,0,8734
+scikit-learn__scikit-learn-15100,3,2026-08-28,resolved,resolved,,,25,413.33,370.824,0,9791
+scikit-learn__scikit-learn-25747,1,2026-03-31,submitted_unresolved,wrong_fix:wrong_semantics,test_set_output_pandas_keep_index,"Same as r2: only length-guards the index override (len(data)==len(index)); gold removes the index override for DataFrames entirely, so a same-length DataFrame with a new index is still clobbered. [detailed report missing; aggregate says unresolved]",47,469.14,313.861,1,27747
+scikit-learn__scikit-learn-25747,2,2026-03-31,submitted_unresolved,wrong_fix:wrong_semantics,test_set_output_pandas_keep_index,"Still overrides a returned DataFrame's index when lengths match; gold drops the index override entirely for DataFrames. Test transformer returns same-length DataFrame with new index, which agent clobbers.",71,693.12,629.702,1,43864
+scikit-learn__scikit-learn-25747,3,2026-08-28,limits_exceeded,step_limit_loop,,most repeated cmd in last 40 steps x22: head -15 /opt/miniconda3/lib/python3.11/site-packages/sklearn/utils/_set_output.py,125,1463.04,1180.772,1,37820
+scikit-learn__scikit-learn-25931,1,2026-05-03,resolved,resolved,,,66,1059.64,961.045,4,26592
+scikit-learn__scikit-learn-25931,2,2026-05-03,submitted_unresolved,wrong_fix:regression,test_iforest_preserve_feature_names + 13 P2P,"cast_to_ndarray=False in score_samples skips check_array for all callers (lists/int64/csc break), and does not fix the warning because fit already converted X. Gold adds _score_samples used by fit.",51,950.31,596.856,3,19046
+scikit-learn__scikit-learn-25931,3,2026-08-28,resolved,resolved,,,70,918.62,648.82,2,31677
+scikit-learn__scikit-learn-26194,1,2026-05-03,submitted_unresolved,wrong_fix:wrong_semantics,"test_roc_curve_drop_intermediate, test_roc_curve_with_probablity_estimates","Implemented the issue's suggested workaround np.minimum(thresholds[0]+1, 1); gold changes the sentinel to np.inf and tests assert inf.",44,737.34,640.941,1,25302
+scikit-learn__scikit-learn-26194,2,2026-05-03,resolved,resolved,,,53,502.37,387.966,1,22283
+scikit-learn__scikit-learn-26194,3,2026-08-28,resolved,resolved,,,53,853.37,600.726,1,29728
+scikit-learn__scikit-learn-26323,1,2026-03-31,silent_crash,harness_timeout_1500s,,killed at 1500s after 94 steps; last recorded step at 1474s,94,1500.01,971.018,6,56097
+scikit-learn__scikit-learn-26323,2,2026-03-31,submitted_unresolved,eval_false_negative,,"canonical eval errored/missing, but byte-identical patch is recorded resolved=True in other eval dirs -> needs result sync / re-eval",54,369.81,284.42,1,29307
+scikit-learn__scikit-learn-26323,3,2026-08-28,resolved,resolved,,,34,544.19,458.34,1,18758
+scikit-learn__scikit-learn-9288,1,2026-05-03,resolved,resolved,,,62,595.66,451.721,1,31949
+scikit-learn__scikit-learn-9288,2,2026-05-03,resolved,resolved,,,47,577.84,408.774,1,37744
+scikit-learn__scikit-learn-9288,3,2026-08-28,resolved,resolved,,,74,761.81,556.432,0,39164
+sympy__sympy-11618,1,2026-03-30,resolved,resolved,,,33,265.26,144.937,1,11441
+sympy__sympy-11618,2,2026-03-30,resolved,resolved,,,86,352.18,332.501,1,20096
+sympy__sympy-11618,3,2026-08-28,resolved,resolved,,,51,724.25,699.831,0,16874
+sympy__sympy-12419,1,2026-03-30,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 120 steps; last recorded step at 805s; final LLM call in flight for ~695s; PROVENANCE MISMATCH: trajectory.json is from a 2026-04-16 rerun that Submitted a patch (never evaluated),120,1500.0,715.613,2,37863
+sympy__sympy-12419,2,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 101 steps; last recorded step at 1370s; final LLM call in flight for ~130s,101,1500.0,1357.703,0,35412
+sympy__sympy-12419,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 108 steps; last recorded step at 1470s,108,1500.02,1212.682,2,33783
+sympy__sympy-13031,1,2026-03-30,submitted_unresolved,wrong_fix:wrong_location,test_sparse_matrix (hstack of 0-row matrices),"Patch has no functional change: only collections.abc import shims across 4 files. Gold fixes SparseMatrix.col_join/row_join zero-shape coercion, never touched.",70,541.67,315.569,2,17267
+sympy__sympy-13031,2,2026-03-30,limits_exceeded,step_limit_loop,,"most repeated cmd in last 40 steps x39: cd /testbed && git log --oneline HEAD | grep -E ""(2dff3502e|9389b0e72)""",125,703.2,507.193,2,25173
+sympy__sympy-13031,3,2026-08-28,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 94 steps; last recorded step at 1377s; final LLM call in flight for ~123s,94,1500.01,936.061,2,22590
+sympy__sympy-13091,1,2026-03-31,limits_exceeded,step_limit_wandering,,"37 distinct cmds in last 40 steps, never submitted",125,854.59,732.366,4,36610
+sympy__sympy-13091,2,2026-03-31,submitted_unresolved,wrong_fix:wrong_location,test_comparisons_with_unknown_type + 5 P2P (RecursionError),"Only edited Basic.__eq__/__ne__; gold also changes numbers.py (Integer/Float/Rational.__eq__ return NotImplemented). Agent returns NotImplemented on type mismatch and propagates via __ne__, causing reflected-comparison recursion.",59,279.05,220.224,0,21170
+sympy__sympy-13091,3,2026-08-28,limits_exceeded,step_limit_wandering,,"34 distinct cmds in last 40 steps, never submitted",125,1445.63,1009.435,1,35894
+sympy__sympy-13647,1,2026-03-31,submitted_unresolved,wrong_fix:other(typo),test_col_insert (NameError other_cols),"Found the exact bug (entry() in _eval_col_insert, drop '- pos') but wrote other_cols instead of other.cols; never executed the fix. [detailed report missing; aggregate says unresolved]",62,1354.59,800.492,6,35429
+sympy__sympy-13647,2,2026-03-31,resolved,resolved,,,62,440.49,236.136,2,16272
+sympy__sympy-13647,3,2026-08-28,resolved,resolved,,,56,1192.03,691.645,2,18113
+sympy__sympy-13757,1,2026-03-31,resolved,resolved,,,87,522.41,403.545,1,32449
+sympy__sympy-13757,2,2026-03-31,limits_exceeded,step_limit_wandering,,"31 distinct cmds in last 40 steps, never submitted",125,593.52,387.472,2,26754
+sympy__sympy-13757,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 99 steps; last recorded step at 1458s,99,1500.02,1043.911,3,42932
+sympy__sympy-13798,1,2026-03-31,submitted_unresolved,wrong_fix:incomplete_fix,"test_latex_basic (mul_symbol='\\,')","Uses custom mul_symbol verbatim for numbers too; gold falls back to \cdot between numbers for whitespace-like custom symbols, which the test exercises. [detailed report missing; aggregate says unresolved]",68,369.25,350.545,0,32029
+sympy__sympy-13798,2,2026-03-31,submitted_unresolved,eval_evidence_missing,,no report/aggregate for this patch anywhere; resolved=False unverified; needs re-eval,93,476.03,372.313,1,23377
+sympy__sympy-13798,3,2026-08-28,submitted_unresolved,wrong_fix:incomplete_fix,test_latex_basic,Same gap as r1/r2: mul_symbol_latex_numbers set to raw custom string.,93,1388.84,888.068,3,24728
+sympy__sympy-14531,1,2026-05-03,limits_exceeded,step_limit_wandering,,"33 distinct cmds in last 40 steps, never submitted",125,1136.42,870.71,1,29454
+sympy__sympy-14531,2,2026-05-03,resolved,resolved,,,114,1151.86,972.753,1,37092
+sympy__sympy-14531,3,2026-08-28,limits_exceeded,step_limit_wandering,,"30 distinct cmds in last 40 steps, never submitted",125,1086.74,860.797,3,31210
+sympy__sympy-15349,1,2026-05-03,resolved,resolved,,,25,471.85,457.582,0,13182
+sympy__sympy-15349,2,2026-05-03,resolved,resolved,,,31,557.34,525.95,1,16272
+sympy__sympy-15349,3,2026-08-28,resolved,resolved,,,25,294.73,281.923,0,12651
+sympy__sympy-17318,1,2026-05-03,resolved,resolved,,,59,1358.31,568.763,3,27366
+sympy__sympy-17318,2,2026-05-03,submitted_unresolved,wrong_fix:wrong_location,test_issue_12420 (_sqrt_match(4+I) == []),"Silenced the crash at the bottom of the stack (radsimp._split_gcd returns (1,[],[]) on empty input); gold fixes the caller precondition in sqrtdenest._sqrt_match (only call split_surds for positive rational squares).",38,454.73,416.773,1,21553
+sympy__sympy-17318,3,2026-08-28,resolved,resolved,,,73,1121.84,995.599,1,34099
+sympy__sympy-18211,1,2026-05-03,resolved,resolved,,,48,355.25,319.336,1,16209
+sympy__sympy-18211,2,2026-05-03,resolved,resolved,,,39,284.58,269.673,0,14491
+sympy__sympy-18211,3,2026-08-28,submitted_unresolved,submission_not_a_diff,,"final command printed a code excerpt (cat|grep/sed) instead of git diff; SWE-bench: ""Only garbage was found in the patch input""",69,686.46,541.353,2,33060
+sympy__sympy-19040,1,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 71 steps; last recorded step at 1425s,71,1500.0,882.766,4,37676
+sympy__sympy-19040,2,2026-05-03,silent_crash,harness_timeout_1500s,,killed at 1500s after 70 steps; last recorded step at 1420s,70,1500.01,1254.408,2,52382
+sympy__sympy-19040,3,2026-08-28,silent_crash,harness_timeout_1500s,,killed at 1500s after 78 steps; last recorded step at 1457s,78,1500.02,1284.836,1,37296
+sympy__sympy-20438,1,2026-05-03,submitted_unresolved,wrong_fix:wrong_location,"test_Eq, test_issue_19378","Added ProductSet/Complement/EmptySet equals in sets.py; gold's fix lives in dispatch handlers (is_subset_sets, _eval_is_eq(Set,Set)) plus an Expr guard in Relational._eval_simplify, none touched.",107,1408.16,896.02,5,35160
+sympy__sympy-20438,2,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 60 steps; last recorded step at 1333s; final LLM call in flight for ~167s,60,1500.01,399.506,8,31290
+sympy__sympy-20438,3,2026-08-28,submitted_unresolved,wrong_fix:incomplete_fix,"test_Eq, test_issue_19378","is_subset_sets(ProductSet, FiniteSet) handler matches gold, but missing _eval_is_eq(Set,Set) in handlers/comparison.py and the Expr guard in relational.py, so Eq stays unevaluated.",116,1275.42,978.669,2,37966
+sympy__sympy-22456,1,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 42 steps; last recorded step at 414s; final LLM call in flight for ~1086s,42,1500.01,222.368,7,20864
+sympy__sympy-22456,2,2026-05-03,silent_crash,harness_timeout_1500s_inflight_hang,,killed at 1500s after 44 steps; last recorded step at 701s; final LLM call in flight for ~799s,44,1500.01,377.833,7,18123
+sympy__sympy-22456,3,2026-08-28,resolved,resolved,,,31,269.53,255.346,0,12618
+sympy__sympy-24066,1,2026-03-31,resolved,resolved,,,116,941.22,541.758,5,25808
+sympy__sympy-24066,2,2026-03-31,resolved,resolved,,,43,269.74,182.554,1,23547
+sympy__sympy-24066,3,2026-08-28,resolved,resolved,,,42,549.39,500.911,1,18039
+sympy__sympy-24213,1,2026-03-31,resolved,resolved,,,26,140.71,104.873,1,12619
+sympy__sympy-24213,2,2026-03-31,resolved,resolved,,,23,123.53,112.75,0,12414
+sympy__sympy-24213,3,2026-08-28,resolved,resolved,,,26,242.93,229.539,0,12476
+sympy__sympy-24443,1,2026-03-31,submitted_unresolved,eval_evidence_missing,,no report/aggregate for this patch anywhere; resolved=False unverified; needs re-eval,63,642.98,436.824,4,27832
+sympy__sympy-24443,2,2026-03-31,submitted_unresolved,eval_false_negative,,"canonical eval errored/missing, but byte-identical patch is recorded resolved=True in other eval dirs -> needs result sync / re-eval",40,418.73,263.808,2,18647
+sympy__sympy-24443,3,2026-08-28,resolved,resolved,,,67,1244.04,1049.572,1,32784
+sympy__sympy-24661,1,2026-05-03,resolved,resolved,,,44,375.59,351.451,1,22147
+sympy__sympy-24661,2,2026-05-03,resolved,resolved,,,25,231.68,204.809,2,12481
+sympy__sympy-24661,3,2026-08-28,resolved,resolved,,,48,502.72,450.364,1,22278
