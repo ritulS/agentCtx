@@ -48,6 +48,10 @@ bash scripts/calibration/run_budget_calibration_tb.sh qwen-rootless
   (`--summary-config`, `model_ablation` section).
 - `run_qwen_{swe,tb}_prefix_cache_ablation.sh`: vLLM prefix-caching ablation
   (`prefix_cache_ablation` section).
+- `run_qwen_tb_prefix_cache_ablation_split.sh {gpu0-3|gpu4-7}`: the
+  Terminal-Bench prefix-cache ablation split across two caching-off servers
+  (port 8000 on GPUs 0-3, port 8002 on GPUs 4-7; sets `CELLS`, config and
+  health URL per half, then launches through `notify_run.sh`).
 
 ```bash
 bash scripts/expansions/run_agent_models_expansion.sh devstral
@@ -122,7 +126,7 @@ covers the wrapper.
 
 ## Serving and Harbor setup
 
-`serving/start_vllm_{qwen35_prefix_cache_ablation,qwen35_prefix_cache,qwen35_no_prefix_cache,qwen35_9b,qwen35_swe_summarizer_ablation,devstral,glm47flash,summarizer}.sh`
+`serving/start_vllm_{qwen35_prefix_cache_ablation,qwen35_prefix_cache,qwen35_no_prefix_cache,qwen35_no_prefix_cache_gpu4-7,qwen35_9b,qwen35_swe_summarizer_ablation,devstral,glm47flash,summarizer,gemma4_12b}.sh`
 start the selected model, logging to `logs/servers/vllm_<name>_<timestamp>.log`
 (`vllm_<name>.latest.log` follows the newest start) with the process-group id
 in `logs/servers/vllm_<name>.pid`; `serving/stop_vllm.sh <pid file>` stops a
@@ -150,6 +154,11 @@ except the re-verification replays.
 - `build_reevaluation_candidates.py`, `reevaluate_swebench_candidates.py`:
   re-evaluate saved SWE-bench patches with stale or errored verdicts.
 - `repair_token_log_transcription.py`: refresh result rows from their token logs.
+- `reconstruct_context.py <run_dir> [--step N] [--event K]`: replay a run's
+  `events.jsonl` / `compression_events.jsonl` (written when
+  `MSWEA_EVENT_LOG_DIR` is set; SWE-bench runs since 2026-09-23) to recover
+  the context the model saw at any step, verified against `trajectory.json`
+  and `token_log.json`.
 - `archive_devstral_fc_r23.py`, `archive_qwen_ablation_seeded.sh`,
   `reuse_qwen_main_for_ablation.py`: archive or seed result cells.
 

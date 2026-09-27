@@ -43,12 +43,14 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 - `src/agentctx/compression/primitives.py` — compression primitive functions (`truncate`, `summarize`,
   `summarize_partial`, `structured_summarize`, `tool_result_clear`, etc.).
   The root-level `memory.py` is only an alias to this module: the pinned
-  mini-swe-agent commit (dec8de2) still does `import memory` from its
-  compression hook. Remove the alias once the submodule is bumped to a commit
-  that imports `agentctx.compression.primitives` directly (90624a1 exists
-  locally; it needs push rights on ritulS/mini-swe-agent).
-- `mini-swe-agent/` — submodule, fork at `github.com/ritulS/mini-swe-agent`,
-  branch `agentctx-customizations`. The dispatch chain in
+  mini-swe-agent commit (b54c485) still does `import memory` from its
+  compression hook and event log. Remove the alias once the submodule is
+  bumped to a commit that imports `agentctx.compression.primitives` directly.
+- `mini-swe-agent/` — submodule. Pinned to b54c485 on branch `event-log` of
+  `github.com/takeshiho0531/mini-swe-agent` (per-run event log + online-TRC
+  clear-target fix) until that branch is merged upstream as
+  ritulS/mini-swe-agent PR #1; the upstream branch is
+  `agentctx-customizations` (dec8de2). The dispatch chain in
   `src/minisweagent/agents/default.py` calls primitives based on
   `MSWEA_PRIMITIVE` env var.
 - `src/agentctx/` — shared Python package. `compression/` (primitives),
@@ -76,6 +78,22 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   and the ablation launcher. `uvx --with pyyaml pytest`; see
   `tests/README.md`. Run it after touching `src/agentctx/experiments/` or
   `src/agentctx/benchmarks/`.
+- Event log (failure analysis): the SWE-bench adapter
+  (`src/agentctx/benchmarks/swe_bench.py`) sets `MSWEA_EVENT_LOG_DIR` so each
+  run dir also gets `events.jsonl` (every message as added, before
+  compression, with a stable `extra.uid`) and `compression_events.jsonl`
+  (per event: dropped/replaced/added uids, summary text, before/after uid
+  order). `scripts/maintenance/reconstruct_context.py <run_dir> [--step N]
+  [--event K]` replays them and verifies against trajectory.json /
+  token_log.json. Runs before 2026-09-23 only have the final trajectory.
+- `ICLR_analysis/` — ICLR figure and analysis code: `Iclr_plot_bank.py`
+  (Figures 2-5 and appendix companions, `plot_style.py`), `paper_figures.py`,
+  `REEVAL_NOTES.md`, `failure_analysis.md` and the task A-D notes; the
+  value tables under `plots/**/*.csv` are tracked, rendered figures are not.
+- `ICLR_experiments/` — canonical ICLR run data and records: experiment grid
+  and logs, `issue/` (data-problem audits with their scripts), `ICLR_reeval/`
+  (re-evaluation manifests and verdicts) and `ICLR_analysis/` (failure
+  analysis reports and per-task notes, groups A-D).
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,
@@ -148,7 +166,8 @@ their own reduced-cohort scopes documented in `exp_plans/ALBUS_PLAN.md`.
 - **Always update** `Active_runs.md` when launching or killing a long-running
   experiment.
 - **Submodule updates**: `cd mini-swe-agent`, commit + push there first
-  (branch `agentctx-customizations`), then `git add mini-swe-agent` in parent
+  (branch `event-log` on takeshiho0531/mini-swe-agent while the upstream PR is
+  open), then `git add mini-swe-agent` in parent
   to record the new pointer.
 - **Don't write to `PaperSections/`** files without showing the user the draft
   content in chat first.

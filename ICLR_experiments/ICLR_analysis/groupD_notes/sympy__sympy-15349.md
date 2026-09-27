@@ -1,0 +1,28 @@
+# sympy__sympy-15349 — why compression-robust (Group D)
+85 runs, resolve .93; compression in 45%; 8 runs compressed before first edit -> resolve 1.00.
+
+## 1. Task shape: 1-bit fix, 1 file
+PR names file+line (`quaternion.py#L489`) and gives a runnable 5-line repro. All 3 FC runs open exactly ONE source file before first edit (`sympy/algebras/quaternion.py`; r3 st1 `find`, st2 `cat`, st3 `sed -n 480,550p`). Gold = one character on line 532, `m12 = 2*s*(q.c*q.d + q.b*q.a)` -> `- q.b*q.a`. Re-derivable from PR + one 15-line read + parametric memory of the standard formula (FC r3 st8: "from Wikipedia: m12 should be 2*c*d - 2*a*b ... m21 should be +"). The 9-line matrix block is small enough that agents paste it verbatim into their own THOUGHT (trc r1 st8), re-anchoring the load-bearing state into a message no primitive but TR deletes. Under-determination: the PR says only "one of the sin(x) should be negative", not which; picking m12 over m21 comes from the sign convention, not the repro.
+
+## 2. Environment: cheap, deterministic, self-verifiable
+`from sympy import *` -> `ModuleNotFoundError: mpmath` (FC r3 st4); one `pip install mpmath -q` (st5) clears it for good, absorbed in <=2 steps by every run; repro then runs in ~1s. `pytest` absent (FC r1 st17) -> `python -c "import sympy; sympy.test(...)"` works. REAL TRAP: in-repo `test_quaternion_conversions` encodes the BUGGY matrix, so it FAILS after the correct fix (FC r1 st18 `AssertionError ... S(14)/15`); gold patches the test, agents are told not to. FC r1 st21 resolves it context-free: "test file has incorrect expected values ... my fix is correct - orthogonality R^T R = I, determinant 1" — a check needing zero history.
+
+## 3. Compression before first edit: clean restart, converges anyway
+- trc-ss r1 (comp st7/18/22, 10160->6031 tok; edit st10): compression is pure TRC — every user msg becomes `[TOOL OUTPUT CLEARED — N tokens — step k]`, SS never injects a summary; msg1 (PR) and ALL assistant reasoning survive, incl. st7 "m12 should be 2*(c*d - b*a)". Recovery = st8 `sed -n 480,510p`, st9 `sed -n 510,560p`, edit st10. Nothing pre-compression was needed. Gold patch.
+- tr r2 (comp st9, 11413->3810): truncation drops the middle incl. assistant text. st10 re-derives the standard R formula from weights alone, no file read; st11 re-reads the block; st12 edits. Gold.
+- trc r1 (comp st8, 10091->4326; edits st8,12) and ss r2 (comp st10, 10448->1801; edits st10,14): ss r2 loses even the memory of having edited — st5 "the fix didn't work", st7 "git diff shows no changes" — re-reads 520-545, re-applies. Gold.
+Recovery is uniformly 1-2 steps because the state to restore is (file, one line, one sign).
+
+## 4. Edit correctness
+First edit gold-equivalent in every resolved run inspected; NO alternative valid fix — all resolved submissions are byte-identical to gold (blob `b84e7cb95..7eae8d73d`). Most steps are `sed -i` fumbling, not reasoning (FC r3 st9-19: 5 attempts, line 533 vs 532, `q.b*q.a` vs `q.b\*q.a`). Verification = re-run PR repro, then the orthogonality/det argument to overrule the stale test.
+
+## 5. Failing runs (6 listed) — root causes
+- d05__b20k__ss-partial r3: MISLABELED. Submission byte-identical to gold, and `eval/...structured-summarize-partial__r3.json` says `resolved_instances: 1`. Review1's `submitted_unresolved` is a bookkeeping bug -> only 5 real failures.
+- d05__b15k__su-partial r1: submission-packaging. Correct m12 fix st7, verified st9; after the st17 stale-test detour it built the patch with path-scoped `git diff sympy/algebras/tests/test_quaternion.py > patch.txt` (st33), dropping quaternion.py. Tree correct, patch not; st32 confabulates "fixed m12 and m21".
+- di__b15k__trc-su r3: identical cause — same detour, same path-scoped `git diff <test file>` at st52.
+- di__b15k__otrc-ss-partial r3: WRONG SIGN SITE — negated m21 (st24, line 535) after fumbling 527/532/535 and reverting the correct 532 edit; ships the transpose, accepts it at st37 since the PR only demanded "one of the sin(x)" be negative. 0 compressions, msg1 intact -> ambiguity, not context loss.
+- di__binf__otrc r3: OTRC WIPED MSG1 (`[tool-result cleared — online-trc — 1446 tok — step 0]` at index 1), deleting the PR description AND the `<instructions>` block carrying the `COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT` protocol. Correct fix made (st15/17/19), then ~100 steps of `echo "Task completed successfully"`, never submits -> LimitsExceeded.
+- di__b10k__otrc-tr r3: same msg1 wipe; correct 532 fix applied, then loops on `echo "Task completed: Fixed line 532 ..."` to st105 -> LimitsExceeded, no submission.
+
+## 6. Verdict
+The whole solution state compresses to ~3 facts — file, line 532, flip one sign — each either in message 1 (which every threshold primitive preserves), in the model's parametric memory of the quaternion->matrix formula, or recoverable by one `sed -n 510,560p`. Compression thus costs 1-2 re-read steps and never a wrong answer: the agent restarts clean and re-converges on the same one-character patch, and the single history-dependent judgement (the in-repo test is stale, don't revert) is re-derivable from scratch via orthogonality/determinant on the matrix itself. None of the 5 real failures is "lost context I needed": two are OTRC destroying msg1 and with it the submit protocol (a protocol-integrity failure, fix already on disk), two are path-scoped `git diff` packaging bugs triggered by the stale-test detour, one is the PR's own ambiguity about which sin(x) to negate. What survives compression is the fix; what does not is the agent's bookkeeping about what it already did and how to hand it in.

@@ -31,7 +31,15 @@
 # counters (vLLM /metrics) over each cell, and stops the grid if any cell
 # records a cache hit. Start vLLM and the Podman socket separately.
 #
-# Usage: nohup bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh > logs/followup_tb_qwen_noprefixcache.nohup.log 2>&1 &
+# Usage: bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh
+#   (or through scripts/notify_run.sh for Slack notices and backgrounding)
+# Split grid (two caching-off servers, both halves at once; normally through
+# scripts/expansions/run_qwen_tb_prefix_cache_ablation_split.sh {gpu0-3|gpu4-7}):
+# set LAUNCH_GROUP to a label so each half gets its own lock and log, CELLS to
+# its cells, and QWEN_AGENT_CONFIG / QWEN_HEALTH_URL to its server (GPUs 4-7:
+# configs/config-qwen-vllm-8002.yaml, http://localhost:8002/v1/models, started by
+# scripts/serving/start_vllm_qwen35_no_prefix_cache_gpu4-7.sh). Results of both halves
+# land in the same model dir; the runner writes each cell separately.
 # Smoke test (1 task x 1 cell x 1 run into a throwaway model dir; delete it afterwards —
 # "-smoke" model dirs are ignored by build_coverage.py and aggregate_terminalbench_results.py):
 #   N_TASKS=1 RUNS_PER_TASK=1 N_CONCURRENT=1 CELLS=d05__b3k__su-full:summarization:0.5 \
@@ -54,6 +62,8 @@ AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 TASKS_FILE="${TB_TASKS_FILE:-$WS/task_lists/tbench_abl15.json}"
 ICLR_SECTION="prefix_cache_ablation"                # ICLR_experiments/terminalbench/prefix_cache_ablation/
 ICLR_MODEL="${ICLR_MODEL:-qwen35b-noprefixcache}"   # lowercase/digits/hyphens
+LAUNCH_GROUP="${LAUNCH_GROUP:-}"   # optional half of a split grid (gpu0-3|gpu4-7): own lock and log
+GROUP_SUFFIX="${LAUNCH_GROUP:+_$LAUNCH_GROUP}"
 INF_BUDGET=999999999
 RUNS_PER_TASK="${RUNS_PER_TASK:-3}"
 N_CONCURRENT="${N_CONCURRENT:-4}"                   # same as the production main grid
@@ -73,7 +83,7 @@ di__b3k__otrc-su-partial:otrc-su-partial:0.5 \
 di__b3k__otrc-ss-partial:otrc-ss-partial:0.5 \
 di__binf__fc:full-context:0.5 \
 di__binf__otrc:online-trc:0.5}"
-LOG_FILE="${TB_PREFIXCACHE_LOG_FILE:-$(experiment_log "followup_tb_qwen_${ICLR_MODEL}")}"
+LOG_FILE="${TB_PREFIXCACHE_LOG_FILE:-$(experiment_log "followup_tb_qwen_${ICLR_MODEL}${GROUP_SUFFIX}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
@@ -89,8 +99,8 @@ if [[ -n "$N_TASKS" ]]; then
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
 fi
 
-exec 9>"$EXPERIMENT_LOG_DIR/qwen_tb_${ICLR_MODEL}.lock"
-flock -n 9 || { echo "Prefix-cache ablation launcher for $ICLR_MODEL already running." >&2; exit 1; }
+exec 9>"$EXPERIMENT_LOG_DIR/qwen_tb_${ICLR_MODEL}${GROUP_SUFFIX}.lock"
+flock -n 9 || { echo "Prefix-cache ablation launcher for $ICLR_MODEL${LAUNCH_GROUP:+ ($LAUNCH_GROUP)} already running." >&2; exit 1; }
 
 curl -fsS --max-time 5 "$AGENT_HEALTH_URL" >/dev/null || {
     echo "[ERROR] vLLM server is not responding at $AGENT_HEALTH_URL" >&2; exit 1;
@@ -142,7 +152,7 @@ log_prefix_cache_delta() {
     (( h1 - h0 == 0 ))
 }
 
-log "=== Prefix-cache ablation (TB) | dest: $ICLR_SECTION/$ICLR_MODEL | agent: $AGENT_CONFIG | summarizer: agent model ==="
+log "=== Prefix-cache ablation (TB)${LAUNCH_GROUP:+ [$LAUNCH_GROUP]} | dest: $ICLR_SECTION/$ICLR_MODEL | agent: $AGENT_CONFIG | summarizer: agent model ==="
 log "=== budgets=3000/inf runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} concurrency=$N_CONCURRENT ==="
 log "=== vLLM server PID $server_pid on port $port: $server_cmdline==="
 

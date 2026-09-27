@@ -35,10 +35,12 @@ If you already cloned without `--recurse-submodules`:
 git submodule update --init --recursive
 ```
 
-The submodule (`mini-swe-agent/`) is a fork pinned to branch
-`agentctx-customizations` (`github.com/ritulS/mini-swe-agent`). The pinned
-branch is recorded in [.gitmodules](.gitmodules), so `update --init` checks out
-the right branch automatically.
+The submodule (`mini-swe-agent/`) is a fork, currently pinned to branch
+`event-log` of `github.com/takeshiho0531/mini-swe-agent` (the per-run event log,
+proposed upstream as ritulS/mini-swe-agent PR #1; the upstream branch is
+`agentctx-customizations`). The pinned branch is recorded in
+[.gitmodules](.gitmodules), so `update --init` checks out the right branch
+automatically.
 
 ## Environment
 
