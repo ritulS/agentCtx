@@ -1,0 +1,121 @@
+[
+  {
+    "cell": "ICLR_results/terminalbench/main/devstral24b/d05__b4k__su-partial",
+    "key": "pytorch-model-cli.hard__summarization-partial__r3",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/devstral24b/di__b4k__otrc-su-partial",
+    "key": "csv-to-parquet__otrc-su-partial__r2",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/devstral24b/di__b4k__trc-ss",
+    "key": "pytorch-model-cli.hard__trc-ss__r1",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/glm47flash/d05__b3k__su-partial",
+    "key": "csv-to-parquet__summarization-partial__r3",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/p80_rootless/devstral24b/di__binf__fc",
+    "key": "pytorch-model-cli.hard__full-context__r5",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/p80_rootless/glm47flash/di__binf__fc",
+    "key": "pytorch-model-cli.hard__full-context__r3",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/p80_rootless/glm47flash/di__binf__fc",
+    "key": "pytorch-model-cli.hard__full-context__r4",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/p80_rootless/qwen35b/di__binf__fc",
+    "key": "get-bitcoin-nodes__full-context__r2",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/p80_rootless/qwen35b/di__binf__fc",
+    "key": "pytorch-model-cli.hard__full-context__r3",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/p80_subuid_required/devstral24b/di__binf__fc",
+    "key": "swe-bench-astropy-1__full-context__r1",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/p80_subuid_required/glm47flash/di__binf__fc",
+    "key": "swe-bench-astropy-1__full-context__r1",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/qwen35b/d05__b27k__tr",
+    "key": "swe-bench-astropy-1__truncation__r1",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/qwen35b/d05__b27k__tr",
+    "key": "swe-bench-astropy-1__truncation__r2",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/qwen35b/d05__b27k__tr",
+    "key": "swe-bench-astropy-1__truncation__r4",
+    "before": false,
+    "after": true,
+    "reward": 1.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/qwen35b/d05__b3k__tr",
+    "key": "swe-bench-astropy-1__truncation__r1",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/qwen35b/d05__b3k__tr",
+    "key": "pytorch-model-cli.hard__truncation__r5",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  },
+  {
+    "cell": "ICLR_results/terminalbench/main/qwen35b/d05__b3k__tr",
+    "key": "swe-bench-astropy-1__truncation__r5",
+    "before": false,
+    "after": false,
+    "reward": 0.0
+  }
+]

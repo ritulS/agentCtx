@@ -1,0 +1,17 @@
+task,n_calls_snapshot,agent_seconds,timeout_seconds,time_used_pct,exit_status,exception,reward,compression_events,completion_tokens_recorded
+mteb-retrieve,4,37.94,1800.0,2.11,Submitted,,0.0,0,1140
+filter-js-from-html,5,162.71,1800.0,9.04,Submitted,,0.0,0,1914
+gcode-to-text,5,17.45,900.0,1.94,Submitted,,0.0,0,845
+torch-tensor-parallelism,8,177.93,900.0,19.77,Submitted,,0.0,0,4726
+polyglot-rust-c,20,900.0,900.0,100.0,,AgentTimeoutError,0.0,0,4068
+video-processing,12,51.59,3600.0,1.43,Submitted,,0.0,0,3725
+sparql-university,11,147.09,900.0,16.34,Submitted,,0.0,0,11030
+count-dataset-tokens,15,114.96,900.0,12.77,Submitted,,0.0,0,4097
+dna-insert,15,233.16,1800.0,12.95,Submitted,,0.0,0,11828
+sqlite-db-truncate,20,325.43,900.0,36.16,Submitted,,0.0,0,6624
+overfull-hbox,26,750.0,750.0,100.0,,AgentTimeoutError,0.0,0,5777
+reshard-c4-data,17,101.79,3600.0,2.83,Submitted,,0.0,0,4227
+dna-assembly,25,960.66,1800.0,53.37,Submitted,,0.0,0,22265
+feal-linear-cryptanalysis,28,1800.0,1800.0,100.0,,AgentTimeoutError,0.0,0,27848
+make-mips-interpreter,44,1800.0,1800.0,100.0,,AgentTimeoutError,0.0,0,2316
+torch-pipeline-parallelism,31,336.07,900.0,37.34,Submitted,,0.0,0,12063

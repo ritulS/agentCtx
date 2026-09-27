@@ -17,13 +17,30 @@ env/
 # All collected experiment data lives in data/ (see data/README.md).
 # results/ablations, results/tbench, Review1/raw are compatibility symlinks.
 data/
-calibration_results/
 results/*
 !results/.gitkeep
 logs/*
 !logs/.gitkeep
 graphs/*
 !graphs/.gitkeep
+
+# Budget-calibration collections: trajectories/logs stay local, but the small
+# provenance files (manifest, vLLM model listing, agent config, FC peak table)
+# behind ICLR_results/budget_calibration_tb.md are tracked.
+calibration_results/**
+!calibration_results/**/
+!calibration_results/**/CALIBRATION_MANIFEST.json
+!calibration_results/**/vllm_models.json
+!calibration_results/**/agent_config.yaml
+!calibration_results/*/*/results/experiment_results.json
+
+# Verdict re-verification (scripts/replay_reverify_tb.py): keep the manifest and
+# the per-file change record; candidates, results and full backups stay local.
+!logs/replay_reverify/
+logs/replay_reverify/**
+!logs/replay_reverify/**/
+!logs/replay_reverify/recover_*/manifest.json
+!logs/replay_reverify/recover_*/backups/*/changes.json
 
 # swebench per-run prediction files (written next to workspace root)
 preds_*/
@@ -50,6 +67,7 @@ archive/
 !scripts/archive/
 !scripts/archive/**
 temp/
+# Review1/raw is a symlink into data/; the trailing-slash form does not match it.
 Review1/raw/
 Review1/raw
 # Per-model aggregated CSVs — partial during sweeps, noisy to track. Sync via
@@ -67,14 +85,15 @@ Review1/figures_n100/
 DASHBOARD.html
 scripts/notify_slack.py
 Review1/archived_experiment_data/
-ICLR_results/swebench
-ICLR_results/terminalbench/main/qwen35b-smoke
-ICLR_results/terminalbench
 .tools
 venv-glm/
 venv-glm-cu129-clean
+
+# ICLR run data (trajectories, token logs, agent logs, per-cell aggregates,
+# run_info) is too large to track; only the docs and issue/ CSVs alongside are.
+ICLR_results/swebench
+ICLR_results/terminalbench
 ICLR_results/terminalbench2
-analysis/reports
 
 # Archives are ignored by default; keep only the selected tooling and reports.
 /archives/**

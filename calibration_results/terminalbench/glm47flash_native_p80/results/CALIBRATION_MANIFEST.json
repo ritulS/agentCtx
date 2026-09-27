@@ -1,0 +1,19 @@
+{
+  "dataset": "terminal-bench-core@0.1.1",
+  "benchmark": "terminalbench",
+  "track": "calibration",
+  "result_scope": null,
+  "model_key": "glm47flash",
+  "cell": "di__binf__fc",
+  "run_num": 1,
+  "completed_tasks": 80,
+  "expected_tasks": 80,
+  "dataset_tasks": 80,
+  "complete": true,
+  "missing_tasks": [],
+  "tasks_file": null,
+  "raw_jobs_dir": "calibration_results/terminalbench/glm47flash_native_p80/harbor_jobs",
+  "raw_jobs": [
+    "tb1-glm47flash-native-p80-fc-run1"
+  ]
+}
