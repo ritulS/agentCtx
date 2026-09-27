@@ -1,10 +1,10 @@
 """ICLR plot bank: every figure renderer of the paper in one file.
 
-Run `python3 ICLR_analysis/Iclr_plot_bank.py` from the repository root to
+Run `python3 ICLR_experiments/plotting/plot_bank.py` from the repository root to
 generate the nine maintained figures (Figures 2-5 and the appendix
 companions). Every data figure is computed from the tracked outcomes tables
 (analysis/outcomes/, which carry the 2026-09-24 Qwen verdict re-evaluation)
-and the audited Q3 exports in ICLR_analysis/; the computed inputs are written
+and the audited Q3 exports in ICLR_experiments/plotting/; the computed inputs are written
 as CSVs next to each figure. Use --list or --help for selection and
 input/output options. Data definitions and usage are documented in the
 docstrings of each section below (the *_DOC constants, shown by `<tool>
@@ -13,14 +13,14 @@ docstrings of each section below (the *_DOC constants, shown by `<tool>
 The former companion scripts live here as sub-tools, selected by a first
 positional word (each keeps its own options; `<tool> --help` lists them):
 
-    python3 ICLR_analysis/Iclr_plot_bank.py [--figure ...]        # the nine figures (default)
-    python3 ICLR_analysis/Iclr_plot_bank.py intro-fig             # intro_fig.py
-    python3 ICLR_analysis/Iclr_plot_bank.py paper-figures ...     # paper_figures.py
-    python3 ICLR_analysis/Iclr_plot_bank.py knob-overview ...     # appendix_knob_overview.py
-    python3 ICLR_analysis/Iclr_plot_bank.py task-map ...          # appendix_task_map.py
-    python3 ICLR_analysis/Iclr_plot_bank.py task-map-reeval ...   # appendix_task_map_reeval.py
-    python3 ICLR_analysis/Iclr_plot_bank.py depth-trigger-reeval  # appendix_depth_trigger_ablation_reeval.py
-    python3 ICLR_analysis/Iclr_plot_bank.py budget-vs-total ...   # budget_vs_total_explainer.py
+    python3 ICLR_experiments/plotting/plot_bank.py [--figure ...]        # the nine figures (default)
+    python3 ICLR_experiments/plotting/plot_bank.py intro-fig             # intro_fig.py
+    python3 ICLR_experiments/plotting/plot_bank.py paper-figures ...     # paper_figures.py
+    python3 ICLR_experiments/plotting/plot_bank.py knob-overview ...     # appendix_knob_overview.py
+    python3 ICLR_experiments/plotting/plot_bank.py task-map ...          # appendix_task_map.py
+    python3 ICLR_experiments/plotting/plot_bank.py task-map-reeval ...   # appendix_task_map_reeval.py
+    python3 ICLR_experiments/plotting/plot_bank.py depth-trigger-reeval  # appendix_depth_trigger_ablation_reeval.py
+    python3 ICLR_experiments/plotting/plot_bank.py budget-vs-total ...   # budget_vs_total_explainer.py
 
 File layout (one section per former module, in dependency order):
   1. shared style (plot_style.py)
@@ -60,7 +60,7 @@ from matplotlib.ticker import FuncFormatter, MultipleLocator
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, Rectangle, Ellipse, FancyBboxPatch, FancyArrowPatch
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 
 
 # ============================================================================
@@ -155,7 +155,7 @@ Hatching denotes the shorter history retained after compression, not removed
 text. Depth is measured on the compressible history above the fixed prompt.
 The policy definitions intentionally omit the experiment grid from Sec2.
 """
-INTRO_OUT = ROOT / "ICLR_analysis/plots"
+INTRO_OUT = ROOT / "ICLR_experiments/plotting/plots"
 INK = "#222222"
 GREY = "#bdbdbd"
 BLUE = PLIGHT["rule"]
@@ -372,7 +372,7 @@ figures are comparable; `--primary-cohort full` instead draws the primary
 setting on P100 / TB-40, which reproduces Figure 1 exactly (validated
 against Ritul's q1_frontier exports when available).
 
-Metrics follow ICLR_analysis/q1_frontier.py and token_cost_ledger.py
+Metrics follow q1_frontier.py and token_cost_ledger.py
 (Ritul's clone; the fresh/cached reconstruction is ported below):
   * success vs FC (pp): all attempts, missing verdicts and capped runs count
     as unresolved, per-task means, paired task bootstrap.
@@ -392,11 +392,11 @@ experiment_results.json named in their source_file column for the online
 TRC clear flags, and the pinned task lists in task_lists/.
 
 Run from the repository root:
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py knob-overview
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py knob-overview --model devstral24b \
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py knob-overview
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py knob-overview --model devstral24b \
         --benchmarks swebench --grid-settings all      # per-model grid, nine settings
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py knob-overview --settings 0.3:tight 0.7:loose
-Outputs (PNG + CSV) go to ICLR_analysis/plots/ by default:
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py knob-overview --settings 0.3:tight 0.7:loose
+Outputs (PNG + CSV) go to ICLR_experiments/plotting/plots/ by default:
 `<model>_{swe,tb}_depth_trigger_ablation_{tight,primary,loose}.png`, one
 figure per threshold group and benchmark with that group's D settings as
 rows (D = depth) and the five Figure 1 panels as columns. Optional extras,
@@ -649,7 +649,7 @@ def panel_bounds(frame):
 
 
 def draw_panel(ax, frame, index, bounds=None, scale=1.0, diagonal=True):
-    """One Figure 1 panel (Iclr_plot_bank.fig_qwen_overview, wide layout);
+    """One Figure 1 panel (plot_bank.fig_qwen_overview, wide layout);
     `scale` enlarges markers and tick labels for bigger layouts, `diagonal`
     draws the equal-savings line on the usage/bill panel."""
     xmetric, ymetric, _, _ = PANELS[index]
@@ -880,7 +880,7 @@ def parse_settings(values):
 
 
 def knob_overview_main(argv=None):
-    parser = argparse.ArgumentParser(prog="Iclr_plot_bank.py knob-overview", description=KNOB_OVERVIEW_DOC,
+    parser = argparse.ArgumentParser(prog="plot_bank.py knob-overview", description=KNOB_OVERVIEW_DOC,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="qwen35b", choices=list(MODEL_NAMES))
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
@@ -890,7 +890,7 @@ def knob_overview_main(argv=None):
                         help="depth:level pairs, depth = fraction removed")
     parser.add_argument("--primary-cohort", choices=["ablation", "full"], default="ablation",
                         help="cohort for the (0.5, primary) setting; 'full' reproduces Figure 1")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots")
     parser.add_argument("--B", type=int, default=5000, help="paired bootstrap resamples")
     parser.add_argument("--prefix", default="q1_appendix_overview")
     parser.add_argument("--per-setting", action="store_true",
@@ -1168,7 +1168,7 @@ def fig_step_comparison(summary):
 # ============================================================================
 # Summarizer ablation (formerly summarizer_ablation.py)
 # ============================================================================
-SUMMARIZER_ABLATION_DOC = """Summarizer sensitivity on pinned ABL-25; invoked by Iclr_plot_bank.py.
+SUMMARIZER_ABLATION_DOC = """Summarizer sensitivity on pinned ABL-25; invoked by plot_bank.py.
 
 Success uses all attempts. Resource ratios use uncapped runs with >=2
 prompt counts, task means, and tasks shared by all three summarizers.
@@ -1265,12 +1265,12 @@ def fig_summarizer_ablation(summary):
 PAPER_FIGURES_DOC = """The three main paper figures and their shared style, in one source file.
 
 Run from the repo root (Python with numpy, pandas, matplotlib):
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py paper-figures
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py paper-figures --figure q2 --output-dir /tmp/figs
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py paper-figures --figure q1-qwen-overview
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py paper-figures --help
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py paper-figures
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py paper-figures --figure q2 --output-dir /tmp/figs
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py paper-figures --figure q1-qwen-overview
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py paper-figures --help
 
-Outputs (PNG, default ICLR_analysis/plots):
+Outputs (PNG, default ICLR_experiments/plotting/plots):
     q1_20_o1_frontier, q1_21_o2_bill_latency,
     q2_qwen_task_map_and_endings
 The optional q1-qwen-overview target exports a wide 2x5 Qwen overview and
@@ -1319,7 +1319,7 @@ Conventions:
 Reuse the style without producing files or changing global rcParams on import:
     from pathlib import Path
     import matplotlib.pyplot as plt
-    from ICLR_analysis.paper_figures import PAPER_STYLE, pcol, pmark, save_figure
+    from plot_bank import PAPER_STYLE, pcol, pmark, save_figure
     with plt.rc_context(PAPER_STYLE):
         fig, ax = plt.subplots(figsize=(5.5, 2.3))
         pmark(ax, 1.0, 0.8, "SU-p", "o")
@@ -1762,16 +1762,16 @@ def fig_q2(solved, summary, missed, shared, tb_summary):
 
 
 def paper_figures_main(argv=None):
-    parser = argparse.ArgumentParser(prog="Iclr_plot_bank.py paper-figures", description=PAPER_FIGURES_DOC,
+    parser = argparse.ArgumentParser(prog="plot_bank.py paper-figures", description=PAPER_FIGURES_DOC,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--figure", choices=["all", "q1-o1", "q1-o2", "q1-qwen-overview", "q2"], default="all")
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "ICLR_analysis")
+    parser.add_argument("--data-dir", type=Path, default=ROOT / "ICLR_experiments/plotting")
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/p100_all_100_tasks.json")
     parser.add_argument("--tb-outcomes", type=Path, default=ROOT / "analysis/outcomes/terminalbench_outcomes.csv")
     parser.add_argument("--tb-tasks", type=Path, default=ROOT / "task_lists/tbench_p40.json")
     parser.add_argument("--run-root", type=Path, default=ROOT, help="Root for outcome source_file paths and Harbor records")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots")
     parser.add_argument("--audit-dir", type=Path, help="Optional directory for Q2 values and task-order CSVs")
     parser.add_argument("--resamples", type=int, default=10000, help="Q2 and Qwen overview task-bootstrap resamples")
     parser.add_argument("--seed", type=int, default=210926, help="Bootstrap seed, reset for each policy")
@@ -1849,12 +1849,12 @@ FIGURES = [          # all written flat into --output-dir, PNG plus their input 
 # SWE-bench table carries the 2026-09-24 Qwen verdict re-evaluation) with the
 # definitions of q1_frontier.py / token_cost_ledger.py / q1_knob_execution.py
 # and the Q3 exports, validated to reproduce those exports to floating-point
-# precision (2026-09-24). Only the audited Q3 exports in ICLR_analysis/ are read:
+# precision (2026-09-24). Only the audited Q3 exports in ICLR_experiments/plotting/ are read:
 # their Devstral, GLM and Terminal-Bench rows are reused; the Qwen SWE-bench
 # rows are recomputed.
 SWE_OUTCOMES = ROOT / "analysis/outcomes/swebench_outcomes.csv"
 TB_OUTCOMES = ROOT / "analysis/outcomes/terminalbench_outcomes_0924.csv"
-Q3_DATA_DIR = ROOT / "ICLR_analysis"
+Q3_DATA_DIR = ROOT / "ICLR_experiments/plotting"
 # q1_frontier.py iterates policies in this order with one bootstrap stream.
 Q1_ORDER = ["FC", "OTRC", "TR", "SU", "SU-p", "SS", "SS-p", "TRC", "TRC+SU", "TRC+SS",
             "OTRC+TR", "OTRC+SU-p", "OTRC+SS-p"]
@@ -2070,7 +2070,7 @@ def q3_inputs(frame, df, baseline_dir, model="qwen35b", B=2000, seed=0):
 
 
 # ------------------------------------------------------------ Figure 2
-# Reviewer revisions of Iclr_plot_bank.fig_qwen_overview (wide 2x5 layout):
+# Reviewer revisions of plot_bank.fig_qwen_overview (wide 2x5 layout):
 # no "Qwen" heading, larger fonts and markers, black arrows marking the
 # better direction of each axis, both axes start at 0, no y=x guide in the
 # third column, one benchmark heading per row (no panel titles), FC is a black
@@ -2487,7 +2487,7 @@ def draw_task_map(fig, solved, missed, shared, rows=TASK_MAP_ROWS, band=(0.0, 1.
 
 
 def fig_task_map(solved, missed, shared, rows=TASK_MAP_ROWS):
-    """Iclr_plot_bank.fig_task_map with the row list as a parameter.
+    """plot_bank.fig_task_map with the row list as a parameter.
 
     Identical drawing to the plot bank for the policy rows; `rows` may add
     the oracle row (ORACLE), drawn in its own colour. Reviewer revisions: no
@@ -2682,7 +2682,7 @@ def fig_budget_vs_total(series):
 
 
 def plot_bank_main(argv=None):
-    parser = argparse.ArgumentParser(prog="Iclr_plot_bank.py", description=__doc__,
+    parser = argparse.ArgumentParser(prog="plot_bank.py", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--figure", nargs="+", choices=["all", *FIGURES], default=["all"])
     parser.add_argument("--list", action="store_true", help="List the selected figure names")
@@ -2693,7 +2693,7 @@ def plot_bank_main(argv=None):
     parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/p100_all_100_tasks.json")
     parser.add_argument("--q3-data-dir", type=Path, default=Q3_DATA_DIR,
                         help="audited Q3 exports; Devstral, GLM and Terminal-Bench rows are reused")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots",
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots",
                         help="Output directory; every figure (PNG) and its CSVs are written flat into it")
     args = parser.parse_args(argv)
     if args.list:
@@ -2796,7 +2796,7 @@ def plot_bank_main(argv=None):
 # ============================================================================
 # Appendix task maps (formerly appendix_task_map.py)
 # ============================================================================
-TASK_MAP_DOC = """Appendix: the task-coverage map (Iclr_plot_bank.fig_task_map, "Figure 4")
+TASK_MAP_DOC = """Appendix: the task-coverage map (plot_bank.fig_task_map, "Figure 4")
 at every depth and trigger threshold, Qwen on SWE-bench.
 
 For each (threshold, depth) setting the figure shows, per policy, the tasks
@@ -2819,9 +2819,9 @@ map sits next to "Gained" and, after a wider gap, the "FC solved" map next
 to "Lost".
 
 Run from the repository root:
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py task-map
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py task-map --settings 0.5:primary --primary-cohort full
-Outputs go to ICLR_analysis/plots/ as
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py task-map
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py task-map --settings 0.5:primary --primary-cohort full
+Outputs go to ICLR_experiments/plotting/plots/ as
 qwen35b_swe_task_map_<threshold>_D<depth>.png plus a CSV of the counts.
 """
 FAMILY_BOUNDARIES = [1.5, 5.5, 7.5, 10.5, 11.5]     # between rule / LLM / stacked / step / OTRC / FC
@@ -2847,7 +2847,7 @@ def order_tasks(solved):
 
 
 def fig_appendix_task_map(solved, missed, shared, heading=None):
-    """Port of Iclr_plot_bank.fig_task_map without title, row markers or
+    """Port of plot_bank.fig_task_map without title, row markers or
     family rules in the count columns, and with the FC-missed/Gained and
     FC-solved/Lost pairs grouped. `heading` is accepted but not drawn."""
     fig = plt.figure(figsize=(5.5, 2.25))
@@ -2926,7 +2926,7 @@ def fig_appendix_task_map(solved, missed, shared, heading=None):
 
 
 def appendix_task_map_main(argv=None):
-    parser = argparse.ArgumentParser(prog="Iclr_plot_bank.py task-map", description=TASK_MAP_DOC,
+    parser = argparse.ArgumentParser(prog="plot_bank.py task-map", description=TASK_MAP_DOC,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="qwen35b", choices=list(MODEL_NAMES))
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
@@ -2935,7 +2935,7 @@ def appendix_task_map_main(argv=None):
     parser.add_argument("--primary-cohort", choices=["ablation", "full"], default="ablation",
                         help="cohort for the (0.5, primary) setting; 'full' reproduces Figure 4")
     parser.add_argument("--output-dir", type=Path,
-                        default=ROOT / "ICLR_analysis/plots")
+                        default=ROOT / "ICLR_experiments/plotting/plots")
     args = parser.parse_args(argv)
     settings = parse_settings(args.settings)
     runs, _ = load_runs("swebench", args.model, args.outcomes)
@@ -2996,18 +2996,18 @@ the primary one, is restricted to ABL-25 so the maps share a cohort
 `resolved` is taken from --outcomes, by default the table carrying the
 2026-09-23/24 Qwen re-evaluation.
 
-The drawing is Iclr_plot_bank.draw_task_map, so the layout, colours
+The drawing is plot_bank.draw_task_map, so the layout, colours
 (purple OTRC family, teal Oracle), FC square and legend are exactly those
 of Figure 4.
 
-Outputs go to ICLR_analysis/plots/ as
+Outputs go to ICLR_experiments/plotting/plots/ as
 qwen35b_swe_task_map_<threshold>.png plus qwen35b_swe_task_map_counts.csv.
 
 Usage (from the repository root):
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py task-map-reeval
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py task-map-reeval --thresholds tight
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py task-map-reeval
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py task-map-reeval --thresholds tight
 """
-TASK_MAP_REEVAL_DIR = ROOT / "ICLR_analysis/plots"
+TASK_MAP_REEVAL_DIR = ROOT / "ICLR_experiments/plotting/plots"
 LEGEND_IN = 0.3       # legend band at the top, inches
 MAP_IN = 1.55         # one map band = the Figure 4 figure height, inches
 
@@ -3028,7 +3028,7 @@ def fig_task_map_stack(blocks):
 
 
 def appendix_task_map_reeval_main(argv=None):
-    parser = argparse.ArgumentParser(prog="Iclr_plot_bank.py task-map-reeval", description=TASK_MAP_REEVAL_DOC,
+    parser = argparse.ArgumentParser(prog="plot_bank.py task-map-reeval", description=TASK_MAP_REEVAL_DOC,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="qwen35b", choices=list(MODEL_NAMES))
     parser.add_argument("--outcomes", type=Path, default=SWE_OUTCOMES,
@@ -3097,26 +3097,26 @@ compression event). For Qwen the primary threshold figure has the D = 0.3
 and D = 0.7 rows only (Figure 2 shows 0.5); Devstral and GLM, which have no
 main figure, get all three rows. Terminal-Bench is drawn for Qwen only.
 
-Data and definitions follow Iclr_plot_bank.py: attempts come from
+Data and definitions follow plot_bank.py: attempts come from
 appendix_knob_overview.load_runs / panel_runs (primary setting from the main
 track, every other setting from the ablation track; depth-invariant
 policies repeat their depth-0.5 cell at 0.3 / 0.7; FC and OTRC are the
 budget-free references), all restricted to the ablation cohort (ABL-25 on
 SWE-bench, TB-15 on Terminal-Bench) so the settings are comparable, and the
-statistics are Iclr_plot_bank.q1_frontier (q1_frontier.py's paired
+statistics are plot_bank.q1_frontier (q1_frontier.py's paired
 task bootstrap, seed 0, B=5000). `resolved` is taken from --outcomes, by
 default the table carrying the 2026-09-23/24 Qwen re-evaluation. The drawing
-is Iclr_plot_bank.draw_overview_rows, so the panels, arrows, markers
+is plot_bank.draw_overview_rows, so the panels, arrows, markers
 and colours are exactly those of Figure 2.
 
-Outputs go to ICLR_analysis/plots/ with
+Outputs go to ICLR_experiments/plotting/plots/ with
 reeval_<model>_values[_swebench].csv holding every plotted number.
 
 Usage (from the repository root):
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py depth-trigger-reeval
-    venv/bin/python ICLR_analysis/Iclr_plot_bank.py depth-trigger-reeval --models qwen35b
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py depth-trigger-reeval
+    venv/bin/python ICLR_experiments/plotting/plot_bank.py depth-trigger-reeval --models qwen35b
 """
-DEPTH_TRIGGER_REEVAL_DIR = ROOT / "ICLR_analysis/plots"
+DEPTH_TRIGGER_REEVAL_DIR = ROOT / "ICLR_experiments/plotting/plots"
 SHORT = {"swebench": "swe", "terminalbench": "tb"}
 # Per model: benchmarks drawn, and whether the (0.5, primary) setting (Figure 2
 # for Qwen) is included in the primary-threshold figure.
@@ -3136,7 +3136,7 @@ def threshold_figure(blocks):
 
 
 def appendix_depth_trigger_reeval_main(argv=None):
-    parser = argparse.ArgumentParser(prog="Iclr_plot_bank.py depth-trigger-reeval", description=DEPTH_TRIGGER_REEVAL_DOC,
+    parser = argparse.ArgumentParser(prog="plot_bank.py depth-trigger-reeval", description=DEPTH_TRIGGER_REEVAL_DOC,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--outcomes", type=Path, default=SWE_OUTCOMES,
                         help="SWE-bench outcomes table (carries the re-evaluation)")
@@ -3196,14 +3196,14 @@ def appendix_depth_trigger_reeval_main(argv=None):
 # ============================================================================
 # Budget-vs-total explainer entry point (formerly budget_vs_total_explainer.py)
 # ============================================================================
-BUDGET_VS_TOTAL_DOC = """Compatibility entry point for the appendix plot in Iclr_plot_bank.py.
+BUDGET_VS_TOTAL_DOC = """Compatibility entry point for the appendix plot in plot_bank.py.
 
-Defaults to ICLR_analysis/plots/; accepts --outcomes and --output-dir.
+Defaults to ICLR_experiments/plotting/plots/; accepts --outcomes and --output-dir.
 """
 def budget_vs_total_main(argv=None):
-    parser = argparse.ArgumentParser(prog="Iclr_plot_bank.py budget-vs-total", description=BUDGET_VS_TOTAL_DOC)
+    parser = argparse.ArgumentParser(prog="plot_bank.py budget-vs-total", description=BUDGET_VS_TOTAL_DOC)
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_analysis/plots")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots")
     args = parser.parse_args(argv)
     series = budget_vs_total_inputs(args.outcomes)
     args.output_dir.mkdir(parents=True, exist_ok=True)

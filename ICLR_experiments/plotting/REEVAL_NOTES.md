@@ -155,9 +155,10 @@ P100, primary threshold (Figures 1/2, 4, 5a):
   improve it" example and Observation #6's "TRC+SU best for Qwen" need
   rewording; see the chat-derived notes in the LaTeX comments.
 
-Appendix figures: `appendix_knob_overview.py` and `appendix_task_map.py`
-now read the corrected canonical table by default. The `*_reeval.py`
-wrappers only matter if the interim copy is used again.
+Appendix figures: `plot_bank.py knob-overview` and `task-map` (formerly
+`appendix_knob_overview.py` and `appendix_task_map.py`) now read the corrected
+canonical table by default. The `*-reeval` tools only matter if the interim
+copy is used again.
 
 ## 5. Pending: ablation track
 
@@ -200,7 +201,7 @@ Figure 1/3/4/5 exports (`q1_frontier.py`, `token_cost_ledger.py`,
 | `scripts/maintenance/reevaluate_swebench_candidates.py` | `plan` / `run` / `apply` harness (apply not used) |
 | `analysis/apply_reeval_outcomes.py` | wrote the interim corrected copy before the apply (now guarded off) |
 | `analysis/outcomes/swebench_outcomes.csv` | canonical outcomes table, rebuilt after the apply |
-| `ICLR_analysis/appendix_knob_overview.py`, `appendix_task_map.py` | appendix figures; `--outcomes` selects the table |
-| `ICLR_analysis/appendix_depth_trigger_ablation_reeval.py`, `appendix_task_map_reeval.py` | wrappers that use the corrected table |
+| `ICLR_experiments/plotting/plot_bank.py knob-overview` / `task-map` | appendix figures; `--outcomes` selects the table |
+| `ICLR_experiments/plotting/plot_bank.py depth-trigger-reeval` / `task-map-reeval` | wrappers that use the corrected table |
 | `ICLR_experiments/issue/reeval_candidates_qwen35b_ablation155_20260924/candidates.csv` | pending ablation-track candidates |
 | `Active_runs.md` ("Recently Completed") | launch/completion record of the re-evaluation run |
