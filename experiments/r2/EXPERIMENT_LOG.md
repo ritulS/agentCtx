@@ -74,3 +74,24 @@ Tests: `tests/test_summary_cleaning.py` (38 tests, FakeModel; run with
 Open: whether the re-summarizing loop disappears in real runs. Check the
 first r2 SS / SS-partial / TRC+SS / OTRC+SS-partial pilot for FormatErrors
 following a summary, and the `rejections` / `fallback` counts.
+
+## 2026-09-26 — SWE-bench Verified per-run limits: 300 steps, 5400 s
+
+`src/agentctx/experiments/runner.py`: `STEP_LIMIT` 125 → 300,
+`AGENT_TIMEOUT` 1500 → 5400 s (~18 s/step, the same ratio plus headroom).
+The SWE agent configs (`configs/config-{qwen-vllm,qwen-vllm-8002,devstral-vllm,
+glm47flash-vllm,glm47flash-vllm-8004,fc-customprompt}.yaml`) carry
+`step_limit: 300` for consistency; the runner passes `-c agent.step_limit=`
+anyway. New flags `--step-limit` / `--agent-timeout` override per launch, and
+`run_info.json` now records `agent_timeout_s` next to `step_limit`.
+
+Why: in the 2026-09-08 audit 152/645 resumed Qwen runs (23.6 %) were killed
+by the 1500 s limit, with almost all of the time spent in LLM latency; the
+FC∞ "15 min – 1 hour" analysis attributed 45/98 failures to the timeout and
+10 to the 125-step limit. Terminal-Bench limits are unchanged.
+
+Consequence: r2 SWE-bench runs are not comparable to `iclr26` on
+timeout / step-limit outcome classes. `tests/test_runner_equivalence.py`
+compares against the pre-reorganization reference tree, which still has the
+old limits, so the SWE scenarios now differ by design on `step_limit` /
+`agent.step_limit=` (on top of the earlier `MSWEA_EVENT_LOG_DIR` difference).

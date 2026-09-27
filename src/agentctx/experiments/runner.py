@@ -67,8 +67,12 @@ N_TASKS            = 100   # total tasks (~33 per repo); overridden by --n-tasks
 N_TASKS_OVERRIDE: int | None = None  # set by --n-tasks; slices ablation task lists too
 RUNS_PER_TASK      = 2
 COMPRESSION_RATIO  = 0.5   # fraction of budget retained after compression; overridden by --depth
-STEP_LIMIT    = 125
-AGENT_TIMEOUT = 1500  # 25 min; 125 steps × ~10s/step + headroom
+# SWE-bench per-run limits (r2 campaign values; iclr26 ran 125 steps / 1500 s).
+# The 2026-09-08 audit found 152/645 runs killed by the 1500 s limit, almost
+# all of it LLM latency, so the timeout scales with the step limit at ~18 s/step.
+# Override per launch with --step-limit / --agent-timeout.
+STEP_LIMIT    = 300
+AGENT_TIMEOUT = 5400  # 90 min; 300 steps × ~18 s/step
 MAX_WORKERS   = 16    # concurrent runs against the shared vLLM server (override with --max-workers)
 
 # Selected in main(). All benchmark-specific operations go through this adapter.
@@ -137,6 +141,7 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
         "n_conditions": len(conditions),
         "total_runs":   total_runs,
         "step_limit":   STEP_LIMIT,
+        "agent_timeout_s": AGENT_TIMEOUT,
         "started":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     (run_dir / "run_info.json").write_text(json.dumps(info, indent=2))
@@ -157,6 +162,7 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
 | Runs per task | {RUNS_PER_TASK} |
 | Total runs | {total_runs} |
 | Step limit | {STEP_LIMIT} LLM calls per run |
+| Agent timeout | {AGENT_TIMEOUT} s per run |
 | Started | {info['started']} |
 
 ## Conditions
@@ -181,6 +187,7 @@ results/{MODEL_TAG}/
 
 def main() -> None:
     global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS, RUNS_PER_TASK, BENCHMARK
+    global STEP_LIMIT, AGENT_TIMEOUT
 
     parser = argparse.ArgumentParser(description="Experiment runner")
     parser.add_argument("--benchmark", choices=sorted(BENCHMARKS), default="swe-bench",
@@ -219,6 +226,10 @@ def main() -> None:
                         help=f"Override runs per (task, condition) (default: {RUNS_PER_TASK}). "
                              "Existing runs already recorded in experiment_results.json are skipped, "
                              "so raising this resumes by adding only the missing run numbers.")
+    parser.add_argument("--step-limit", type=int, default=None,
+                        help=f"Max LLM calls per run (default: {STEP_LIMIT}).")
+    parser.add_argument("--agent-timeout", type=int, default=None, metavar="SECONDS",
+                        help=f"Wall-clock limit per agent run (default: {AGENT_TIMEOUT}).")
     grp = parser.add_mutually_exclusive_group()
     grp.add_argument("--eval-only",  action="store_true")
     grp.add_argument("--with-eval",  action="store_true")
@@ -259,6 +270,14 @@ def main() -> None:
         MAX_WORKERS = args.max_workers
     if args.runs_per_task is not None:
         RUNS_PER_TASK = args.runs_per_task
+    if args.step_limit is not None:
+        if args.step_limit <= 0:
+            raise SystemExit("--step-limit must be positive")
+        STEP_LIMIT = args.step_limit
+    if args.agent_timeout is not None:
+        if args.agent_timeout <= 0:
+            raise SystemExit("--agent-timeout must be positive")
+        AGENT_TIMEOUT = args.agent_timeout
     if args.budget is not None:
         for c in conditions:
             if c["budget"] != INFINITE_BUDGET:
@@ -299,6 +318,7 @@ def main() -> None:
     print(f"  Conditions : {[c['condition'] for c in conditions]}")
     print(f"  Budget     : {budget:,} tokens context window threshold")
     print(f"  Step limit : {STEP_LIMIT}")
+    print(f"  Timeout    : {AGENT_TIMEOUT} s per run")
     print(f"  Runs/config: {RUNS_PER_TASK}")
     print(f"  Total runs : {total}")
     print("=" * 72)
