@@ -31,6 +31,12 @@ Summarization
   The call goes to the agent's model unless MSWEA_SUMMARY_MODEL_CONFIG (or
   MSWEA_SUMMARY_MODEL_NAME / MSWEA_SUMMARY_API_BASE) selects a different
   summarization model — see "Summarization model" below.
+  The response is cleaned before it enters the history (reasoning preamble
+  dropped, the marked block extracted or the text wrapped in the markers),
+  rejected when the body is empty or the reasoning never closed (re-queried
+  up to SUMMARY_MAX_ATTEMPTS times, then truncate() is the fallback), and the
+  message is tagged extra["kind"] = "summary" so TRC never clears it — see
+  "Summary message handling" below.
 
 Token log (MSWEA_TOKEN_LOG_PATH)
   Written after every agent step.  Schema:
@@ -130,6 +136,231 @@ def query_summary(model, messages: list[dict]) -> dict:
     return model.query(messages)
 
 
+# ── Summary message handling ───────────────────────────────────────────────────
+#
+# Summaries are identified two ways. Structurally, via extra["kind"] ==
+# SUMMARY_KIND on the message (survives the agent's uid tagging, is stripped
+# before the API call, and is saved in trajectory.json / events.jsonl). And by
+# content, via the SU / SS marker lines, kept for trajectories written before
+# the tag existed. Only messages that pass neither test are tool output that
+# TRC may clear.
+#
+# The summarizer's raw response is normalised by clean_summary_text() before
+# it enters the history. Qwen-style chat templates open a <think> block in the
+# generation prompt, and the vLLM servers here run without a reasoning parser
+# (mini-swe-agent parses raw text), so the reasoning arrives inline in
+# `content` and ends with `</think>`. Passing that through verbatim (a) hid the
+# marker line from the prefix checks, so TRC treated the summary as tool output,
+# and (b) put "Let me create a structured summary ..." prose in front of the
+# agent. The 2026-09-08 audit found the preamble on 219/220 saved SS summaries
+# and, in 33 runs, the agent re-summarising after a summary; whether (b) caused
+# the re-summarising is a hypothesis the audit could not confirm. The flags
+# returned alongside the text are stored in extra["summary_format"] so later
+# audits can count these cases without re-reading the model output.
+#
+# Both SU and SS ask for the summary between marker lines. Markers count only
+# when they are a line of their own, so a marker mentioned inside the model's
+# reasoning ("I must use [CONTEXT SUMMARY] and ...") is never taken as the start
+# of the body. Reasoning ends at the first </think> when the response opens
+# with <think>, or when no marker line precedes that </think>; a marked body
+# that merely quotes "</think>" is therefore left intact. A response with no
+# marker line at all that contains "</think>" cannot be told apart from
+# reasoning followed by an unformatted body, so it is rejected rather than
+# guessed at; rejection feeds the retry / fallback path below.
+#
+# Cleaning and validation are separate steps: a response whose summary body is
+# empty, whose reasoning never closed (an open <think> with no </think>), or
+# whose reasoning boundary is undecidable is rejected. request_summary() re-queries up to SUMMARY_MAX_ATTEMPTS times
+# and returns None when every attempt is rejected; the primitives then fall
+# back to truncate() rather than replace the history with a non-summary.
+
+SUMMARY_KIND       = "summary"
+SS_OPEN_MARKER     = "[CONTEXT SUMMARY]"
+SS_CLOSE_MARKER    = "[END CONTEXT SUMMARY]"
+SU_OPEN_MARKER     = "[COMPRESSED HISTORY SUMMARY]"
+SU_CLOSE_MARKER    = "[END SUMMARY]"
+_SUMMARY_PREFIXES  = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
+_THINK_OPEN        = "<think>"
+_THINK_CLOSE       = "</think>"
+SUMMARY_MAX_ATTEMPTS = max(1, int(os.environ.get("MSWEA_SUMMARY_MAX_ATTEMPTS", "2")))
+
+
+def is_summary_message(msg: dict) -> bool:
+    """True for a summary produced by any summarize* primitive.
+
+    Checks the structural tag first, then the marker prefixes for summaries
+    written before the tag existed.
+    """
+    extra = msg.get("extra")
+    if isinstance(extra, dict) and extra.get("kind") == SUMMARY_KIND:
+        return True
+    content = msg.get("content") or ""
+    return isinstance(content, str) and content.startswith(_SUMMARY_PREFIXES)
+
+
+def response_text(response: dict) -> str:
+    """Plain text of a model response (str or list-of-blocks content)."""
+    text = response.get("content") or ""
+    if isinstance(text, list):
+        text = " ".join(
+            block.get("text", "")
+            for block in text
+            if isinstance(block, dict)
+        )
+    return text
+
+
+def _marker_spans(text: str, marker: str) -> list[tuple[int, int]]:
+    """(start, end) of the marker itself on every line consisting only of
+    ``marker`` (surrounding blanks allowed). Offsets exclude the blanks."""
+    pattern = re.compile(r"^[ \t]*(" + re.escape(marker) + r")[ \t]*$", re.MULTILINE)
+    return [(m.start(1), m.end(1)) for m in pattern.finditer(text)]
+
+
+def _reasoning_end(text: str, open_starts: list[int]) -> int | str:
+    """Offset just past the reasoning preamble, 0 when there is none, or a
+    rejection reason ("unterminated_reasoning" / "ambiguous_reasoning").
+
+    Rules (see the "Summary message handling" comment):
+    - text opens with <think>: reasoning runs to the first </think>; none → unterminated.
+    - no </think> anywhere: no reasoning.
+    - </think> present but no marker line at all: undecidable → ambiguous.
+    - no marker line precedes the first </think>: implicit-open reasoning
+      (Qwen template) ends there.
+    - a marker line precedes it: the reasoning quoted a marker only if another
+      marker line follows the </think>; else the </think> is a literal inside
+      the marked body and there is no reasoning.
+    """
+    close = text.find(_THINK_CLOSE)
+    if text.startswith(_THINK_OPEN):
+        return "unterminated_reasoning" if close < 0 else close + len(_THINK_CLOSE)
+    if close < 0:
+        return 0
+    if not open_starts:
+        return "ambiguous_reasoning"
+    if not any(pos < close for pos in open_starts) or any(pos > close for pos in open_starts):
+        return close + len(_THINK_CLOSE)
+    return 0
+
+
+def clean_summary_text(raw: str, open_marker: str, close_marker: str) -> tuple[str | None, dict]:
+    """Normalise a summarizer response into ``open_marker\n<body>\nclose_marker``.
+
+    Cleaning:
+    1. Newlines are normalised (CRLF / CR → LF) so marker lines are found
+       regardless of the model's line endings.
+    2. Reasoning preamble: removed according to _reasoning_end(). Markers are
+       recognised only as standalone lines, so a marker mentioned inside the
+       reasoning does not start the body, and a literal ``</think>`` inside a
+       marked body is preserved.
+    3. The body is the text between the first marker line after the reasoning
+       and the next closing-marker line (or the end of the response). Text
+       outside the block, including indentation around the markers, is dropped.
+    4. A response with no marker line and no ``</think>`` is taken as an
+       unformatted body.
+
+    Validation (separate from marking): rejected when the body is empty, when
+    a ``<think>`` block never closed, or when the response has ``</think>`` but
+    no marker line (undecidable). The accepted body is re-wrapped in the
+    canonical markers.
+
+    Returns (text, flags); text is None for a rejected response and
+    flags["rejected"] then names the reason. flags also records what the raw
+    response looked like: had_think_preamble, had_open_marker, had_close_marker.
+    """
+    flags = {
+        "had_think_preamble": False,
+        "had_open_marker":    False,
+        "had_close_marker":   False,
+        "rejected":           None,
+    }
+    text  = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
+    opens = _marker_spans(text, open_marker)
+
+    cut = _reasoning_end(text, [o[0] for o in opens])
+    if isinstance(cut, str):
+        flags["had_think_preamble"] = True
+        # Reasoning followed by nothing is reported as an empty body, not as ambiguous.
+        if cut == "ambiguous_reasoning" and not text.split(_THINK_CLOSE, 1)[1].strip():
+            cut = "empty_body"
+        flags["rejected"] = cut
+        return None, flags
+    if cut > 0:
+        flags["had_think_preamble"] = True
+        text  = text[cut:].strip()
+        opens = _marker_spans(text, open_marker)
+
+    if opens:
+        flags["had_open_marker"] = True
+        body_start = opens[0][1]
+        closes = [c for c in _marker_spans(text, close_marker) if c[0] >= body_start]
+        if closes:
+            flags["had_close_marker"] = True
+            body = text[body_start:closes[0][0]]
+        else:
+            body = text[body_start:]
+    else:
+        body = text
+        flags["had_close_marker"] = bool(_marker_spans(text, close_marker))
+
+    body = body.strip()
+    if not body:
+        flags["rejected"] = "empty_body"
+        return None, flags
+    return f"{open_marker}\n{body}\n{close_marker}", flags
+
+
+def _response_usage(response: dict) -> tuple[int, int]:
+    extra = response.get("extra", {}) if isinstance(response, dict) else {}
+    resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
+    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
+    return (usage.get("prompt_tokens", 0) or 0), (usage.get("completion_tokens", 0) or 0)
+
+
+def request_summary(
+    summary_model,
+    summary_prompt: list[dict],
+    open_marker: str,
+    close_marker: str,
+    max_attempts: int | None = None,
+) -> tuple[str | None, dict, int, int, float]:
+    """Query the summarizer until clean_summary_text() accepts a response.
+
+    Re-queries with the same prompt up to ``max_attempts`` times (default
+    SUMMARY_MAX_ATTEMPTS). Token usage and latency are summed over attempts.
+
+    Returns (text, flags, prompt_tokens, completion_tokens, latency_s); text is
+    None when every attempt was rejected, and flags then describes the last
+    rejected response. flags["attempts"] is the number of queries made.
+    """
+    attempts = max_attempts or SUMMARY_MAX_ATTEMPTS
+    prompt_toks = completion_toks = 0
+    latency_s   = 0.0
+    text, flags = None, {}
+    for attempt in range(1, attempts + 1):
+        _t0       = time.time()
+        response  = query_summary(summary_model, summary_prompt)
+        latency_s += time.time() - _t0
+        pt, ct = _response_usage(response)
+        prompt_toks     += pt
+        completion_toks += ct
+        text, flags = clean_summary_text(response_text(response), open_marker, close_marker)
+        flags["attempts"] = attempt
+        if text is not None:
+            break
+    return text, flags, prompt_toks, completion_toks, latency_s
+
+
+def make_summary_message(model, text: str, flags: dict) -> dict:
+    """User-role summary message tagged with extra["kind"] = SUMMARY_KIND."""
+    msg = model.format_message(role="user", content=text)
+    extra = msg.get("extra")
+    if not isinstance(extra, dict):
+        extra = {}
+    msg["extra"] = {**extra, "kind": SUMMARY_KIND, "summary_format": dict(flags)}
+    return msg
+
+
 # ── Primitives ─────────────────────────────────────────────────────────────────
 
 def truncate(messages: list[dict], target_tokens: int) -> tuple[list[dict], int]:
@@ -219,33 +450,26 @@ def summarize(
                 f"4. Current state — what has been done and what remains\n\n"
                 f"Preserve exact file paths, error messages, and code snippets that are "
                 f"likely still relevant. Be factual and concise.\n\n"
+                f"Put the summary between a line containing only {SU_OPEN_MARKER} and a "
+                f"line containing only {SU_CLOSE_MARKER}. Do not add any text outside "
+                f"those two lines.\n\n"
                 f"{history_text}"
             ),
         ),
     ]
 
-    _t0          = time.time()
-    response     = query_summary(summary_model, summary_prompt)
-    latency_s    = time.time() - _t0
-    summary_text = response.get("content") or ""
-    if isinstance(summary_text, list):
-        summary_text = " ".join(
-            block.get("text", "")
-            for block in summary_text
-            if isinstance(block, dict)
-        )
-
-    # Collect actual tokens used by the summarization call
-    extra = response.get("extra", {})
-    resp  = extra.get("response", {})
-    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
-    prompt_toks     = usage.get("prompt_tokens", 0) or 0
-    completion_toks = usage.get("completion_tokens", 0) or 0
-
-    summary_msg  = model.format_message(
-        role="user",
-        content=f"[COMPRESSED HISTORY SUMMARY]\n{summary_text}\n[END SUMMARY]",
+    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
+        summary_model, summary_prompt, SU_OPEN_MARKER, SU_CLOSE_MARKER
     )
+
+    # Explicit fallback: no attempt produced a usable summary, so enforce the
+    # target by truncation instead of replacing the history with a non-summary.
+    if summary_text is None:
+        new_messages, _ = truncate(messages, target_tokens)
+        tokens_after    = count_tokens(new_messages)
+        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+    summary_msg   = make_summary_message(model, summary_text, summary_flags)
     new_messages  = protected + [summary_msg]
     tokens_after  = count_tokens(new_messages)
 
@@ -307,7 +531,7 @@ def structured_summarize(
             content=(
                 f"Produce a structured summary of the agent conversation below in approximately "
                 f"{target_words} words total. Use EXACTLY this format and section order:\n\n"
-                f"[CONTEXT SUMMARY]\n"
+                f"{SS_OPEN_MARKER}\n"
                 f"## Task\n"
                 f"<One sentence: what the task is asking for.>\n\n"
                 f"## Files Modified\n"
@@ -321,38 +545,27 @@ def structured_summarize(
                 f"will need to reference going forward. Quote verbatim where possible.>\n\n"
                 f"## Current State\n"
                 f"<What has been done, what has NOT been done, and the immediate next step.>\n"
-                f"[END CONTEXT SUMMARY]\n\n"
+                f"{SS_CLOSE_MARKER}\n\n"
                 f"Rules:\n"
                 f"- Preserve exact file paths, line numbers, error strings, and symbol names.\n"
                 f"- Do not speculate or add information not present in the history.\n"
-                f"- Do not add any text outside the [CONTEXT SUMMARY] block.\n\n"
+                f"- Do not add any text outside the {SS_OPEN_MARKER} block.\n\n"
                 f"Conversation history:\n{history_text}"
             ),
         ),
     ]
 
-    _t0       = time.time()
-    response  = query_summary(summary_model, summary_prompt)
-    latency_s = time.time() - _t0
-
-    summary_text = response.get("content") or ""
-    if isinstance(summary_text, list):
-        summary_text = " ".join(
-            block.get("text", "")
-            for block in summary_text
-            if isinstance(block, dict)
-        )
-
-    extra = response.get("extra", {})
-    resp  = extra.get("response", {})
-    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
-    prompt_toks     = usage.get("prompt_tokens", 0) or 0
-    completion_toks = usage.get("completion_tokens", 0) or 0
-
-    summary_msg  = model.format_message(
-        role="user",
-        content=summary_text,
+    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
+        summary_model, summary_prompt, SS_OPEN_MARKER, SS_CLOSE_MARKER
     )
+
+    # Explicit fallback: no attempt produced a usable summary (see summarize()).
+    if summary_text is None:
+        new_messages, _ = truncate(messages, target_tokens)
+        tokens_after    = count_tokens(new_messages)
+        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+    summary_msg  = make_summary_message(model, summary_text, summary_flags)
     new_messages = protected + [summary_msg]
 
     # Fallback: if model over-generated past target, truncate the summary itself
@@ -509,19 +722,15 @@ def tool_result_clear(
     new_messages = list(messages)
     tokens_saved = 0
 
-    _STUB_PREFIX      = "[TOOL OUTPUT CLEARED"
-    _SUMMARY_PREFIXES = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
+    _STUB_PREFIX = "[TOOL OUTPUT CLEARED"
 
     def _is_clearable(msg: dict) -> bool:
-        if msg.get("role") != "user":
+        if msg.get("role") != "user" or is_summary_message(msg):
             return False
         content = msg.get("content") or ""
         if isinstance(content, list):
             return False
-        return (
-            not content.startswith(_STUB_PREFIX)
-            and not content.startswith(_SUMMARY_PREFIXES)
-        )
+        return not content.startswith(_STUB_PREFIX)
 
     # Indices into new_messages for clearable turns (compressible window only)
     compressible_user_indices = [
@@ -657,19 +866,15 @@ def scored_tool_result_clear(
     if count_tokens(messages) <= target_tokens:
         return messages, 0, False
 
-    _STUB_PREFIX      = "[TOOL OUTPUT CLEARED"
-    _SUMMARY_PREFIXES = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
+    _STUB_PREFIX = "[TOOL OUTPUT CLEARED"
 
     def _is_clearable(msg: dict) -> bool:
-        if msg.get("role") != "user":
+        if msg.get("role") != "user" or is_summary_message(msg):
             return False
         content = msg.get("content") or ""
         if isinstance(content, list):
             return False
-        return (
-            not content.startswith(_STUB_PREFIX)
-            and not content.startswith(_SUMMARY_PREFIXES)
-        )
+        return not content.startswith(_STUB_PREFIX)
 
     compressible_user_indices = [
         i for i in range(N_PROTECTED, len(messages))
