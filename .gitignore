@@ -111,3 +111,4 @@ ICLR_experiments/reeval_evidence/.*.lock
 *.png
 *.pdf
 ICLR_experiments/plotting/plots/
+task_lists/p30_stratified_vs_p100.csv
