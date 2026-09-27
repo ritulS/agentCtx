@@ -12,6 +12,8 @@ set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
+reasoning_parser_args qwen3
 
 PORT="${QWEN9B_VLLM_PORT:-8001}"
 MODEL="${QWEN9B_MODEL:-Qwen/Qwen3.5-9B}"
@@ -50,6 +52,7 @@ fi
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     --model "$MODEL" \
+    "${REASONING_ARGS[@]}" \
     --served-model-name "$SERVED_NAME" \
     --port "$PORT" \
     --dtype auto \

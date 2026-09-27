@@ -3,6 +3,8 @@
 # 24B dense Mistral 3 architecture (full attention, sliding_window=null).
 # TP=4 on GPUs 4-7 by default. Port 8002 (separate from Qwen / GLM).
 #
+# NOTE: no --reasoning-parser: Devstral does not emit thinking (its chat
+# template has no think tags), see scripts/lib/vllm_reasoning.sh.
 # NOTE: NOT using --tool-call-parser since mini-swe-agent talks to vLLM via
 # litellm_textbased (raw completions), not OpenAI function-calling. Adding
 # the parser flag changes generation behavior even in textbased mode.

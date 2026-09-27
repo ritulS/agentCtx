@@ -11,6 +11,7 @@
 # added argument. Every other serving argument is pinned to the production
 # value on purpose: no env overrides, and no --gpu-memory-utilization or
 # --served-model-name (production left both at the vLLM default). Use
+# REASONING_PARSER=none to reproduce the iclr26 serving (no reasoning parser).
 # scripts/serving/start_vllm_qwen35_swe_summarizer_ablation.sh instead when sharing the GPUs with a summarizer.
 #
 # Usage:  bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
@@ -22,6 +23,8 @@ set -euo pipefail
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
+reasoning_parser_args qwen3
 
 PORT=8000
 PYTHON_BIN="$WS/venv/bin/python3"
@@ -50,6 +53,7 @@ LOG_FILE="$(server_log vllm_qwen35_a3b)"
 CUDA_VISIBLE_DEVICES=0,1,2,3 \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     --model Qwen/Qwen3.5-35B-A3B \
+    "${REASONING_ARGS[@]}" \
     --host 127.0.0.1 \
     --port "$PORT" \
     --dtype auto \

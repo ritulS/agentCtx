@@ -95,3 +95,46 @@ timeout / step-limit outcome classes. `tests/test_runner_equivalence.py`
 compares against the pre-reorganization reference tree, which still has the
 old limits, so the SWE scenarios now differ by design on `step_limit` /
 `agent.step_limit=` (on top of the earlier `MSWEA_EVENT_LOG_DIR` difference).
+
+## 2026-09-26 — vLLM reasoning parser on by default (Qwen3.5, GLM-4.7-Flash)
+
+`scripts/lib/vllm_reasoning.sh` adds `reasoning_parser_args <default>`; the
+serving scripts now pass `--reasoning-parser qwen3` (Qwen3.5-35B-A3B and 9B:
+`start_vllm_qwen35_{prefix_cache,no_prefix_cache,no_prefix_cache_gpu4-7,
+prefix_cache_ablation,swe_summarizer_ablation}.sh`, `start_vllm_qwen35_9b.sh`,
+`start_vllm_summarizer.sh qwen35-9b`) or `--reasoning-parser glm47`
+(`start_vllm_glm47flash.sh`). `REASONING_PARSER=none` reproduces the iclr26
+serving; `REASONING_PARSER=<name>` picks another parser. Devstral (no thinking
+in its template) and Gemma-4 (thinking off) are unchanged.
+
+Why: the summarizer preamble fixed above was a symptom of the server
+returning the whole "<think> ... </think>" span in `message.content`. With the
+parser, vLLM moves the reasoning to `message.reasoning_content`; litellm and
+mini-swe-agent keep that field on the stored message, and the Qwen3.5 / GLM
+chat templates read `reasoning_content` back the same way they read inline
+think tags (dropped for turns before the last user message), so the prompt
+the model sees is unchanged.
+
+What changes in the runs, and must be kept in mind when reading r2 numbers:
+
+- `count_tokens()` counts `content` only, so the budget trigger no longer
+  counts thinking. Compression fires later at the same nominal budget;
+  `BUDGET_CALIBRATION.md` was done with thinking included.
+- The summarizer's input (`history_text`) no longer contains the agent's
+  thinking.
+- Action parsing (`_parse_actions` on `content`) no longer sees code blocks
+  written inside thinking, so FormatError rates may drop for that reason
+  alone.
+- A reply truncated inside its thinking arrives as empty `content`
+  (`reasoning_content` holds the partial thinking) instead of thinking-only
+  content; both are a FormatError with 0 actions.
+- `trajectory.json` assistant messages gain a `reasoning_content` field, so
+  the thinking is still on disk for analysis.
+
+Verification so far: stub dry runs of the scripts show the argument on the
+command line for the defaults, for `REASONING_PARSER=none`, and for both
+summarizer presets. Not yet verified against a live server: that vLLM 0.17.1
+accepts `reasoning_content` on assistant messages sent back by
+mini-swe-agent, and that `summary_format.had_think_preamble` drops to ~0.
+Do this on the first r2 smoke run before launching a cohort.
+
