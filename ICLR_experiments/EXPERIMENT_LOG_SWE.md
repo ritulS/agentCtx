@@ -391,6 +391,26 @@ echo $! > logs/followup_agent_models_qwen_launcher.pid
   SS 45.3 → 54.7, SU-p 60.0 → 61.3); all 10K/20K and D=0.3/0.7 cells were
   re-evaluated on 09-24 with no change.
 
+## Adapter fix — no-patch runs now persisted as `resolved=False` (2026-09-26)
+- Before: `evaluate_results()` (`src/agentctx/benchmarks/swe_bench.py`) set
+  `resolved=False` on runs without a patch only *after* its last `save()`, so
+  on the plain evaluation path (no explicit `--tasks-file`) the value stayed
+  `null` on disk. Reported in `Active_runs.md` (2026-05, "no save_results
+  after no_patch loop"); the canonical SWE outcomes table has 2,476 such rows
+  (of 8,168 no-patch rows). Aggregation and figures already treat a missing
+  verdict as unresolved (`failure_mode` comes from `patch_generated`), so no
+  number changes.
+- After: the adapter saves once more if it changed any no-patch row. Nothing
+  is rewritten until a cell's evaluation pass runs again (`--eval-only`,
+  resume); from then on that cell's `null` rows become `False`, which changes
+  the index file's SHA256. A hash difference on an index with no other
+  change is expected after this date. A one-shot backfill of the remaining
+  `null` rows has not been run.
+- Tests: `tests/test_runner_equivalence.py` asserts the new value;
+  `tests/harness.py` normalizes the reference branch's `null` to `False`
+  for the equivalence diff (listed under "Intentional differences" in
+  `tests/README.md`).
+
 ## Data audits 2026-09-08 → 09-24 — findings and how each was closed
 Read-only audits of the canonical indexes, formerly one directory each under
 `ICLR_experiments/issue/<name>/` (README + scripts + candidate CSVs). The
