@@ -386,7 +386,7 @@ Metrics follow q1_frontier.py and token_cost_ledger.py
   * resolve-rate intervals: task bootstrap of per-task success means.
 
 Inputs: analysis/outcomes/swebench_outcomes.csv and
-analysis/outcomes/terminalbench_outcomes_0924.csv (schema of
+analysis/outcomes/terminalbench_outcomes.csv (schema of
 analysis/aggregate_benchmark_results.py), plus the raw
 experiment_results.json named in their source_file column for the online
 TRC clear flags, and the pinned task lists in task_lists/.
@@ -885,7 +885,7 @@ def knob_overview_main(argv=None):
     parser.add_argument("--model", default="qwen35b", choices=list(MODEL_NAMES))
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--tb-outcomes", type=Path,
-                        default=ROOT / "analysis/outcomes/terminalbench_outcomes_0924.csv")
+                        default=ROOT / "analysis/outcomes/terminalbench_outcomes.csv")
     parser.add_argument("--settings", nargs="+", default=[f"{d}:{l}" for d in DEPTHS for l in LEVELS],
                         help="depth:level pairs, depth = fraction removed")
     parser.add_argument("--primary-cohort", choices=["ablation", "full"], default="ablation",
@@ -1853,7 +1853,7 @@ FIGURES = [          # all written flat into --output-dir, PNG plus their input 
 # their Devstral, GLM and Terminal-Bench rows are reused; the Qwen SWE-bench
 # rows are recomputed.
 SWE_OUTCOMES = ROOT / "analysis/outcomes/swebench_outcomes.csv"
-TB_OUTCOMES = ROOT / "analysis/outcomes/terminalbench_outcomes_0924.csv"
+TB_OUTCOMES = ROOT / "analysis/outcomes/terminalbench_outcomes.csv"
 Q3_DATA_DIR = ROOT / "ICLR_experiments/plotting"
 # q1_frontier.py iterates policies in this order with one bootstrap stream.
 Q1_ORDER = ["FC", "OTRC", "TR", "SU", "SU-p", "SS", "SS-p", "TRC", "TRC+SU", "TRC+SS",
