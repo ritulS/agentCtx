@@ -1,4 +1,4 @@
-# Budget calibration — Terminal-Bench 1.0 (per-model A/P/B budgets)
+# Budget calibration (per-model A/P/B budgets, SWE-Bench and Terminal-Bench)
 
 > **Note: this file is a historical log.** Commands, script paths, and code
 > locations are recorded exactly as they were when each entry was written and
@@ -9,21 +9,161 @@
 > `CLAUDE.md`; for the code as it was at a given entry, check out the commit
 > hash recorded there.
 
-Created: 2026-09-09 / Scope: Terminal-Bench 1.0 P-80, agent model expansion (Qwen, Devstral, GLM)
-Related: [EXPERIMENT_LOG_TB.md](EXPERIMENT_LOG_TB.md#fc-calibration), [EXPERIMENT_TIMELINE_DETAIL.md](EXPERIMENT_TIMELINE_DETAIL.md), [FOLLOWUP_EXPERIMENTS.md §3](../ICLR_experiments/FOLLOWUP_EXPERIMENTS.md#exp-tb), SWE version: `budget_calibration_swe.md`
-Procedures: [GLM_TB_NATIVE_CALIBRATION.md](../scripts/GLM_TB_NATIVE_CALIBRATION.md), [DEVSTRAL_TB_NATIVE_CALIBRATION.md](../scripts/DEVSTRAL_TB_NATIVE_CALIBRATION.md)
+Created: 2026-09-09 as `budget_calibration_swe.md` and `budget_calibration_tb.md`;
+merged into this file on 2026-09-26 (Part A = SWE-Bench, Part B = Terminal-Bench,
+content unchanged apart from heading levels and doc links).
+Related: [EXPERIMENT_LOG_SWE.md](EXPERIMENT_LOG_SWE.md#budget-calibration-protocol),
+[EXPERIMENT_TIMELINE_DETAIL_SWE.md](EXPERIMENT_TIMELINE_DETAIL_SWE.md),
+[EXPERIMENT_LOG_TB.md](EXPERIMENT_LOG_TB.md#fc-calibration),
+[EXPERIMENT_TIMELINE_DETAIL.md](EXPERIMENT_TIMELINE_DETAIL.md),
+[FOLLOWUP_EXPERIMENTS.md](FOLLOWUP_EXPERIMENTS.md).
+TB procedures: [GLM_TB_NATIVE_CALIBRATION.md](../scripts/calibration/GLM_TB_NATIVE_CALIBRATION.md),
+[DEVSTRAL_TB_NATIVE_CALIBRATION.md](../scripts/calibration/DEVSTRAL_TB_NATIVE_CALIBRATION.md).
 
-## 1. Purpose
+## Rule shared by both benchmarks
 
-- As on SWE-Bench, each model grows context differently, so the A/P/B (tight / primary / loose) budgets are derived per model for TB as well.
+- Budgets are per model, not shared token counts: each model grows context
+  differently, so tight / primary / loose (A/P/B) are re-derived per model.
+- Calibration data: FC (no compression, budget = ∞) × cohort × run_1, one
+  trajectory per task; each contributes `peak = max(step_prompt_tokens)`.
+- A/P/B = **P5 / P15 / P25 of the FC peak distribution, rounded to 1K**
+  (Qwen SWE-Bench keeps its pre-existing 10K/15K/20K, which is what the
+  percentile rule was fitted to).
+- Trigger rate = fraction of trajectories with `peak > budget`.
+
+### Adopted budgets
+
+| Benchmark | Phase | Qwen3.5-35B-A3B | Devstral-Small-2-24B | GLM-4.7-Flash |
+|---|---|---|---|---|
+| SWE-Bench | Main (P100) | 15K | 21K | 13K |
+| SWE-Bench | Ablation (ABL-25) | 10K / 15K / 20K | 17K / 21K / 24K | 10K / 13K / 15K |
+| Terminal-Bench | Main (P-40) | 3K | 4K | 3K |
+| Terminal-Bench | Ablation (P-15) | 2K / 3K / 4K | 3K / 4K / 7K | 2K / 3K / 5K |
+| both | Baseline (FC, OTRC) | ∞ | ∞ | ∞ |
+
+Derivations: [Part A §4](#swe-4) (SWE-Bench), [Part B §4](#tb-4) (Terminal-Bench).
+
+---
+
+<a id="part-a"></a>
+## Part A — SWE-Bench (P100, agent model expansion: Devstral, GLM)
+
+### 1. Purpose
+
+- The Qwen3.5-35B-A3B budgets 10K/15K/20K are tuned to that model's context growth.
+- Other models (Devstral-24B, GLM-4.7-Flash) grow context differently, so A/P/B (tight / primary / loose) is re-derived per model instead of reusing the same numbers.
+- What is matched is not the token count but the fraction of trajectories in which compression fires (trigger rate).
+- Calibration data: FC (no compression, budget=∞) × P100 × run_1 = 100 trajectories per model. Each trajectory contributes `max(step_prompt_tokens)` (peak).
+
+### 2. Runtime settings
+
+#### vLLM server
+
+| Model | HF model ID | port | TP | dtype | `--max-model-len` | `--max-num-seqs` |
+|---|---|---:|---:|---|---:|---:|
+| Qwen3.5-35B-A3B | `Qwen/Qwen3.5-35B-A3B` | 8000 | 4 | auto | 102,400 | 64 |
+| Devstral-Small-2-24B | `mistralai/Devstral-Small-2-24B-Instruct-2512` | 8002 | 4 | auto | ~~65,536~~ | 64 |
+| GLM-4.7-Flash | `zai-org/GLM-4.7-Flash` | 8003 | 4 | auto | ~~65,536~~ | 64 |
+
+- GPUs: `CUDA_VISIBLE_DEVICES=0,1,2,3` (Dobby).
+- Launch scripts: [start_vllm_devstral.sh](../scripts/serving/start_vllm_devstral.sh), [start_vllm_glm47flash.sh](../scripts/serving/start_vllm_glm47flash.sh). Qwen is launched manually (recorded in `logs/vllm_qwen35_a3b.log`).
+- `--max-num-seqs` is the server-side concurrency cap, separate from the experiment worker count (16).
+
+#### Agent (mini-swe-agent)
+
+Shared by all three models ([configs/config-*-vllm.yaml](../configs/)):
+
+| Setting | Value |
+|---|---|
+| `step_limit` | 125 LLM calls / run |
+| `max_tokens` (per-generation cap) | 4,096 |
+| `temperature` | 0.2 |
+| `model_class` | `litellm_textbased` |
+| `mode` | yolo |
+| `cost_limit` | 0 (disabled) |
+
+#### FC collection run
+
+| Setting | Value |
+|---|---|
+| condition | `full-context` |
+| budget | 999,999,999 (= ∞; compression never fires) |
+| depth | 0.5 (unused under FC) |
+| tasks | P100 (django 34 / scikit-learn 32 / sympy 34) |
+| runs/task | 1 (only run_1 is used for calibration) |
+| workers | 16 |
+| eval | yes (`--with-eval`; FC run_1 is reused as-is in experiments 2.a / 2.b) |
+| launcher | `scripts/run_budget_calibration_sb.sh {devstral,glm}` → `run_experiment_iclr.py` |
+
+| Model | Start (CDT) | End (CDT) | code |
+|---|---|---|---|
+| Devstral | 2026-08-28 12:15 | 2026-08-28 14:06 | `0d42a9b` |
+| GLM | 2026-08-28 15:38 | 2026-08-28 17:47 | `0d42a9b` |
+
+### 3. FC peak distribution (P100 × run_1, n=100 per model)
+
+Unit: tokens. Distribution of `max(step_prompt_tokens)`.
+
+| Model | min | P5 | P10 | P15 | P25 | P50 | P75 | P90 | max | mean |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Qwen3.5-35B-A3B | – | – | – | – | – | – | – | – | – | – |
+| ~~Devstral-Small-2-24B~~ | ~~13,951~~ | ~~16,574~~ | ~~18,926~~ | ~~20,628~~ | ~~23,525~~ | ~~30,022~~ | ~~38,400~~ | ~~46,193~~ | ~~59,345~~ | ~~31,744~~ |
+| ~~GLM-4.7-Flash~~ | ~~7,724~~ | ~~9,884~~ | ~~10,993~~ | ~~12,518~~ | ~~14,832~~ | ~~22,564~~ | ~~35,424~~ | ~~48,763~~ | ~~61,422~~ | ~~26,867~~ |
+
+Trigger rate at candidate budgets (%, fraction with `peak > budget`):
+
+| Budget | Qwen | Devstral | GLM |
+|---:|---:|---:|---:|
+| 8K | – | ~~100~~ | ~~98~~ |
+| 10K | – | ~~100~~ | ~~94~~ |
+| 12K | – | ~~100~~ | ~~86~~ |
+| 15K | – | ~~98~~ | ~~74~~ |
+| 20K | – | ~~87~~ | ~~60~~ |
+| 25K | – | ~~72~~ | ~~46~~ |
+| 30K | – | ~~50~~ | ~~32~~ |
+
+- Trend: Devstral grows context the most. GLM has a smaller median but a longer tail.
+- Source: `ICLR_experiments/swebench/main/<model>/di__binf__fc/{calibration_report.txt, fc_context_distribution.json}`
+
+<a id="swe-4"></a>
+### 4. Computed vs adopted budgets
+
+Reference trigger rates (Qwen tight / primary / loose): **97% / 88% / 76%**. The computed value is the 1K-step budget closest to each reference rate.
+
+| Model | Computed (trigger-rate match) | Trigger rate of computed | **Adopted (A/P/B)** | Adoption rule |
+|---|---|---|---|---|
+| Qwen3.5-35B-A3B | – | – | **10K / 15K / 20K** | Existing values kept |
+| Devstral-24B | 16K / 19K / 23K | 96 / 90 / 77 | **17K / 21K / 24K** | P5 / P15 / P25, rounded to 1K |
+| GLM-4.7-Flash | 9K / 11K / 15K | 96 / 90 / 74 | **10K / 13K / 15K** | P5 / P15 / P25, rounded to 1K |
+
+- The final adoption uses the **P5/P15/P25 rule**, not the trigger-rate match (matches the rounded percentiles in §3).
+- Matches the launcher defaults: [run_agent_models_expansion.sh:57-73](../scripts/expansions/run_agent_models_expansion.sh#L57-L73).
+- Cell names: Devstral `b17k/b21k/b24k`, GLM `bA/bP/bB` (=10K/13K/15K), Qwen `b10k/b15k/b20k`.
+
+#### Where the adopted budgets are used
+
+| Phase | Qwen | Devstral | GLM |
+|---|---|---|---|
+| Main (P100) | 15K | 21K | 13K |
+| Ablation (ABL-30) | 10K / 15K / 20K | 17K / 21K / 24K | 10K / 13K / 15K |
+| Baseline (FC, OTRC) | ∞ | ∞ | ∞ |
+
+---
+
+<a id="part-b"></a>
+## Part B — Terminal-Bench 1.0 (P-80, agent model expansion: Qwen, Devstral, GLM)
+
+### 1. Purpose
+
+- As on SWE-Bench (Part A), each model grows context differently, so the A/P/B (tight / primary / loose) budgets are derived per model for TB as well.
 - TB trajectories have fewer steps than SWE (median around 20 calls) and smaller peak token counts, so budgets are cut in the **few-K range** rather than the 10K–20K range used for SWE.
-- Budgets are not fixed token counts; they are cut at **P5 / P15 / P25 of each model's FC peak distribution** (same rule as the SWE version).
+- Budgets are not fixed token counts; they are cut at **P5 / P15 / P25 of each model's FC peak distribution** (same rule as SWE-Bench, Part A).
 - Calibration data: FC (no compression, budget=∞) × P-80 × run_1 = up to 80 trajectories per model. Each trajectory contributes `max(step_prompt_tokens)` (peak).
 - **For Devstral and GLM, the calibration data is the re-collection (2026-09-09) with vLLM's `--max-model-len` set to the model's native context length.** The FC run_1 collected on 8/30–31 at 65,536 is kept in §3.2 for comparison only. Qwen was not re-collected; its 8/29–31 data at the 102,400 setting is used as-is.
 
-## 2. Runtime settings
+### 2. Runtime settings
 
-### vLLM server (during calibration collection)
+#### vLLM server (during calibration collection)
 
 | Model | HF model ID | port | TP | dtype / KV | quant | `--max-model-len` | effective `max_seq_len` | `--max-num-seqs` | GPU | vLLM |
 |---|---|---:|---:|---|---|---|---:|---:|---|---|
@@ -32,13 +172,13 @@ Procedures: [GLM_TB_NATIVE_CALIBRATION.md](../scripts/GLM_TB_NATIVE_CALIBRATION.
 | GLM-4.7-Flash | `zai-org/GLM-4.7-Flash` | 8003 | 4 | bf16 / auto | none | **native (omitted)** | **202,752** | 64 | 0–3 (script default) | 0.28.0 |
 
 - Host: Albus (8× RTX A6000 48GB). The Devstral and GLM native collections ran concurrently on the same host (GPUs split 4–7 / 0–3).
-- Launch: `DEVSTRAL_MAX_MODEL_LEN=native DEVSTRAL_CUDA_VISIBLE_DEVICES=4,5,6,7 DEVSTRAL_MAX_NUM_SEQS=4 bash scripts/start_vllm_devstral.sh` and `GLM_MAX_MODEL_LEN=native bash scripts/start_vllm_glm47flash.sh` ([start_vllm_devstral.sh](../scripts/start_vllm_devstral.sh), [start_vllm_glm47flash.sh](../scripts/start_vllm_glm47flash.sh)). `native` omits `--max-model-len` entirely.
+- Launch: `DEVSTRAL_MAX_MODEL_LEN=native DEVSTRAL_CUDA_VISIBLE_DEVICES=4,5,6,7 DEVSTRAL_MAX_NUM_SEQS=4 bash scripts/start_vllm_devstral.sh` and `GLM_MAX_MODEL_LEN=native bash scripts/start_vllm_glm47flash.sh` ([start_vllm_devstral.sh](../scripts/serving/start_vllm_devstral.sh), [start_vllm_glm47flash.sh](../scripts/serving/start_vllm_glm47flash.sh)). `native` omits `--max-model-len` entirely.
 - Devstral's effective length 393,216 comes from `max_position_embeddings` in the HF `config.json` (YaRN: 8192 × 48), not the 262,144 in Mistral's `params.json`. Verified via `vllm_models.json`.
 - Qwen's native context is 262,144, but the TB collection stayed at 102,400 (server setting as of 8/29, `logs/vllm_qwen35.log`).
 - All servers use `--enable-prefix-caching`. Devstral uses `--max-num-seqs 4` because of KV capacity (393K tokens × 2.34 concurrent is the ceiling).
 - `--max-num-seqs` is the server-side concurrency cap, separate from Harbor's `--n-concurrent`.
 
-### Agent (mini-swe-agent 2.2.6 + Harbor 0.20.0)
+#### Agent (mini-swe-agent 2.2.6 + Harbor 0.20.0)
 
 Shared by all three models ([configs/config-*-vllm.yaml](../configs/) merged onto [configs/config-tbench.yaml](../configs/config-tbench.yaml)):
 
@@ -55,7 +195,7 @@ Shared by all three models ([configs/config-*-vllm.yaml](../configs/) merged ont
 | Task timeout | `agent.timeout_sec` from task.toml (e.g. 900 s) × multiplier 1.0 |
 | Environment | rootless Podman, prebuilt images (80/80) |
 
-### FC collection run
+#### FC collection run
 
 | Setting | Value |
 |---|---|
@@ -78,15 +218,15 @@ Shared by all three models ([configs/config-*-vllm.yaml](../configs/) merged ont
 - Each native collection directory contains `results/experiment_results.json`, `results/<task>/full-context/run_1/`, `results/CALIBRATION_MANIFEST.json` (80/80 complete), `harbor_jobs/`, `metrics/*/prefix_cache.jsonl`, and, for Devstral only, `vllm_startup.log` and `vllm_models.json`.
 - The 65K-setting Devstral / GLM FC run_1 (comparison only) lives in the same `p80_rootless` / `p80_subuid_required` cells as Qwen (8/30 03:44–04:33 and 23:05–23:54 / 8/30 11:52–12:50 and 8/31 00:25–01:33 CDT).
 
-## 3. FC peak distribution
+### 3. FC peak distribution
 
-### 3.0 Aggregation rules
+#### 3.0 Aggregation rules
 
 - peak = `max(step_prompt_tokens)` per trajectory, not the sum of input tokens.
 - **Trajectories without a token log are excluded** (mixing them in as peak=0 collapses P5/P10). Reasons for exclusion are in §5. Valid n: Qwen 73, Devstral native 73, GLM native 74.
 - Percentiles use numpy's default (linear interpolation). Trigger rate is the fraction with `peak > budget`.
 
-### 3.1 Native collection (adopted data, collected 2026-09-09)
+#### 3.1 Native collection (adopted data, collected 2026-09-09)
 
 Unit: tokens.
 
@@ -112,7 +252,7 @@ Trigger rate at candidate budgets (%, fraction with `peak > budget`):
 | 12K | | 50.7 | 40.5 |
 | 15K | | 43.8 | 27.0 |
 
-### 3.2 Reference: 65K-setting FC run_1 (8/30–31, old calibration data)
+#### 3.2 Reference: 65K-setting FC run_1 (8/30–31, old calibration data)
 
 - In this collection, vLLM's `--max-model-len` was mistakenly set to **65,536** instead of the model's native context length (Devstral native 393,216, GLM native 202,752). The peak tail was therefore censored server-side, so this data is not used for calibration. It was replaced by the native re-collection in §3.1.
 
@@ -137,9 +277,10 @@ Trigger rate at candidate budgets (%, fraction with `peak > budget`):
 
 </details>
 
-## 4. Computed vs adopted budgets
+<a id="tb-4"></a>
+### 4. Computed vs adopted budgets
 
-The derivation rule is the same **P5 / P15 / P25 rule** as the SWE version (P5 / P15 / P25 of the FC peak distribution in §3.1, rounded to 1K).
+The derivation rule is the same **P5 / P15 / P25 rule** as SWE-Bench (P5 / P15 / P25 of the FC peak distribution in §3.1, rounded to 1K).
 
 | Model | Computed from native collection, P5 / P15 / P25 (rounded to 1K) | **Adopted (A/P/B) (used for Main / ablation)** | Percentile the adopted values land on in the native distribution | Notes |
 |---|---|---|---|---|
@@ -149,10 +290,10 @@ The derivation rule is the same **P5 / P15 / P25 rule** as the SWE version (P5 /
 
 - "Percentile landed on" is the fraction of trajectories with `peak ≤ budget` in the native distribution (Devstral 3K: 6/73, 4K: 12/73, 7K: 22/73; GLM 2K: 5/74, 3K: 13/74, 5K: 21/74).
 - The adopted values are the ones used for Main (P-40) and ablation (P-15). Devstral / GLM A/B differ from the native-computed values by 1K, but they still land at P7–P8 / P15–P18 / P28–P30 in the native distribution, so the intended tight / primary / loose positioning holds. **Primary (P) matches the native-computed value for all three models.**
-- Launcher defaults: [run_agent_models_expansion_tb.sh:18-26](../scripts/run_agent_models_expansion_tb.sh#L18-L26). Plan: [FOLLOWUP_EXPERIMENTS.md §3](../ICLR_experiments/FOLLOWUP_EXPERIMENTS.md#exp-tb).
+- Launcher defaults: [run_agent_models_expansion_tb.sh:18-26](../scripts/expansions/run_agent_models_expansion_tb.sh#L18-L26). Plan: [FOLLOWUP_EXPERIMENTS.md §3](FOLLOWUP_EXPERIMENTS.md#exp-tb).
 - Cell names: Qwen `b2k/b3k/b4k`, Devstral `b3k/b4k/b7k`, GLM `b2k/b3k/b5k`.
 
-### Where the adopted budgets are used
+#### Where the adopted budgets are used
 
 | Phase | Qwen | Devstral | GLM |
 |---|---|---|---|
@@ -160,12 +301,12 @@ The derivation rule is the same **P5 / P15 / P25 rule** as the SWE version (P5 /
 | Ablation (P-15) | 2K / 3K / 4K | 3K / 4K / 7K | 2K / 3K / 5K |
 | Baseline (FC, OTRC) | ∞ | ∞ | ∞ |
 
-## 5. Missing data and censoring
+### 5. Missing data and censoring
 
 <details>
 <summary>Details on missing token logs, exit statuses, and prefix cache</summary>
 
-### Trajectories without a token log (excluded from the distribution)
+#### Trajectories without a token log (excluded from the distribution)
 
 | Task | Qwen | Devstral native | GLM native | Cause |
 |---|---|---|---|---|
@@ -175,7 +316,7 @@ The derivation rule is the same **P5 / P15 / P25 rule** as the SWE version (P5 /
 
 - The 6 tasks above fail on the environment side, so they fail consistently in calibration. They are in neither `tbench_p40.json` nor `tbench_abl15.json`, so Main / ablation are unaffected.
 
-### Exit status (valid trajectories)
+#### Exit status (valid trajectories)
 
 | Model | Submitted | timeout (`CancelledError`) | `LimitsExceeded` (100 steps) | Other |
 |---|---:|---:|---:|---:|
@@ -187,7 +328,7 @@ The derivation rule is the same **P5 / P15 / P25 rule** as the SWE version (P5 /
 - Calibration peaks are censored by the step limit (100), the task timeout, and output clipping (10,000 chars). FC=∞ only means "no compression"; execution is not unbounded.
 - Under the native setting, `ContextWindowExceededError` / `BadRequestError` occurred 0 times for Devstral and GLM. The 65K collection had 1 for GLM.
 
-### Prefix cache (during native collection, server-wide counter deltas)
+#### Prefix cache (during native collection, server-wide counter deltas)
 
 | Model | Records | queries (tokens) | hits (tokens) | hit rate |
 |---|---:|---:|---:|---:|
@@ -198,7 +339,7 @@ The derivation rule is the same **P5 / P15 / P25 rule** as the SWE version (P5 /
 
 </details>
 
-## 6. Re-aggregation command
+### 6. Re-aggregation command
 
 <details>
 <summary>Snippet to recompute the numbers in §3.1 / §4</summary>
