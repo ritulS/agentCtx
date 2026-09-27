@@ -356,6 +356,68 @@ class SummaryPrimitiveTests(unittest.TestCase):
                 self.assertGreater(saved, 0)
                 self.assertEqual(pt, 100 * memory.SUMMARY_MAX_ATTEMPTS)
 
+    def test_outcome_record_after_fallback(self):
+        memory.pop_summary_outcome()  # clear
+        model = FakeModel(["<think>never finishes", "...</think>"])
+        memory.structured_summarize(history(), model, 400)
+        outcome = memory.pop_summary_outcome()
+        self.assertEqual(outcome["attempts"], memory.SUMMARY_MAX_ATTEMPTS)
+        self.assertFalse(outcome["accepted"])
+        self.assertEqual(outcome["rejections"], ["unterminated_reasoning", "empty_body"][:memory.SUMMARY_MAX_ATTEMPTS])
+        self.assertEqual(outcome["fallback"], "truncate")
+        self.assertIsNone(memory.pop_summary_outcome())  # popped once only
+
+    def test_outcome_record_after_retry_success(self):
+        memory.pop_summary_outcome()
+        memory.summarize_partial(
+            history(8),
+            FakeModel(["...</think>", f"{memory.SU_OPEN_MARKER}\nok\n{memory.SU_CLOSE_MARKER}"]),
+            900,
+        )
+        outcome = memory.pop_summary_outcome()
+        self.assertEqual(outcome["attempts"], 2)
+        self.assertTrue(outcome["accepted"])
+        self.assertEqual(outcome["rejections"], ["empty_body"])
+        self.assertIsNone(outcome["fallback"])
+        self.assertTrue(outcome["flags"]["had_open_marker"])
+
+    def test_no_outcome_without_summary_request(self):
+        memory.pop_summary_outcome()
+        memory.tool_result_clear(history(), 1, fallback_truncate=False)
+        self.assertIsNone(memory.pop_summary_outcome())
+
+    def test_token_log_dict_reports_summary_outcomes(self):
+        class Agent:  # the _mem_* accumulators token_log_dict reads
+            _mem_prompt_tokens = _mem_completion_tokens = 0
+            _mem_total_latency = 0.0
+            _mem_call_latencies = []
+            _mem_compression_events = 0
+            _mem_compression_event_steps = []
+            _mem_context_tokens_at_compression = []
+            _mem_context_tokens_after_compression = []
+            _mem_tokens_saved = 0
+            _mem_compression_ratios = []
+            _mem_step_prompt_tokens = []
+            _mem_step_completion_tokens = []
+            _mem_summarization_prompt_tokens = 0
+            _mem_summarization_latency_s = 0.0
+            _mem_trc_fallback_events = 0
+            _mem_online_trc_flags = []
+            _mem_online_trc_tokens_saved = 0
+            _mem_summary_outcomes = [
+                {"step": 12, "primitive": "structured_summarize", "attempts": 2,
+                 "accepted": False, "rejections": ["empty_body", "ambiguous_reasoning"],
+                 "fallback": "truncate"},
+                {"step": 30, "primitive": "structured_summarize", "attempts": 1,
+                 "accepted": True, "rejections": [], "fallback": None},
+            ]
+
+        data = memory.token_log_dict(Agent())
+        self.assertEqual(data["summary_fallback_events"], 1)
+        self.assertEqual(len(data["summary_outcomes"]), 2)
+        del Agent._mem_summary_outcomes  # agents predating the field
+        self.assertEqual(memory.token_log_dict(Agent())["summary_fallback_events"], 0)
+
     def test_max_attempts_override(self):
         model = FakeModel("...</think>")
         text, flags, *_ = memory.request_summary(

@@ -494,8 +494,10 @@ was `issue/` until 2026-09-26; older paths below use the old name):
   saved structured summaries carry the model's `</think>` preamble
   (`structured_summarize` forwards `response.content` unvalidated, and TRC's
   `content.startswith` summary guard therefore misses them); 33 runs show
-  the agent re-summarizing after a summary. No code change yet in
-  `src/agentctx/compression/primitives.py`.
+  the agent re-summarizing after a summary. Fixed on 09-26 for the next
+  campaign; see `experiments/r2/EXPERIMENT_LOG.md`. Every run in this tree
+  predates the fix, so the ICLR data is unchanged and stays affected as
+  described.
 - `qwen_fc_15min_1hour_20260910/` — why 98/165 FC∞ runs on the 55
   "15 min – 1 hour" tasks failed (45 agent timeouts, 26 wrong fixes, 10 step
   limits, 4 non-diff submissions, 13 evaluation problems, 2 provenance

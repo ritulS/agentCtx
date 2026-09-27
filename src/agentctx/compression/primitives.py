@@ -173,6 +173,14 @@ def query_summary(model, messages: list[dict]) -> dict:
 # whose reasoning boundary is undecidable is rejected. request_summary() re-queries up to SUMMARY_MAX_ATTEMPTS times
 # and returns None when every attempt is rejected; the primitives then fall
 # back to truncate() rather than replace the history with a non-summary.
+#
+# Each request_summary() call also leaves a per-thread outcome record
+# (attempts, per-attempt rejection reasons, accepted flags, and whether the
+# primitive fell back to truncate()). The agent pops it with
+# pop_summary_outcome() right after the primitive returns and stores it in the
+# compression event and the token log, so a truncation under a summarizing
+# condition can be traced to its cause. Thread-local because Harbor runs
+# several agents in one process; the record is consumed synchronously.
 
 SUMMARY_KIND       = "summary"
 SS_OPEN_MARKER     = "[CONTEXT SUMMARY]"
@@ -310,6 +318,32 @@ def clean_summary_text(raw: str, open_marker: str, close_marker: str) -> tuple[s
     return f"{open_marker}\n{body}\n{close_marker}", flags
 
 
+_SUMMARY_OUTCOME = threading.local()
+
+
+def _set_summary_outcome(outcome: dict) -> None:
+    _SUMMARY_OUTCOME.last = outcome
+
+
+def _mark_summary_fallback(kind: str = "truncate") -> None:
+    """Record on the current outcome that the primitive fell back to ``kind``."""
+    last = getattr(_SUMMARY_OUTCOME, "last", None)
+    if isinstance(last, dict):
+        last["fallback"] = kind
+
+
+def pop_summary_outcome() -> dict | None:
+    """Return and clear the outcome of the most recent request_summary() on
+    this thread, or None when no summary was requested since the last pop.
+
+    Keys: attempts, accepted, rejections (one reason per rejected attempt),
+    flags (of the accepted or last response), fallback ("truncate" | None).
+    """
+    last = getattr(_SUMMARY_OUTCOME, "last", None)
+    _SUMMARY_OUTCOME.last = None
+    return last
+
+
 def _response_usage(response: dict) -> tuple[int, int]:
     extra = response.get("extra", {}) if isinstance(response, dict) else {}
     resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
@@ -337,6 +371,7 @@ def request_summary(
     prompt_toks = completion_toks = 0
     latency_s   = 0.0
     text, flags = None, {}
+    rejections: list[str] = []
     for attempt in range(1, attempts + 1):
         _t0       = time.time()
         response  = query_summary(summary_model, summary_prompt)
@@ -348,6 +383,14 @@ def request_summary(
         flags["attempts"] = attempt
         if text is not None:
             break
+        rejections.append(flags.get("rejected") or "unknown")
+    _set_summary_outcome({
+        "attempts":   len(rejections) + (1 if text is not None else 0),
+        "accepted":   text is not None,
+        "rejections": rejections,
+        "flags":      dict(flags),
+        "fallback":   None,
+    })
     return text, flags, prompt_toks, completion_toks, latency_s
 
 
@@ -465,6 +508,7 @@ def summarize(
     # Explicit fallback: no attempt produced a usable summary, so enforce the
     # target by truncation instead of replacing the history with a non-summary.
     if summary_text is None:
+        _mark_summary_fallback("truncate")
         new_messages, _ = truncate(messages, target_tokens)
         tokens_after    = count_tokens(new_messages)
         return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
@@ -561,6 +605,7 @@ def structured_summarize(
 
     # Explicit fallback: no attempt produced a usable summary (see summarize()).
     if summary_text is None:
+        _mark_summary_fallback("truncate")
         new_messages, _ = truncate(messages, target_tokens)
         tokens_after    = count_tokens(new_messages)
         return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
@@ -979,6 +1024,12 @@ def token_log_dict(agent) -> dict:
         "summarization_prompt_tokens": agent._mem_summarization_prompt_tokens,
         "summarization_latency_s":     round(agent._mem_summarization_latency_s, 3),
         "summarization_model":         summary_model_info(),
+        # one entry per compression event that requested a summary:
+        # {"step", "primitive", "picked", "attempts", "accepted", "rejections", "fallback"}
+        "summary_outcomes":            getattr(agent, "_mem_summary_outcomes", []),
+        "summary_fallback_events":     sum(
+            1 for o in getattr(agent, "_mem_summary_outcomes", []) if o.get("fallback")
+        ),
         # ── TRC-specific ─────────────────────────────────────────────────────
         "trc_truncation_fallback_events": agent._mem_trc_fallback_events,
         # ── Online TRC ───────────────────────────────────────────────────────
