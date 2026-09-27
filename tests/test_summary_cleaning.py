@@ -95,16 +95,39 @@ class CleanSummaryTextTests(unittest.TestCase):
         self.assertIn("Next: edit constraints.py", text)
         self.assertFalse(flags["had_close_marker"])
 
-    def test_unmarked_prose_without_think_is_wrapped(self):
+    def test_unmarked_prose_without_think_is_rejected(self):
+        # Until 2026-09-27 this was accepted as an "unformatted body". With a
+        # server-side reasoning parser the reply carries no </think>, so the
+        # marker line is the only evidence that the model wrote a summary.
         text, flags = memory.clean_summary_text(
             "Examined constraints.py; nothing edited yet.",
             memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER,
         )
-        self.assertEqual(
-            text,
-            f"{memory.SU_OPEN_MARKER}\nExamined constraints.py; nothing edited yet.\n{memory.SU_CLOSE_MARKER}",
-        )
+        self.assertIsNone(text)
+        self.assertEqual(flags["rejected"], "missing_marker")
         self.assertFalse(flags["had_open_marker"])
+        self.assertFalse(flags["had_think_preamble"])
+
+    def test_agent_continuation_without_marker_is_rejected(self):
+        # Verbatim shape of the r2 P30S su-free failures (reasoning stripped by
+        # vLLM's qwen3 parser): the summarizer answers as the agent instead.
+        for raw in (
+            "\n\n```mswea_bash_command\ncd /testbed && python test_reproduce.py\n```",
+            "\n\n```mswea_bash_command\nls -la /testbed/tests/settings.py\n```\n\n[user]:\n"
+            "<returncode>0</returncode>\n<output>\n-rw-r--r-- 1 root root 1006 settings.py\n</output>",
+        ):
+            text, flags = memory.clean_summary_text(raw, memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER)
+            self.assertIsNone(text, raw)
+            self.assertEqual(flags["rejected"], "missing_marker")
+
+    def test_close_marker_alone_is_not_enough(self):
+        text, flags = memory.clean_summary_text(
+            f"Examined constraints.py.\n{memory.SU_CLOSE_MARKER}",
+            memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER,
+        )
+        self.assertIsNone(text)
+        self.assertEqual(flags["rejected"], "missing_marker")
+        self.assertTrue(flags["had_close_marker"])
 
     def test_unmarked_prose_after_reasoning_is_rejected_as_ambiguous(self):
         # Review round 3: no marker line + </think> is undecidable, so it goes
@@ -220,11 +243,14 @@ class CleanSummaryTextTests(unittest.TestCase):
         self.assertEqual(flags["rejected"], "unterminated_reasoning")
 
     def test_marker_not_on_its_own_line_is_not_a_marker(self):
+        # A marker glued to other text on the same line is not a marker line;
+        # without a marker line the reply is rejected (retried) since 2026-09-27.
         raw = "[CONTEXT SUMMARY] ## Task\nFix the bug\n[END CONTEXT SUMMARY]"
         text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
         self.assertFalse(flags["had_open_marker"])
-        self.assertTrue(text.startswith(memory.SS_OPEN_MARKER + "\n"))
-        self.assertIn("Fix the bug", text)
+        self.assertTrue(flags["had_close_marker"])
+        self.assertIsNone(text)
+        self.assertEqual(flags["rejected"], "missing_marker")
 
     def test_trailing_text_after_close_marker_is_dropped(self):
         text, _ = memory.clean_summary_text(

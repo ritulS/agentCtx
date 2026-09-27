@@ -174,9 +174,23 @@ def query_summary(model, messages: list[dict]) -> dict:
 # reasoning followed by an unformatted body, so it is rejected rather than
 # guessed at; rejection feeds the retry / fallback path below.
 #
+# A response with no marker line is rejected as well (since 2026-09-27). Until
+# then an unmarked response without "</think>" was accepted as an unformatted
+# body. That was safe while the vLLM servers ran without a reasoning parser:
+# Qwen's reasoning arrived inline, so a reply that ignored the instructions
+# carried "</think>" and fell under the ambiguous-reasoning rejection above.
+# With --reasoning-parser the reasoning is stripped server-side and such
+# replies reached the history unchecked. In the r2 P30S SU-free / SS-free
+# cells 76/245 and 83/252 summaries had no marker, and most of them were the
+# summarizer continuing the transcript as the agent (a bare
+# ```mswea_bash_command``` block, or "[user]: <returncode>..." tool output)
+# rather than a summary. Requiring the marker line restores the old behaviour
+# for those replies: retry, then truncate().
+#
 # Cleaning and validation are separate steps: a response whose summary body is
-# empty, whose reasoning never closed (an open <think> with no </think>), or
-# whose reasoning boundary is undecidable is rejected. request_summary() re-queries up to SUMMARY_MAX_ATTEMPTS times
+# empty, whose reasoning never closed (an open <think> with no </think>), whose
+# reasoning boundary is undecidable, or that has no marker line is rejected.
+# request_summary() re-queries up to SUMMARY_MAX_ATTEMPTS times
 # and returns None when every attempt is rejected; the primitives then fall
 # back to truncate() rather than replace the history with a non-summary.
 #
@@ -273,13 +287,14 @@ def clean_summary_text(raw: str, open_marker: str, close_marker: str) -> tuple[s
     3. The body is the text between the first marker line after the reasoning
        and the next closing-marker line (or the end of the response). Text
        outside the block, including indentation around the markers, is dropped.
-    4. A response with no marker line and no ``</think>`` is taken as an
-       unformatted body.
+    4. A response with no marker line is rejected ("missing_marker"); the
+       markers are the only signal that the model answered the summary
+       request rather than continued the conversation (see the module comment).
 
     Validation (separate from marking): rejected when the body is empty, when
-    a ``<think>`` block never closed, or when the response has ``</think>`` but
-    no marker line (undecidable). The accepted body is re-wrapped in the
-    canonical markers.
+    a ``<think>`` block never closed, when the response has ``</think>`` but
+    no marker line (undecidable), or when it has no marker line at all. The
+    accepted body is re-wrapped in the canonical markers.
 
     Returns (text, flags); text is None for a rejected response and
     flags["rejected"] then names the reason. flags also records what the raw
@@ -317,8 +332,9 @@ def clean_summary_text(raw: str, open_marker: str, close_marker: str) -> tuple[s
         else:
             body = text[body_start:]
     else:
-        body = text
         flags["had_close_marker"] = bool(_marker_spans(text, close_marker))
+        flags["rejected"] = "empty_body" if not text else "missing_marker"
+        return None, flags
 
     body = body.strip()
     if not body:
