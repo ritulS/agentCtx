@@ -29,7 +29,7 @@ from harness import REPO_ROOT, Tree, current_tree
 # The pre-reorganization tree this working tree must stay behaviourally
 # identical to. Older branches can be selected with --reference-branch;
 # scenarios that need a capability they predate are skipped for them.
-REFERENCE_BRANCHES = ("akiho-clean-20260921",)
+REFERENCE_BRANCHES = ("akiho-clean-20260921-preorg",)
 REMOTE = "origin"
 # Paths extracted from a reference commit when they exist there.
 REFERENCE_PATHS = ("scripts", "src", "summary_config.py", "memory.py")

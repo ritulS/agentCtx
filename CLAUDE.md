@@ -72,7 +72,7 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `scripts/README.md`.
 - `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py`,
   `scripts/run_experiment_iclr.py` and the calibration launchers from the
-  working tree and from the reference branch (`origin/akiho-clean-20260921`,
+  working tree and from the reference branch (`origin/akiho-clean-20260921-preorg`,
   the pre-reorganization tree) against deterministic fakes and diffs
   everything they write, plus unit tests for verdicts, the summarizer guard
   and the ablation launcher. `uvx --with pyyaml pytest`; see

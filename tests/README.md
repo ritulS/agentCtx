@@ -10,7 +10,7 @@
   (→ `src/agentctx/benchmarks/harbor_results.py`)
 
 behave exactly like the versions on the reference branch
-`origin/akiho-clean-20260921` (the tree just before the `src/agentctx`
+`origin/akiho-clean-20260921-preorg` (the tree just before the `src/agentctx`
 reorganization).
 
 ### Running
