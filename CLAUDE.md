@@ -86,10 +86,12 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   order). `scripts/maintenance/reconstruct_context.py <run_dir> [--step N]
   [--event K]` replays them and verifies against trajectory.json /
   token_log.json. Runs before 2026-09-23 only have the final trajectory.
-- `ICLR_analysis/` — ICLR figure and analysis code: `Iclr_plot_bank.py`
-  (Figures 2-5 and appendix companions, `plot_style.py`), `paper_figures.py`,
-  `REEVAL_NOTES.md`, `failure_analysis.md` and the task A-D notes; the
-  value tables under `plots/**/*.csv` are tracked, rendered figures are not.
+- `ICLR_analysis/` — ICLR figure code: `Iclr_plot_bank.py` is the single
+  file holding every renderer (shared style, Figure 1 schematic, Figures 2-5,
+  appendix companions, the former `paper_figures.py` and `appendix_*.py`
+  tools as `Iclr_plot_bank.py <tool>` sub-commands; `--help` documents each),
+  `REEVAL_NOTES.md`, and the audited Q3 exports `q3_combined_*.csv` that
+  Figure 5 reads. Rendered figures go to `ICLR_analysis/plots/` (untracked).
 - `ICLR_experiments/` — canonical ICLR run data and records: experiment grid
   and logs, `issue/` (data-problem audits with their scripts), `ICLR_reeval/`
   (re-evaluation manifests and verdicts) and `ICLR_analysis/` (failure
