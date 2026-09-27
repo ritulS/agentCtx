@@ -4,7 +4,7 @@
 #
 # The production Qwen runs (ICLR_experiments/swebench/{main,ablation}/qwen35b) were
 # served with prefix caching off (vLLM default for this hybrid model; see
-# ICLR.md "Qwen prefix caching was off"). This launcher repeats the 15K /
+# ICLR_experiments/SOURCE_OF_TRUTH.md "Qwen prefix caching was off"). This launcher repeats the 15K /
 # canonical-depth grid and the unlimited-budget baselines with caching on,
 # everything else unchanged:
 #   Agent      : Qwen3.5-35B-A3B, configs/config-qwen-vllm.yaml, :8000

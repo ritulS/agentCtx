@@ -7,6 +7,9 @@
 win over this file. When two sources disagree, say so rather than quietly
 picking one.
 
+Paths in this file are relative to the repository root (the file itself lives
+in `ICLR_experiments/`; it was `ICLR.md` at the root until 2026-09-26).
+
 ## Framing of record
 
 - `paper_sections_ICLR/Sec1_introduction.md` and `Sec2_CompDesignSpace.md`

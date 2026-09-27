@@ -3,8 +3,14 @@
 ## Directory Structure
 ```text
 ICLR_experiments/
-├── README.md
-├── ICLR_analysis/               # Experiment grid, analysis reports, and per-task notes
+├── README.md                    # this file: run-data layout and cell naming
+├── SOURCE_OF_TRUTH.md           # paper target, framing of record, source-of-truth table
+├── plotting/                    # plot_bank.py (all figure code), audited Q3 exports
+│   └── plots/                   # rendered PNGs + value CSVs (gitignored)
+├── issue/                       # OPEN data audits only (README + scripts + CSVs); closed ones are
+|                                #   summarized in EXPERIMENT_LOG_SWE.md "Data audits"
+├── reeval_evidence/             # verdict re-evaluation evidence (manifest, results, verdict_comparison)
+|                                #   → cause/fix/outcome: EXPERIMENT_LOG_SWE.md "Evaluation bug"
 |
 ├── swebench/
 │   ├── main/

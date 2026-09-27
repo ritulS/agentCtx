@@ -302,6 +302,188 @@ echo $! > logs/followup_agent_models_qwen_launcher.pid
 - Existing OTRC results are NOT re-run yet; any OTRC number quoted from
   pre-fix data must either exclude affected runs or be re-collected.
 
+## Evaluation bug — ungraded SWE-bench attempts stored as `resolved=False` (fixed 2026-09-11, verdicts corrected 09-11 and 09-24)
+- Symptom: attempts with `patch_generated=True` and a saved `submission` carried
+  `resolved=False` in `experiment_results.json` with no evaluation evidence
+  anywhere (no `<cell>/eval/<model_tag>.<key>.json`, no `report.json` under
+  `eval/logs/run_evaluation/`, not listed in any aggregate report). Found by
+  the 2026-09-10 audits (`ICLR_experiments/issue/{qwen_main,devstral_summary,devstral_rule_otrc}_20260910/`,
+  category `legacy_evaluation_reports_missing`; dirs removed 09-26, see
+  "Data audits" below); the same check on the ablation track on 09-24 found
+  155 more.
+- Not random: Qwen main hit 8 heavy-test-suite tasks only (django-13012,
+  scikit-learn-13328/-14496/-15100/-26323, sympy-15017/-19637/-24443), runs 1
+  and 2 only, in the 5 cells generated and graded 2026-03-30..04-09
+  (`di__binf__fc`, `d05__b15k__tr`, `di__b15k__trc`, `d05__b15k__ss`,
+  `d05__b15k__su-full`). Run 3 of the same tasks, graded Aug–Sep with the
+  fixed harness, has complete reports.
+- Cause (best-supported): the grading code of that period
+  (`scripts/run_experiment.py`, `f064da2` 2026-03-15 … `dfda60c` 2026-05-03;
+  later `scripts/bench_adapters/swe_bench.py`, now
+  `src/agentctx/benchmarks/swe_bench.py`) called `swebench.harness.run_evaluation`
+  with a 600 s `subprocess` timeout covering image pull/build *and* the tests,
+  no harness `--timeout`, no OpenMP/BLAS thread cap inside the container (128
+  host cores → small-data suites spin in thread synchronisation), and the
+  default cache level (instance image deleted after every run). When the
+  subprocess was killed nothing was written, the adapter returned `None`, and
+  a later eval-only/consolidation pass stored the missing verdict as `False`.
+  The exact writer cannot be reconstructed: the March launcher logs are gone
+  and the pre-merge source index
+  (`data/swebench/source_runs/qwen3.5-35B-A3B_15k_Fullrun/`) already has False.
+  A second mechanism (Devstral/GLM, `devstral_summary_20260910`): the adapter
+  reused the same `run_id`/model tag after saving a new prediction, so the
+  harness found an old `report.json`, skipped evaluation and returned the
+  stale verdict for a different patch (224 records).
+- Fix `34ac3cb` (2026-09-11, `scripts/bench_adapters/swe_bench.py` +
+  new `scripts/swebench_eval_wrapper.py`): harness `--timeout 1800` (lowered to
+  600 in `90a4899`), subprocess timeout = test timeout + 900 s,
+  `SWEBENCH_EVAL_THREADS=8` exported into the container via the wrapper,
+  `--cache_level instance`, and a missing report now returns `None` (retried)
+  instead of False; `unresolved_ids` and patch-apply failures in the instance
+  log are the only paths that return False. Verified with the 09-23 run:
+  every audited row that *had* a report reproduced exactly, and no row flipped
+  True→False.
+- Re-evaluation tooling `b244237` (`scripts/maintenance/reevaluate_swebench_candidates.py`
+  `plan` / `run` / `apply`, `scripts/maintenance/build_reevaluation_candidates.py`):
+  re-runs the official harness on the **saved submission patch** only (no agent,
+  no LLM), checks patch identity by SHA-256 (`manifest.json`: `patch_sha256`,
+  `generation_sha256`), writes only under `--output-dir`, and `apply --write`
+  backs up every touched `experiment_results.json` next to a `changes.json`
+  before rewriting `resolved` (each changed row gets a `reevaluation`
+  provenance block). Output-dir guard relaxed in `88fcc61` so `--output-dir`
+  may be `ICLR_experiments/reeval_evidence/<run>/` (committed evidence:
+  `manifest.json`, `results.json`, `verdict_comparison.csv`; `jobs/` and
+  `backups/` gitignored). The 09-21 reorganization (`e8dcedb`) re-protected
+  all of `ICLR_experiments`; on 09-26 `PROTECTED_ROOTS` was narrowed to
+  `ICLR_experiments/{swebench,terminalbench}`, `results`, `data` (uncommitted
+  with the `ICLR_reeval` → `reeval_evidence` rename).
+- Corrections applied (run details in the dated entries below):
+
+  | Date | Scope | Candidates | Result |
+  |---|---|---:|---|
+  | 09-11 | Devstral main | 269 | 174 True / 94 False / 1 unverified |
+  | 09-11 | Qwen main (first pass) | 150 | 84 True / 66 False |
+  | 09-11 | GLM main | 37 | 22 True / 14 False / 1 unverified |
+  | 09-24 | Qwen main (`review` rows of the 09-10 audit, incl. the 140 from 09-11) | 253 | 253 verified; vs the index after 09-11: **60 False→True, 0 True→False** |
+  | 09-24 | Qwen ABL-25 ablation (10K/20K, D=0.3/0.7 cells) | 155 | 155 verified, all stay False (0 flips) |
+
+  Qwen main flips by cell: `di__b15k__trc` 14, `d05__b15k__tr` 13,
+  `di__binf__fc` 12, `d05__b15k__ss` 8, `d05__b15k__su-full` 8,
+  `d05__b20k__ss-partial` 2, `d05__b15k__su-partial` 1,
+  `d05__b20k__su-partial` 1, `d05__b20k__su-full` 1; by run 24/29/7.
+- Downstream: `analysis/outcomes/swebench_outcomes.csv` rebuilt with
+  `analysis/aggregate_benchmark_results.py --benchmark swebench` after each
+  apply (09-24: 60 of 29,527 rows change, only `resolved` and the derived
+  `failure_mode`). Before the apply, `analysis/apply_reeval_outcomes.py`
+  (`eeca0b6`) produced a non-canonical copy of the table with the flips
+  applied (`ICLR_experiments/ICLR_analysis/outcome/swebench_outcomes_reeval.csv`,
+  gitignored) for the figure scripts; both are obsolete since the canonical
+  table carries the verdicts, and the script was removed on 09-26. Every
+  `plot_bank.py` tool, including `task-map-reeval` / `depth-trigger-reeval`,
+  reads `analysis/outcomes/swebench_outcomes.csv` by default.
+- Effect on paper numbers (Qwen SWE-bench only; tokens, latency, cost, TB,
+  Devstral, GLM unchanged). P100 attempt-level resolve: FC 49.0 → 53.0, TR
+  40.0 → 44.3, TRC 49.0 → 53.7, SU 39.3 → 42.0, SS 40.3 → 43.0, SU-p 48.7 → 49.0;
+  every other policy's Δ vs FC shifts by −4.0 pp. No policy is above FC any
+  more (best TRC +0.7 pp, CI [−4.0, +5.0]; TRC+SU +3.0 → −1.0). Task map
+  (≥2 of 3): FC 53 (was 46). ABL-25 knob table: only D=0.5/15K cells and the
+  FC header move (FC 53.3 → 65.3, TR 36.0 → 46.7, SU 42.7 → 53.3,
+  SS 45.3 → 54.7, SU-p 60.0 → 61.3); all 10K/20K and D=0.3/0.7 cells were
+  re-evaluated on 09-24 with no change.
+
+## Data audits 2026-09-08 → 09-24 — findings and how each was closed
+Read-only audits of the canonical indexes, formerly one directory each under
+`ICLR_experiments/issue/<name>/` (README + scripts + candidate CSVs). The
+closed ones were removed from the tree on 2026-09-26; their files are in git
+at `4baa6fb` (09-10 audits), `b6b9f75` (review-253 lists) and `8caf652`
+(ablation-155 list). Still open, kept under `issue/`:
+`resume_audit_20260908/`, `qwen_fc_15min_1hour_20260910/` (see the end).
+
+### `devstral_summary_20260910` — Devstral main SU/SU-p/SS/SS-p/TRC+SU/TRC+SS @21K (closed 09-11)
+- Question: after the summary-bug reruns of 09-09/10 (241/238/221/218/50/45
+  runs per cell), are the retained originals and the reruns consistent, and
+  do all runs need regenerating? Answer: no regeneration. 1,800 records, no
+  duplicate keys, index/token_log/trajectory agree, configs identical to the
+  archived originals (temperature 0.2, max_tokens 4096, step_limit 125,
+  budget 21000, D=0.5, mini_version 2.2.6), max concurrency 16 reconstructed
+  from timestamp−e2e, all `agent.log`s `no_summary_evidence`.
+- Bug found: **stale verdicts**. `scripts/bench_adapters/swe_bench.py` called
+  the harness with the same `run_id`/model tag after saving a new prediction;
+  `run_evaluation.py` saw the existing `report.json` and returned the old
+  verdict without comparing patches. 224 records had a `patch.diff` under
+  the old report that differs from the current submission (e.g.
+  `d05__b21k__su-full/django-11292 r1`: generated 09-09 15:37, report dated
+  08-31). Plus 14 container-409 errors and 3 harness timeouts, all
+  `scikit-learn-14710` (14 stored False, 3 null).
+- Closed: 241 candidates re-graded on 09-11 (part of the Devstral 269 pass,
+  see "Evaluation bug" and the 09-10/11 entry). Fix for the mechanism:
+  `34ac3cb` (isolated eval dir per re-evaluation, `None` instead of stale/False).
+
+### `devstral_rule_otrc_20260910` — Devstral main TR/TRC/OTRC family @21K + OTRC@∞ (closed 09-11)
+- Same checks for the 6 rule-based cells (1,800 records). All OTRC records
+  have `online_trc_clears > 0`, TR/TRC 0; configs differ only in
+  `system_template`. The TR cell's 08-31 launch had 244 `calls=0` failures
+  before the 02:34 resume; all were replaced, the 21 + 279 current records
+  don't overlap in time, so TR was not discarded. OTRC@∞ is the dedicated
+  09-03 rerun (300 unique keys in `logs/devstral24b_p100_otrc_rerun.log`).
+- Bug found: 11 more stale reports (4 OTRC+SU-p, 7 OTRC+SS-p, the 09-10
+  partial reruns), 16 container-409 and 1 timeout (15× sklearn-14710,
+  sympy-19637, sympy-18189).
+- Closed: 28 candidates, combined with the 241 above into the 269-row
+  Devstral pass of 09-11 (174 True / 94 False / 1 unverified:
+  `sympy-18189 otrc r3`).
+
+### `qwen_main_20260910` + `reeval_candidates_qwen35b_main_20260910` + `..._review253_20260923` — Qwen main, 35 cells / 7,893 records (closed 09-24)
+- Classification of every record by evidence: 667 fully verified (internal
+  report + patch + index agree), 4,573 verified only through old aggregate
+  reports (`report.json`/`patch.diff` missing), 2,359 `patch_generated=False`,
+  20 current-patch apply failures, and the problem groups below.
+- Bugs found: (a) 150 records with `evaluation_error_recorded_as_false`
+  (harness ERROR, mostly sklearn-14710: 56 rows), (b) 253 `review` rows: 46
+  prediction/submission mismatches without internal report, 140 listed in
+  old `error_ids`, 60 with no evaluation evidence at all, 7 verdict
+  mismatches between old aggregate reports and the index; (c) 1
+  result-sync case where the internal report says True but the index has
+  None (`d05__b15k__ss / django-17087 / run_2`).
+- Closed: (a) 09-11 pass, 150 rows → 84 True / 66 False. (b) 09-23 pass on
+  all 253 (the 140 already re-graded reproduced exactly) → 60 False→True,
+  applied 09-24. The 60 are the "Evaluation bug" cohort. (c) **not done**:
+  the outcomes table still has `resolved` empty for that run; it was never
+  in a candidate list. Needs a one-row sync on Dobby.
+
+### `reeval_candidates_glm47flash_main_20260910` — GLM main (closed 09-11)
+- 37 candidates (32 `stale_report_different_patch`, 5
+  `evaluation_error_recorded_as_false`), same two mechanisms as Devstral.
+  Re-graded 09-11 → 22 True / 14 False / 1 unverified
+  (`sympy-19637 truncation r3`).
+
+### `reeval_candidates_qwen35b_ablation155_20260924` — Qwen ABL-25 ablation (closed 09-24)
+- The 60-row check of the main track repeated on
+  `ICLR_experiments/swebench/ablation/qwen35b/`: 155 records with a saved
+  patch, `resolved=False` and no report (`d03__b20k__*`, `d05__b10k__*`,
+  `d05__b20k__*`, `d07__b20k__*`, `di__b10k__*`, `di__b20k__*`; dated
+  04-20..08-28). Re-graded 09-24, all 155 stay False; applied anyway so every
+  row now carries a `reevaluation` provenance block.
+
+### Still open (kept under `issue/`)
+- `resume_audit_20260908/` — audit of the 645 runs completed after the
+  09-07 Qwen resume. Done since: the 8 sklearn-14710 evaluation timeouts
+  were covered by the 09-11 Qwen pass; the 1500 s agent-timeout question
+  led to the FC∞ limit-failure reruns of 09-13/14. **Open**: 219/220
+  saved structured summaries carry the model's `</think>` preamble
+  (`structured_summarize` forwards `response.content` unvalidated, and TRC's
+  `content.startswith` summary guard therefore misses them); 33 runs show
+  the agent re-summarizing after a summary. No code change yet in
+  `src/agentctx/compression/primitives.py`.
+- `qwen_fc_15min_1hour_20260910/` — why 98/165 FC∞ runs on the 55
+  "15 min – 1 hour" tasks failed (45 agent timeouts, 26 wrong fixes, 10 step
+  limits, 4 non-diff submissions, 13 evaluation problems, 2 provenance
+  mismatches). Done since: 13 of the 15 flagged runs were in the 09-11/09-23
+  candidate lists (12 now True, `sympy-13798 r2` False). **Open**: the 2
+  provenance mismatches (`django-11734 r2`, `sympy-12419 r1`: index row from
+  the 03-30 timed-out run, `trajectory.json` from an 04-16 rerun that
+  submitted an unevaluated patch) were never reconciled.
+
 ## 2026-09-08 → 2026-09-26 — Backfilled entries (SWE-Bench on Dobby, Terminal-Bench cells from Albus)
 
 All times are CDT. "HEAD at launch" is reconstructed from the local git
@@ -578,7 +760,7 @@ python3 adaptive_context_management_analysis/build_rerun_outcomes.py
   ```bash
   nohup venv/bin/python scripts/maintenance/reevaluate_swebench_candidates.py run \
     --candidates ICLR_experiments/issue/reeval_candidates_qwen35b_review253_20260923/candidates.csv \
-    --output-dir ICLR_experiments/ICLR_reeval/qwen35b_main_review253_20260923 \
+    --output-dir ICLR_experiments/reeval_evidence/qwen35b_main_review253_20260923 \
     --model-tag qwen35-a3b --continue-on-error > logs/reeval_qwen35b_review253_20260923.log 2>&1 &
   ```
 - **Applied 2026-09-24** (between the 11:44 pull to `1e0b47f` and the 16:01
@@ -586,9 +768,9 @@ python3 adaptive_context_management_analysis/build_rerun_outcomes.py
   outcomes table and `REEVAL_NOTES`):
   ```bash
   venv/bin/python scripts/maintenance/reevaluate_swebench_candidates.py apply \
-    --output-dir ICLR_experiments/ICLR_reeval/qwen35b_main_review253_20260923 --write
+    --output-dir ICLR_experiments/reeval_evidence/qwen35b_main_review253_20260923 --write
   mkdir -p archive/swebench_main_qwen35b_pre_reeval_20260924
-  cp -r ICLR_experiments/ICLR_reeval/qwen35b_main_review253_20260923/backups/*/ archive/swebench_main_qwen35b_pre_reeval_20260924/
+  cp -r ICLR_experiments/reeval_evidence/qwen35b_main_review253_20260923/backups/*/ archive/swebench_main_qwen35b_pre_reeval_20260924/
   venv/bin/python analysis/aggregate_benchmark_results.py --benchmark swebench
   venv/bin/python scripts/build_coverage.py
   ```
@@ -601,18 +783,18 @@ python3 adaptive_context_management_analysis/build_rerun_outcomes.py
   `d05__b20k__*`, `d07__b20k__*`, `di__b10k__*`, `di__b20k__*`). Run
   **15:14:50 → 16:27** (PID file `logs/reeval_qwen35b_ablation155_20260924.pid`);
   155/155 verified, **all `resolved=False`** (no verdict flips). HEAD `397c232`.
-  Evidence `ICLR_experiments/ICLR_reeval/qwen35b_ablation_abl25_155_20260924/`
+  Evidence `ICLR_experiments/reeval_evidence/qwen35b_ablation_abl25_155_20260924/`
   (committed `8caf652a1c102835bbf209c99cd8f96f6a31adfc` / `fdd4277ab5eba1334320afbe96d01ab3bf33115a`, 09-26).
   ```bash
   nohup venv/bin/python scripts/maintenance/reevaluate_swebench_candidates.py run \
     --candidates ICLR_experiments/issue/reeval_candidates_qwen35b_ablation155_20260924/candidates.csv \
-    --output-dir ICLR_experiments/ICLR_reeval/qwen35b_ablation_abl25_155_20260924 \
+    --output-dir ICLR_experiments/reeval_evidence/qwen35b_ablation_abl25_155_20260924 \
     --model-tag qwen35-a3b --continue-on-error > logs/reeval_qwen35b_ablation155_20260924.log 2>&1 &
   echo $! > logs/reeval_qwen35b_ablation155_20260924.pid
   venv/bin/python scripts/maintenance/reevaluate_swebench_candidates.py apply \
-    --output-dir ICLR_experiments/ICLR_reeval/qwen35b_ablation_abl25_155_20260924 --write
+    --output-dir ICLR_experiments/reeval_evidence/qwen35b_ablation_abl25_155_20260924 --write
   mkdir -p archive/swebench_ablation_qwen35b_pre_reeval_20260924
-  cp -r ICLR_experiments/ICLR_reeval/qwen35b_ablation_abl25_155_20260924/backups/*/ archive/swebench_ablation_qwen35b_pre_reeval_20260924/
+  cp -r ICLR_experiments/reeval_evidence/qwen35b_ablation_abl25_155_20260924/backups/*/ archive/swebench_ablation_qwen35b_pre_reeval_20260924/
   venv/bin/python analysis/aggregate_benchmark_results.py --benchmark swebench
   venv/bin/python scripts/build_coverage.py
   ```

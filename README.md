@@ -14,10 +14,10 @@ transfer checks.
    highlighted. Regenerable (see [Coverage tracking](#coverage-tracking)).
 2. [CLAUDE.md](CLAUDE.md) — project context, vocabulary (primitive families,
    depths, cohorts), scope rules, critical conventions.
-3. [ICLR.md](ICLR.md) — the current target (ICLR 2027), the framing of
+3. [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md) — the current target (ICLR 2027), the framing of
    record, and the source of truth for every topic.
-4. [ICLR_experiments/exp_grid.md](ICLR_experiments/exp_grid.md) — the experiment
-   grid and its status; [Active_runs.md](Active_runs.md) — live experiment
+4. [ICLR_experiments/FOLLOWUP_EXPERIMENTS.md](ICLR_experiments/FOLLOWUP_EXPERIMENTS.md) — the experiment
+   plan, grid and its status; [Active_runs.md](Active_runs.md) — live experiment
    status.
 
 ## Clone
@@ -77,22 +77,22 @@ Per-model serving configs live in [configs/](configs/).
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
-| `ICLR_experiments/`, `analysis/` | Canonical ICLR run data, the experiment grid and logs (`exp_grid.md`, `EXPERIMENT_LOG*.md`, `FOLLOWUP_EXPERIMENTS.md`), and per-run outcome aggregation. |
+| `ICLR_experiments/`, `analysis/` | Canonical ICLR run data, the experiment plan/grid and logs (`FOLLOWUP_EXPERIMENTS.md`, `EXPERIMENT_LOG*.md`), and per-run outcome aggregation. |
 
 ## Data
 
 **ICLR run data is canonical in `ICLR_experiments/`**, one directory per cell,
 laid out as `<bench>/<track>/<model>/<cell>/`. The populated tree lives in
 Akiho's clone (`/home/ak58925/agentCtx/ICLR_experiments/`) and is symlinked into
-this one. It never travels through git. See [ICLR.md](ICLR.md) for the full
+this one. It never travels through git. See [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md) for the full
 source-of-truth table, and `ICLR_experiments/README.md` for the cell naming.
 
 Data flow: `ICLR_experiments/<bench>/<track>/<model>/<cell>/`
 → `analysis/aggregate_benchmark_results.py` → `analysis/outcomes/<bench>_outcomes.csv`
-→ analysis against the grid in `ICLR_experiments/exp_grid.md`.
+→ analysis against the grid in `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md`.
 
 Terminal-Bench runs on Albus; its results are not here. See the Terminal-Bench
-section of [ICLR.md](ICLR.md).
+section of [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md).
 
 **Older (EMNLP-era) data lives in `data/`** (~10 GB, gitignored).
 `data/README.md` is its provenance map — canonical grid vs source runs vs
@@ -118,7 +118,7 @@ disk, never hand-edited:
   excluded. **The committed copy is stale** (2026-08-28, no Devstral or GLM
   rows), so regenerate before relying on it. `COVERAGE_TB.csv` is header-only
   here because Terminal-Bench runs on another machine — see
-  [ICLR.md](ICLR.md).
+  [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md).
 - **`DASHBOARD.html`** (gitignored, regenerable) — the human-friendly view.
   The live copy is published by GitHub Actions on a cron; see
   `dashboard/README.md` for the URL and the publishing pipeline.

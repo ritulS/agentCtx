@@ -522,7 +522,7 @@ also started at native (262K) for a re-collection. Code: **`469708b`**
 (`feat(tb): isolated calibration runs, prefix-cache metrics, native-context
 vLLM launchers`). Outputs go to `calibration_results/terminalbench/<model>_native_p80/`,
 not to `ICLR_experiments/`. Distributions and adopted budgets are in
-[budget_calibration_tb.md](budget_calibration_tb.md); procedures in
+[BUDGET_CALIBRATION.md, Part B](BUDGET_CALIBRATION.md#part-b); procedures in
 `scripts/GLM_TB_NATIVE_CALIBRATION.md` and `scripts/DEVSTRAL_TB_NATIVE_CALIBRATION.md`.
 
 ```bash

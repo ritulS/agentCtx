@@ -92,7 +92,7 @@ SMOKE_SUFFIX = "-smoke"
 # ICLR_experiments/<benchmark>/prefix_cache_ablation/ was served with the vLLM
 # prefix-caching setting flipped relative to that benchmark's production runs.
 # Production SWE-Bench Qwen runs had it off (the vLLM default for the hybrid
-# Qwen3.5 model, see ICLR.md) and production Terminal-Bench runs had it on, so
+# Qwen3.5 model, see ICLR_experiments/SOURCE_OF_TRUTH.md) and production Terminal-Bench runs had it on, so
 # the ablation is ON for SWE-Bench (scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh)
 # and OFF for Terminal-Bench.  Such runs form their own cells, keyed
 # additionally by this label; every other cell carries an empty prefix_cache.

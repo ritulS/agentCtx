@@ -1,4 +1,4 @@
-# Experiment command history: 2026-08-30–2026-09-05
+# Terminal-Bench experiment command history: 2026-08-30–2026-09-05
 
 > **Note: this file is a historical log.** Commands, script paths, and code
 > locations are recorded exactly as they were when each entry was written and

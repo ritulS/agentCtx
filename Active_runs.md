@@ -255,7 +255,7 @@ need rebuilding for serving/tbench.
   `scripts/reevaluate_swebench_candidates.py run --model-tag qwen35-a3b --continue-on-error`.
 - **Candidates:** `ICLR_experiments/issue/reeval_candidates_qwen35b_review253_20260923/candidates.csv`
   (`already_reevaluated_20260911` flags the 140 rows already applied on 09-11).
-- **Output (evidence only):** `ICLR_experiments/ICLR_reeval/qwen35b_main_review253_20260923/`
+- **Output (evidence only):** `ICLR_experiments/reeval_evidence/qwen35b_main_review253_20260923/`
   — `manifest.json`, `results.json`, `verdict_comparison.csv`, `jobs/` (gitignored harness logs).
   Log: `logs/reeval_qwen35b_review253_20260923.log`.
 - **Canonical indexes NOT updated** (`apply` deliberately not run).
@@ -267,7 +267,7 @@ need rebuilding for serving/tbench.
   b15k-ss +8, b15k-su-full +8, three 20k cells +1..2, all other cells unchanged.
 - **Harness guard change:** `reevaluate_swebench_candidates.py run` now refuses only output
   dirs under `ICLR_experiments/swebench` (was: all of `ICLR_experiments`), so evidence can live in
-  `ICLR_experiments/ICLR_reeval/`.
+  `ICLR_experiments/reeval_evidence/`.
 
 ### Qwen2.5-Coder-32B-Instruct — reduced-scope model expansion on Dobby ✅ COMPLETE
 - **Status:** DONE Sat May 23 17:37 CDT — `phase DONE — 780 runs complete`;

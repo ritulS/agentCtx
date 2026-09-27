@@ -86,16 +86,20 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   order). `scripts/maintenance/reconstruct_context.py <run_dir> [--step N]
   [--event K]` replays them and verifies against trajectory.json /
   token_log.json. Runs before 2026-09-23 only have the final trajectory.
-- `ICLR_analysis/` — ICLR figure code: `Iclr_plot_bank.py` is the single
-  file holding every renderer (shared style, Figure 1 schematic, Figures 2-5,
-  appendix companions, the former `paper_figures.py` and `appendix_*.py`
-  tools as `Iclr_plot_bank.py <tool>` sub-commands; `--help` documents each),
-  `REEVAL_NOTES.md`, and the audited Q3 exports `q3_combined_*.csv` that
-  Figure 5 reads. Rendered figures go to `ICLR_analysis/plots/` (untracked).
-- `ICLR_experiments/` — canonical ICLR run data and records: experiment grid
-  and logs, `issue/` (data-problem audits with their scripts), `ICLR_reeval/`
-  (re-evaluation manifests and verdicts) and `ICLR_analysis/` (failure
-  analysis reports and per-task notes, groups A-D).
+- `ICLR_experiments/plotting/` — ICLR figure code: `plot_bank.py` is the
+  single file holding every renderer (shared style, Figure 1 schematic,
+  Figures 2-5, appendix companions, the former `paper_figures.py` and
+  `appendix_*.py` tools as `plot_bank.py <tool>` sub-commands; `--help`
+  documents each) and the audited Q3 exports
+  `q3_combined_*.csv` that Figure 5 reads. Rendered figures (PNG) and their
+  value CSVs go to `ICLR_experiments/plotting/plots/` (gitignored).
+- `ICLR_experiments/` — canonical ICLR run data and records: `SOURCE_OF_TRUTH.md`
+  (paper target and source-of-truth table; it wins over every other doc), the
+  experiment plan/grid (`FOLLOWUP_EXPERIMENTS.md`), `EXPERIMENT_LOG_{SWE,TB}.md`
+  (bugs and audits are sections of the SWE log), `BUDGET_CALIBRATION.md`,
+  `issue/` (still-open data audits with their scripts), `reeval_evidence/`
+  (re-evaluation manifests and verdicts) and `plotting/` (figure code, see
+  above).
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,
