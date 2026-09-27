@@ -363,7 +363,9 @@ class SummaryPrimitiveTests(unittest.TestCase):
         outcome = memory.pop_summary_outcome()
         self.assertEqual(outcome["attempts"], memory.SUMMARY_MAX_ATTEMPTS)
         self.assertFalse(outcome["accepted"])
-        self.assertEqual(outcome["rejections"], ["unterminated_reasoning", "empty_body"][:memory.SUMMARY_MAX_ATTEMPTS])
+        # Two scripted replies; FakeModel repeats the last one for the remaining attempts.
+        expected = (["unterminated_reasoning", "empty_body"] + ["empty_body"] * memory.SUMMARY_MAX_ATTEMPTS)
+        self.assertEqual(outcome["rejections"], expected[:memory.SUMMARY_MAX_ATTEMPTS])
         self.assertEqual(outcome["fallback"], "truncate")
         self.assertIsNone(memory.pop_summary_outcome())  # popped once only
 

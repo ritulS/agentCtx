@@ -75,6 +75,25 @@ Open: whether the re-summarizing loop disappears in real runs. Check the
 first r2 SS / SS-partial / TRC+SS / OTRC+SS-partial pilot for FormatErrors
 following a summary, and the `rejections` / `fallback` counts.
 
+## 2026-09-27 — Summary retries raised to 5; length-free summaries (SU-free / SS-free)
+
+- `SUMMARY_MAX_ATTEMPTS` default 2 → 5 (`MSWEA_SUMMARY_MAX_ATTEMPTS` still
+  overrides). The truncate() fallback now needs five consecutive rejected
+  summarizer responses. Re-scoring the iclr26 Qwen3.5 summaries with the
+  current rules under a reasoning-parser view gave a per-attempt rejection
+  rate of 1/4559 (SU) and 0/4048 (SS), so with the parser on the fallback is
+  effectively unreachable; without the parser (`REASONING_PARSER=none`) 91–100 %
+  of those responses would be rejected (`ambiguous_reasoning`).
+- New primitives `summarize_free` / `structured_summarize_free`
+  (conditions `summarization-free` / `structured-summarize-free`, labels
+  SU-free / SS-free): same call, cleaning and retry as SU-full / SS, but the
+  prompt asks for a *concise* summary with no word target, so
+  `compression_ratio` never reaches the summarizer. Classified
+  depth-invariant; depth only sizes the truncate() fallback, as for TRC.
+  Summary messages carry `summary_format.length_free = true`.
+  SU / SS prompt construction moved into shared `_su_prompt` / `_ss_prompt`
+  helpers (prompts byte-identical to before; `tests/test_summary_free.py`).
+
 ## 2026-09-26 — SWE-bench Verified per-run limits: 300 steps, 5400 s
 
 `src/agentctx/experiments/runner.py`: `STEP_LIMIT` 125 → 300,

@@ -38,6 +38,12 @@ Summarization
   message is tagged extra["kind"] = "summary" so TRC never clears it — see
   "Summary message handling" below.
 
+Summarization, length-free (SU-free / SS-free)
+  summarize_free() / structured_summarize_free(): same LLM call, cleaning and
+  fallback as summarize() / structured_summarize(), but the prompt asks for a
+  *concise* summary with no word target, so compression_ratio does not engage
+  (depth-invariant). target_tokens only sizes the truncate() fallback.
+
 Token log (MSWEA_TOKEN_LOG_PATH)
   Written after every agent step.  Schema:
     total_prompt_tokens, total_completion_tokens, total_tokens,
@@ -190,7 +196,10 @@ SU_CLOSE_MARKER    = "[END SUMMARY]"
 _SUMMARY_PREFIXES  = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
 _THINK_OPEN        = "<think>"
 _THINK_CLOSE       = "</think>"
-SUMMARY_MAX_ATTEMPTS = max(1, int(os.environ.get("MSWEA_SUMMARY_MAX_ATTEMPTS", "2")))
+# Retries before the truncate() fallback. Each attempt is one summarizer call
+# with the same prompt; usage is summed. 5 is the deployment-class default
+# (Terminus 2 and OpenHands also retry several times before giving up).
+SUMMARY_MAX_ATTEMPTS = max(1, int(os.environ.get("MSWEA_SUMMARY_MAX_ATTEMPTS", "5")))
 
 
 def is_summary_message(msg: dict) -> bool:
@@ -404,6 +413,109 @@ def make_summary_message(model, text: str, flags: dict) -> dict:
     return msg
 
 
+def _history_text(compressible: list[dict]) -> str:
+    """Plain-text dump of the compressible window: one "[role]:" block per message."""
+    text = ""
+    for msg in compressible:
+        role    = msg.get("role", "unknown")
+        content = msg.get("content") or ""
+        if isinstance(content, list):
+            content = " ".join(
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict)
+            )
+        text += f"[{role}]:\n{content}\n\n"
+    return text
+
+
+def _su_prompt(summary_model, history_text: str, target_words: int | None) -> list[dict]:
+    """Prose-summary (SU) prompt.
+
+    target_words is the approximate length asked of the summarizer (derived
+    from target_tokens, i.e. from compression_ratio). None asks for a concise
+    summary with no length target at all (SU-free, depth-invariant).
+    """
+    length = (
+        f"in approximately {target_words} words" if target_words is not None
+        else "concisely"
+    )
+    return [
+        summary_model.format_message(
+            role="system",
+            content=(
+                "You are summarizing an agent's work history to free up context window space. "
+                "Your output will replace the conversation history — the agent will only see "
+                "your summary, so it must be complete enough to continue the task."
+            ),
+        ),
+        summary_model.format_message(
+            role="user",
+            content=(
+                f"Summarize the following agent conversation history {length}. "
+                f"Your summary MUST include all of:\n"
+                f"1. Current task objective and progress made so far\n"
+                f"2. Files examined and any modifications made (include exact file paths)\n"
+                f"3. Key observations, errors encountered, and decisions taken\n"
+                f"4. Current state — what has been done and what remains\n\n"
+                f"Preserve exact file paths, error messages, and code snippets that are "
+                f"likely still relevant. Be factual and concise.\n\n"
+                f"Put the summary between a line containing only {SU_OPEN_MARKER} and a "
+                f"line containing only {SU_CLOSE_MARKER}. Do not add any text outside "
+                f"those two lines.\n\n"
+                f"{history_text}"
+            ),
+        ),
+    ]
+
+
+def _ss_prompt(summary_model, history_text: str, target_words: int | None) -> list[dict]:
+    """Structured-summary (SS) prompt; target_words=None as in _su_prompt()."""
+    opening = (
+        f"Produce a structured summary of the agent conversation below in approximately "
+        f"{target_words} words total."
+        if target_words is not None
+        else "Produce a concise structured summary of the agent conversation below."
+    )
+    return [
+        summary_model.format_message(
+            role="system",
+            content=(
+                "You are compressing an agent's working memory to free up context window space. "
+                "Your output will REPLACE the entire conversation history — the agent will only "
+                "see your summary. It must contain everything needed to continue the task without "
+                "any other context."
+            ),
+        ),
+        summary_model.format_message(
+            role="user",
+            content=(
+                f"{opening} Use EXACTLY this format and section order:\n\n"
+                f"{SS_OPEN_MARKER}\n"
+                f"## Task\n"
+                f"<One sentence: what the task is asking for.>\n\n"
+                f"## Files Modified\n"
+                f"<Each file the agent has written or edited. Format: path — what changed and why. "
+                f"If none yet, write 'None'.>\n\n"
+                f"## Files Examined\n"
+                f"<Each file the agent has read. Format: path — key observation. "
+                f"If none yet, write 'None'.>\n\n"
+                f"## Execution Anchors\n"
+                f"<Exact commands run, test results, error messages, or shell output that the agent "
+                f"will need to reference going forward. Quote verbatim where possible.>\n\n"
+                f"## Current State\n"
+                f"<What has been done, what has NOT been done, and the immediate next step.>\n"
+                f"{SS_CLOSE_MARKER}\n\n"
+                f"Rules:\n"
+                f"- Preserve exact file paths, line numbers, error strings, and symbol names.\n"
+                f"- Do not speculate or add information not present in the history.\n"
+                f"- Do not add any text outside the {SS_OPEN_MARKER} block.\n\n"
+                f"Conversation history:\n{history_text}"
+            ),
+        ),
+    ]
+
+
 # ── Primitives ─────────────────────────────────────────────────────────────────
 
 def truncate(messages: list[dict], target_tokens: int) -> tuple[list[dict], int]:
@@ -449,18 +561,7 @@ def summarize(
     compressible = messages[N_PROTECTED:]
     tokens_before = count_tokens(messages)
 
-    # Build plain-text dump
-    history_text = ""
-    for msg in compressible:
-        role    = msg.get("role", "unknown")
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            content = " ".join(
-                block.get("text", "")
-                for block in content
-                if isinstance(block, dict)
-            )
-        history_text += f"[{role}]:\n{content}\n\n"
+    history_text = _history_text(compressible)
 
     # Target compressible tokens = target_tokens minus what the protected msgs use
     protected_tokens  = count_tokens(protected)
@@ -473,33 +574,7 @@ def summarize(
     # by the agent's model since it goes back into the agent's history.
     summary_model = get_summary_model(model)
 
-    summary_prompt = [
-        summary_model.format_message(
-            role="system",
-            content=(
-                "You are summarizing an agent's work history to free up context window space. "
-                "Your output will replace the conversation history — the agent will only see "
-                "your summary, so it must be complete enough to continue the task."
-            ),
-        ),
-        summary_model.format_message(
-            role="user",
-            content=(
-                f"Summarize the following agent conversation history in approximately "
-                f"{target_words} words. Your summary MUST include all of:\n"
-                f"1. Current task objective and progress made so far\n"
-                f"2. Files examined and any modifications made (include exact file paths)\n"
-                f"3. Key observations, errors encountered, and decisions taken\n"
-                f"4. Current state — what has been done and what remains\n\n"
-                f"Preserve exact file paths, error messages, and code snippets that are "
-                f"likely still relevant. Be factual and concise.\n\n"
-                f"Put the summary between a line containing only {SU_OPEN_MARKER} and a "
-                f"line containing only {SU_CLOSE_MARKER}. Do not add any text outside "
-                f"those two lines.\n\n"
-                f"{history_text}"
-            ),
-        ),
-    ]
+    summary_prompt = _su_prompt(summary_model, history_text, target_words)
 
     summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
         summary_model, summary_prompt, SU_OPEN_MARKER, SU_CLOSE_MARKER
@@ -542,17 +617,7 @@ def structured_summarize(
     compressible  = messages[N_PROTECTED:]
     tokens_before = count_tokens(messages)
 
-    history_text = ""
-    for msg in compressible:
-        role    = msg.get("role", "unknown")
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            content = " ".join(
-                block.get("text", "")
-                for block in content
-                if isinstance(block, dict)
-            )
-        history_text += f"[{role}]:\n{content}\n\n"
+    history_text = _history_text(compressible)
 
     protected_tokens = count_tokens(protected)
     compress_target  = max(50, target_tokens - protected_tokens)
@@ -560,44 +625,7 @@ def structured_summarize(
 
     summary_model = get_summary_model(model)  # see "Summarization model" above
 
-    summary_prompt = [
-        summary_model.format_message(
-            role="system",
-            content=(
-                "You are compressing an agent's working memory to free up context window space. "
-                "Your output will REPLACE the entire conversation history — the agent will only "
-                "see your summary. It must contain everything needed to continue the task without "
-                "any other context."
-            ),
-        ),
-        summary_model.format_message(
-            role="user",
-            content=(
-                f"Produce a structured summary of the agent conversation below in approximately "
-                f"{target_words} words total. Use EXACTLY this format and section order:\n\n"
-                f"{SS_OPEN_MARKER}\n"
-                f"## Task\n"
-                f"<One sentence: what the task is asking for.>\n\n"
-                f"## Files Modified\n"
-                f"<Each file the agent has written or edited. Format: path — what changed and why. "
-                f"If none yet, write 'None'.>\n\n"
-                f"## Files Examined\n"
-                f"<Each file the agent has read. Format: path — key observation. "
-                f"If none yet, write 'None'.>\n\n"
-                f"## Execution Anchors\n"
-                f"<Exact commands run, test results, error messages, or shell output that the agent "
-                f"will need to reference going forward. Quote verbatim where possible.>\n\n"
-                f"## Current State\n"
-                f"<What has been done, what has NOT been done, and the immediate next step.>\n"
-                f"{SS_CLOSE_MARKER}\n\n"
-                f"Rules:\n"
-                f"- Preserve exact file paths, line numbers, error strings, and symbol names.\n"
-                f"- Do not speculate or add information not present in the history.\n"
-                f"- Do not add any text outside the {SS_OPEN_MARKER} block.\n\n"
-                f"Conversation history:\n{history_text}"
-            ),
-        ),
-    ]
+    summary_prompt = _ss_prompt(summary_model, history_text, target_words)
 
     summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
         summary_model, summary_prompt, SS_OPEN_MARKER, SS_CLOSE_MARKER
@@ -619,6 +647,80 @@ def structured_summarize(
 
     tokens_after = count_tokens(new_messages)
     return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+
+def _summarize_free(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+    build_prompt,
+    open_marker: str,
+    close_marker: str,
+) -> tuple[list[dict], int, int, int, float]:
+    """Shared body of summarize_free() / structured_summarize_free()."""
+    if len(messages) <= N_PROTECTED:
+        return messages, 0, 0, 0, 0.0
+
+    protected     = messages[:N_PROTECTED]
+    compressible  = messages[N_PROTECTED:]
+    tokens_before = count_tokens(messages)
+
+    summary_model  = get_summary_model(model)
+    summary_prompt = build_prompt(summary_model, _history_text(compressible), None)
+
+    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
+        summary_model, summary_prompt, open_marker, close_marker
+    )
+
+    # Explicit fallback: no attempt produced a usable summary (see summarize()).
+    # This is the only place target_tokens (hence compression_ratio) is used.
+    if summary_text is None:
+        _mark_summary_fallback("truncate")
+        new_messages, _ = truncate(messages, target_tokens)
+        tokens_after    = count_tokens(new_messages)
+        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+    summary_flags["length_free"] = True
+    summary_msg  = make_summary_message(model, summary_text, summary_flags)
+    new_messages = protected + [summary_msg]
+    tokens_after = count_tokens(new_messages)
+    return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+
+def summarize_free(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+) -> tuple[list[dict], int, int, int, float]:
+    """SU-free: summarize() with no length target (depth-invariant).
+
+    Same prompt, cleaning and fallback as summarize(), but the summarizer is
+    asked for a *concise* summary instead of "approximately N words", so the
+    summary length is whatever the model produces and compression_ratio never
+    reaches the prompt. ``target_tokens`` is used only for the truncate()
+    fallback when every attempt is rejected (same as tool_result_clear()).
+    No post-hoc length enforcement: if the summary alone were still above the
+    budget the trigger would fire again on the next step, as for SS today.
+
+    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
+    """
+    return _summarize_free(
+        messages, model, target_tokens, _su_prompt, SU_OPEN_MARKER, SU_CLOSE_MARKER
+    )
+
+
+def structured_summarize_free(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+) -> tuple[list[dict], int, int, int, float]:
+    """SS-free: structured_summarize() with no length target (depth-invariant).
+
+    See summarize_free(); the schema-guided SS prompt is used instead.
+    """
+    return _summarize_free(
+        messages, model, target_tokens, _ss_prompt, SS_OPEN_MARKER, SS_CLOSE_MARKER
+    )
 
 
 def _fit_tail(messages: list[dict], tail_budget: int) -> int:

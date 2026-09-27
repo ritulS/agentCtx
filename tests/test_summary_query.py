@@ -59,6 +59,8 @@ class SummaryQueryTests(unittest.TestCase):
             memory.structured_summarize,
             memory.summarize_partial,
             memory.structured_summarize_partial,
+            memory.summarize_free,
+            memory.structured_summarize_free,
         )
         for override in (False, True):
             for primitive in variants:

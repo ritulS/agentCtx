@@ -156,8 +156,11 @@ Use these terms when discussing experimental coverage and depth runs.
   primitives whose behavior is a function of `compression_ratio`. Studied at
   all 3 depths.
 - **depth-invariant** — TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial,
-  OTRC+SS-partial. The 6 primitives where `compression_ratio` doesn't engage
-  meaningfully. Studied at canonical depth only.
+  OTRC+SS-partial, SU-free, SS-free. The 8 primitives where `compression_ratio`
+  doesn't engage meaningfully. Studied at canonical depth only. SU-free /
+  SS-free (`summarization-free`, `structured-summarize-free`) are SU-full / SS
+  with no word target in the summarizer prompt ("concisely" only); depth only
+  sizes their truncate fallback.
 
 **Depths:**
 

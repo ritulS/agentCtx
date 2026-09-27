@@ -42,6 +42,8 @@ CONDITION_TO_PRIMITIVE = {
     "summarization-partial": "SU-partial",
     "structured-summarize": "SS",
     "structured-summarize-partial": "SS-partial",
+    "summarization-free": "SU-free",
+    "structured-summarize-free": "SS-free",
     "tool-result-clear": "TRC",
     "trc-su": "TRC+SU",
     "trc-ss": "TRC+SS",
@@ -55,7 +57,7 @@ CONDITION_TO_PRIMITIVE = {
 }
 
 DEPTH_TUNABLE = ["TR", "SU-full", "SU-partial", "SS", "SS-partial"]
-DEPTH_INVARIANT = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial"]
+DEPTH_INVARIANT = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial", "SU-free", "SS-free"]
 BUDGETS = [10_000, 15_000, 20_000]
 DEPTH_GRID = [0.3, 0.5, 0.7]
 

@@ -206,7 +206,7 @@ def main() -> None:
                              "default is configs/config-online-trc.yaml which targets Qwen port 8000.")
     parser.add_argument("--summary-config", default=None, metavar="YAML",
                         help="Config YAML whose `model:` section is used for the summarization "
-                             "LLM call (SU-full, SU-partial, SS, SS-partial, and their OTRC/TRC-stacked "
+                             "LLM call (SU-full, SU-partial, SU-free, SS, SS-partial, SS-free, and their OTRC/TRC-stacked "
                              "variants). Default: the agent model itself. Exported to the agent as "
                              "MSWEA_SUMMARY_MODEL_CONFIG. Use a dedicated --ablation name so runs "
                              "are not deduplicated against same-model results.")
