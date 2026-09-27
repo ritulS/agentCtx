@@ -221,12 +221,12 @@ class Sandbox:
         assert len(found) == 1, f"{self.tree.label}: expected exactly one scripts/**/{name}, found {found}"
         return found[0]
 
-    def run(self, argv: list[str], *, timeout: int = 300) -> CommandResult:
+    def run(self, argv: list[str], *, timeout: int = 300, extra_env: dict[str, str] | None = None) -> CommandResult:
         """Run ``scripts/**/<argv[0]>`` with the remaining arguments, cwd at the root."""
         completed = subprocess.run(
             [self.python, str(self.script(argv[0])), *argv[1:]],
             cwd=self.root,
-            env=runner_environment(),
+            env={**runner_environment(), **(extra_env or {})},
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -242,9 +242,13 @@ def runner_environment() -> dict[str, str]:
     ``PYTHONPATH`` is deliberately absent so the runner's "extend an existing
     PYTHONPATH" branch behaves identically; ``PYTHONHASHSEED`` pins set
     iteration order in error messages that print sets. No ``MSWEA_*`` or
-    ``TB_*`` variable leaks in from the developer's shell.
+    ``TB_*`` variable leaks in from the developer's shell. The working tree's
+    physical-resource sampler (``resource_log.jsonl`` + ``peak_*`` row fields,
+    a post-reorganization addition) is switched off so both sides write the
+    same files; ``test_current_runner_records_resource_usage`` covers it.
     """
     return {
+        "AGENTCTX_RESOURCE_MONITOR": "0",
         "PATH": os.pathsep.join((str(FAKES_DIR / "bin"), os.environ.get("PATH", ""))),
         "HOME": os.environ.get("HOME", str(Path.home())),
         "LANG": "C.UTF-8",

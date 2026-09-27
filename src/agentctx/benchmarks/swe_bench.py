@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from agentctx import INFINITE_BUDGET
+from agentctx import INFINITE_BUDGET, resource_monitor
 
 from .results import run_key
 
@@ -288,6 +288,7 @@ class SweBench:
         started = time.time()
         returncode = -1
         process = None
+        monitor = None  # physical-resource sampler (resource_log.jsonl), off with AGENTCTX_RESOURCE_MONITOR=0
         try:
             with log_file.open("w") as log:
                 process = subprocess.Popen(
@@ -296,6 +297,10 @@ class SweBench:
                     env=env,
                     stdout=log,
                     stderr=subprocess.STDOUT,
+                )
+                monitor = resource_monitor.start_for_process(
+                    process.pid, output_dir, agent_log=log_file, env=env, config_paths=config_chain,
+                    servers_log_dir=self.workspace_root / "logs" / "servers",
                 )
                 process.wait(timeout=agent_timeout)
                 returncode = process.returncode
@@ -307,6 +312,7 @@ class SweBench:
             print(f"    ! Launch error: {exc}")
 
         e2e_latency = round(time.time() - started, 2)
+        resource_usage = monitor.stop() if monitor is not None else {}
         outcome = self.empty_outcome()
         if trajectory_file.exists():
             try:
@@ -354,6 +360,7 @@ class SweBench:
             "online_trc_clears": token_log.get("online_trc_clears", 0),
             "online_trc_flags": token_log.get("online_trc_flags", []),
         }
+        result.update(resource_usage)
         result.update(outcome)
 
         icon = "P" if outcome["submission_generated"] else "x"

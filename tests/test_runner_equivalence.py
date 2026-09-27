@@ -504,6 +504,33 @@ def test_current_agent_invocation_targets_agentctx_package(working_tree: Tree, t
     assert str(sandbox.root) in entries  # the repo root is still importable, as before
 
 
+def test_current_runner_records_resource_usage(working_tree: Tree, tmp_path):
+    """The SWE-bench runner samples physical resources per run (off in the equivalence scenarios)."""
+    sandbox = build_sandbox(tmp_path, working_tree)
+    scenario = _scenario("swe-ablation-custom-tasks")
+    extra_env = {
+        "AGENTCTX_RESOURCE_MONITOR": "1",
+        "AGENTCTX_RESOURCE_SAMPLE_S": "0.05",
+        "AGENTCTX_VLLM_METRICS_URLS": "",  # no endpoint probing from a test
+    }
+    for command in scenario.commands:
+        result = sandbox.run(list(command.argv), extra_env=extra_env)
+        assert result.returncode == command.returncode, result.stderr
+    rows = _rows(sandbox.root, "results/ablations/eq-custom/experiment_results.json")
+    assert rows
+    for row in rows:
+        assert row["resource_samples"] >= 1
+        assert row["resource_sample_interval_s"] == 0.05
+        assert "peak_agent_rss_mb" in row and "peak_container_mem_mb" in row and "peak_gpu_mem_used_mb" in row
+        run_dir = sandbox.root / "results/ablations/eq-custom" / row["instance_id"] / row["condition"] / f"run_{row['run_num']}"
+        samples = [json.loads(line) for line in (run_dir / "resource_log.jsonl").read_text().splitlines()]
+        assert len(samples) == row["resource_samples"]
+        assert {"t", "elapsed_s", "agent_rss_mb", "container", "container_mem_mb", "gpus", "vllm"} <= set(samples[0])
+        serving = json.loads((run_dir / "serving_info.json").read_text())
+        assert {"captured_at", "endpoints", "server_logs"} <= set(serving)
+        assert serving["endpoints"] == {} and serving["server_logs"] == []  # no endpoints, no logs/servers in the sandbox
+
+
 def test_current_harbor_invocation_targets_agentctx_package(working_tree: Tree, tmp_path):
     if "terminal-bench" not in working_tree.features:
         pytest.skip("working tree has no Terminal-Bench adapter")

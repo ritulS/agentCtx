@@ -112,6 +112,7 @@ fakes: SWE-bench ids ending in `-crash` / `-nopatch` / `-applyfail` /
 |---|---|---|
 | `test_tb_verdict.py` | pyyaml | Terminal-Bench verdict handling, re-run loop, superseded attempts |
 | `test_iclr_summarizer_guard.py` | – | `agentctx.experiments.iclr.validate_summarizer` |
+| `test_resource_monitor.py` | – | `agentctx.resource_monitor` (per-run RSS/container/GPU/vLLM sampler; parsing, process-tree sampling, summary). The equivalence sandbox runs with `AGENTCTX_RESOURCE_MONITOR=0`; `test_current_runner_records_resource_usage` switches it on. |
 | `test_ablation_launch.py` | bash | ABL-25 selection in `run_agent_models_expansion.sh`, selective evaluation |
 | `test_notify_run.py` | bash, flock | `scripts/notify_run.sh` (notices, lock, PID file, signal forwarding, `--on-success`, background/foreground), `scripts/lib/logpaths.sh` (timestamped logs, log ownership) and `dashboard/notify_slack.py` |
 | `test_summary_query.py` | litellm, mini-swe-agent (`venv`) | prose summaries through mini-swe-agent v2 models |

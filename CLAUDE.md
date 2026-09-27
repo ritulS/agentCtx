@@ -86,6 +86,25 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   order). `scripts/maintenance/reconstruct_context.py <run_dir> [--step N]
   [--event K]` replays them and verifies against trajectory.json /
   token_log.json. Runs before 2026-09-23 only have the final trajectory.
+- Physical-resource log: `src/agentctx/resource_monitor.py` samples, while
+  the SWE-bench adapter waits for the agent subprocess, the agent process
+  tree's RSS, the task container's cgroup memory (name taken from
+  `agent.log`), `nvidia-smi` per GPU and the vLLM `/metrics` KV-cache usage
+  of the endpoints in the config chain and of a separately served summarizer
+  (`MSWEA_SUMMARY_MODEL_CONFIG` / `MSWEA_SUMMARY_API_BASE`; every 10 s,
+  `AGENTCTX_RESOURCE_SAMPLE_S`)
+  into `<run_dir>/resource_log.jsonl`, and adds `peak_agent_rss_mb`,
+  `peak_container_mem_mb`, `peak_gpu_mem_used_mb`, `mean_kv_cache_usage_pct`
+  etc. to the run's row in `experiment_results.json`. GPU and vLLM figures are
+  machine-wide (shared by concurrent runs). It also writes
+  `<run_dir>/serving_info.json` once per run: the endpoints' `/v1/models` and
+  `vllm:cache_config_info` labels plus the startup lines of the live vLLM
+  logs ("GPU KV cache size: N tokens", "Available KV cache memory", ...; the
+  periodic usage lines are kept apart, last few only), so
+  a run's per-step context length (`step_prompt_tokens` in token_log.json)
+  can later be converted into the KV-cache MB it occupied.
+  `AGENTCTX_RESOURCE_MONITOR=0` disables it. Runs before 2026-09-27 have no
+  resource data.
 - `ICLR_experiments/plotting/` — ICLR figure code: `plot_bank.py` is the
   single file holding every renderer (shared style, Figure 1 schematic,
   Figures 2-5, appendix companions, the former `paper_figures.py` and
