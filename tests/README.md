@@ -85,7 +85,7 @@ Rewritten before comparison, in `harness.py`:
 The reorganization moved `memory.py` to `src/agentctx/compression/primitives.py`
 (a root-level `memory.py` alias remains for the pinned mini-swe-agent commit)
 and the Harbor adapter to `agentctx.benchmarks.harbor_adapter`, and the ICLR
-result tree was renamed `ICLR_experiments/`. Three things
+result tree was renamed `ICLR_experiments/`. Four things
 therefore differ on purpose and are normalized away for the equivalence check
 but asserted explicitly in their own tests:
 
@@ -94,6 +94,7 @@ but asserted explicitly in their own tests:
 | `PYTHONPATH` handed to the agent / Harbor | `<WS>[:…]` | `<WS>/src:<WS>[:…]` |
 | `harbor run --agent` | `scripts.bench_adapters.harbor_adapter:CompressionAgent` (runner) / `tbench.harbor_adapter:CompressionAgent` (calibration) | `agentctx.benchmarks.harbor_adapter:CompressionAgent` |
 | canonical ICLR result tree | `ICLR_results/` | `ICLR_experiments/` |
+| SWE-bench rows without a patch in `experiment_results.json` | `resolved: null` (set to False in memory only after the last save) | `resolved: false` (saved) |
 
 ### Adding a scenario
 

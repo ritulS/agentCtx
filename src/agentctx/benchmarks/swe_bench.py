@@ -379,9 +379,16 @@ class SweBench:
             print(f"    → {status}")
             save(results)
 
+        # A run without a patch cannot be graded, so it is a failure; persist
+        # that (before 2026-09-26 this was set after the last save() and stayed
+        # null on disk unless the caller saved again).
+        unsaved = False
         for result in work:
-            if not result["patch_generated"]:
+            if not result["patch_generated"] and result["resolved"] is not False:
                 result["resolved"] = False
+                unsaved = True
+        if unsaved:
+            save(results)
         return results
 
     def _evaluate_run(self, result: dict) -> bool | None:

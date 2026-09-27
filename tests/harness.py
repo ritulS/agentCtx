@@ -398,6 +398,11 @@ def normalize_json(value, root: Path):
                 )
             else:
                 out[key] = normalize_json(item, root)
+        # SWE-bench rows without a patch: the working tree persists
+        # resolved=False, the reference left the in-memory False unsaved
+        # (null on disk). Asserted in test_swe_with_eval_records_resolution.
+        if "submission" in out and out.get("patch_generated") is False and out.get("resolved") is None:
+            out["resolved"] = False
         return out
     if isinstance(value, list):
         return [normalize_json(item, root) for item in value]

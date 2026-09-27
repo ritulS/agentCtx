@@ -390,10 +390,10 @@ def test_swe_with_eval_records_resolution(working_tree: Tree, tmp_path):
     assert len(rows) == 3 * 2
     patched = [row for row in rows if row["patch_generated"]]
     assert patched and {row["resolved"] for row in patched} == {True, False}
-    # Inherited quirk, identical in every reference branch: evaluate_results()
-    # marks no-patch rows resolved=False only after its last save(), so the
-    # value persisted to experiment_results.json stays null.
-    assert all(row["resolved"] is None for row in rows if not row["patch_generated"])
+    # No-patch rows are failures and are persisted as such. (The reference
+    # branches set resolved=False only after their last save(), so their files
+    # keep null; normalize_json maps that to False for the equivalence diff.)
+    assert all(row["resolved"] is False for row in rows if not row["patch_generated"])
     reports = sorted(p.name for p in (sandbox.root / "results/ablations/eq-eval/eval").glob("qwen35-a3b.*.json"))
     assert len(reports) == len(patched)
     assert (sandbox.root / "results/ablations/eq-eval/preds").is_dir()
