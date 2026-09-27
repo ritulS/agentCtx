@@ -67,7 +67,10 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `--tasks-file`, `--conditions`, `--summary-config` control a single sweep;
   the runner selects a benchmark adapter with `--benchmark`.
   `scripts/run_experiment_iclr.py` runs one cell of the canonical ICLR
-  results tree. Launchers are grouped under
+  results tree. `scripts/run_experiment_r2.py` is the same launcher for
+  the post-ICLR r2 extension campaign; it writes to
+  `data/r2/<swebench|terminalbench>/<section>/<model>/<cell>/` (gitignored)
+  and shares cell naming/validation with the ICLR launcher. Launchers are grouped under
   `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see
   `scripts/README.md`.
 - `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py`,

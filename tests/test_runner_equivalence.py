@@ -27,6 +27,7 @@ from harness import (
     build_sandbox,
     describe_differences,
     execute,
+    normalize_json,
 )
 
 RUN = "run_experiment.py"
@@ -529,6 +530,40 @@ def test_current_runner_records_resource_usage(working_tree: Tree, tmp_path):
         serving = json.loads((run_dir / "serving_info.json").read_text())
         assert {"captured_at", "endpoints", "server_logs"} <= set(serving)
         assert serving["endpoints"] == {} and serving["server_logs"] == []  # no endpoints, no logs/servers in the sandbox
+
+
+def test_current_r2_launcher_mirrors_iclr_cell_under_data_r2(working_tree: Tree, tmp_path):
+    """``run_experiment_r2.py`` is the ICLR cell launcher re-rooted at ``data/r2/``.
+
+    Same cell arguments, same validation, same run outputs; only the results
+    tree (and the derived ``--ablation`` name) differ.
+    """
+    if not (working_tree.root / "scripts" / "run_experiment_r2.py").is_file():
+        pytest.skip("working tree has no r2 launcher")
+    sandbox = build_sandbox(tmp_path, working_tree)
+    common = ["--tasks-file", "task_lists/custom_tasks.json", "--conditions", "truncation",
+              "--budget", "10000", "--depth", "0.3", "--runs-per-task", "1", "--max-workers", "1"]
+    for argv in (
+        [ICLR, "--iclr-section", "main", "--iclr-model", "eqmodel", "--iclr-cell", "d03__b10k__tr", *common],
+        ["run_experiment_r2.py", "--r2-section", "main", "--r2-model", "eqmodel", "--r2-cell", "d03__b10k__tr", *common],
+    ):
+        result = sandbox.run(argv)
+        assert result.returncode == 0, result.stderr
+    iclr_cell = sandbox.root / "ICLR_experiments/swebench/main/eqmodel/d03__b10k__tr"
+    r2_cell = sandbox.root / "data/r2/swebench/main/eqmodel/d03__b10k__tr"
+    assert r2_cell.is_dir() and not (sandbox.root / "results" / "r2-d03__b10k__tr").exists()
+    assert sorted(p.relative_to(r2_cell) for p in r2_cell.rglob("*")) == \
+        sorted(p.relative_to(iclr_cell) for p in iclr_cell.rglob("*"))
+    iclr_rows = _rows(sandbox.root, "ICLR_experiments/swebench/main/eqmodel/d03__b10k__tr/experiment_results.json")
+    r2_rows = _rows(sandbox.root, "data/r2/swebench/main/eqmodel/d03__b10k__tr/experiment_results.json")
+    assert r2_rows and len(r2_rows) == len(iclr_rows)
+    for iclr_row, r2_row in zip(iclr_rows, r2_rows):
+        assert normalize_json(r2_row, r2_cell) == normalize_json(iclr_row, iclr_cell)
+    # Rejections are shared with the ICLR launcher.
+    mismatched_budget = [arg if arg != "10000" else "15000" for arg in common]
+    bad = sandbox.run(["run_experiment_r2.py", "--r2-section", "main", "--r2-model", "eqmodel",
+                       "--r2-cell", "d03__b10k__tr", *mismatched_budget])
+    assert bad.returncode == 1 and "does not match --budget" in bad.stderr
 
 
 def test_current_harbor_invocation_targets_agentctx_package(working_tree: Tree, tmp_path):

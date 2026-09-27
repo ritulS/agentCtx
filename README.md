@@ -70,6 +70,7 @@ Per-model serving configs live in [configs/](configs/).
 | `dashboard/build_coverage.py` | Regenerates the coverage CSVs from experiment results. |
 | `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
 | `scripts/run_experiment_iclr.py` | Wraps the runner to write into the canonical `ICLR_experiments/` tree (`src/agentctx/experiments/iclr.py`). |
+| `scripts/run_experiment_r2.py` | Same wrapper for the r2 extension campaign; writes into `data/r2/` with the ICLR `<benchmark>/<section>/<model>/<cell>` layout (`src/agentctx/experiments/r2.py`). |
 | `src/agentctx/benchmarks/` | Per-benchmark adapters (SWE-bench, Terminal-Bench through Harbor), verdict handling and shared result conversion. |
 | `src/agentctx/__init__.py` | `WORKSPACE_ROOT` and the shared `INFINITE_BUDGET` sentinel used by uncompressed baselines. |
 | `scripts/{calibration,expansions,serving,harbor,maintenance}/` | Launchers and operational tools; see [scripts/README.md](scripts/README.md). |

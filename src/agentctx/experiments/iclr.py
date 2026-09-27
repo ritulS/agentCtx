@@ -37,27 +37,34 @@ CONDITION_TO_PRIMITIVE = {
     "otrc-ss-partial": "otrc-ss-partial",
     "full-context": "fc",
     "online-trc": "otrc",
+    # Length-free summaries (depth-invariant: no word target, so ``di__`` cells).
+    "summarization-free": "su-free",
+    "structured-summarize-free": "ss-free",
 }
 INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc"}
 
 
-def canonical_cell(args: argparse.Namespace) -> Path:
-    if not MODEL_RE.fullmatch(args.iclr_model):
-        raise SystemExit("invalid --iclr-model; use lowercase letters, digits, and hyphens")
-    if not CELL_RE.fullmatch(args.iclr_cell):
+def canonical_cell(
+    benchmark: str, section: str, model: str, cell: str,
+    roots: dict[str, Path] = ICLR_ROOTS, option_prefix: str = "iclr",
+) -> Path:
+    """``<roots[benchmark]>/<section>/<model>/<cell>`` after validating each part.
+
+    ``roots`` selects the results tree (the ICLR tree by default; the r2
+    extension tree lives under ``data/r2/`` and passes its own roots).
+    ``option_prefix`` only names the launcher's options in error messages.
+    """
+    if not MODEL_RE.fullmatch(model):
+        raise SystemExit(f"invalid --{option_prefix}-model; use lowercase letters, digits, and hyphens")
+    if not CELL_RE.fullmatch(cell):
         raise SystemExit(
-            "invalid --iclr-cell; expected {d03|d05|d07|di}__"
+            f"invalid --{option_prefix}-cell; expected {{d03|d05|d07|di}}__"
             "{b10k|bA|bP|bB|binf}__{primitive}"
         )
-    destination = (
-        ICLR_ROOTS[args.iclr_benchmark]
-        / args.iclr_section / args.iclr_model / args.iclr_cell
-    ).resolve()
-    expected_parent = (
-        ICLR_ROOTS[args.iclr_benchmark] / args.iclr_section / args.iclr_model
-    ).resolve()
+    destination = (roots[benchmark] / section / model / cell).resolve()
+    expected_parent = (roots[benchmark] / section / model).resolve()
     if destination.parent != expected_parent:
-        raise SystemExit(f"refusing non-canonical ICLR destination: {destination}")
+        raise SystemExit(f"refusing non-canonical {option_prefix} destination: {destination}")
     return destination
 
 

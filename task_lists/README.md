@@ -16,6 +16,7 @@ Schema is a JSON list of `{"instance_id", "repo"}`.
 | `ablation_25tasks.json` | 25 | **ABL-25** | ⊂ ABL-30 ⊂ P100 | **current ablation cohort** |
 | `ablation_30tasks.json` | 30 | ABL-30 | ⊂ P100 | superseded, still the cohort most ablation runs were launched on |
 | `p100_new_tasks.json` | 70 | NEW-70 | P100 ∖ ABL-30 | historical, used by `Review1/` |
+| `p30_swe_stratified.json` | 30 | **P30S** | difficulty-stratified subset (each entry also carries `difficulty`) | current r2 cohort; `scripts/expansions/run_r2_swe_p30s.sh` writes it to `data/r2/swebench/p30s/` |
 | `selected_tasks.json` | 100 | alias of P100 | byte-content identical to `p100_all_100_tasks.json` | keep — it is the default `--tasks-file` in `scripts/run_experiment.py` |
 
 ### The ABL-25 rule

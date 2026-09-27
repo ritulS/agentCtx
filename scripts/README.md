@@ -8,9 +8,11 @@ operational launchers.
 | --- | --- |
 | `run_experiment.py` | General SWE-Bench / Terminal-Bench experiment CLI (`agentctx.experiments.runner`). |
 | `run_experiment_iclr.py` | Run a cell in the canonical ICLR results tree (`agentctx.experiments.iclr`). |
+| `run_experiment_r2.py` | Same, for the r2 extension campaign: writes to `data/r2/<benchmark>/<section>/<model>/<cell>/` (`agentctx.experiments.r2`). |
 | `swebench_eval_wrapper.py` | SWE-bench harness wrapper the SWE-bench adapter launches for evaluation (thread cap inside eval containers). |
 | `notify_run.sh` | Run any launcher with Slack start / completion / failure notices (see below). |
 | `calibration/` | Collect full-context trajectories and calibrate token budgets. |
+| `expansions/run_r2_swe_p30s.sh` | r2 campaign on the P30S cohort with Qwen3.5-35B-A3B, into `data/r2/swebench/p30s/<model>/<cell>`; the first argument picks a preset (`free` = `di__b15k__{su-free,ss-free}`, default; `su-free`, `ss-free`, `fc`, `otrc`, `baselines`), `CELLS` and `RUNS_PER_TASK` override. |
 | `expansions/` | Launch model grids, additional repetitions and the summarizer / prefix-cache ablations. |
 | `serving/` | Start and stop model-specific vLLM servers. |
 | `harbor/` | Prebuild Terminal-Bench images, configure Harbor tasks, check worker cancellation. |

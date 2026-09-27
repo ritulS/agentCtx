@@ -295,6 +295,10 @@ class SweBench:
                     command,
                     cwd=self.workspace_root / "mini-swe-agent",
                     env=env,
+                    # Never inherit the launcher's terminal: at the step limit the
+                    # interactive agent would prompt for a new limit on a tty stdin
+                    # and exit with ValueError instead of LimitsExceeded.
+                    stdin=subprocess.DEVNULL,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                 )
