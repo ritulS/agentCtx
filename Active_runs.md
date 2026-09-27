@@ -14,6 +14,65 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — r2 P30S chain: su-free → fc → ss-free (SWE-bench) — this host
+- **Status:** agent runs ✅ COMPLETE 2026-09-27 09:45 CDT (launched 03:18:39, wrapper PID
+  2163816; 90/90 runs per cell, all returncode 0 except 2 FC wall-clock timeouts). The
+  in-chain SWE-bench eval **failed for all 242 patches** (every instance under
+  `error_ids`, no verdict): the harness's `put_archive` of `patch.diff` died with
+  `lchown ...: invalid argument` because the venv rebuilt at 02:40 lost the venv-local
+  uid/gid-zeroing patch of `swebench/harness/docker_utils.py` (rootless podman cannot chown
+  to the AD uid). The smoke test evaluated 0 runs (its only run had no patch), so it did
+  not catch this. Fix moved into `scripts/swebench_eval_wrapper.py` (replaces
+  `copy_to_container` with an owner-less tar; verified on 1 instance → resolved).
+  **Eval re-run 2026-09-27 15:01:34 → ⏹ stopped by user 16:03 CDT** (wrapper PID 3975920,
+  `ALLOW_NO_SLACK=1`; log
+  `logs/experiments/r2_swebench_p30s_qwen35b-chain-eval_20260927_150134.log`). State at
+  stop: su-free fully evaluated (52 resolved / 38 unresolved, 0 harness errors); fc 36/90
+  evaluated (23 resolved), 54 still `resolved: null`; ss-free not evaluated (80 null).
+  The in-flight fc eval container was removed. To finish fc: run the `fc` preset again
+  (agent phase skips all 90 keys, `--eval-only` picks up the nulls). The old su-free /
+  ss-free cells were moved on 2026-09-27 to
+  `archives/r2_p30s_qwen35b_free_missing_marker_20260927/` (README there). Only **su-free**
+  is re-run with the marker fix (preset `su-free` now starts from scratch); ss-free stays
+  archived and is not re-run for now. Details: `experiments/r2/EXPERIMENT_LOG.md`
+  (2026-09-27, first r2 P30S cells).
+  ⚠️ **su-free / ss-free summary quality:** with the qwen3 reasoning parser on, the
+  summarizer's reply arrives without `</think>`, so replies that ignore the marker
+  instruction are accepted as an "unformatted body" instead of being rejected as
+  ambiguous reasoning (which is what caught them in the ICLR SU-full runs). 76/245
+  su-free and 83/252 ss-free summaries have no marker; most of those are the model
+  continuing the transcript as the agent (a bare ```mswea_bash_command``` block, 7-30
+  words) rather than a summary. Reproduced live on 2 windows (3/3 samples each, also
+  with a 600-word target): not specific to the length-free prompt. Runs with >=1
+  marker-less summary: su-free 38/90, ss-free 40/90; 8 of the 13 su-free LimitsExceeded
+  runs had a bare-command summary. **Fixed
+  2026-09-27 (uncommitted):** `clean_summary_text` now rejects replies without a marker
+  line (`rejected="missing_marker"` → up to 5 retries → truncate fallback), restoring the
+  pre-parser behaviour; tests in `tests/test_summary_cleaning.py`. Replies that write
+  the marker and then continue as the agent (8/245 su-free) still pass. The archived
+  su-free verdicts are contaminated; su-free is re-run with the fix.
+- **Original launch:** 03:18:39 CDT (wrapper PID 2163816). Three presets run sequentially, each
+  with SWE-bench eval after its agent runs: `di__b15k__su-free` → `di__binf__fc` →
+  `di__b15k__ss-free`, P30S × 3 runs/task = 90 runs per preset, 270 total, 16 workers,
+  300 steps / 5400 s per run. Slack units `r2/swebench/p30s/qwen35b-{chain,su-free,fc,ss-free}`.
+- **What:** first cells of the post-ICLR r2 campaign (length-free summaries and the
+  full-context baseline) on the 30-task difficulty-stratified cohort
+  `task_lists/p30_swe_stratified.json`.
+- **Command:** `RUNS_PER_TASK=3 bash scripts/notify_run.sh --unit r2/swebench/p30s/qwen35b-chain
+  --lock r2_p30s_chain -- bash -c 'for p in su-free fc ss-free; do bash scripts/notify_run.sh
+  --foreground --unit "r2/swebench/p30s/qwen35b-$p" -- bash scripts/expansions/run_r2_swe_p30s.sh "$p"
+  || exit 1; done'` (safe to re-run: completed keys are skipped).
+- **Results:** `data/r2/swebench/p30s/qwen35b/<cell>/` (`scripts/run_experiment_r2.py`, r2
+  tree; not under `ICLR_experiments/`).
+- **Log:** `logs/experiments/r2_swebench_p30s_qwen35b-chain.latest.log`. Stop with
+  `kill 2163816` (posts a "killed" notice).
+- **Infra:** vLLM Qwen3.5-35B-A3B :8000 (TP=4, GPUs 0-3, **prefix caching ON, max-model-len =
+  model default 262144**, reasoning parser qwen3; PID 2052914, `logs/servers/vllm_qwen35_a3b.pid`,
+  started 02:41 with the same arguments as `QWEN_MAX_MODEL_LEN=native
+  scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh`). Rootless podman socket (PID 4142791).
+  Smoke test (1 task, su-free, 02:50-03:14) passed end to end; its ValueError exit at the step
+  limit was the agent inheriting a tty stdin, fixed in `swe_bench.py` (stdin=/dev/null) before launch.
+
 ### Qwen3.5-35B-A3B — prefix-cache ablation, SWE-Bench (dashboard 5.a) — Dobby
 - **Status:** 15K grid ✅ COMPLETE 2026-09-19 02:23 CDT (launched 09-18 14:37, launcher
   PID 1243729): 11 cells × ABL-25 × 3 runs = 825 runs at 15K / depth 0.5 (5 depth-tunable

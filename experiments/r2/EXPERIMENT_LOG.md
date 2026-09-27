@@ -157,3 +157,142 @@ accepts `reasoning_content` on assistant messages sent back by
 mini-swe-agent, and that `summary_format.had_think_preamble` drops to ~0.
 Do this on the first r2 smoke run before launching a cohort.
 
+
+## 2026-09-27 — First r2 P30S cells (SU-free, FC, SS-free): two bugs, SU-free re-run
+
+Code: the runs used the r2 launcher committed as `f69bc47` (uncommitted at
+launch, on top of `55d3934`). Fixes: eval wrapper `21f3df0`, missing-marker
+rejection `fca4779`; the SU-free re-run uses `fca4779` or later. Results:
+`data/r2/swebench/p30s/qwen35b/<cell>/`. Log of the first launch:
+`logs/experiments/r2_swebench_p30s_qwen35b-chain_20260927_031839.log`.
+
+### The runs
+
+Chain `di__b15k__su-free` → `di__binf__fc` → `di__b15k__ss-free`, P30S
+(`task_lists/p30_swe_stratified.json`) × 3 runs = 90 runs per cell, 16
+workers, 300 steps / 5400 s, SWE-bench eval after each cell. Qwen3.5-35B-A3B
+on :8000 with prefix caching on, native max-model-len (262144) and
+`--reasoning-parser qwen3`; the agent model is also the summarizer.
+Agent phase 03:18–09:45 CDT; all 270 runs finished (two FC runs of
+`scikit-learn-14087` hit the 5400 s wall clock, returncode -1).
+
+### Bug 1 — every SWE-bench eval failed (rootless podman `lchown`)
+
+Symptom: all 242 patches (su-free 77, fc 85, ss-free 80) ended with
+"Eval harness error (no verdict; will be retried)". Every harness report had
+the instance under `error_ids`.
+
+Cause: `run_instance.log` shows `put_archive` of `/tmp/patch.diff` failing
+with `lchown /tmp/patch.diff: invalid argument`. The harness's
+`copy_to_container` tars the file with `tarfile.add`, which records the host
+uid/gid (AD uid 1741623211). Rootless podman here has a single-UID user
+namespace (no subuid range) and cannot chown to it. The old venv
+(`~/ICLR27/agentCtx/venv`) carried a venv-local patch in
+`swebench/harness/docker_utils.py` that zeroed uid/gid; the venv of this
+clone was rebuilt from `requirements.txt` on 2026-09-27 02:40 and lost it.
+The smoke test did not catch it: its only run had no patch, so it evaluated
+nothing.
+
+Fix: `scripts/swebench_eval_wrapper.py` now replaces
+`swebench.harness.docker_utils.copy_to_container` (and the name bound in
+`run_evaluation`) with the same function plus a tar filter that sets
+uid/gid to 0 and clears uname/gname. It lives in the repo, so it survives
+venv rebuilds; it is harmless under Docker. Verified by evaluating
+`django__django-15368__summarization-free__r1` by hand (resolved).
+
+Re-eval: relaunched the same chain at 15:01 (`ALLOW_NO_SLACK=1`; log
+`..._chain-eval_20260927_150134.log`). The agent phase skipped all 90 keys
+per cell and `--eval-only` re-evaluated. su-free finished with 0 harness
+errors. Stopped at 16:03 on request (see below), with fc at 36/90 evaluated.
+
+### Bug 2 — marker-less summarizer replies accepted as summaries
+
+Symptom: in the SU-free cell, 76/245 summaries came from replies with no
+marker line (`summary_outcome.flags.had_open_marker = false` in
+`compression_events.jsonl`). Most were not summaries: the summarizer
+continued the transcript as the agent. Example, django-15957 run 1, step 193,
+the whole stored summary:
+
+    [COMPRESSED HISTORY SUMMARY]
+    ```mswea_bash_command
+    cd /testbed && python test_reproduce.py
+    ```
+    [END SUMMARY]
+
+The agent's entire compressible history was replaced by that one command.
+The markers around it were added by `clean_summary_text`, which re-wraps
+accepted bodies; the model did not write them.
+
+| Raw reply | Content | SU-free | SS-free |
+|---|---|---|---|
+| no marker | a single bash block | 18 | 14 |
+| no marker | starts as transcript (`[assistant]:`, `[user]:`, bash block) | 45 | 54 |
+| no marker | looks like a summary | 13 | 15 |
+| marker | a single bash block | 4 | 0 |
+| marker | starts as transcript | 4 | 0 |
+| marker | looks like a summary | 161 | 169 |
+
+Runs with at least one marker-less summary: su-free 38/90 (19 tasks, all 3
+runs for 8 of them), ss-free 40/90. In su-free those runs resolved 13/38,
+the rest 39/52. 8 of the 13 su-free LimitsExceeded runs had a bare-command
+summary.
+
+Cause: rule 4 of `clean_summary_text` accepted a reply with no marker line
+and no `</think>` as an "unformatted body". Without a reasoning parser, a
+Qwen reply that ignored the marker instruction still carried the inline
+`</think>`, so it was rejected as `ambiguous_reasoning` and retried; the
+iclr26 SU-full cell (qwen35b, d05, 15k) has 0 bare-command summaries in
+259. With `--reasoning-parser qwen3` (2026-09-26 entry above) the reasoning
+is stripped server-side, the reply has no `</think>`, and rule 4 let it
+through. The 2026-09-27 re-scoring that found a 1/4559 rejection rate under a
+parser view used these same rules, so it counted such replies as accepted
+and could not see this.
+
+Not specific to the length-free prompt: two failing windows rebuilt from
+`events.jsonl` and sent to the live server gave an agent continuation in 3/3
+samples each, both with "concisely" and with "in approximately 600 words".
+`chat_template_kwargs.enable_thinking=false` did not help. Moving the
+instruction after the history (history wrapped in `<history>` tags) gave
+the marker in 6/6 samples, but the bodies still copied the transcript; not
+adopted.
+
+Fix (`src/agentctx/compression/primitives.py`): a reply with no marker line
+is rejected as `missing_marker` (an empty reply stays `empty_body`), which
+feeds the existing path: up to `SUMMARY_MAX_ATTEMPTS` (5) re-queries, then
+the `truncate()` fallback. Module comment and docstring updated.
+`tests/test_summary_cleaning.py`: two tests rewritten for the new rule, three
+added (the observed bare-command and fabricated-tool-output shapes, and a
+close marker alone); 43 tests pass with
+`venv/bin/python -m unittest tests.test_summary_cleaning tests.test_summary_free`.
+Live check: `summarize_free` on the two failing windows through the real
+model object gave `rejections = 5 × missing_marker`, `fallback = "truncate"`.
+
+Known limits:
+- These two windows fall back to truncate every time: at temperature 0.2 the
+  retries return the same reply. Expect more `fallback: "truncate"` events
+  in SU-free / SS-free than before; count them from `compression_events.jsonl`.
+- Replies that write the marker and then continue as the agent (8/245 in
+  su-free) still pass.
+- Only r2 data is affected: nothing else ran with summaries after the parser
+  change (2026-09-26 23:33). iclr26 ran without the parser.
+
+### What was moved, and what is re-run
+
+Moved on 2026-09-27 to
+`archives/r2_p30s_qwen35b_free_missing_marker_20260927/` (original relative
+path kept below it, `README.md` there): `di__b15k__su-free` (evaluated, 52
+resolved / 38 unresolved) and `di__b15k__ss-free` (not evaluated). Both
+cells are moved whole. Re-running only the affected runs would bias the cell:
+the unaffected runs are the ones that happened not to draw a marker-less
+reply, and they resolve far more often, so a partial re-run would count them
+twice in effect.
+
+- **SU-free:** re-run in full (90 runs) with the fix.
+- **SS-free:** archived, not re-run for now.
+- **FC:** unaffected (no summaries); kept in place. Eval stopped at 36/90
+  (23 resolved); the other 54 are `resolved: null` and are picked up by
+  running the `fc` preset again (agent phase skips, `--eval-only`
+  evaluates the rest).
+
+`run_info.json` records no commit, so runs are tied to code by launch time
+against the commits above.
