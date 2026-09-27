@@ -11,6 +11,8 @@ ICLR_experiments/
 |                                #   summarized in EXPERIMENT_LOG_SWE.md "Data audits"
 ├── reeval_evidence/             # verdict re-evaluation evidence (manifest, results, verdict_comparison)
 |                                #   → cause/fix/outcome: EXPERIMENT_LOG_SWE.md "Evaluation bug"
+├── archive_provenance/             # notes, task lists and tooling for run data retired to <repo>/archives/
+|                                #   (gitignored); see archive_provenance/README.md
 |
 ├── swebench/
 │   ├── main/

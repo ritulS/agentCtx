@@ -251,7 +251,7 @@ Summary calls incorrectly required a bash command, causing FormatErrors and
 making affected runs require rerunning. After applying the fix, 2,359 local
 SWE-Bench runs with `summary_marker_error` were archived and their result-index
 entries removed where present. See
-[ARCHIVE_LOG.md](../archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md)
+[ARCHIVE_LOG.md](archive_provenance/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md)
 for the audit, selection rules, archive tooling, and Qwen result-reuse details.
 
 - Qwen resumed: **2026-09-07 20:01:53 CDT**, as recorded in the launcher log.

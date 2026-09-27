@@ -113,7 +113,7 @@ need rebuilding for serving/tbench.
   `agent-model-expansion/qwen` (start/stop notices).
 - **What:** resume of `ICLR_experiments/swebench/main/qwen35b/` after the
   summary-bug archives (marker 09-07 + remaining 09-08; see
-  `archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md`).
+  `ICLR_experiments/archive_provenance/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md`).
   `run_experiment_iclr.py` re-executes every key missing from each cell's
   `experiment_results.json`. 917 runs expected: su-partial 209, su-full 207,
   ss 128, otrc-su-partial 121, ss-partial 80, trc-su 79, trc-ss 58,

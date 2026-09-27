@@ -98,8 +98,9 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   experiment plan/grid (`FOLLOWUP_EXPERIMENTS.md`), `EXPERIMENT_LOG_{SWE,TB}.md`
   (bugs and audits are sections of the SWE log), `BUDGET_CALIBRATION.md`,
   `issue/` (still-open data audits with their scripts), `reeval_evidence/`
-  (re-evaluation manifests and verdicts) and `plotting/` (figure code, see
-  above).
+  (re-evaluation manifests and verdicts), `archive_provenance/` (notes, task
+  lists and tooling for run data retired to the gitignored `archives/`) and
+  `plotting/` (figure code, see above).
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,
