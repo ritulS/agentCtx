@@ -7,16 +7,17 @@ selects the rows whose ``cause`` is in ``--causes`` (default:
 and re-executes exactly those (task, condition, run_num) triples with a larger
 ``STEP_LIMIT`` / ``AGENT_TIMEOUT``.
 
-The original runner (``scripts/run_experiment.py``) is imported unchanged and
-only its module-level limits and its result directory are overridden, in the
-same way ``scripts/run_experiment_iclr.py`` does.  Agent launches go through
-the runner's SWE-bench adapter (``bench_adapters.swe_bench.SweBench._run_agent``),
+The original runner (``agentctx.experiments.runner``, the module behind
+``scripts/run_experiment.py``) is imported unchanged and only its module-level
+limits and its result directory are overridden, in the same way
+``scripts/run_experiment_iclr.py`` does.  Agent launches go through the
+runner's SWE-bench adapter (``agentctx.benchmarks.swe_bench.SweBench._run_agent``),
 which is where ``run_experiment.run_agent`` moved.  Nothing under
-``ICLR_results/`` is touched: results go to a fresh directory under
+``ICLR_experiments/`` is touched: results go to a fresh directory under
 ``results/adaptive_context_management/swebench/reruns/`` (gitignored via
 ``results/*``) so they never leak into
 ``analysis/aggregate_benchmark_results.py``, which scans
-``ICLR_results/swebench/**``.
+``ICLR_experiments/swebench/**``.
 
 Typical use (Qwen3.5-35B / full-context, the 82 timeout + step-limit runs):
 
@@ -60,11 +61,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(HERE))
 
-import run_experiment as runner                       # noqa: E402
-from bench_adapters import create_benchmark           # noqa: E402
+from agentctx.experiments import runner               # noqa: E402
+from agentctx.experiments.conditions import CONDITIONS  # noqa: E402
+from agentctx.benchmarks import create_benchmark      # noqa: E402
 from classify_failure_causes import (                 # noqa: E402
     DIFFICULTY_ALIASES, DIFFICULTY_LABELS, split_list,
 )
@@ -202,10 +204,10 @@ def order_key(r: dict, order: str):
 
 
 def condition_spec(condition: str) -> dict:
-    for c in runner.CONDITIONS:
+    for c in CONDITIONS:
         if c["condition"] == condition:
             return c
-    raise SystemExit(f"condition {condition!r} is not defined in scripts/run_experiment.py")
+    raise SystemExit(f"condition {condition!r} is not defined in agentctx.experiments.conditions")
 
 
 def build_name(args, rows) -> str:

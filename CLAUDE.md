@@ -40,17 +40,66 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 
 ## Where things live
 
-- `memory.py` — compression primitive functions (`truncate`, `summarize`,
+- `src/agentctx/compression/primitives.py` — compression primitive functions (`truncate`, `summarize`,
   `summarize_partial`, `structured_summarize`, `tool_result_clear`, etc.).
-- `mini-swe-agent/` — submodule, fork at `github.com/ritulS/mini-swe-agent`,
-  branch `agentctx-customizations`. The dispatch chain in
+  The root-level `memory.py` is only an alias to this module: the pinned
+  mini-swe-agent commit (b54c485) still does `import memory` from its
+  compression hook and event log. Remove the alias once the submodule is
+  bumped to a commit that imports `agentctx.compression.primitives` directly.
+- `mini-swe-agent/` — submodule. Pinned to b54c485 on branch `event-log` of
+  `github.com/takeshiho0531/mini-swe-agent` (per-run event log + online-TRC
+  clear-target fix) until that branch is merged upstream as
+  ritulS/mini-swe-agent PR #1; the upstream branch is
+  `agentctx-customizations` (dec8de2). The dispatch chain in
   `src/minisweagent/agents/default.py` calls primitives based on
   `MSWEA_PRIMITIVE` env var.
-- `scripts/run_experiment.py` — main run harness. Conditions defined in the
-  `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`
-  control a single sweep. Per-benchmark agent launching, trajectory parsing
-  and evaluation live in `scripts/bench_adapters/` (`swe_bench.py`,
-  `terminal_bench.py`); the harness selects one with `--benchmark`.
+- `src/agentctx/` — shared Python package. `compression/` (primitives),
+  `benchmarks/` (SWE-Bench and Terminal-Bench/Harbor adapters, verdict
+  handling in `tb_verdict.py`, shared result conversion in
+  `harbor_results.py` / `results.py`, the replay agent), `experiments/`
+  (`conditions.py`, `runner.py`, `iclr.py`) and `summary_config.py`
+  (summarizer-model overrides). `WORKSPACE_ROOT` and the `INFINITE_BUDGET`
+  sentinel for uncompressed baselines are defined once in
+  `src/agentctx/__init__.py`.
+- `scripts/run_experiment.py` — CLI entry point for
+  `src/agentctx/experiments/runner.py`. Conditions defined in
+  `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`,
+  `--tasks-file`, `--conditions`, `--summary-config` control a single sweep;
+  the runner selects a benchmark adapter with `--benchmark`.
+  `scripts/run_experiment_iclr.py` runs one cell of the canonical ICLR
+  results tree. Launchers are grouped under
+  `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see
+  `scripts/README.md`.
+- `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py`,
+  `scripts/run_experiment_iclr.py` and the calibration launchers from the
+  working tree and from the reference branch (`origin/akiho-clean-20260921-preorg`,
+  the pre-reorganization tree) against deterministic fakes and diffs
+  everything they write, plus unit tests for verdicts, the summarizer guard
+  and the ablation launcher. `uvx --with pyyaml pytest`; see
+  `tests/README.md`. Run it after touching `src/agentctx/experiments/` or
+  `src/agentctx/benchmarks/`.
+- Event log (failure analysis): the SWE-bench adapter
+  (`src/agentctx/benchmarks/swe_bench.py`) sets `MSWEA_EVENT_LOG_DIR` so each
+  run dir also gets `events.jsonl` (every message as added, before
+  compression, with a stable `extra.uid`) and `compression_events.jsonl`
+  (per event: dropped/replaced/added uids, summary text, before/after uid
+  order). `scripts/maintenance/reconstruct_context.py <run_dir> [--step N]
+  [--event K]` replays them and verifies against trajectory.json /
+  token_log.json. Runs before 2026-09-23 only have the final trajectory.
+- `ICLR_experiments/plotting/` — ICLR figure code: `plot_bank.py` is the
+  single file holding every renderer (shared style, Figure 1 schematic,
+  Figures 2-5, appendix companions, the former `paper_figures.py` and
+  `appendix_*.py` tools as `plot_bank.py <tool>` sub-commands; `--help`
+  documents each) and the audited Q3 exports
+  `q3_combined_*.csv` that Figure 5 reads. Rendered figures (PNG) and their
+  value CSVs go to `ICLR_experiments/plotting/plots/` (gitignored).
+- `ICLR_experiments/` — canonical ICLR run data and records: `SOURCE_OF_TRUTH.md`
+  (paper target and source-of-truth table; it wins over every other doc), the
+  experiment plan/grid (`FOLLOWUP_EXPERIMENTS.md`), `EXPERIMENT_LOG_{SWE,TB}.md`
+  (bugs and audits are sections of the SWE log), `BUDGET_CALIBRATION.md`,
+  `issue/` (still-open data audits with their scripts), `reeval_evidence/`
+  (re-evaluation manifests and verdicts) and `plotting/` (figure code, see
+  above).
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,
@@ -60,14 +109,22 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 - `exp_plans/` — HANDOFF_COHERENCE (current direction), PRIOR_WORK_MLSys,
   DOBBY_PLAN, ALBUS_PLAN, CHARACTERIZATION_PAPER_PLAN_100tasks. Retired plans
   live in git history or `~/agentCtx_attic/exp_plans/`.
+- `logs/` — gitignored. Shell launchers write
+  `logs/experiments/<name>_<timestamp>.log` (+ `<name>.latest.log` symlink,
+  locks, pid files) and vLLM servers write `logs/servers/vllm_<name>_<timestamp>.log`
+  (+ `vllm_<name>.pid`); the outermost script owns the file through
+  `scripts/lib/logpaths.sh` (`experiment_log`, `emit`, `AGENTCTX_LOG_FILE`).
+  `scripts/notify_run.sh` wraps any launcher with Slack notices and
+  detaches by default. Data directories under `logs/` (`harbor_jobs/`, ...)
+  are separate.
 - `Active_runs.md` — live status of long-running experiments. Update on
   launch/kill/completion.
 - `COVERAGE.csv` — auto-generated cell-coverage sheet (one row per
   observed benchmark × model × primitive × budget × depth, with scope and
   status. Dirty/archived data is excluded; fresh Terminal-Bench data is read
   from its canonical path. Regenerate with
-  `python scripts/build_coverage.py` after any run completes or Review1.csv
-  is rebuilt.
+  `python dashboard/build_coverage.py` (then `dashboard/build_dashboard.py`)
+  after any run completes or Review1.csv is rebuilt.
 
 ## Vocabulary
 
@@ -115,7 +172,8 @@ their own reduced-cohort scopes documented in `exp_plans/ALBUS_PLAN.md`.
 - **Always update** `Active_runs.md` when launching or killing a long-running
   experiment.
 - **Submodule updates**: `cd mini-swe-agent`, commit + push there first
-  (branch `agentctx-customizations`), then `git add mini-swe-agent` in parent
+  (branch `event-log` on takeshiho0531/mini-swe-agent while the upstream PR is
+  open), then `git add mini-swe-agent` in parent
   to record the new pointer.
 - **Don't write to `PaperSections/`** files without showing the user the draft
   content in chat first.

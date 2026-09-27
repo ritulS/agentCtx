@@ -42,7 +42,7 @@ BUDGET_ORDER = {
 
 
 # Priority 4 (summarizer ablation): the tracked cells per experiment.  SWE rows
-# follow scripts/run_qwen_swe_summarizer_ablation.sh (ABL-25 x 3 runs at the
+# follow scripts/expansions/run_qwen_swe_summarizer_ablation.sh (ABL-25 x 3 runs at the
 # 15k primary budget). Terminal-Bench uses TB:ABL-15 x 3 runs at the
 # 3k primary budget.
 P4_PRIMITIVES = (("SU-full", "0.5"), ("TRC+SU", "DI"))
@@ -59,9 +59,9 @@ P4_DATASETS = " + ".join(dict.fromkeys(spec[3] for spec in P4_SPECS))
 # Priority 5 (prefix-cache ablation): the main model as agent and summarizer,
 # served with vLLM prefix caching flipped relative to the benchmark's
 # production runs (SWE-Bench production: off; Terminal-Bench production: on).
-# Cells come from ICLR_results/<benchmark>/prefix_cache_ablation/ and carry a
+# Cells come from ICLR_experiments/<benchmark>/prefix_cache_ablation/ and carry a
 # non-empty ``prefix_cache`` column in the coverage sheets (build_coverage.py).
-# SWE rows follow scripts/run_qwen_swe_prefix_cache_ablation.sh (15k primary
+# SWE rows follow scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh (15k primary
 # budget); Terminal-Bench rows use its 3k primary budget, like Priority 4.
 P5_SPECS = [
     # exp_id, benchmark, dataset label, prefix cache, tasks, runs/task, budget
@@ -784,7 +784,7 @@ def main():
     p4_primitive_label = ", ".join(f"{p} ({d})" for p, d in P4_PRIMITIVES)
     for exp_id, summarizer, benchmark, dataset, tasks, rpt, budget in P4_SPECS:
         # Summarizer-ablation cells live in the coverage sheets with a
-        # non-empty ``summarizer`` column (ICLR_results/<bench>/model_ablation/
+        # non-empty ``summarizer`` column (ICLR_experiments/<bench>/model_ablation/
         # <agent>-sum-<summarizer>/<cell>); look them up per primitive because
         # depth-invariant TB cells are keyed "DI" while SWE cells use "0.5".
         view = summarizer_view(summarizer_cells, benchmark, summarizer)
@@ -1017,7 +1017,7 @@ a {{ color:var(--accent-ink); }}
 <div class="wrap">
 <h1>Follow-up Experiments Plan</h1>
 <p class="sub">Generated {generated_at} from
-<code>exp_plans/FOLLOWUP_EXPERIMENTS.md</code>.</p>
+<code>ICLR_experiments/FOLLOWUP_EXPERIMENTS.md</code>.</p>
 
 <div class="roadmap">
 <h2>Overview</h2>
@@ -1116,7 +1116,7 @@ Existing results count only for the selected cohort; copies of the same run coun
 <ul>
 <li>ETA: TBD ({P4_TOTAL_RUNS:,} runs)</li>
 <li>SWE-Bench rows track {P4_SPECS[0][3]} × {P4_SPECS[0][5]} runs at {P4_SPECS[0][6].upper()}
-(scripts/run_qwen_swe_summarizer_ablation.sh); Terminal-Bench rows track {P4_SPECS[1][3]} × {P4_SPECS[1][5]} runs
+(scripts/expansions/run_qwen_swe_summarizer_ablation.sh); Terminal-Bench rows track {P4_SPECS[1][3]} × {P4_SPECS[1][5]} runs
 at {P4_SPECS[1][6].upper()}.</li>
 </ul>
 <p>Existing self-summarization runs are used as the baseline.</p>
@@ -1129,9 +1129,9 @@ at {P4_SPECS[1][6].upper()}.</li>
 <li>Model (agent &amp; summarizer): Qwen3.5-35B-A3B-Instruct; runs/task: 3</li>
 <li>vLLM <code>--enable-prefix-caching</code> is flipped relative to each benchmark's production runs:
 SWE-Bench production ran with it off, so (5.a) runs with it <strong>ON</strong>
-(scripts/run_qwen_swe_prefix_cache_ablation.sh); Terminal-Bench production ran with it on,
+(scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh); Terminal-Bench production ran with it on,
 so (5.b) runs with it <strong>OFF</strong>.</li>
-<li>Coverage counts only <code>ICLR_results/&lt;benchmark&gt;/prefix_cache_ablation/</code>.</li>
+<li>Coverage counts only <code>ICLR_experiments/&lt;benchmark&gt;/prefix_cache_ablation/</code>.</li>
 </ul>
 <p>Existing production runs of the same cells are used as the baseline.</p>
 {p5_tracking}

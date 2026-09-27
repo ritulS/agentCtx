@@ -1,4 +1,4 @@
 [submodule "mini-swe-agent"]
 	path = mini-swe-agent
-	url = git@github.com:ritulS/mini-swe-agent.git
-	branch = agentctx-customizations
+	url = git@github.com:takeshiho0531/mini-swe-agent.git
+	branch = event-log

@@ -14,10 +14,10 @@ transfer checks.
    highlighted. Regenerable (see [Coverage tracking](#coverage-tracking)).
 2. [CLAUDE.md](CLAUDE.md) — project context, vocabulary (primitive families,
    depths, cohorts), scope rules, critical conventions.
-3. [ICLR.md](ICLR.md) — the current target (ICLR 2027), the framing of
+3. [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md) — the current target (ICLR 2027), the framing of
    record, and the source of truth for every topic.
-4. [ICLR_analysis/exp_grid.md](ICLR_analysis/exp_grid.md) — the experiment
-   grid and its status; [Active_runs.md](Active_runs.md) — live experiment
+4. [ICLR_experiments/FOLLOWUP_EXPERIMENTS.md](ICLR_experiments/FOLLOWUP_EXPERIMENTS.md) — the experiment
+   plan, grid and its status; [Active_runs.md](Active_runs.md) — live experiment
    status.
 
 ## Clone
@@ -35,10 +35,12 @@ If you already cloned without `--recurse-submodules`:
 git submodule update --init --recursive
 ```
 
-The submodule (`mini-swe-agent/`) is a fork pinned to branch
-`agentctx-customizations` (`github.com/ritulS/mini-swe-agent`). The pinned
-branch is recorded in [.gitmodules](.gitmodules), so `update --init` checks out
-the right branch automatically.
+The submodule (`mini-swe-agent/`) is a fork, currently pinned to branch
+`event-log` of `github.com/takeshiho0531/mini-swe-agent` (the per-run event log,
+proposed upstream as ritulS/mini-swe-agent PR #1; the upstream branch is
+`agentctx-customizations`). The pinned branch is recorded in
+[.gitmodules](.gitmodules), so `update --init` checks out the right branch
+automatically.
 
 ## Environment
 
@@ -62,33 +64,35 @@ Per-model serving configs live in [configs/](configs/).
 
 | Path | What |
 |------|------|
-| `memory.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. |
+| `src/agentctx/compression/primitives.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. `memory.py` at the repo root is an alias kept for the pinned mini-swe-agent commit, which still does `import memory`. |
 | `mini-swe-agent/` | Submodule — agent loop; primitives dispatched in `src/minisweagent/agents/default.py` via the `MSWEA_PRIMITIVE` env var. |
-| `scripts/run_experiment.py` | Main run harness. Conditions in the `CONDITIONS` list; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--max-workers`. |
+| `scripts/run_experiment.py` | CLI entry point for `src/agentctx/experiments/runner.py`. Conditions in `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--summary-config`, `--max-workers`. |
 | `dashboard/build_coverage.py` | Regenerates the coverage CSVs from experiment results. |
 | `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
-| `scripts/run_experiment_iclr.py` | Wraps the harness to write into the canonical `ICLR_results/` tree. |
-| `scripts/bench_adapters/`, `tbench/` | Per-benchmark adapters, including the Terminal-Bench harbor adapter. |
+| `scripts/run_experiment_iclr.py` | Wraps the runner to write into the canonical `ICLR_experiments/` tree (`src/agentctx/experiments/iclr.py`). |
+| `src/agentctx/benchmarks/` | Per-benchmark adapters (SWE-bench, Terminal-Bench through Harbor), verdict handling and shared result conversion. |
+| `src/agentctx/__init__.py` | `WORKSPACE_ROOT` and the shared `INFINITE_BUDGET` sentinel used by uncompressed baselines. |
+| `scripts/{calibration,expansions,serving,harbor,maintenance}/` | Launchers and operational tools; see [scripts/README.md](scripts/README.md). |
+| `tests/` | Runner-equivalence suite against the pre-reorganization branch plus unit tests; `uvx --with pyyaml pytest` (see [tests/README.md](tests/README.md)). |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
-| `exp_plans/` | Current experiment queue (`FOLLOWUP_EXPERIMENTS.md`); retired plans in `archived/`. |
-| `ICLR_results/`, `ICLR_analysis/`, `analysis/` | Canonical ICLR run data, the experiment grid, and per-run outcome aggregation. |
+| `ICLR_experiments/`, `analysis/` | Canonical ICLR run data, the experiment plan/grid and logs (`FOLLOWUP_EXPERIMENTS.md`, `EXPERIMENT_LOG*.md`), and per-run outcome aggregation. |
 
 ## Data
 
-**ICLR run data is canonical in `ICLR_results/`**, one directory per cell,
+**ICLR run data is canonical in `ICLR_experiments/`**, one directory per cell,
 laid out as `<bench>/<track>/<model>/<cell>/`. The populated tree lives in
-Akiho's clone (`/home/ak58925/agentCtx/ICLR_results/`) and is symlinked into
-this one. It never travels through git. See [ICLR.md](ICLR.md) for the full
-source-of-truth table, and `ICLR_results/README.md` for the cell naming.
+Akiho's clone (`/home/ak58925/agentCtx/ICLR_experiments/`) and is symlinked into
+this one. It never travels through git. See [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md) for the full
+source-of-truth table, and `ICLR_experiments/README.md` for the cell naming.
 
-Data flow: `ICLR_results/<bench>/<track>/<model>/<cell>/`
+Data flow: `ICLR_experiments/<bench>/<track>/<model>/<cell>/`
 → `analysis/aggregate_benchmark_results.py` → `analysis/outcomes/<bench>_outcomes.csv`
-→ analysis in `ICLR_analysis/`.
+→ analysis against the grid in `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md`.
 
 Terminal-Bench runs on Albus; its results are not here. See the Terminal-Bench
-section of [ICLR.md](ICLR.md).
+section of [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md).
 
 **Older (EMNLP-era) data lives in `data/`** (~10 GB, gitignored).
 `data/README.md` is its provenance map — canonical grid vs source runs vs
@@ -114,7 +118,7 @@ disk, never hand-edited:
   excluded. **The committed copy is stale** (2026-08-28, no Devstral or GLM
   rows), so regenerate before relying on it. `COVERAGE_TB.csv` is header-only
   here because Terminal-Bench runs on another machine — see
-  [ICLR.md](ICLR.md).
+  [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md).
 - **`DASHBOARD.html`** (gitignored, regenerable) — the human-friendly view.
   The live copy is published by GitHub Actions on a cron; see
   `dashboard/README.md` for the URL and the publishing pipeline.
@@ -145,6 +149,6 @@ Update `Active_runs.md` on every launch/kill/completion.
 SWE-bench runs on **Dobby** (4× A100 80GB); Terminal-Bench runs on **Albus**
 (8× A6000). Two clones share Dobby — Ritul's (`/home/rs67788/projects/agentCtx`, paper and analysis)
 and Akiho's (`/home/ak58925/agentCtx`, experiment runs and the canonical
-`ICLR_results/` tree). Code goes through git on `akiho-expansion`; run data
+`ICLR_experiments/` tree). Code goes through git on `akiho-expansion`; run data
 stays on disk (see [DATA.md](DATA.md)). Pull before starting and push at task
 boundaries.

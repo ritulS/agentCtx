@@ -2,7 +2,7 @@
 """Build an outcome CSV from Terminal-Bench 2.0 results.
 
 Recursively collect experiment_results.json files below
-ICLR_results/terminalbench2 into analysis/outcomes/terminalbench2_outcomes.csv.
+ICLR_experiments/terminalbench2 into analysis/outcomes/terminalbench2_outcomes.csv.
 All tasks, models, cells, and run numbers are included; no TB 1.0 task lists
 or experiment grids are applied. Result paths should follow
 <section>[/<namespace>]/<model>/<cell>/experiment_results.json.
@@ -29,7 +29,7 @@ else:
     from aggregate_terminalbench_results import FIELDNAMES, ROOT, load_records, normalized_row
 
 
-DEFAULT_SOURCE_ROOT = ROOT / "ICLR_results" / "terminalbench2"
+DEFAULT_SOURCE_ROOT = ROOT / "ICLR_experiments" / "terminalbench2"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "outcomes" / "terminalbench2_outcomes.csv"
 
 

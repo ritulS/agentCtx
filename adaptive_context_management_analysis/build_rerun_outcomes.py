@@ -2,7 +2,7 @@
 """Overlay raised-limit re-run results onto ``swebench_outcomes.csv``.
 
 The canonical outcome table (``analysis/outcomes/swebench_outcomes.csv``) is
-built only from ``ICLR_results/``.  Re-runs made by
+built only from ``ICLR_experiments/``.  Re-runs made by
 ``rerun_limit_failures.py`` live outside that tree, under
 ``results/adaptive_context_management/swebench/reruns/<name>/``, so they never
 leak into the canonical cells.  This script produces a *second* table in which
@@ -82,7 +82,7 @@ EXTRA_FIELDS = [
 OUT_FIELDNAMES = FIELDNAMES + EXTRA_FIELDS
 
 RERUN_OF_RE = re.compile(
-    r"^ICLR_results/swebench/(?P<section>.+)/(?P<model>[^/]+)/(?P<cell>[^/]+)/"
+    r"^ICLR_experiments/swebench/(?P<section>.+)/(?P<model>[^/]+)/(?P<cell>[^/]+)/"
     r"(?P<task>[^/]+)/(?P<condition>[^/]+)/run_(?P<run>\d+)/?$"
 )
 

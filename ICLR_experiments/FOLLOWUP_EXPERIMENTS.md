@@ -1,0 +1,240 @@
+# Follow-up Experiments Plan
+Last update: September 26, 2026 (absorbed `exp_grid.md` as the "Experiment grid and status" section; September 21: merged the Terminal-Bench plan of branch akiho-expansion-terminalbench-0829; SWE-bench ablation cohort is ABL-25, Terminal-Bench ETAs are from September 3)
+
+Future SWE-bench ablation launches for Qwen, Devstral, and GLM use
+`task_lists/ablation_25tasks.json` (25 tasks, 3 runs/task). Existing ABL-30
+results are retained; only ABL-25 tasks are scheduled and counted.
+
+## Overview
+
+| Priority | Experiment | Dataset(s) | ETA |
+|---:|---|---|---|
+| 1 | [Increase runs/task](#exp-runs) | SWE: P100 + ABL-25 | **3–5 days** (2600 additional runs) |
+| 2 | [Add 2 agent models](#exp-models) | SWE: P100 + ABL-25 | **3–7 days** (7800 runs) + TBD (7800 runs) |
+| 4 | [Summarizer ablation](#exp-summarizer) | SWE: ABL-25; TB: ABL-20 | TBD (700 runs) |
+| 3 | [Terminal-Bench evaluation](#exp-tb) | TB: P-40 + P-15 | **~22 days total; ~19 days remaining** (11,700 runs; one GPU host) |
+| 5 | [Quantization ablation](#exp-quantization) | TBD | TBD |
+| 6 | [Add ACON](#exp-acon) | SWE: P100 | TBD |
+
+- Experiments env: **Dobby (GPU: 4× A100 80GB)**
+- Metrics: resolve rate (SWE-Bench), accuracy (Terminal-Bench), token cost, latency, compression behavior
+- Per-cell status: [Experiment grid and status](#exp-grid) below
+
+<a id="exp-grid"></a>
+## Experiment grid and status
+
+Status last updated 2026-09-11 from `COVERAGE.csv` (moved here from `exp_grid.md` on 2026-09-26; for current cell status trust `COVERAGE.csv` / `COVERAGE_TB.csv`, which run ahead of this table).
+Status: Done = finished · In progress = started, not finished · blank = not started.
+Runs/task = 3 everywhere except the TB summarizer ablation (5).
+Priority: 1 SWE main → 2 SWE ablation → 3 summarizer ablation → 4 TB main → 5 TB ablation.
+
+| Benchmark | Section | Model (agent) | Summarizer | Cohort | Budget | Depth | Primitives | Status | Priority |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SWE-bench | main | Qwen3.5-35B-A3B | self | P100 | ∞ | 0.5 | FC, OTRC | Done | 1 |
+| SWE-bench | main | Qwen3.5-35B-A3B | self | P100 | 15K | 0.5 | DT + DI | Done | 1 |
+| SWE-bench | ablation | Qwen3.5-35B-A3B | self | ABL-25 | 10K / 20K | 0.5 | DT + DI | In progress | 2 |
+| SWE-bench | ablation | Qwen3.5-35B-A3B | self | ABL-25 | 10K / 15K / 20K | 0.3 / 0.7 | DT | In progress | 2 |
+| SWE-bench | main | Devstral-Small-2-24B | self | P100 | ∞ | 0.5 | FC, OTRC | Done | 1 |
+| SWE-bench | main | Devstral-Small-2-24B | self | P100 | 21K | 0.5 | DT + DI | Done | 1 |
+| SWE-bench | ablation | Devstral-Small-2-24B | self | ABL-25 | 17K / 24K | 0.5 | DT + DI | In progress | 2 |
+| SWE-bench | ablation | Devstral-Small-2-24B | self | ABL-25 | 17K / 21K / 24K | 0.3 / 0.7 | DT | In progress | 2 |
+| SWE-bench | main | GLM-4.7-Flash | self | P100 | ∞ | 0.5 | FC, OTRC | In progress | 1 |
+| SWE-bench | main | GLM-4.7-Flash | self | P100 | 13K | 0.5 | DT + DI | In progress | 1 |
+| SWE-bench | ablation | GLM-4.7-Flash | self | ABL-25 | 10K / 15K | 0.5 | DT + DI |  | 2 |
+| SWE-bench | ablation | GLM-4.7-Flash | self | ABL-25 | 10K / 13K / 15K | 0.3 / 0.7 | DT |  | 2 |
+| Terminal-Bench | main | Qwen3.5-35B-A3B | self | P40 | ∞ | 0.5 | FC, OTRC | Done | 4 |
+| Terminal-Bench | main | Qwen3.5-35B-A3B | self | P40 | 3K | 0.5 | DT + DI | Done | 4 |
+| Terminal-Bench | ablation | Qwen3.5-35B-A3B | self | ABL-15 | 2K / 4K | 0.5 | DT + DI | In progress | 5 |
+| Terminal-Bench | ablation | Qwen3.5-35B-A3B | self | ABL-15 | 2K / 3K / 4K | 0.3 / 0.7 | DT |  | 5 |
+| Terminal-Bench | main | Devstral-Small-2-24B | self | P40 | ∞ | 0.5 | FC, OTRC | Done | 4 |
+| Terminal-Bench | main | Devstral-Small-2-24B | self | P40 | 4K | 0.5 | DT + DI | Done | 4 |
+| Terminal-Bench | ablation | Devstral-Small-2-24B | self | ABL-15 | 3K / 7K | 0.5 | DT + DI |  | 5 |
+| Terminal-Bench | ablation | Devstral-Small-2-24B | self | ABL-15 | 3K / 4K / 7K | 0.3 / 0.7 | DT |  | 5 |
+| Terminal-Bench | main | GLM-4.7-Flash | self | P40 | ∞ | 0.5 | FC, OTRC | In progress | 4 |
+| Terminal-Bench | main | GLM-4.7-Flash | self | P40 | 3K | 0.5 | DT + DI | In progress | 4 |
+| Terminal-Bench | ablation | GLM-4.7-Flash | self | ABL-15 | 2K / 5K | 0.5 | DT + DI |  | 5 |
+| Terminal-Bench | ablation | GLM-4.7-Flash | self | ABL-15 | 2K / 3K / 5K | 0.3 / 0.7 | DT |  | 5 |
+| SWE-bench | summarizer | Qwen3.5-35B-A3B | Qwen3.5-9B | ABL-25 | 15K | 0.5 | SU-full, TRC+SU |  | 3 |
+| Terminal-Bench | summarizer | Qwen3.5-35B-A3B | Qwen3.5-9B | ABL-20 | 3K | 0.5 | SU-full, TRC+SU |  | 3 |
+| SWE-bench | summarizer | Qwen3.5-35B-A3B | Gemma-4-12B | ABL-25 | 15K | 0.5 | SU-full, TRC+SU |  | 3 |
+| Terminal-Bench | summarizer | Qwen3.5-35B-A3B | Gemma-4-12B | ABL-20 | 3K | 0.5 | SU-full, TRC+SU |  | 3 |
+
+Notes
+
+- Primitive groups
+  - DT (depth-tunable): TR, SU-full, SU-partial, SS, SS-partial
+  - DI (depth-invariant, no depth parameter): TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial
+- Cohorts
+  - SWE-bench
+    - P100 = `task_lists/p100_all_100_tasks.json` (100 tasks)
+    - ABL-25 = `task_lists/ablation_25tasks.json` (25 ⊂ P100)
+  - Terminal-Bench
+    - P40 = `task_lists/tbench_p40.json` (40 tasks)
+    - ABL-20 (summarizer ablation) = TBD (20 ⊂ P40)
+    - ABL-15 = `task_lists/tbench_abl15.json` (15 ⊂ ABL-20 ⊂ P40)
+- Paper scope, decided 2026-09-13. The SWE-bench main track is the primary
+  budget only (Qwen 15K, Devstral 21K, GLM 13K) plus the unlimited-budget
+  baseline. Qwen P100 runs exist on disk at 10K and 20K as well; they are out
+  of scope and analysis excludes them.
+- Results: `ICLR_experiments/<bench>/{main,ablation}/<model>/<cell>`.
+
+<a id="exp-runs"></a>
+## 1. [Priority] SWE-Bench: Runs/task: 2->3
+- ETA: 3–5 days
+- Model (agent & summarizer): Qwen3.5-35B-A3B-Instruct
+- Runs/task : **3 (Additional 1 run/task** mostly)
+
+
+| Primitives | Depths | Budget |Task |Runs |Notes|
+|---|---|---|---|---|---|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 15K | P100 | 500 | Main |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 20K | ABL-25 | 250 | Budget ablation |
+| TR, SU-full, SU-partial, SS, SS-partial | **0.3 / 0.7** | 10K / 15K / 20K | **ABL-25** | **750** | **Ablation-depth runs** |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 15K | P100 | 600 | Main |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 10K / 20K | ABL-25 | 300 | Budget ablation |
+| FC, OTRC | depth invariant | ∞ | P100 | 200 ||
+
+Counts above track the additional third run: main 1,300 + ablation 1,300 = 2,600.
+The complete three-run grid contains 7,800 runs, using the same cohort definition
+as Devstral and GLM. Legacy Qwen main results at 10K/20K contribute only their
+ABL-25 tasks; copies in ablation are deduplicated by task, condition and run number.
+
+<a id="exp-models"></a>
+## 2. [Priority] SWE-Bench: Add 2 agent models
+- **Model budgets (A/P/B):** Devstral: 17K / 21K / 24K; GLM: 10K / 13K / 15K
+- Runs/task : 3
+
+| Experiment | Model<br>(agent & summarizer) |Dataset | Notes | Runs |ETA |
+|---|---|---|---|---|---|
+| [(2.a) Devstral-24B Main](#exp-models-devstral-main) | Devstral-Small-2-24B|SB:P-100| Depth: 0.5 or depth-invariant / Budget: 21K (or ∞) | 3900|1.3-3.3 days|
+| [(2.b) GLM Main](#exp-models-glm-main) | GLM-4.7-Flash (30B-A3B MoE)|SB:P-100 | Depth: 0.5 or depth-invariant / Budget: 13K (or ∞) | 3900|TBD|
+| [(2.c) Devstral-24B Ablation](#exp-models-devstral-abl) | Devstral-Small-2-24B|SB:ABL-25 |depth & budget ablation|3900|TBD|
+| [(2.d) GLM Ablation](#exp-models-glm-abl) | GLM-4.7-Flash (30B-A3B MoE)|SB:ABL-25 | depth & budget ablation |3900|TBD|
+
+<a id="exp-models-devstral-main"></a>
+### (2.a) Devstral-24B Main
+
+| Primitives | Depths | Budget |Task | Runs |
+|---|---|---|---|---|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | 21K  | SB:P100 | 1500 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |21K | SB:P100 | 1800 |
+| FC, OTRC | depth invariant | ∞ | SB:P100 |600 |
+
+<a id="exp-models-glm-main"></a>
+### (2.b) GLM Main
+
+| Primitives | Depths | Budget |Task | Runs |
+|---|---|---|---|---|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5  | 13K  | SB:P100 |1500 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 13K | SB:P100 |1800 |
+| FC, OTRC | depth invariant | ∞ | SB:P100 | 600|
+
+
+<a id="exp-models-devstral-abl"></a>
+### (2.c) Devstral-24B Ablation
+
+| Primitives | Depths | Budget |Task | Runs |
+|---|---|---|---|---|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 17K / 21K / 24K | SB:ABL-25 | 2250 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 17K / 24K | SB:ABL-25 | 750 |
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |17K / 24K | SB:ABL-25 | 900 |
+
+<a id="exp-models-glm-abl"></a>
+### (2.d) GLM Ablation
+
+| Primitives | Depths | Budget |Task | Runs |
+|---|---|---|---|---|
+| TR, SU-full, SU-partial, SS, SS-partial | 0.3 / 0.7 | 10K / 13K / 15K | SB:ABL-25 | 2250 |
+| TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 10K / 15K | SB:ABL-25 | 750|
+| TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant |10K / 15K | SB:ABL-25 | 900|
+
+<a id="exp-tb"></a>
+## 3. [Priority] Terminal-Bench Evaluation
+- Terminal-Bench 1.0 (80 tasks)
+- Runs/task : 3
+- Models (agent & summarizer): Qwen3.5-35B-A3B-Instruct, Devstral-Small-2-24B, GLM-4.7-Flash (30B-A3B MoE)
+- Model budgets (A/P/B): Qwen: 2K / 3K / 4K; Devstral: 3K / 4K / 7K; GLM: 2K / 3K / 5K
+
+| Experiment | Dataset | Notes | Runs | ETA |
+|---|---|---|---|---|
+| [(3.a) TB Main](#exp-tb-main) | TB:P-40| Depth: 0.5 or depth-invariant / Budget: model-calibrated primary (or ∞) | 4680|**~9 days total; ~6–7 days remaining if prioritized**|
+| [(3.b) TB Ablation](#exp-tb-abl) | TB:P-15 |depth & budget ablation|7020|**~13–15 days total; ~13–15 days remaining if prioritized**|
+
+ETA basis (updated 2026-09-03 20:21 CDT; runs started August 31): Qwen TB Main completed
+1,560/1,560 runs in about 68 hours elapsed. Its newly executed cells account
+for about 64 active hours, implying a full-grid rate of approximately 22
+runs/hour. The first 120 Qwen ablation runs took about 5.5 hours (21.8
+runs/hour), independently supporting the same projection rate. Current
+coverage is Main 1,560/4,680 and ablation 120/7,020. The Qwen ablation launcher
+is currently stopped, so calendar dates below assume an immediate restart,
+24-hour operation, and short model-switch downtime. Across both sections,
+10,020 runs remain, corresponding to about 19 days of pure runtime at the
+observed rate.
+
+- If all remaining Main cells are prioritized before ablations: Main completes
+  around **September 9–10**, followed by all ablations around **September
+  23–25**.
+- If the current model-by-model order is retained (Qwen Main -> Qwen ablation
+  -> Devstral Main -> Devstral ablation -> GLM Main -> GLM ablation): all Main
+  cells complete around **September 18–20**, and all ablations around
+  **September 23–25**.
+
+<a id="exp-tb-main"></a>
+### (3.a) TB Main
+
+| Models | Primitives | Depths | Budget | Tasks | Runs |
+|---|---|---|---|---|---:|
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 3K | TB:P-40 | 600 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 4K | TB:P-40 | 600 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 3K | TB:P-40 | 600 |
+| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 3K | TB:P-40 | 720 |
+| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 4K | TB:P-40 | 720 |
+| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 3K | TB:P-40 | 720 |
+| Qwen-35B-A3B/<br>Devstral-24B/<br>GLM | FC, OTRC | depth invariant | ∞ | TB:P-40 | 720 |
+
+<a id="exp-tb-abl"></a>
+### (3.b) TB Ablation
+
+| Models | Primitives | Depths | Budget | Tasks | Runs |
+|---|---|---|---|---|---:|
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 2K/4K | TB:P-15 | 450 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 3K/7K | TB:P-15 | 450 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.5 | 2K/5K | TB:P-15 | 450 |
+| Qwen-35B-A3B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 2K/3K/4K | TB:P-15 | 1350 |
+| Devstral-24B | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 3K/4K/7K | TB:P-15 | 1350 |
+| GLM | TR, SU-full, SU-partial, SS, SS-partial | 0.3/0.7 | 2K/3K/5K | TB:P-15 | 1350 |
+| Qwen-35B-A3B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 2K/4K | TB:P-15 | 540 |
+| Devstral-24B | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 3K/7K | TB:P-15 | 540 |
+| GLM | TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial | depth invariant | 2K/5K | TB:P-15 | 540 |
+
+<a id="exp-summarizer"></a>
+## 4. [Priority] Summarizer Ablation
+- ETA: TBD (700 runs)
+- Agent: Qwen3.5-35B-A3B-Instruct
+
+Existing self-summarization runs are used as the baseline.
+
+| | **Summarizer** | Primitives | Agent | Budget | Tasks | Runs/task |
+|---|---|---|---|---|---|---:|
+|(4.a)|**Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-25 | 3 |
+|(4.b)|**Qwen3.5-9B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | TB:ABL-20 | 5 |
+|(4.c)|**Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | SB:ABL-25 | 3 |
+|(4.d)|**Gemma-4-12B** | SU-full (0.5), TRC+SU (depth invariant) | Qwen-35B-A3B | 15K | TB:ABL-20 | 5 |
+
+<a id="exp-quantization"></a>
+## 5. Quantization ablation
+- ETA: TBD
+
+
+<a id="exp-acon"></a>
+## 6. SWE-Bench: Add [ACON](https://arxiv.org/abs/2510.00615)
+- ETA: TBD
+- Model (agent & judge/optimizer): Qwen3.5-35B-A3B-Instruct 
+  - judge/optimizer for the offline summary-guideline optimization loop
+- New primitive: `ACON`
+  - Need a subset data for the offline summary-guideline optimization (size: **TBD**, around 30)
+  - 'preserve_last_k_turns': 1 (default value in original)
+
+| Primitives | Depth | Budget | Task | Runs |
+|---|---|---|---|---|
+| ACON | N/A (no depth param) | **TBD** |P100 (100 tasks) | 300 |
