@@ -97,7 +97,7 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   (paper target and source-of-truth table; it wins over every other doc), the
   experiment plan/grid (`FOLLOWUP_EXPERIMENTS.md`), `EXPERIMENT_LOG_{SWE,TB}.md`
   (bugs and audits are sections of the SWE log), `BUDGET_CALIBRATION.md`,
-  `issue/` (still-open data audits with their scripts), `reeval_evidence/`
+  `open_issues/` (still-open data audits with their scripts), `reeval_evidence/`
   (re-evaluation manifests and verdicts), `archive_provenance/` (notes, task
   lists and tooling for run data retired to the gitignored `archives/`) and
   `plotting/` (figure code, see above).

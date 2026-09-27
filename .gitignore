@@ -87,13 +87,13 @@ analysis/reports
 ICLR_experiments/terminalbench
 backups/
 
-# issue audits (ICLR_experiments/issue/*): keep scripts, README, summary.json and
+# issue audits (ICLR_experiments/open_issues/*): keep scripts, README, summary.json and
 # the small candidate lists; drop the large derived CSVs.
-ICLR_experiments/issue/*/runs.csv
-ICLR_experiments/issue/*/evaluation_classification.csv
-ICLR_experiments/issue/*/evaluation_checks.csv
-ICLR_experiments/issue/*/review_candidates.csv
-ICLR_experiments/issue/*/reevaluation_candidates_combined.csv
+ICLR_experiments/open_issues/*/runs.csv
+ICLR_experiments/open_issues/*/evaluation_classification.csv
+ICLR_experiments/open_issues/*/evaluation_checks.csv
+ICLR_experiments/open_issues/*/review_candidates.csv
+ICLR_experiments/open_issues/*/reevaluation_candidates_combined.csv
 
 # Keep the canonical analysis snapshot; ignore filtered result copies.
 /adaptive_context_management_analysis/results/*

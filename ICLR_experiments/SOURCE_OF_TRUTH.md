@@ -40,7 +40,7 @@ in `ICLR_experiments/`; it was `ICLR.md` at the root until 2026-09-26).
 | Run data (canonical) | `/home/ak58925/agentCtx/ICLR_experiments/<bench>/<track>/<model>/<cell>/`, layout in `ICLR_experiments/README.md` |
 | Run history | `ICLR_experiments/EXPERIMENT_LOG_SWE.md`, `EXPERIMENT_LOG_TB.md` (dated entries; bugs and audits are sections of the SWE log), plus the command-level timelines `EXPERIMENT_TIMELINE_DETAIL_SWE.md`, `EXPERIMENT_TIMELINE_DETAIL_TB.md` |
 | Budget calibration | `ICLR_experiments/BUDGET_CALIBRATION.md` (Part A SWE-Bench, Part B Terminal-Bench) |
-| Known data problems | `ICLR_experiments/issue/` |
+| Known data problems | `ICLR_experiments/open_issues/` |
 | What runs exist (SWE-bench) | `analysis/outcomes/swebench_outcomes.csv`, built by `analysis/aggregate_benchmark_results.py` (see `analysis/README.md`) |
 | Cell coverage | `COVERAGE.csv` via `dashboard/build_coverage.py`. **The committed copy is stale** — it dates from 2026-08-28 and has no Devstral or GLM rows. Regenerate before trusting it, or use the outcomes CSV. |
 | Live run status | `Active_runs.md`, where Akiho's clone holds the live copy |
@@ -127,7 +127,7 @@ Akiho. Do not infer TB status from this filesystem.
   canonical indexes rewritten on 2026-09-11 and 09-24 (Qwen main +60
   True). Cause, fix and counts: `ICLR_experiments/EXPERIMENT_LOG_SWE.md`,
   "Evaluation bug" and "Data audits". Only still-open audits remain under
-  `ICLR_experiments/issue/`; re-grading evidence is in `ICLR_experiments/reeval_evidence/`.
+  `ICLR_experiments/open_issues/`; re-grading evidence is in `ICLR_experiments/reeval_evidence/`.
 - **Filter ablations to ABL-25.** Most ablation runs were launched on the
   older 30-task cohort, so `ICLR_experiments/swebench/ablation/` holds 30 tasks
   per cell. ABL-25 is a strict subset, so analysis filters to

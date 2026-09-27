@@ -416,7 +416,8 @@ Read-only audits of the canonical indexes, formerly one directory each under
 `ICLR_experiments/issue/<name>/` (README + scripts + candidate CSVs). The
 closed ones were removed from the tree on 2026-09-26; their files are in git
 at `4baa6fb` (09-10 audits), `b6b9f75` (review-253 lists) and `8caf652`
-(ablation-155 list). Still open, kept under `issue/`:
+(ablation-155 list). Still open, kept under `open_issues/` (the directory
+was `issue/` until 2026-09-26; older paths below use the old name):
 `resume_audit_20260908/`, `qwen_fc_15min_1hour_20260910/` (see the end).
 
 ### `devstral_summary_20260910` — Devstral main SU/SU-p/SS/SS-p/TRC+SU/TRC+SS @21K (closed 09-11)
@@ -485,7 +486,7 @@ at `4baa6fb` (09-10 audits), `b6b9f75` (review-253 lists) and `8caf652`
   04-20..08-28). Re-graded 09-24, all 155 stay False; applied anyway so every
   row now carries a `reevaluation` provenance block.
 
-### Still open (kept under `issue/`)
+### Still open (kept under `open_issues/`)
 - `resume_audit_20260908/` — audit of the 645 runs completed after the
   09-07 Qwen resume. Done since: the 8 sklearn-14710 evaluation timeouts
   were covered by the 09-11 Qwen pass; the 1500 s agent-timeout question
@@ -534,7 +535,7 @@ in the shell before every launch below and are omitted.
   ```
 - Output: `ICLR_experiments/swebench/main/qwen35b/{d05__b15k__*,di__b15k__*,di__binf__*}`;
   log `logs/followup_agent_models_qwen_launcher.log`. Audit of the resumed runs:
-  `ICLR_experiments/issue/resume_audit_20260908/report.md`.
+  `ICLR_experiments/open_issues/resume_audit_20260908/report.md`.
 
 ### 2026-09-09 — Devstral main rerun of the archived summary-bug runs (P100 @21K)
 - Launched **15:33:07**, `sections run: main (ablation skipped)` at
