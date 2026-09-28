@@ -130,6 +130,35 @@ class AdaptiveRunnerTests(unittest.TestCase):
                 self.assertEqual(json.loads(path.read_text()), rows)
                 self.assertEqual((output / 'run_info.json').read_text(), resumed_info)
 
+    def test_online_only_budget_is_null_in_both_benchmarks(self):
+        for benchmark in ('swe-bench', 'terminal-bench'):
+            with self.subTest(benchmark=benchmark), tempfile.TemporaryDirectory() as directory:
+                sandbox = build_sandbox(Path(directory), current_tree())
+                schedule = sandbox.root / 'schedule.json'
+                schedule.write_text('[{"primitive":"online_trc", "step_interval":2}]')
+                result = sandbox.run([
+                    'run_experiment.py', '--benchmark', benchmark, '--model-tag', 'online-only',
+                    '--adaptive-schedule', str(schedule), '--conditions', 'adaptive', 'full-context',
+                    '--n-tasks', '1', '--runs-per-task', '1', '--max-workers', '1',
+                ])
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('Budget     : no token budget', result.stdout)
+                output = sandbox.root / 'results/online-only'
+                info = json.loads((output / 'run_info.json').read_text())
+                self.assertIsNone(info['budget_tokens'])
+                markdown = (output / 'run_info.md').read_text()
+                self.assertIn('| Budget | no token budget |', markdown)
+                self.assertIn('- adaptive (budget=no token budget)', markdown)
+                rows = json.loads((output / 'experiment_results.json').read_text())
+                adaptive = next(r for r in rows if r['condition'] == 'adaptive')
+                baseline = next(r for r in rows if r['condition'] == 'full-context')
+                self.assertIsNone(adaptive['budget'])
+                self.assertFalse(adaptive['is_baseline'])
+                self.assertTrue(baseline['is_baseline'])
+                invocations = [json.loads(p.read_text()) for p in sandbox.root.rglob('invocation.json')]
+                online = next(i for i in invocations if 'MSWEA_ADAPTIVE_MANIFEST' in i['env'])
+                self.assertEqual(online['env']['MSWEA_TOKEN_BUDGET'], '')
+
     def test_cli_policy_and_default_adaptive_only(self):
         with tempfile.TemporaryDirectory() as directory:
             sandbox = build_sandbox(Path(directory), current_tree())
@@ -146,6 +175,8 @@ class AdaptiveRunnerTests(unittest.TestCase):
             rows = json.loads((sandbox.root / 'results/policy-test/experiment_results.json').read_text())
             self.assertEqual({r['condition'] for r in rows}, {'adaptive'})
             self.assertEqual(rows[0]['adaptive']['spec']['initial']['step_interval'], 2)
+            self.assertIsNone(rows[0]['budget'])
+            self.assertIn('Budget     : no token budget', result.stdout)
             self.assertNotIn('policy_source', rows[0]['adaptive'])
             module.write_text('def choose(event):\n    return event.config\n')
             result = sandbox.run(argv)

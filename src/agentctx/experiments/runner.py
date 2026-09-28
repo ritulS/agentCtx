@@ -110,7 +110,11 @@ def save_results(results: list[dict]) -> None:
 
 # ── Run metadata ───────────────────────────────────────────────────────────────
 
-def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budget: int) -> None:
+def _format_budget(budget: int | None, suffix: str = "") -> str:
+    return "no token budget" if budget is None else f"{budget:,}{suffix}"
+
+
+def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budget: int | None) -> None:
     """Write run_info.json and run_info.md into the results directory."""
     run_dir = model_results_dir()
     # Extract model name from config yaml if present, else fall back to stem
@@ -151,7 +155,7 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
         info["adaptive_conditions"] = adaptive
     (run_dir / "run_info.json").write_text(json.dumps(info, indent=2))
 
-    cond_list = "\n".join(f"- {c['condition']} (budget={c['budget']:,})" for c in conditions)
+    cond_list = "\n".join(f"- {c['condition']} (budget={_format_budget(c['budget'])})" for c in conditions)
     md = f"""# Run: {MODEL_TAG}
 
 ## Identity
@@ -161,7 +165,7 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
 | Agent config | `{AGENT_CONFIG}` |
 | Summary config | `{_summary_config_label}` |
 | Summary model | `{_summary_model_name}` |
-| Budget | {budget:,} tokens (context window threshold) |
+| Budget | {_format_budget(budget, ' tokens (context window threshold)')} |
 | Tasks | {n_tasks} |
 | Conditions | {len(conditions)} |
 | Runs per task | {RUNS_PER_TASK} |
@@ -308,7 +312,7 @@ def main() -> None:
         spec = selection["spec"]
         initial = spec["configs"][0] if spec["kind"] == "schedule" else spec["initial"]
         conditions.append({"condition": "adaptive", "primitive": "adaptive",
-                           "budget": initial["budget"] or 0, "depth": initial["depth"],
+                           "budget": initial["budget"], "depth": initial["depth"],
                            "adaptive": selection})
         if args.conditions is None:
             args.conditions = ["adaptive"]
@@ -324,6 +328,7 @@ def main() -> None:
 
     model_results_dir().mkdir(parents=True, exist_ok=True)
     if not args.eval_only:
+        # Validate before run_info is overwritten; adapters repeat this for direct callers.
         prepare_run(conditions, load_existing_results(), model_results_dir())
     BENCHMARK = create_benchmark(
         args.benchmark,
@@ -347,7 +352,7 @@ def main() -> None:
     print(f"  Results dir: {model_results_dir()}")
     print(f"  Tasks      : {len(tasks)}")
     print(f"  Conditions : {[c['condition'] for c in conditions]}")
-    print(f"  Budget     : {budget:,} tokens context window threshold")
+    print(f"  Budget     : {_format_budget(budget, ' tokens context window threshold')}")
     print(f"  Step limit : {STEP_LIMIT}")
     print(f"  Timeout    : {AGENT_TIMEOUT} s per run")
     print(f"  Runs/config: {RUNS_PER_TASK}")

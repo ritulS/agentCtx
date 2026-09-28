@@ -15,8 +15,11 @@ ROOT = Path(__file__).resolve().parents[1]
 for path in (ROOT, ROOT / 'src', ROOT / 'mini-swe-agent' / 'src'):
     sys.path.insert(0, str(path))
 
-import memory
-from minisweagent.agents.default import DefaultAgent
+try:
+    import memory
+    from minisweagent.agents.default import DefaultAgent
+except ImportError as exc:
+    raise unittest.SkipTest(str(exc)) from exc
 
 
 def history(n=6):

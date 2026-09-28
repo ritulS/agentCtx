@@ -179,6 +179,7 @@ class SweBench:
         compression_ratio: float,
     ) -> list[dict]:
         """Run the SWE-bench task × condition × repetition grid."""
+        # Repeat runner validation intentionally: adapters may also be called directly.
         prepare_run(conditions, existing_results, self.results_dir)
         results = existing_results
         existing_keys = {result["key"] for result in results}
@@ -238,7 +239,7 @@ class SweBench:
         instance_id: str,
         condition: str,
         primitive: str,
-        budget: int,
+        budget: int | None,
         run_num: int,
         agent_config: Path,
         step_limit: int,
@@ -260,7 +261,7 @@ class SweBench:
         env.update({
             "MSWEA_COST_TRACKING": "ignore_errors",
             "MSWEA_PRIMITIVE": primitive,
-            "MSWEA_TOKEN_BUDGET": str(budget),
+            "MSWEA_TOKEN_BUDGET": "" if budget is None else str(budget),
             "MSWEA_COMPRESSION_RATIO": str(compression_ratio),
             "MSWEA_TOKEN_LOG_PATH": str(token_log_file),
             "MSWEA_RUN_KEY": key,

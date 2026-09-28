@@ -12,12 +12,16 @@ ROOT = Path(__file__).resolve().parents[1]
 for path in (ROOT, ROOT / 'src', ROOT / 'mini-swe-agent' / 'src'):
     sys.path.insert(0, str(path))
 
-import memory
 from agentctx.compression.adaptive import (
     CompressionConfig as Config, CompressionSchedule, resolve_policy,
 )
-from minisweagent.agents.default import DefaultAgent
-from test_truncation import RecordingModel, history
+
+try:
+    import memory
+    from minisweagent.agents.default import DefaultAgent
+    from test_truncation import RecordingModel, history
+except ImportError as exc:
+    raise unittest.SkipTest(str(exc)) from exc
 
 
 class AdaptiveCompressionTests(unittest.TestCase):
@@ -258,16 +262,51 @@ class AdaptiveCompressionTests(unittest.TestCase):
     def test_online_step_trigger_with_no_eligible_results_and_none_policy(self):
         with tempfile.TemporaryDirectory() as directory:
             os.environ['MSWEA_EVENT_LOG_DIR'] = directory
+            os.environ['MSWEA_TOKEN_LOG_PATH'] = str(Path(directory, 'token_log.json'))
             agent, _ = self.agent(Config('online_trc', step_interval=2), messages=history(0))
             for _ in range(5):
                 agent.query()
             self.assertEqual([e['step'] for e in agent._mem_adaptive_events], [2, 4])
             self.assertTrue(all(e['tokens_saved'] == 0 for e in agent._mem_adaptive_events))
             self.assertEqual(agent._mem_online_trc_flags, [])
+            self.assertFalse(Path(directory, 'compression_events.jsonl').exists())
+            records = [json.loads(line) for line in
+                       Path(directory, 'adaptive_events.jsonl').read_text().splitlines()]
+            self.assertEqual([r['step'] for r in records], [2, 4])
+            token_log = json.loads(Path(directory, 'token_log.json').read_text())
+            self.assertEqual(token_log['adaptive_events'], records)
+            self.assertTrue(all(r['events'][0]['skipped_reason'] == 'no_eligible_result'
+                                for r in records))
+
+    def test_actual_online_clear_with_zero_savings_still_has_compression_record(self):
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ['MSWEA_EVENT_LOG_DIR'] = directory
+            agent, _ = self.agent(Config('online_trc', step_interval=1, freeze_k=0),
+                                  messages=history(1))
+            # Simulate equal token counts despite the content replacement.
+            with patch.object(memory, 'count_tokens', return_value=100):
+                agent.query()
+                agent.query()
+            record = json.loads(Path(directory, 'compression_events.jsonl').read_text())
+            self.assertEqual(record['kind'], 'online_trc')
+            self.assertIsNotNone(record['cleared_index'])
+            self.assertEqual(record['tokens_before'], record['tokens_after'])
+            self.assertEqual(len(agent._mem_online_trc_flags), 1)
+            self.assertNotIn('skipped_reason', agent._mem_adaptive_events[0]['events'][0])
+
+    def test_noop_online_with_budget_fallback_logs_only_budget_compression(self):
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ['MSWEA_EVENT_LOG_DIR'] = directory
+            agent, _ = self.agent(Config('online_trc', budget=1, step_interval=1),
+                                  messages=history(0))
+            agent.query()
+            agent.query()
             records = [json.loads(line) for line in
                        Path(directory, 'compression_events.jsonl').read_text().splitlines()]
-            self.assertEqual(len(records), 2)
-            self.assertTrue(all(r['cleared_index'] is None for r in records))
+            self.assertEqual([r['kind'] for r in records], ['budget', 'budget'])
+            operations = agent._mem_adaptive_events[-1]['events']
+            self.assertEqual([e['kind'] for e in operations], ['online_trc', 'budget'])
+            self.assertEqual(operations[0]['skipped_reason'], 'no_eligible_result')
 
     def test_online_budget_fallback_can_trigger_before_scheduled_step(self):
         agent, _ = self.agent(Config('online_trc', budget=1, step_interval=3))

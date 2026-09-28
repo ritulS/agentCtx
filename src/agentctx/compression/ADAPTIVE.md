@@ -37,7 +37,10 @@ configuration supplied with `--agent-config`; dynamic switching does not switch
 agent prompts/model configs. Supply prompts suitable for the chosen primitives.
 
 `adaptive` is a separate condition and is never reported as baseline, even when
-its initial budget is unlimited. `--budget` and `--depth` still configure fixed
+its initial budget is unlimited. An online-only initial configuration retains a null
+budget in run_info.json and result rows; console/Markdown show `no token budget`.
+The worker's MSWEA_TOKEN_BUDGET is empty in that case; its adaptive manifest is
+the authoritative configuration. `--budget` and `--depth` still configure fixed
 conditions; adaptive settings come entirely from the explicit schedule/initial
 config. If `--conditions` is provided with adaptive flags, it must include
 `adaptive`. No ordinary condition is converted into an adaptive condition.
@@ -197,7 +200,11 @@ next configs, and status (`pending`, `ok`, or `error`). With MSWEA_EVENT_LOG_DIR
 these records also appear in adaptive_events.jsonl. compression_events.jsonl
 continues to record the individual compression operations and their applied
 adaptive_config. Budget compression totals and actual-online-clear counters
-retain their old meanings; scheduled no-op triggers do not increment clear counts.
+retain their old meanings. Scheduled online triggers with no eligible result
+appear only in adaptive_events.jsonl and token_log.json, with
+`skipped_reason="no_eligible_result"` on the operation. They do not appear in
+compression_events.jsonl or increment clear counts. Actual online clears remain
+in compression_events.jsonl even when their token savings are zero.
 Logs describe execution; restoring callback state from checkpoints is not implemented.
 
 ```bash

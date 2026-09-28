@@ -122,6 +122,7 @@ class TerminalBench:
         compression_ratio: float,
     ) -> list[dict]:
         """Run one Harbor batch for each condition and repetition."""
+        # Repeat runner validation intentionally: adapters may also be called directly.
         prepare_run(conditions, existing_results, self.results_dir)
         del step_limit, agent_timeout  # Terminal-Bench prompt/Harbor own these limits.
         self._validate_runtime(agent_config)
@@ -300,7 +301,7 @@ class TerminalBench:
                 str(self.workspace_root / "mini-swe-agent" / "src"),
             )),
             "MSWEA_PRIMITIVE": str(condition["primitive"]),
-            "MSWEA_TOKEN_BUDGET": str(condition["budget"]),
+            "MSWEA_TOKEN_BUDGET": "" if condition["budget"] is None else str(condition["budget"]),
             "MSWEA_COMPRESSION_RATIO": str(compression_ratio),
             "MSWEA_COST_TRACKING": "ignore_errors",
             "MSWEA_TB_CONFIGS": os.pathsep.join(config_specs),
