@@ -1,3 +1,50 @@
+# Standalone TR contract
+
+For `MSWEA_PRIMITIVE=truncation`, compression fires before a model call when
+the estimated current context exceeds `MSWEA_TOKEN_BUDGET = B`. The target
+is `max(1, floor(B * MSWEA_COMPRESSION_RATIO))`, including protected content.
+Drop oldest complete assistant turns, including all following tool results
+and feedback up to the next assistant. A leading summary/feedback block is
+a separate removable unit. Preserve `messages[:2]` (system and initial task)
+and the latest turn, with its result bodies intact. If those alone exceed the
+target or B, keep them and continue with the model call. Existing before/after
+counts and saved-token measurements still record such attempts, even if no
+tokens were removed; the event log records the budget-relative target.
+
+`token_log.json` stores one entry in `tr_events` per standalone TR invocation:
+`policy=budget_ratio_complete_turns_v1`, `step`, `primitive`, `budget_tokens`,
+`target_tokens`, `tokens_before`, `tokens_after`, `tokens_saved`, and three
+independent flags (multiple can be true for the same event):
+
+- `target_not_met`: post-TR tokens are strictly greater than the target B*r.
+- `budget_exceeded`: post-TR tokens are strictly greater than B.
+- `zero_reduction`: before/after token counts are equal.
+
+Equality with the target or budget is success for that limit. An ordinary
+successful compression has all three flags false. The corresponding totals
+are `tr_target_not_met_events`, `tr_budget_exceeded_events`, and
+`tr_zero_reduction_events`; their sum is not a count of distinct events.
+These totals do not alter `compression_events`, which still counts attempts.
+
+The same event record appears as `tr_stats` in `compression_events.jsonl`.
+Both logs are saved before the model call, so a failed request retains its
+preceding TR diagnostics. Harbor's `CheckpointAgent` also flushes these stats
+to the trial's `worker_checkpoint.json` before inference, independently of
+`MSWEA_TOKEN_LOG_PATH`. The parent recovers that checkpoint into `token_log.json`
+after killing a timed-out worker. The in-flight model call's usage is still
+unknown. SWE-bench and Terminal-Bench result rows preserve these fields. Runs
+without a TR invocation have an empty list and zero totals;
+historical logs without the fields remain missing, not inferred successes.
+
+This policy uses `truncate_oldest_turns()`. The legacy `truncate()` function
+and its uses in summaries, OTRC+TR, scored TRC and staggered policies are
+unchanged, as are their compression targets. TRC still uses its existing
+complete-turn fallback to B. Historical standalone TR runs used a
+current-context-relative target and single-message deletion; do not mix them
+with runs of this revised policy.
+
+Verify with `venv/bin/python -m unittest discover -s tests -p test_truncation.py -v`.
+
 # TRC contract
 
 The `tool-result-clear` condition (`MSWEA_PRIMITIVE=tool_result_clear`) uses

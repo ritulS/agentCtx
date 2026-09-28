@@ -187,6 +187,12 @@ class CheckpointAgent(DefaultAgent):
             "token_log": memory.token_log_dict(self),
         })
 
+    def _write_token_log(self) -> None:
+        # DefaultAgent flushes here after compression, before model.query().
+        # Harbor has no MSWEA_TOKEN_LOG_PATH: persist to this trial's checkpoint
+        # so its parent can recover the new stats even if inference is killed.
+        self.checkpoint()
+
     def query(self) -> dict:
         # Save the initial state too, in case the first model call hangs.
         self.save(self.config.output_path)

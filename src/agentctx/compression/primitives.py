@@ -10,7 +10,8 @@ token_budget  : int   — MSWEA_TOKEN_BUDGET env var
                         When estimated current context tokens exceed this value,
                         the selected budget-triggered primitive fires.
 compression_r : float — MSWEA_COMPRESSION_RATIO, default 0.5
-                        Most primitives target current context tokens * r.
+                        Standalone TR targets token_budget * r.
+                        Other proportional policies target current context tokens * r.
                         TRC clearing and its turn-truncation fallback ignore r.
 
 Protected messages (never compressed)
@@ -20,7 +21,10 @@ Protected messages (never compressed)
 Compressible: messages[2:]
 
 Truncation
-  Drop messages from the front of the compressible window until the total
+  Standalone TR uses truncate_oldest_turns(): drop oldest assistant/result
+  turns to token_budget * r, protecting system, task, and the latest turn.
+  If those alone exceed the target, retain them and continue over target.
+  Other policies keep the legacy truncate() fallback: drop messages until the total
   estimated token count of (protected + remaining) ≤ target_tokens.
   Always keeps at least the last message in the compressible window.
 
@@ -898,8 +902,9 @@ def truncate_oldest_turns(messages: list[dict], budget_tokens: int) -> tuple[lis
     An assistant turn includes all following observations/feedback up to the
     next assistant. This keeps parallel tool results together with their call.
     A leading summary or feedback block is a separate removable unit. If the
-    protected head plus latest turn cannot fit, return them over budget. TRC
-    records this overflow and the agent continues with the model request.
+    protected head plus latest turn cannot fit, return them over the supplied
+    limit. Standalone TR supplies B*r; TRC supplies B. The agent continues
+    with the model request; TRC additionally records an explicit overflow flag.
     """
     tokens_before = count_tokens(messages)
     protected = messages[:N_PROTECTED]
@@ -1218,6 +1223,17 @@ def token_log_dict(agent) -> dict:
         "summary_outcomes":            getattr(agent, "_mem_summary_outcomes", []),
         "summary_fallback_events":     sum(
             1 for o in getattr(agent, "_mem_summary_outcomes", []) if o.get("fallback")
+        ),
+        # ── Standalone TR diagnostics ─────────────────────────────────────────
+        "tr_events": getattr(agent, "_mem_tr_events", []),
+        "tr_target_not_met_events": sum(
+            e["target_not_met"] for e in getattr(agent, "_mem_tr_events", [])
+        ),
+        "tr_budget_exceeded_events": sum(
+            e["budget_exceeded"] for e in getattr(agent, "_mem_tr_events", [])
+        ),
+        "tr_zero_reduction_events": sum(
+            e["zero_reduction"] for e in getattr(agent, "_mem_tr_events", [])
         ),
         # ── TRC-specific ─────────────────────────────────────────────────────
         "trc_events": getattr(agent, "_mem_trc_events", []),
