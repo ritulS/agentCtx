@@ -1,3 +1,10 @@
+# Adaptive configuration
+
+A user-supplied Python callback or JSON schedule can choose the next primitive,
+trigger (token budget or OTRC step interval), and depth once after all compression
+operations in a query. See
+[ADAPTIVE.md](ADAPTIVE.md) for the API, examples, OTRC timing, and event logs.
+
 # TR contract (standalone and SU-free/SS-free fallback)
 
 For `MSWEA_PRIMITIVE=truncation`, compression fires before a model call when

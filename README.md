@@ -84,6 +84,11 @@ The current TRC contract (K=3, clear all older results, then truncate complete
 turns only to the budget) and its measurements are documented in
 [src/agentctx/compression/README.md](src/agentctx/compression/README.md).
 
+Adaptive runs can change primitive, trigger (token budget or OTRC step interval),
+and depth using a Python callback or JSON schedule. The generic runner accepts
+`--adaptive-schedule` or `--adaptive-policy` for a dedicated `adaptive` condition;
+fixed conditions and baselines ignore ambient adaptive options. See the [adaptive API and examples](src/agentctx/compression/ADAPTIVE.md).
+
 ## Data
 
 **ICLR run data is canonical in `ICLR_experiments/`**, one directory per cell,

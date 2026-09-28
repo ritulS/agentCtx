@@ -41,6 +41,7 @@ from pathlib import Path
 from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
 from agentctx.benchmarks import BENCHMARKS, create_benchmark
 from agentctx.experiments.conditions import default_conditions
+from agentctx.compression.selection import build_selection, prepare_run, selection_metadata
 from agentctx.summary_config import summary_model_info
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -144,6 +145,10 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
         "agent_timeout_s": AGENT_TIMEOUT,
         "started":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
+    adaptive = {c["condition"]: selection_metadata(c["adaptive"])
+                for c in conditions if c.get("adaptive") is not None}
+    if adaptive:
+        info["adaptive_conditions"] = adaptive
     (run_dir / "run_info.json").write_text(json.dumps(info, indent=2))
 
     cond_list = "\n".join(f"- {c['condition']} (budget={c['budget']:,})" for c in conditions)
@@ -233,7 +238,16 @@ def main() -> None:
     grp = parser.add_mutually_exclusive_group()
     grp.add_argument("--eval-only",  action="store_true")
     grp.add_argument("--with-eval",  action="store_true")
+    adaptive_group = parser.add_mutually_exclusive_group()
+    adaptive_group.add_argument("--adaptive-schedule", metavar="JSON",
+                                help="Run the dedicated adaptive condition from a JSON schedule")
+    adaptive_group.add_argument("--adaptive-policy", metavar="MODULE:FUNCTION",
+                                help="Run the dedicated adaptive condition using a Python policy")
+    parser.add_argument("--adaptive-initial-config", metavar="JSON",
+                        help="Initial CompressionConfig JSON object; required with --adaptive-policy")
     args = parser.parse_args()
+    if args.adaptive_initial_config and not args.adaptive_policy:
+        parser.error("--adaptive-initial-config requires --adaptive-policy")
 
     # Per-run copy: the flags below rewrite budgets, swap configs and filter the
     # list, so the shared definition in conditions.py must not be touched.
@@ -285,6 +299,21 @@ def main() -> None:
     if args.depth is not None:
         global COMPRESSION_RATIO
         COMPRESSION_RATIO = args.depth
+    if args.adaptive_schedule or args.adaptive_policy:
+        try:
+            selection = build_selection(schedule=args.adaptive_schedule, policy=args.adaptive_policy,
+                                        initial=args.adaptive_initial_config)
+        except (OSError, ValueError, TypeError, ImportError) as exc:
+            parser.error(str(exc))
+        spec = selection["spec"]
+        initial = spec["configs"][0] if spec["kind"] == "schedule" else spec["initial"]
+        conditions.append({"condition": "adaptive", "primitive": "adaptive",
+                           "budget": initial["budget"] or 0, "depth": initial["depth"],
+                           "adaptive": selection})
+        if args.conditions is None:
+            args.conditions = ["adaptive"]
+        elif "adaptive" not in args.conditions:
+            parser.error("adaptive flags require adaptive in --conditions")
     if args.conditions is not None:
         valid = {c["condition"] for c in conditions}
         unknown = set(args.conditions) - valid
@@ -294,6 +323,8 @@ def main() -> None:
         conditions = [c for c in conditions if c["condition"] in args.conditions]
 
     model_results_dir().mkdir(parents=True, exist_ok=True)
+    if not args.eval_only:
+        prepare_run(conditions, load_existing_results(), model_results_dir())
     BENCHMARK = create_benchmark(
         args.benchmark,
         workspace_root=WORKSPACE_ROOT,

@@ -18,6 +18,7 @@ from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
 
 from . import tb_verdict
 from .results import run_key
+from agentctx.compression.selection import selection_metadata
 from .tb_verdict import select_trials, task_name, trial_verdict
 
 DATASET = "terminal-bench-core@0.1.1"
@@ -153,6 +154,9 @@ def normalize_trial(
     if fill_missing_timestamp and not row["timestamp"]:
         row["timestamp"] = datetime.now().isoformat()
     row.update(token_log)
+    if condition.get("adaptive") is not None:
+        row["adaptive"] = selection_metadata(condition["adaptive"])
+        row["is_baseline"] = False
     row["llm_latency_s"] = token_log.get("total_latency_s", 0.0)
     return row
 

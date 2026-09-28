@@ -13,6 +13,7 @@ import yaml
 
 from .harbor_results import normalize_trial
 from .results import run_key
+from agentctx.compression.selection import condition_environment, prepare_run
 from .tb_verdict import (
     needs_rerun,
     retry_exceptions_from_env,
@@ -121,6 +122,7 @@ class TerminalBench:
         compression_ratio: float,
     ) -> list[dict]:
         """Run one Harbor batch for each condition and repetition."""
+        prepare_run(conditions, existing_results, self.results_dir)
         del step_limit, agent_timeout  # Terminal-Bench prompt/Harbor own these limits.
         self._validate_runtime(agent_config)
         model_name, api_base = self._load_model_config(agent_config)
@@ -163,7 +165,7 @@ class TerminalBench:
                         model_name=model_name,
                         api_base=api_base,
                         n_concurrent=max_workers,
-                        compression_ratio=compression_ratio,
+                        compression_ratio=condition.get("depth", compression_ratio),
                         attempt=attempt,
                     )
                     for row in rows:
@@ -305,6 +307,7 @@ class TerminalBench:
             "OPENAI_BASE_URL": api_base,
             "OPENAI_API_BASE": api_base,
         })
+        env = condition_environment(env, condition, self.results_dir)
         env.setdefault("MSWEA_API_KEY", "EMPTY")
 
         command = [

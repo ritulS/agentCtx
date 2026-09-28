@@ -17,6 +17,7 @@ from typing import Callable
 from agentctx import INFINITE_BUDGET, resource_monitor
 
 from .results import run_key
+from agentctx.compression.selection import condition_environment, prepare_run, selection_metadata
 
 
 class SweBench:
@@ -178,6 +179,7 @@ class SweBench:
         compression_ratio: float,
     ) -> list[dict]:
         """Run the SWE-bench task × condition × repetition grid."""
+        prepare_run(conditions, existing_results, self.results_dir)
         results = existing_results
         existing_keys = {result["key"] for result in results}
         needed = []
@@ -209,7 +211,8 @@ class SweBench:
                 step_limit=step_limit,
                 agent_timeout=agent_timeout,
                 config=condition.get("config"),
-                compression_ratio=compression_ratio,
+                compression_ratio=condition.get("depth", compression_ratio),
+                **({"adaptive": condition["adaptive"]} if condition.get("adaptive") else {}),
             )
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -242,6 +245,7 @@ class SweBench:
         agent_timeout: int,
         config: Path | None = None,
         compression_ratio: float = 0.5,
+        adaptive: dict | None = None,
     ) -> dict:
         """Run mini-swe-agent for one task, condition, and repetition."""
         key = run_key(instance_id, condition, run_num)
@@ -263,6 +267,7 @@ class SweBench:
             "MSWEA_EVENT_LOG_DIR": str(output_dir),  # events.jsonl + compression_events.jsonl (failure analysis)
         })
         env.update(self.agent_environment())
+        env = condition_environment(env, {"condition": condition, "adaptive": adaptive}, self.results_dir)
 
         local_bin = str(Path.home() / ".local" / "bin")
         if local_bin not in env.get("PATH", ""):
@@ -338,7 +343,7 @@ class SweBench:
             "primitive": primitive,
             "budget": budget,
             "compression_ratio": compression_ratio,
-            "is_baseline": budget == INFINITE_BUDGET,
+            "is_baseline": adaptive is None and budget == INFINITE_BUDGET,
             "run_num": run_num,
             "timestamp": datetime.now().isoformat(),
             "returncode": returncode,
@@ -364,13 +369,15 @@ class SweBench:
             "online_trc_clears": token_log.get("online_trc_clears", 0),
             "online_trc_flags": token_log.get("online_trc_flags", []),
         }
+        if adaptive is not None:
+            result["adaptive"] = selection_metadata(adaptive)
         # New TR/TRC runs carry event measurements; retain legacy row
         # shape when resuming artifacts produced before these fields existed.
         for key in (
             "trc_events", "trc_clear_only_events", "trc_clearing_tokens_saved",
             "trc_truncation_tokens_saved",
             "tr_events", "tr_target_not_met_events", "tr_budget_exceeded_events",
-            "tr_zero_reduction_events",
+            "tr_zero_reduction_events", "adaptive_config", "adaptive_events",
         ):
             if key in token_log:
                 result[key] = token_log[key]

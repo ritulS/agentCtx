@@ -1256,4 +1256,9 @@ def token_log_dict(agent) -> dict:
         "online_trc_total_tokens_saved": agent._mem_online_trc_tokens_saved,
         "online_trc_clears":             len(agent._mem_online_trc_flags),
     }
+    if getattr(agent, "_memory_config", None) is not None:
+        data["adaptive_config"] = agent._memory_config.to_dict()
+        data["adaptive_events"] = agent._mem_adaptive_events
+        if getattr(agent, "_memory_selection", None) is not None:
+            data["adaptive"] = agent._memory_selection
     return data
