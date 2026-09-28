@@ -88,10 +88,41 @@ A clear-only event means clearing fitted within B without TR fallback.
 Event logs also include the stage measurements under `trc_stats`. SWE-bench
 and Terminal-Bench result rows retain these fields when present.
 
+## Failed calls and log durability
+
+For the LiteLLM chat/text model path used by the Qwen, SU-free and FC runs,
+a rejected response retains its provider response in the `FormatError`.
+The agent counts its prompt/completion tokens, cost and elapsed time exactly
+once, then continues the existing format-error flow. Feedback `extra.response`
+retains usage, reasoning and finish reason for diagnosis without sending these
+metadata fields back to the model.
+
+`step_prompt_tokens`, `step_completion_tokens` and `step_latency_s` now include
+failed agent queries. `model_call_records` gives each call's explicit `step`,
+`status` (`ok`, `format_error`, `error`), `error_type`, token counts and latency.
+When the provider supplied no usage (for example a transport failure), its
+record has null token counts; the legacy arrays use zero placeholders. These
+are missing measurements, not evidence that the failed request used no tokens.
+The elapsed time includes retries within that model query.
+
+Every budget-compression event is flushed before the next model call, even
+when compression brought the context below B. Logs are also flushed after
+successful/failed queries and in the agent run loop's `finally` block, covering
+submission, step/cost limits and exceptions. Token-log writes use an atomic
+replacement so an interrupted write does not leave truncated JSON. A hard kill
+while waiting for a response cannot record that unfinished call's usage; the
+preceding compression is already persisted. The trajectory may still reflect
+the last completed step; event logs retain the intervening compression.
+
+This fixes subsequent runs. Historical rejected responses without provider
+usage cannot be repaired exactly from their saved content. Historical
+compression totals can be reconstructed separately from event logs.
+
 ## Verification
 
 ```bash
 venv/bin/python -m unittest discover -s tests -p test_trc.py -v
+venv/bin/python -m unittest discover -s tests -p test_call_accounting.py -v
 venv/bin/python -m unittest discover -s tests -p test_summary_cleaning.py -q
 ```
 

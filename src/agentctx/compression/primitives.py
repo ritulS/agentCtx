@@ -1157,8 +1157,23 @@ def write_token_log(agent) -> None:
     log_path = os.environ.get("MSWEA_TOKEN_LOG_PATH")
     if not log_path:
         return
-    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(log_path).write_text(json.dumps(token_log_dict(agent), indent=2))
+    # Replace atomically so interruption during serialization/writing leaves
+    # the previous complete log readable, never a truncated JSON document.
+    import tempfile
+
+    path = Path(log_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(token_log_dict(agent), indent=2)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=f".{path.name}.", suffix=".tmp", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            tmp.write(payload)
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 def token_log_dict(agent) -> dict:
@@ -1190,6 +1205,9 @@ def token_log_dict(agent) -> dict:
         # ── Per-step breakdown ───────────────────────────────────────────────
         "step_prompt_tokens":      agent._mem_step_prompt_tokens,
         "step_completion_tokens":  agent._mem_step_completion_tokens,
+        # One entry per completed/failed agent query; null tokens mean usage
+        # was unavailable, unlike the zero placeholders in the legacy arrays.
+        "model_call_records":      getattr(agent, "_mem_model_call_records", []),
         "step_latency_s":          [round(x, 3) for x in agent._mem_call_latencies],
         # ── Summarization-specific ───────────────────────────────────────────
         "summarization_prompt_tokens": agent._mem_summarization_prompt_tokens,
