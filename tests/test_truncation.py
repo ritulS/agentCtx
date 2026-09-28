@@ -34,6 +34,10 @@ class RecordingModel:
     def __init__(self):
         self.inputs = []
 
+    @staticmethod
+    def format_message(role, content):
+        return {"role": role, "content": content}
+
     def query(self, messages):
         self.inputs.append(copy.deepcopy(messages))
         return {'role': 'assistant', 'content': 'next command', 'extra': {'cost': 0}}
@@ -213,8 +217,6 @@ class TruncationTests(unittest.TestCase):
             ('structured_summarize', 'structured_summarize'),
             ('summarization_partial', 'summarize_partial'),
             ('structured_summarize_partial', 'structured_summarize_partial'),
-            ('summarization_free', 'summarize_free'),
-            ('structured_summarize_free', 'structured_summarize_free'),
         ]:
             with self.subTest(primitive=primitive):
                 os.environ['MSWEA_PRIMITIVE'] = primitive
@@ -226,6 +228,60 @@ class TruncationTests(unittest.TestCase):
                 ) as summarize:
                     agent.query()
                 self.assertEqual(summarize.call_args.args[2], int(current * 0.5))
+
+    def test_free_summary_fallback_uses_tr_contract_and_diagnostics(self):
+        for primitive in ('summarization_free', 'structured_summarize_free'):
+            for turns, budget in ((16, 600), (3, 100), (1, 100)):
+                for accepted in (False, True):
+                    with self.subTest(primitive=primitive, turns=turns, accepted=accepted), tempfile.TemporaryDirectory() as directory:
+                        os.environ['MSWEA_PRIMITIVE'] = primitive
+                        os.environ['MSWEA_EVENT_LOG_DIR'] = directory
+                        os.environ['MSWEA_TOKEN_LOG_PATH'] = str(Path(directory) / 'token_log.json')
+                        agent, model = self.agent(history(turns), budget)
+                        original = copy.deepcopy(agent.messages)
+
+                        def summary(*args):
+                            memory._set_summary_outcome({
+                                'attempts': 1 if accepted else 3, 'accepted': accepted,
+                                'rejections': [] if accepted else ['empty'] * 3,
+                                'flags': {}, 'fallback': None,
+                            })
+                            return ('summary body' if accepted else None), {}, 321, 27, 0.01
+
+                        with patch.object(memory, 'COMPRESSION_RATIO', 0.5), patch.object(
+                            memory, 'get_summary_model', return_value=model
+                        ), patch.object(memory, 'request_summary', side_effect=summary):
+                            agent.query()
+                        log = json.loads((Path(directory) / 'token_log.json').read_text())
+                        compression = json.loads((Path(directory) / 'compression_events.jsonl').read_text())
+                        self.assertEqual(compression['target_tokens'], budget // 2)
+                        self.assertEqual(log['summarization_prompt_tokens'], 321)
+                        self.assertEqual(log['summary_fallback_events'], int(not accepted))
+                        self.assertEqual(log['compression_events'], 1)
+                        if accepted:
+                            self.assertEqual(model.inputs[0][-1]['content'], 'summary body')
+                            self.assertEqual(len(model.inputs[0]), 3)
+                            self.assertEqual(log['tr_events'], [])
+                            self.assertNotIn('tr_stats', compression)
+                            continue
+                        # These budgets fit only the latest turn; its command
+                        # and result must both survive, even above the target.
+                        self.assertEqual(model.inputs[0], original[:2] + original[-2:])
+                        event, = log['tr_events']
+                        self.assertEqual(event['primitive'], primitive)
+                        self.assertEqual(event['policy'], 'budget_ratio_complete_turns_v1')
+                        self.assertEqual(event['target_tokens'], budget // 2)
+                        self.assertEqual(event['budget_tokens'], budget)
+                        self.assertEqual(event['tokens_before'], memory.count_tokens(original))
+                        self.assertEqual(event['tokens_after'], memory.count_tokens(model.inputs[0]))
+                        self.assertEqual(event['tokens_saved'], log['total_tokens_saved'])
+                        for key, expected in (('target_not_met', budget == 100),
+                                              ('budget_exceeded', budget == 100),
+                                              ('zero_reduction', turns == 1)):
+                            self.assertEqual(event[key], expected)
+                            self.assertEqual(log[f'tr_{key}_events'], int(expected))
+                        self.assertEqual(compression['tr_stats'], event)
+                        self.assertEqual(log['summary_outcomes'][0]['fallback'], 'truncate')
 
     def test_online_and_staggered_tr_keep_legacy_deletion_and_targets(self):
         for primitive, budget in [('online_trc', 300), ('staggered_alternate', 10000)]:

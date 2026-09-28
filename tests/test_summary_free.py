@@ -36,6 +36,7 @@ def _messages():
         {"role": "assistant", "content": "Examined management.py. " * 300},
         {"role": "user", "content": "The save call needs using=db. " * 300},
         {"role": "assistant", "content": "Next: apply the fix."},
+        {"role": "user", "content": "Patch applied successfully."},
     ]
 
 
@@ -100,11 +101,11 @@ class SummaryFreeTests(unittest.TestCase):
                 self.assertLess(int(lo.group(1)), int(hi.group(1)))
                 self.assertNotIn("length_free", str(prompt_lo))
 
-    def test_free_variants_fall_back_to_truncate_at_target(self):
+    def test_free_variants_fall_back_to_complete_turns_at_target(self):
         for primitive in (memory.summarize_free, memory.structured_summarize_free):
             with self.subTest(primitive=primitive.__name__):
                 (result, saved, pt, ct, _), _ = self._run(primitive, 200, None)
-                expected, _ = memory.truncate(_messages(), 200)
+                expected = _messages()[:2] + _messages()[-2:]
                 self.assertEqual(result, expected)
                 self.assertGreater(saved, 0)
                 self.assertEqual((pt, ct), (321, 27))

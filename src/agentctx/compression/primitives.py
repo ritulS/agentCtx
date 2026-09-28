@@ -10,7 +10,7 @@ token_budget  : int   — MSWEA_TOKEN_BUDGET env var
                         When estimated current context tokens exceed this value,
                         the selected budget-triggered primitive fires.
 compression_r : float — MSWEA_COMPRESSION_RATIO, default 0.5
-                        Standalone TR targets token_budget * r.
+                        Standalone TR and SU-free/SS-free fallbacks target token_budget * r.
                         Other proportional policies target current context tokens * r.
                         TRC clearing and its turn-truncation fallback ignore r.
 
@@ -21,8 +21,9 @@ Protected messages (never compressed)
 Compressible: messages[2:]
 
 Truncation
-  Standalone TR uses truncate_oldest_turns(): drop oldest assistant/result
-  turns to token_budget * r, protecting system, task, and the latest turn.
+  Standalone TR and SU-free/SS-free fallbacks use truncate_oldest_turns():
+  drop oldest assistant/result turns to token_budget * r, protecting system,
+  task, and the latest turn.
   If those alone exceed the target, retain them and continue over target.
   Other policies keep the legacy truncate() fallback: drop messages until the total
   estimated token count of (protected + remaining) ≤ target_tokens.
@@ -50,10 +51,11 @@ Summarization
   "Summary message handling" below.
 
 Summarization, length-free (SU-free / SS-free)
-  summarize_free() / structured_summarize_free(): same LLM call, cleaning and
-  fallback as summarize() / structured_summarize(), but the prompt asks for a
+  summarize_free() / structured_summarize_free(): same LLM call and cleaning
+  as summarize() / structured_summarize(), but the prompt asks for a
   *concise* summary with no word target, so compression_ratio does not engage
-  (depth-invariant). target_tokens only sizes the truncate() fallback.
+  in the prompt (depth-invariant). target_tokens only sizes the complete-turn
+  TR fallback to B*r when all summary attempts fail.
 
 Token log (MSWEA_TOKEN_LOG_PATH)
   Written after every agent step.  Schema:
@@ -703,7 +705,7 @@ def _summarize_free(
     # This is the only place target_tokens (hence compression_ratio) is used.
     if summary_text is None:
         _mark_summary_fallback("truncate")
-        new_messages, _ = truncate(messages, target_tokens)
+        new_messages, _ = truncate_oldest_turns(messages, target_tokens)
         tokens_after    = count_tokens(new_messages)
         return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
 
@@ -721,11 +723,12 @@ def summarize_free(
 ) -> tuple[list[dict], int, int, int, float]:
     """SU-free: summarize() with no length target (depth-invariant).
 
-    Same prompt, cleaning and fallback as summarize(), but the summarizer is
+    Same prompt and cleaning as summarize(), but the summarizer is
     asked for a *concise* summary instead of "approximately N words", so the
     summary length is whatever the model produces and compression_ratio never
-    reaches the prompt. ``target_tokens`` is used only for the truncate()
-    fallback when every attempt is rejected.
+    reaches the prompt. ``target_tokens`` (B*r from the agent) is used only for
+    the truncate_oldest_turns() fallback when every attempt is rejected.
+    This retains system, task, and the latest complete assistant/result turn.
     No post-hoc length enforcement: if the summary alone were still above the
     budget the trigger would fire again on the next step, as for SS today.
 
@@ -1224,7 +1227,7 @@ def token_log_dict(agent) -> dict:
         "summary_fallback_events":     sum(
             1 for o in getattr(agent, "_mem_summary_outcomes", []) if o.get("fallback")
         ),
-        # ── Standalone TR diagnostics ─────────────────────────────────────────
+        # ── Standalone / length-free fallback TR diagnostics ─────────────────
         "tr_events": getattr(agent, "_mem_tr_events", []),
         "tr_target_not_met_events": sum(
             e["target_not_met"] for e in getattr(agent, "_mem_tr_events", [])

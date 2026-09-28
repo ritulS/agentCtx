@@ -1,4 +1,4 @@
-# Standalone TR contract
+# TR contract (standalone and SU-free/SS-free fallback)
 
 For `MSWEA_PRIMITIVE=truncation`, compression fires before a model call when
 the estimated current context exceeds `MSWEA_TOKEN_BUDGET = B`. The target
@@ -11,7 +11,8 @@ target or B, keep them and continue with the model call. Existing before/after
 counts and saved-token measurements still record such attempts, even if no
 tokens were removed; the event log records the budget-relative target.
 
-`token_log.json` stores one entry in `tr_events` per standalone TR invocation:
+`token_log.json` stores one entry in `tr_events` per standalone TR invocation
+or SU-free/SS-free truncation fallback:
 `policy=budget_ratio_complete_turns_v1`, `step`, `primitive`, `budget_tokens`,
 `target_tokens`, `tokens_before`, `tokens_after`, `tokens_saved`, and three
 independent flags (multiple can be true for the same event):
@@ -36,9 +37,15 @@ unknown. SWE-bench and Terminal-Bench result rows preserve these fields. Runs
 without a TR invocation have an empty list and zero totals;
 historical logs without the fields remain missing, not inferred successes.
 
+SU-free and SS-free use this same TR policy only when all summary attempts
+fail: target B*r, complete-turn deletion, and the same protected content and
+diagnostics. A successful summary still has no length target and is not
+post-truncated. The event `primitive` identifies which summary policy fell
+back; `summary_outcomes.fallback` remains `"truncate"` for compatibility.
+
 This policy uses `truncate_oldest_turns()`. The legacy `truncate()` function
-and its uses in summaries, OTRC+TR, scored TRC and staggered policies are
-unchanged, as are their compression targets. TRC still uses its existing
+and its uses in other summaries, OTRC+TR, scored TRC and staggered policies
+are unchanged, as are their compression targets. TRC still uses its existing
 complete-turn fallback to B. Historical standalone TR runs used a
 current-context-relative target and single-message deletion; do not mix them
 with runs of this revised policy.
