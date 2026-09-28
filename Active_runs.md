@@ -14,6 +14,19 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — r2 P30S SU-free re-run (marker fix) → FC eval completion — this host
+- **Status:** 🟢 RUNNING since 2026-09-27 16:15:49 CDT (notify_run wrapper PID 161524, lock
+  `r2_p30s_chain`, Slack units `r2/swebench/p30s/qwen35b-{chain,su-free,fc}`). Code `2efba79`
+  (missing-marker fix `fca4779`). su-free agent phase ✅ 90/90 at 17:34 (78 Submitted, 12
+  LimitsExceeded); eval running (15/78 at 17:42), then the `fc` preset evaluates the 54
+  remaining FC runs. Expected done ~19:00.
+- **Log:** `logs/experiments/r2_swebench_p30s_qwen35b-chain_20260927_161549.log`; stop with
+  `kill 161524`.
+- **Fix check:** 0 summaries accepted without a marker. But the rejections are frequent:
+  354 `missing_marker` rejections, and 64/241 compression events (27 %) exhausted all 5
+  attempts and fell back to truncate(); 34/76 runs with compression have >=1 fallback,
+  7 runs fell back on every event. SU-free in this cell is therefore partly TR.
+
 ### Qwen3.5-35B-A3B — r2 P30S chain: su-free → fc → ss-free (SWE-bench) — this host
 - **Status:** agent runs ✅ COMPLETE 2026-09-27 09:45 CDT (launched 03:18:39, wrapper PID
   2163816; 90/90 runs per cell, all returncode 0 except 2 FC wall-clock timeouts). The
