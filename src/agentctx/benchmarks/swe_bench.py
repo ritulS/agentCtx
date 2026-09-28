@@ -364,6 +364,14 @@ class SweBench:
             "online_trc_clears": token_log.get("online_trc_clears", 0),
             "online_trc_flags": token_log.get("online_trc_flags", []),
         }
+        # New TRC runs carry stage-level measurements; retain legacy row
+        # shape when resuming artifacts produced before these fields existed.
+        for key in (
+            "trc_events", "trc_clear_only_events", "trc_clearing_tokens_saved",
+            "trc_truncation_tokens_saved",
+        ):
+            if key in token_log:
+                result[key] = token_log[key]
         result.update(resource_usage)
         result.update(outcome)
 

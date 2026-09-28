@@ -7,11 +7,11 @@ experiment runners).
 Parameters
 ----------
 token_budget  : int   — MSWEA_TOKEN_BUDGET env var
-                        When the accumulated prompt tokens exceed this value,
-                        the selected primitive fires.
-compression_r : float — fixed at 0.5
-                        Target = budget * r tokens after compression.
-                        e.g. budget=50 000, r=0.5  →  compress down to 25 000 tokens.
+                        When estimated current context tokens exceed this value,
+                        the selected budget-triggered primitive fires.
+compression_r : float — MSWEA_COMPRESSION_RATIO, default 0.5
+                        Most primitives target current context tokens * r.
+                        TRC clearing and its turn-truncation fallback ignore r.
 
 Protected messages (never compressed)
   index 0 — system prompt
@@ -23,6 +23,13 @@ Truncation
   Drop messages from the front of the compressible window until the total
   estimated token count of (protected + remaining) ≤ target_tokens.
   Always keeps at least the last message in the compressible window.
+
+Tool-result clearing (TRC)
+  On budget overflow, replace all but the latest three tool results with stubs.
+  If still over budget, drop oldest complete assistant/result turns until the
+  budget is met, preserving system, task, and the latest turn. If these alone
+  cannot fit, the agent records the overflow and continues with the model call.
+  See compression/README.md for the full contract and measurements.
 
 Summarization
   Make a single LLM call asking for a summary of the compressible window
@@ -714,7 +721,7 @@ def summarize_free(
     asked for a *concise* summary instead of "approximately N words", so the
     summary length is whatever the model produces and compression_ratio never
     reaches the prompt. ``target_tokens`` is used only for the truncate()
-    fallback when every attempt is rejected (same as tool_result_clear()).
+    fallback when every attempt is rejected.
     No post-hoc length enforcement: if the summary alone were still above the
     budget the trigger would fire again on the next step, as for SS today.
 
@@ -860,70 +867,116 @@ def structured_summarize_partial(
     return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
 
 
+def _trc_result_indices(messages: list[dict]) -> list[int]:
+    """Find tool observations, including tagged results and legacy text histories.
+
+    Text-based models store results as user turns with raw_output/returncode.
+    Legacy histories lack those fields; accept a user turn immediately following
+    an assistant in that case. Parser feedback and summaries are not results.
+    Already-cleared results still count towards the retention window.
+    """
+    indices = []
+    for i in range(N_PROTECTED, len(messages)):
+        msg = messages[i]
+        extra = msg.get("extra") or {}
+        if is_summary_message(msg) or extra.get("interrupt_type"):
+            continue
+        if msg.get("role") == "tool" or (
+            msg.get("role") == "user"
+            and (
+                "raw_output" in extra or "returncode" in extra
+                or messages[i - 1].get("role") == "assistant"
+            )
+        ):
+            indices.append(i)
+    return indices
+
+
+def truncate_oldest_turns(messages: list[dict], budget_tokens: int) -> tuple[list[dict], int]:
+    """Drop oldest complete turns, preserving the protected head and latest turn.
+
+    An assistant turn includes all following observations/feedback up to the
+    next assistant. This keeps parallel tool results together with their call.
+    A leading summary or feedback block is a separate removable unit. If the
+    protected head plus latest turn cannot fit, return them over budget. TRC
+    records this overflow and the agent continues with the model request.
+    """
+    tokens_before = count_tokens(messages)
+    protected = messages[:N_PROTECTED]
+    turns: list[list[dict]] = []
+    for msg in messages[N_PROTECTED:]:
+        if not turns or msg.get("role") == "assistant":
+            turns.append([])
+        turns[-1].append(msg)
+    remaining = tokens_before
+    first = 0
+    while first < len(turns) - 1 and remaining > budget_tokens:
+        remaining -= count_tokens(turns[first])
+        first += 1
+    result = protected + [msg for turn in turns[first:] for msg in turn]
+    return result, tokens_before - count_tokens(result)
+
+
 def tool_result_clear(
     messages: list[dict],
-    target_tokens: int,
+    budget_tokens: int,
     fallback_truncate: bool = True,
-) -> tuple[list[dict], int]:
-    """Clear bash tool output bodies from old user turns to reduce context size.
+    *,
+    stats: dict | None = None,
+) -> tuple[list[dict], int, bool]:
+    """On budget overflow, clear ALL results older than the latest KEEP_RECENT.
 
-    Works front-to-back (oldest first) through compressible user-role messages,
-    replacing verbose output with a stub. Preserves the last KEEP_RECENT tool
-    results (the agent is actively working with these). If clearing all eligible
-    tool outputs is still insufficient and fallback_truncate=True, falls back to
-    truncate(). Set fallback_truncate=False when a caller will apply a second
-    primitive (e.g. summarization) after TRC.
+    Clearing does not stop early and never uses COMPRESSION_RATIO. If enabled,
+    fallback drops oldest complete turns only until the budget is met. KEEP_RECENT
+    applies to clearing; fallback may retain fewer results. The protected head
+    and latest turn always survive, even if they alone exceed the budget.
 
-    Returns (new_message_list, tokens_saved, used_fallback).
+    Returns (new_messages, net_tokens_saved, used_fallback). Savings are signed:
+    replacing very short outputs can grow the context. Optional stats separate
+    clearing from truncation and report an unattainable budget for the caller.
     """
-    if len(messages) <= N_PROTECTED:
-        return messages, 0
-
-    if count_tokens(messages) <= target_tokens:
-        return messages, 0
-
+    tokens_before = count_tokens(messages)
     new_messages = list(messages)
-    tokens_saved = 0
+    cleared = 0
+    if tokens_before > budget_tokens:
+        result_indices = _trc_result_indices(messages)
+        for idx in result_indices[:-KEEP_RECENT]:
+            msg = new_messages[idx]
+            content = msg.get("content") or ""
+            if isinstance(content, str) and content.startswith(
+                ("[TOOL OUTPUT CLEARED", "[tool-result cleared")
+            ):
+                continue
+            n_tokens = count_tokens([msg])
+            step_k = (idx - N_PROTECTED) // 2  # legacy approximate label
+            new_messages[idx] = {
+                **msg,
+                "content": f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]",
+            }
+            cleared += 1
 
-    _STUB_PREFIX = "[TOOL OUTPUT CLEARED"
-
-    def _is_clearable(msg: dict) -> bool:
-        if msg.get("role") != "user" or is_summary_message(msg):
-            return False
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            return False
-        return not content.startswith(_STUB_PREFIX)
-
-    # Indices into new_messages for clearable turns (compressible window only)
-    compressible_user_indices = [
-        i for i in range(N_PROTECTED, len(new_messages))
-        if _is_clearable(new_messages[i])
-    ]
-
-    # Respect KEEP_RECENT — never clear the last N tool-result turns
-    eligible = compressible_user_indices[:-KEEP_RECENT] if len(compressible_user_indices) > KEEP_RECENT else []
-
-    for idx in eligible:
-        original_content = new_messages[idx].get("content", "")
-        n_tokens = len(_ENCODER.encode(str(original_content)))
-        step_k   = (idx - N_PROTECTED) // 2  # approximate step number (2 msgs per step)
-        new_messages[idx] = {
-            **new_messages[idx],
-            "content": f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]",
-        }
-        tokens_saved += n_tokens
-        if count_tokens(new_messages) <= target_tokens:
-            break
-
-    # Fallback: if still above target after clearing all eligible outputs
+    after_clear = count_tokens(new_messages)
     used_fallback = False
-    if fallback_truncate and count_tokens(new_messages) > target_tokens:
-        new_messages, extra_saved = truncate(new_messages, target_tokens)
-        tokens_saved  += extra_saved
-        used_fallback  = True
-
-    return new_messages, tokens_saved, used_fallback
+    truncation_saved = 0
+    if fallback_truncate and after_clear > budget_tokens:
+        new_messages, truncation_saved = truncate_oldest_turns(new_messages, budget_tokens)
+        used_fallback = True
+    tokens_after = count_tokens(new_messages)
+    if stats is not None:
+        stats.update(
+            policy="clear_all_keep3_budget_turns_v1",
+            budget_tokens=budget_tokens,
+            keep_recent=KEEP_RECENT,
+            cleared_results=cleared,
+            tokens_before=tokens_before,
+            tokens_after_clear=after_clear,
+            tokens_after_trc=tokens_after,
+            clearing_tokens_saved=tokens_before - after_clear,
+            truncation_tokens_saved=truncation_saved,
+            used_truncation_fallback=used_fallback,
+            budget_exceeded_after_trc=tokens_after > budget_tokens,
+        )
+    return new_messages, tokens_before - tokens_after, used_fallback
 
 
 # ── Scored TRC helpers ─────────────────────────────────────────────────────────
@@ -1149,6 +1202,17 @@ def token_log_dict(agent) -> dict:
             1 for o in getattr(agent, "_mem_summary_outcomes", []) if o.get("fallback")
         ),
         # ── TRC-specific ─────────────────────────────────────────────────────
+        "trc_events": getattr(agent, "_mem_trc_events", []),
+        "trc_clear_only_events": sum(
+            not e["used_truncation_fallback"] and not e["budget_exceeded_after_trc"]
+            for e in getattr(agent, "_mem_trc_events", [])
+        ),
+        "trc_clearing_tokens_saved": sum(
+            e["clearing_tokens_saved"] for e in getattr(agent, "_mem_trc_events", [])
+        ),
+        "trc_truncation_tokens_saved": sum(
+            e["truncation_tokens_saved"] for e in getattr(agent, "_mem_trc_events", [])
+        ),
         "trc_truncation_fallback_events": agent._mem_trc_fallback_events,
         # ── Online TRC ───────────────────────────────────────────────────────
         "online_trc_flags":              agent._mem_online_trc_flags,

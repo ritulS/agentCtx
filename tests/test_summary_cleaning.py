@@ -515,8 +515,11 @@ class TrcProtectionTests(unittest.TestCase):
         # Documents the failure mode the cleaning removes: without the tag and
         # with the preamble, both TRC variants treat the summary as tool output.
         msgs = self.continued({"role": "user", "content": PREAMBLE + SS_BODY})
+        # A legacy user turn is now recognized as output only after an
+        # assistant, rather than treating every user message as a result.
+        msgs.insert(2, {"role": "assistant", "content": "previous command"})
         out, *_ = memory.tool_result_clear(list(msgs), 1, fallback_truncate=False)
-        self.assertTrue(out[2]["content"].startswith("[TOOL OUTPUT CLEARED"))
+        self.assertTrue(out[3]["content"].startswith("[TOOL OUTPUT CLEARED"))
 
 
 if __name__ == "__main__":

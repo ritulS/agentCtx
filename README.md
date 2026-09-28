@@ -80,6 +80,10 @@ Per-model serving configs live in [configs/](configs/).
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
 | `ICLR_experiments/`, `analysis/` | Canonical ICLR run data, the experiment plan/grid and logs (`FOLLOWUP_EXPERIMENTS.md`, `EXPERIMENT_LOG*.md`), and per-run outcome aggregation. |
 
+The current TRC contract (K=3, clear all older results, then truncate complete
+turns only to the budget) and its measurements are documented in
+[src/agentctx/compression/README.md](src/agentctx/compression/README.md).
+
 ## Data
 
 **ICLR run data is canonical in `ICLR_experiments/`**, one directory per cell,
