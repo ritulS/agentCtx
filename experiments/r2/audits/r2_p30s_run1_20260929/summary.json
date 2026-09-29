@@ -1,0 +1,114 @@
+{
+  "stats": {
+    "d05__b15k__tr": {
+      "format_errors": 80,
+      "reasoning_fallback": 294,
+      "length_errors": 50,
+      "compression_events": 105,
+      "summary_fallback": 0,
+      "non_diff": 0,
+      "calls_error": 0,
+      "runs": 30,
+      "resolved": 16,
+      "unscored": 0,
+      "calls": 3120,
+      "timeout": 1,
+      "step_limit": 5,
+      "summary_seconds": 0.0,
+      "fallback_runs": 0,
+      "finish_reasons": {
+        "stop": 30,
+        "length": 50
+      },
+      "summary_rejections": {}
+    },
+    "di__b15k__su-free": {
+      "format_errors": 69,
+      "reasoning_fallback": 198,
+      "length_errors": 41,
+      "compression_events": 63,
+      "summary_fallback": 15,
+      "non_diff": 0,
+      "calls_error": 0,
+      "runs": 30,
+      "resolved": 19,
+      "unscored": 0,
+      "calls": 2439,
+      "timeout": 2,
+      "step_limit": 1,
+      "summary_seconds": 14071.847999999998,
+      "fallback_runs": 9,
+      "finish_reasons": {
+        "stop": 28,
+        "length": 41
+      },
+      "summary_rejections": {
+        "missing_marker": 84,
+        "empty_body": 5,
+        "ambiguous_reasoning": 2
+      }
+    },
+    "di__b15k__trc": {
+      "format_errors": 98,
+      "reasoning_fallback": 582,
+      "length_errors": 66,
+      "compression_events": 374,
+      "summary_fallback": 0,
+      "non_diff": 1,
+      "calls_error": 0,
+      "runs": 30,
+      "resolved": 18,
+      "unscored": 0,
+      "calls": 2560,
+      "timeout": 2,
+      "step_limit": 1,
+      "summary_seconds": 0.0,
+      "fallback_runs": 0,
+      "finish_reasons": {
+        "stop": 32,
+        "length": 66
+      },
+      "summary_rejections": {}
+    },
+    "di__binf__fc": {
+      "format_errors": 69,
+      "reasoning_fallback": 729,
+      "length_errors": 47,
+      "compression_events": 0,
+      "summary_fallback": 0,
+      "non_diff": 1,
+      "calls_error": 0,
+      "runs": 30,
+      "resolved": 18,
+      "unscored": 0,
+      "calls": 2277,
+      "timeout": 2,
+      "step_limit": 1,
+      "summary_seconds": 0.0,
+      "fallback_runs": 0,
+      "finish_reasons": {
+        "stop": 22,
+        "length": 47
+      },
+      "summary_rejections": {}
+    }
+  },
+  "issues": [
+    [
+      "data/r2/swebench/p30s/qwen35b/di__b15k__su-free/django__django-15957/summarization-free/run_1",
+      "compression no reduction or over budget",
+      32,
+      15123,
+      31684
+    ]
+  ],
+  "verification": {
+    "replay_passed": 119,
+    "replay_stale_trajectory": 1,
+    "pred_and_eval_patch_matches": 105,
+    "all_configs_max_tokens": 32768,
+    "all_configs_reasoning_fallback": true,
+    "task_sets_match": true,
+    "summary_expansion_tokens": 16561
+  }
+}
