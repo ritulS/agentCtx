@@ -12,6 +12,7 @@ set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
 reasoning_parser_args qwen3
 
@@ -51,6 +52,7 @@ fi
 
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model "$MODEL" \
     "${REASONING_ARGS[@]}" \
     --served-model-name "$SERVED_NAME" \

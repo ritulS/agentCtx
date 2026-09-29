@@ -431,6 +431,46 @@ class SummaryPrimitiveTests(unittest.TestCase):
         self.assertIsNone(outcome["fallback"])
         self.assertTrue(outcome["flags"]["had_open_marker"])
 
+    def test_outcome_records_response_id_per_attempt(self):
+        class IdModel(FakeModel):
+            def query(self, messages, **kwargs):
+                msg = super().query(messages, **kwargs)
+                if self.calls == 1:   # first attempt: provider reply without an id
+                    return msg
+                msg["extra"]["response"]["id"] = f"chatcmpl-{self.calls}"
+                return msg
+
+        memory.pop_summary_outcome()
+        memory.summarize_partial(
+            history(8),
+            IdModel(["...</think>", f"{memory.SU_OPEN_MARKER}\nok\n{memory.SU_CLOSE_MARKER}"]),
+            900,
+        )
+        outcome = memory.pop_summary_outcome()
+        self.assertEqual(outcome["attempts"], 2)
+        self.assertEqual(outcome["response_ids"], [None, "chatcmpl-2"])
+
+    def test_outcome_keeps_ids_when_a_later_attempt_raises(self):
+        class FlakyModel(FakeModel):
+            def query(self, messages, **kwargs):
+                if self.calls == 1:
+                    self.calls += 1
+                    raise RuntimeError("transport failed")
+                msg = super().query(messages, **kwargs)
+                msg["extra"]["response"]["id"] = f"chatcmpl-{self.calls}"
+                return msg
+
+        memory.pop_summary_outcome()
+        with self.assertRaisesRegex(RuntimeError, "transport failed"):
+            memory.summarize_partial(history(8), FlakyModel(["...</think>"]), 900)
+        outcome = memory.pop_summary_outcome()
+        self.assertEqual(outcome["response_ids"], ["chatcmpl-1"])
+        self.assertEqual(outcome["attempts"], 1)
+        self.assertFalse(outcome["accepted"])
+        self.assertEqual(outcome["rejections"], ["empty_body"])
+        self.assertEqual(outcome["interrupted"], "RuntimeError")
+        self.assertEqual(outcome["interrupted_attempt"], 2)
+
     def test_request_summary_retries_after_length_cut_response(self):
         # The provider's finish_reason travels in extra.response (as the
         # LiteLLM models store it); a cut-off reply is retried, not accepted.

@@ -407,7 +407,12 @@ def pop_summary_outcome() -> dict | None:
     this thread, or None when no summary was requested since the last pop.
 
     Keys: attempts, accepted, rejections (one reason per rejected attempt),
-    flags (of the accepted or last response), fallback ("truncate" | None).
+    flags (of the accepted or last response), fallback ("truncate" | None),
+    response_ids (one provider response id per attempt, None when absent),
+    interrupted (exception type name when a query raised, else None) and
+    interrupted_attempt. An interrupted record is left in the slot for the
+    agent to salvage; ``accepted`` is False and ``attempts`` counts only the
+    queries that returned.
     """
     last = getattr(_SUMMARY_OUTCOME, "last", None)
     _SUMMARY_OUTCOME.last = None
@@ -432,6 +437,16 @@ def _response_usage(response: dict) -> tuple[int, int]:
     return (usage.get("prompt_tokens", 0) or 0), (usage.get("completion_tokens", 0) or 0)
 
 
+def _response_id(response: dict) -> str | None:
+    """Provider response id (vLLM: ``chatcmpl-...``), used to join the
+    summarizer request to the server-side KV trace (agentctx.kv_cache_trace).
+    None when the model kept no provider response or it carried no id."""
+    extra = response.get("extra", {}) if isinstance(response, dict) else {}
+    resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
+    rid = resp.get("id") if isinstance(resp, dict) else None
+    return rid if isinstance(rid, str) and rid else None
+
+
 def request_summary(
     summary_model,
     summary_prompt: list[dict],
@@ -447,16 +462,46 @@ def request_summary(
     Returns (text, flags, prompt_tokens, completion_tokens, latency_s); text is
     None when every attempt was rejected, and flags then describes the last
     rejected response. flags["attempts"] is the number of queries made.
+
+    The outcome record keeps one provider response id per attempt (rejected
+    attempts included, None when unavailable) so a summarizer request served
+    by the traced vLLM can be attributed to this compression event. The record
+    is published to the thread-local slot before the first query and updated
+    after every attempt, so a transport error on a later attempt (which
+    propagates to the caller) leaves the ids obtained so far in place with
+    ``interrupted`` set to the exception type and ``interrupted_attempt`` to
+    the attempt that failed.
     """
     attempts = max_attempts or SUMMARY_MAX_ATTEMPTS
     prompt_toks = completion_toks = 0
     latency_s   = 0.0
     text, flags = None, {}
     rejections: list[str] = []
+    response_ids: list[str | None] = []
+    outcome = {
+        "attempts":   0,
+        "accepted":   False,
+        "rejections": rejections,
+        "flags":      {},
+        "fallback":   None,
+        # one per query made, in order; joins to kv-cache-*.jsonl request ids
+        "response_ids": response_ids,
+        "interrupted": None,
+        "interrupted_attempt": None,
+    }
+    _set_summary_outcome(outcome)
     for attempt in range(1, attempts + 1):
         _t0       = time.time()
-        response  = query_summary(summary_model, summary_prompt)
+        try:
+            response = query_summary(summary_model, summary_prompt)
+        except BaseException as exc:
+            outcome["interrupted"] = type(exc).__name__
+            outcome["interrupted_attempt"] = attempt
+            outcome["flags"] = dict(flags)
+            raise
         latency_s += time.time() - _t0
+        response_ids.append(_response_id(response))
+        outcome["attempts"] = attempt
         pt, ct = _response_usage(response)
         prompt_toks     += pt
         completion_toks += ct
@@ -468,13 +513,9 @@ def request_summary(
         if text is not None:
             break
         rejections.append(flags.get("rejected") or "unknown")
-    _set_summary_outcome({
-        "attempts":   len(rejections) + (1 if text is not None else 0),
-        "accepted":   text is not None,
-        "rejections": rejections,
-        "flags":      dict(flags),
-        "fallback":   None,
-    })
+    outcome["attempts"] = len(rejections) + (1 if text is not None else 0)
+    outcome["accepted"] = text is not None
+    outcome["flags"]    = dict(flags)
     return text, flags, prompt_toks, completion_toks, latency_s
 
 
@@ -1289,7 +1330,9 @@ def token_log_dict(agent) -> dict:
         "summarization_latency_s":     round(agent._mem_summarization_latency_s, 3),
         "summarization_model":         summary_model_info(),
         # one entry per compression event that requested a summary:
-        # {"step", "primitive", "picked", "attempts", "accepted", "rejections", "fallback"}
+        # {"step", "primitive", "picked", "attempts", "accepted", "rejections",
+        #  "fallback", "flags", "response_ids"}; plus "interrupted" /
+        # "interrupted_attempt" when a summarizer query raised mid-event
         "summary_outcomes":            getattr(agent, "_mem_summary_outcomes", []),
         "summary_fallback_events":     sum(
             1 for o in getattr(agent, "_mem_summary_outcomes", []) if o.get("fallback")

@@ -103,6 +103,8 @@ class CallAccountingTests(unittest.TestCase):
         self.assertEqual(agent.n_calls, 2)
         self.assertEqual([r['step'] for r in log['model_call_records']], [1, 2])
         self.assertEqual([r['status'] for r in log['model_call_records']], ['format_error', 'ok'])
+        self.assertEqual([r['response_id'] for r in log['model_call_records']],
+                         [response.id for response in responses])
         self.assertGreater(log['step_latency_s'][0], 0)
         self.assertEqual(log['total_latency_s'], sum(log['step_latency_s']))
         self.assertEqual(sum(m['role'] == 'assistant' for m in agent.messages), 1)
@@ -181,6 +183,60 @@ class CallAccountingTests(unittest.TestCase):
                 self.assertEqual(record['status'], 'error')
                 self.assertIsNone(record['prompt_tokens'])
                 self.assertIsNone(record['completion_tokens'])
+
+    def test_interrupted_summarizer_keeps_response_ids(self):
+        os.environ['MSWEA_PRIMITIVE'] = 'summarization'
+        os.environ['MSWEA_TOKEN_BUDGET'] = '100'
+        agent = self.agent()
+        for i in range(6):
+            agent.add_messages({'role': 'assistant', 'content': f'command {i}'},
+                               {'role': 'user', 'content': 'output ' * 100,
+                                'extra': {'raw_output': 'output', 'returncode': 0}})
+        # Patch query(), not _query(): the model retries transport errors with
+        # backoff, and the summarizer copies the model so it shares the patch.
+        calls = itertools.count(1)
+        def query(messages, **kwargs):
+            if next(calls) > 1:
+                raise RuntimeError('transport failed')
+            return {'role': 'assistant', 'content': '',   # empty body: rejected, then retried
+                    'extra': {'response': {'id': 'chatcmpl-first',
+                                           'usage': {'prompt_tokens': 10, 'completion_tokens': 1}}}}
+        with patch.object(self.model, 'query', side_effect=query):
+            with self.assertRaisesRegex(RuntimeError, 'transport failed'):
+                agent.query()
+        self.assertIsNotNone(agent._mem_active_compression)
+        agent._write_token_log()         # what run()'s finally does
+        self.assertIsNone(agent._mem_active_compression)
+        outcomes = self.log()['summary_outcomes']
+        self.assertEqual(len(outcomes), 1)
+        self.assertEqual(outcomes[0]['response_ids'], ['chatcmpl-first'])
+        self.assertEqual(outcomes[0]['interrupted'], 'RuntimeError')
+        self.assertEqual(outcomes[0]['interrupted_attempt'], 2)
+        self.assertFalse(outcomes[0]['accepted'])
+        self.assertEqual(outcomes[0]['primitive'], 'summarization')
+        agent._write_token_log()         # idempotent: no duplicate entry
+        self.assertEqual(len(self.log()['summary_outcomes']), 1)
+
+    def test_completed_summary_event_records_ids_once(self):
+        os.environ['MSWEA_PRIMITIVE'] = 'summarization'
+        os.environ['MSWEA_TOKEN_BUDGET'] = '100'
+        agent = self.agent()
+        for i in range(6):
+            agent.add_messages({'role': 'assistant', 'content': f'command {i}'},
+                               {'role': 'user', 'content': 'output ' * 100,
+                                'extra': {'raw_output': 'output', 'returncode': 0}})
+        summary = self.response(f'{memory.SU_OPEN_MARKER}\nsummary\n{memory.SU_CLOSE_MARKER}')
+        summary.id = 'chatcmpl-summary'
+        step = self.response('```mswea_bash_command\necho ok\n```')
+        step.id = 'chatcmpl-step'
+        with patch.object(self.model, '_query', side_effect=[summary, step]):
+            agent.query()
+        agent._write_token_log()
+        log = self.log()
+        self.assertEqual([o['response_ids'] for o in log['summary_outcomes']], [['chatcmpl-summary']])
+        self.assertNotIn('interrupted', log['summary_outcomes'][0])
+        self.assertEqual([r['response_id'] for r in log['model_call_records']], ['chatcmpl-step'])
+        self.assertIsNone(agent._mem_active_compression)
 
     def test_run_finally_flushes_even_if_trajectory_save_fails(self):
         agent = self.agent(seed_history=False, step_limit=1)

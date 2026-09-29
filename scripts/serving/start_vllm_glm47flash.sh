@@ -37,6 +37,7 @@ if [[ "$MAX_MODEL_LEN" != "native" ]]; then
 fi
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
 reasoning_parser_args glm47
 PID_FILE="$SERVER_LOG_DIR/vllm_glm47flash.pid"
@@ -64,6 +65,7 @@ fi
 LOG_FILE="$(server_log vllm_glm47flash)"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model "$MODEL" \
     "${REASONING_ARGS[@]}" \
     --port "$PORT" \

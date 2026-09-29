@@ -108,6 +108,17 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   can later be converted into the KV-cache MB it occupied.
   `AGENTCTX_RESOURCE_MONITOR=0` disables it. Runs before 2026-09-27 have no
   resource data.
+- Per-request KV-cache ownership (opt-in, `src/agentctx/KV_CACHE_TRACE.md`):
+  launching a serving script with `AGENTCTX_KV_TRACE_DIR` set installs
+  `agentctx.vllm_kv_trace.TracingScheduler` (`--scheduler-cls`), which logs
+  each live request's exclusive vs. shared physical blocks on every scheduler
+  change to `kv-cache-<pid>-<uuid>.jsonl`. `python -m agentctx.kv_cache_trace
+  <run_dir> --trace-dir <dir>` joins them to agent steps
+  (`model_call_records[].response_id`) and summarizer calls
+  (`summary_outcomes[].response_ids`) into `<run_dir>/kv_cache_steps.json`.
+  Caveats: shared = simultaneous co-ownership only; peaks are not
+  simultaneous; bytes are per TP shard. Runs before 2026-09-29 have no
+  response ids.
 - `ICLR_experiments/plotting/` — ICLR figure code: `plot_bank.py` is the
   single file holding every renderer (shared style, Figure 1 schematic,
   Figures 2-5, appendix companions, the former `paper_figures.py` and

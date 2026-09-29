@@ -84,6 +84,9 @@ The current TRC contract (K=3, clear all older results, then truncate complete
 turns only to the budget) and its measurements are documented in
 [src/agentctx/compression/README.md](src/agentctx/compression/README.md).
 
+Per-step exclusive/shared KV cache memory can be collected with the opt-in
+vLLM scheduler tracer; see [setup and export instructions](src/agentctx/KV_CACHE_TRACE.md).
+
 Adaptive runs can change primitive, trigger (token budget or OTRC step interval),
 and depth using a Python callback or JSON schedule. The generic runner accepts
 `--adaptive-schedule` or `--adaptive-policy` for a dedicated `adaptive` condition;

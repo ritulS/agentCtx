@@ -16,7 +16,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
-for entry in (ROOT / "src", ROOT / "mini-swe-agent" / "src"):
+# ROOT itself provides the `memory` alias the pinned mini-swe-agent imports.
+for entry in (ROOT, ROOT / "src", ROOT / "mini-swe-agent" / "src"):
     if str(entry) not in sys.path:
         sys.path.insert(0, str(entry))
 
@@ -26,7 +27,62 @@ try:
 except ImportError as exc:  # pragma: no cover - depends on the installed venv
     raise unittest.SkipTest(f"Harbor / mini-swe-agent not installed: {exc}")
 
-from agentctx.benchmarks.harbor_adapter import CompressionAgent  # noqa: E402
+from agentctx.benchmarks.harbor_adapter import CheckpointAgent, CompressionAgent  # noqa: E402
+from agentctx.compression import primitives as memory  # noqa: E402
+
+
+class FlakySummarizerModel(DeterministicModel):
+    """First query: a rejected (empty) summary carrying a provider id.
+    Second query: a transport error, as a dropped connection would raise."""
+
+    def __init__(self, **kwargs):
+        super().__init__(outputs=[], **kwargs)
+        self.calls = 0
+
+    def query(self, messages, **kwargs):
+        self.calls += 1
+        if self.calls > 1:
+            raise RuntimeError("transport failed")
+        return {"role": "assistant", "content": "",
+                "extra": {"response": {"id": "chatcmpl-first",
+                                       "usage": {"prompt_tokens": 10, "completion_tokens": 1}}}}
+
+
+class CheckpointSalvageTests(unittest.TestCase):
+    """CheckpointAgent persists through checkpoint(), not _write_token_log(),
+    so the salvage of an interrupted summarizer event must happen there."""
+
+    def test_checkpoint_keeps_ids_of_interrupted_summarizer(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
+            "MSWEA_PRIMITIVE": "summarization", "MSWEA_TOKEN_BUDGET": "100",
+            "MSWEA_TOKEN_LOG_PATH": "", "MSWEA_EVENT_LOG_DIR": "",
+        }):
+            output = Path(tmp) / "trajectory.json"
+            model = FlakySummarizerModel()
+            agent = CheckpointAgent(model, SimpleNamespace(
+                get_template_vars=lambda: {}, serialize=lambda: {}, execute=None,
+            ), system_template="system", instance_template="task", output_path=output)
+            agent.add_messages({"role": "system", "content": "system"}, {"role": "user", "content": "task"})
+            for i in range(6):
+                agent.add_messages({"role": "assistant", "content": f"command {i}"},
+                                   {"role": "user", "content": "output " * 100,
+                                    "extra": {"raw_output": "output", "returncode": 0}})
+            with self.assertRaisesRegex(RuntimeError, "transport failed"):
+                agent.query()   # query()'s finally saves and checkpoints
+            self.assertEqual(model.calls, 2)
+            self.assertIsNone(agent._mem_active_compression)
+            self.assertIsNone(memory.pop_summary_outcome())   # consumed, not leaked
+            checkpoint = json.loads((output.parent / "worker_checkpoint.json").read_text())
+            outcomes = checkpoint["token_log"]["summary_outcomes"]
+            self.assertEqual(len(outcomes), 1)
+            self.assertEqual(outcomes[0]["response_ids"], ["chatcmpl-first"])
+            self.assertEqual(outcomes[0]["interrupted"], "RuntimeError")
+            self.assertEqual(outcomes[0]["interrupted_attempt"], 2)
+            self.assertFalse(outcomes[0]["accepted"])
+            self.assertEqual(outcomes[0]["primitive"], "summarization")
+            agent.checkpoint()   # idempotent: no duplicate entry
+            checkpoint = json.loads((output.parent / "worker_checkpoint.json").read_text())
+            self.assertEqual(len(checkpoint["token_log"]["summary_outcomes"]), 1)
 
 
 class BlockingSocketModel(DeterministicModel):

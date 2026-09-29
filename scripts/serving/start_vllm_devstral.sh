@@ -40,6 +40,7 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
 fi
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
 
 # Refuse if port already in use.
 if ss -ltnp 2>/dev/null | grep -q ':8002 '; then
@@ -60,6 +61,7 @@ PID_FILE="$SERVER_LOG_DIR/vllm_devstral.pid"
 # Keep the existing dtype/KV-cache precision; native only removes the context cap.
 CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model mistralai/Devstral-Small-2-24B-Instruct-2512 \
     --port 8002 \
     --dtype auto \

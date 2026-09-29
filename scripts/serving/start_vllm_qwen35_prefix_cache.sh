@@ -23,6 +23,7 @@ set -euo pipefail
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
 reasoning_parser_args qwen3
 
@@ -52,6 +53,7 @@ fi
 LOG_FILE="$(server_log vllm_qwen35_a3b)"
 CUDA_VISIBLE_DEVICES=0,1,2,3 \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model Qwen/Qwen3.5-35B-A3B \
     "${REASONING_ARGS[@]}" \
     --host 127.0.0.1 \

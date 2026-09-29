@@ -182,6 +182,12 @@ class CheckpointAgent(DefaultAgent):
 
     def checkpoint(self) -> None:
         path = self.config.output_path
+        # Every persistence path ends here, including save() in query()'s
+        # finally after a summarizer query raised mid-event. DefaultAgent only
+        # salvages that event's partial outcome (summarizer response ids so
+        # far) inside _write_token_log(), which this class bypasses, so do it
+        # before serializing. No-op when no compression event is in progress.
+        self._salvage_interrupted_summary(memory)
         write_json(path.parent / "worker_checkpoint.json", {
             "n_calls": self.n_calls,
             "token_log": memory.token_log_dict(self),
