@@ -356,3 +356,13 @@ it; failed calls are not replaced selectively. Every cell of the next
 comparison is re-run with the fallback on. The 325 `finish_reason ==
 "length"` errors at `max_tokens: 4096` are a separate decision and were not
 changed here.
+
+## 2026-09-29 — Archive pre-fallback P30S run_1
+
+Moved `data/r2/swebench/p30s/qwen35b` to `archives/r2_p30s_qwen35b_run1_before_reasoning_fallback_20260929_034952/data/r2/swebench/p30s/qwen35b` at the user's request.
+All four cells have 30 run_1 results (120 total); SU-free 17/30, TRC 17/30,
+TR 16/30, FC 18/30. Preserved complete cell artifacts and copied the audit
+and launch log. Verified all 1,505 files (225,902,483 bytes)
+against SHA-256 hashes after moving. See the archive README for restoration
+and manifest.json for the inventory. The 12-run reasoning-fallback smoke
+remains in place. No new full batch was launched.

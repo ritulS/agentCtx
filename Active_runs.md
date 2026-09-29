@@ -12,10 +12,28 @@ the next reboot repeats this; (2) persistence mode is off (`nvidia-smi
 -pm 1`); (3) vLLM `vllm-qwen35` user unit + rootless podman socket still
 need rebuilding for serving/tbench.
 
+## Archived completion — 2026-09-28: r2 P30S fixed run1
+
+- **ARCHIVED (2026-09-29):** Qwen3.5-35B-A3B, SU-free → TRC → TR → FC, 30 tasks × run_1 per cell (120 runs). Finished agent execution and evaluation at **2026-09-28 06:34:24 CDT**. No experiment/evaluation process remains at the audit; vLLM remains running.
+- **Results:** SU-free 17/30, TRC 17/30, TR 16/30, FC 18/30 resolved. All verdicts populated; 17 step-limit failures, 5 invalid submissions (source excerpts instead of diffs). No outstanding infrastructure evaluation errors.
+- **Audit:** 120/120 event replays verified. 800/13,193 agent calls have format errors (444 empty final content with reasoning, 325 output-length limits, 31 other format errors). SU-free falls back to TR in 15/74 compression events. See [audit report](experiments/r2/audits/r2_p30s_run1_20260928/report.md) and [per-run CSV](experiments/r2/audits/r2_p30s_run1_20260928/runs.csv).
+- **Log:** `logs/experiments/r2_swebench_p30s_qwen35b-fixed-run1_20260928_023626.log`.
+- **Archive:** [archives/r2_p30s_qwen35b_run1_before_reasoning_fallback_20260929_034952](archives/r2_p30s_qwen35b_run1_before_reasoning_fallback_20260929_034952/README.md). All 120 run_1 outputs moved out of `data/`; 1,505 files verified by SHA-256. Fallback smoke remains separate. No new full batch launched.
+- The older local P30S statuses below are historical and superseded by the fixed-run1 batch. Prior SU-free/TRC/FC run_1–3 data was archived before this batch; it is not mixed into this audit.
+
 ## Currently Running
 
+### Qwen3.5 — reasoning fallback smoke, COMPLETE (2026-09-29)
+- **COMPLETE:** agent execution and evaluation finished at **2026-09-29 01:45:42 CDT**. Resume PID `1016184` is no longer running.
+- **Results:** 3 tasks × 4 conditions × run_1 = 12/12 Submitted and resolved: SU-free 3/3, TRC 3/3, TR 3/3, FC 3/3. Verified against each cell's `experiment_results.json`.
+- **Fallback audit:** 156 accepted messages have `extra.action_source = "reasoning_content"` (SU-free 13, TRC 15, TR 77, FC 51). All 156 satisfy the stop/empty-content/single-action rule, store reasoning as content, and preserve the raw response. Across 891 agent calls, 27 FormatErrors remain (18 length, 9 stop).
+- Original foreground launch stopped around 01:21; cause is unconfirmed. Background resume at 01:26:41 kept completed SU-free/TRC and one TR run, then completed the remaining TR → FC runs and evaluation.
+- Interrupted TR artifacts preserved in `archives/r2_reasoning_fallback_smoke_interrupted_20260929_012641`; unfinished tasks restart from the beginning.
+- **Log:** `logs/experiments/r2_sb_p30s_qwen35b-reasoning-fallback-20260929-smoke_resume_20260929_012641.log`. **PID file:** `logs/experiments/r2_sb_p30s_qwen35b-reasoning-fallback-20260929-smoke.pid`.
+- Settings unchanged: parser ON, reasoning fallback ON, max_tokens=4096, step_limit=300, run_1, 3 workers.
+
 ### Qwen3.5-35B-A3B — r2 P30S SU-free re-run (marker fix) → FC eval completion — this host
-- **Status:** 🟢 RUNNING since 2026-09-27 16:15:49 CDT (notify_run wrapper PID 161524, lock
+- **Status:** SUPERSEDED / ARCHIVED (confirmed 2026-09-28). Historical launch: 2026-09-27 16:15:49 CDT (notify_run wrapper PID 161524, lock
   `r2_p30s_chain`, Slack units `r2/swebench/p30s/qwen35b-{chain,su-free,fc}`). Code `2efba79`
   (missing-marker fix `fca4779`). su-free agent phase ✅ 90/90 at 17:34 (78 Submitted, 12
   LimitsExceeded); eval running (15/78 at 17:42), then the `fc` preset evaluates the 54
