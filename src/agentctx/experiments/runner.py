@@ -38,7 +38,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
+from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT, resource_monitor
 from agentctx.benchmarks import BENCHMARKS, create_benchmark
 from agentctx.experiments.conditions import default_conditions
 from agentctx.compression.selection import build_selection, prepare_run, selection_metadata
@@ -132,6 +132,7 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
     )
 
     info = {
+        **resource_monitor.configuration(supported=BENCHMARK.name == "swe-bench"),
         "benchmark":    BENCHMARK.name,
         "run_tag":      MODEL_TAG,
         "model":        _model_name,
@@ -172,6 +173,9 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
 | Total runs | {total_runs} |
 | Step limit | {STEP_LIMIT} LLM calls per run |
 | Agent timeout | {AGENT_TIMEOUT} s per run |
+| Resource monitoring supported | {info['resource_monitoring_supported']} |
+| Resource monitoring enabled | {info['resource_monitoring_enabled']} |
+| Resource sample interval | {"n/a" if info['resource_sample_interval_s'] is None else f"{info['resource_sample_interval_s']} s (configured)"} |
 | Started | {info['started']} |
 
 ## Conditions

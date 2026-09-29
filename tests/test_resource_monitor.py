@@ -132,6 +132,20 @@ class ParsingTests(unittest.TestCase):
         self.assertEqual(rm.sample_interval_s({rm.INTERVAL_ENV: "2.5"}), 2.5)
         self.assertEqual(rm.sample_interval_s({rm.INTERVAL_ENV: "-1"}), rm.DEFAULT_INTERVAL_S)
 
+    def test_configuration(self):
+        # The configured interval is recorded even when sampling is OFF.
+        self.assertEqual(rm.configuration({rm.ENABLE_ENV: "0", rm.INTERVAL_ENV: "2.5"}), {
+            "resource_monitoring_supported": True,
+            "resource_monitoring_enabled": False,
+            "resource_sample_interval_s": 2.5,
+        })
+        # An unsupported adapter never reports enabled and has no interval.
+        self.assertEqual(rm.configuration({rm.INTERVAL_ENV: "2.5"}, supported=False), {
+            "resource_monitoring_supported": False,
+            "resource_monitoring_enabled": False,
+            "resource_sample_interval_s": None,
+        })
+
 
 class NoProbes(rm.SharedProbes):
     """Machine-wide probes stubbed out so the test neither shells out nor opens sockets."""

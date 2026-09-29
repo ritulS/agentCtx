@@ -105,6 +105,22 @@ def sample_interval_s(env: dict | None = None) -> float:
     return interval if interval > 0 else DEFAULT_INTERVAL_S
 
 
+def configuration(env: dict | None = None, *, supported: bool = True) -> dict:
+    """Experiment settings, independent of whether sampling actually starts.
+
+    The interval is the configured value even when disabled. Unsupported
+    adapters must not claim that monitoring is enabled by the default env,
+    and have no interval to report (None). Whether a run was actually
+    sampled is ``resource_monitoring_started`` on its result row, not the
+    presence of these keys.
+    """
+    return {
+        "resource_monitoring_supported": supported,
+        "resource_monitoring_enabled": supported and enabled(env),
+        "resource_sample_interval_s": sample_interval_s(env) if supported else None,
+    }
+
+
 def metrics_url(api_base: str) -> str:
     return re.sub(r"/v\d+/?$", "", api_base.strip().rstrip("/")) + "/metrics"
 

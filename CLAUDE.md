@@ -106,8 +106,20 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   periodic usage lines are kept apart, last few only), so
   a run's per-step context length (`step_prompt_tokens` in token_log.json)
   can later be converted into the KV-cache MB it occupied.
-  `AGENTCTX_RESOURCE_MONITOR=0` disables it. Runs before 2026-09-27 have no
-  resource data.
+  `AGENTCTX_RESOURCE_MONITOR=0` disables it. `run_info.json` / `run_info.md`
+  record `resource_monitoring_enabled`, `resource_monitoring_supported` and
+  `resource_sample_interval_s` (configured interval, including when OFF).
+  Each new `experiment_results.json` row retains these settings and adds
+  `resource_monitoring_started`: whether the sampler was started, not whether
+  every probe succeeded. To tell whether a row was sampled, check
+  `resource_monitoring_started`, not the presence of these keys (the settings
+  are written to every new row, sampled or not). Existing rows are not
+  backfilled on resume; absent fields mean unknown, not OFF. `run_info`
+  describes the latest launch, so use individual rows for comparisons across
+  resumed launches. Terminal-Bench has no periodic sampler and records
+  supported/enabled/started as false and the interval as null.
+  These flags do not describe the separate server-side KV ownership tracer.
+  Runs before 2026-09-27 have no resource data.
 - Per-request KV-cache ownership (opt-in, `src/agentctx/KV_CACHE_TRACE.md`):
   launching a serving script with `AGENTCTX_KV_TRACE_DIR` set installs
   `agentctx.vllm_kv_trace.TracingScheduler` (`--scheduler-cls`), which logs

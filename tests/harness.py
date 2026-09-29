@@ -377,10 +377,17 @@ INTENTIONAL_TEXT_REWRITES = (
     ("ICLR_results/", "ICLR_experiments/"),
 )
 INTENTIONAL_PYTHONPATH_ENTRIES = ("<WS>/src",)
+# Monitoring provenance is a deliberate addition, asserted on raw artifacts in
+# test_current_runner_records_resource_usage / test_monitoring_settings_survive_resume.
+MONITORING_METADATA_KEYS = {
+    "resource_monitoring_supported", "resource_monitoring_enabled",
+    "resource_monitoring_started", "resource_sample_interval_s",
+}
 
 
 def normalize_text(text: str, root: Path) -> str:
     text = text.replace(str(root), "<WS>")
+    text = re.sub(r"^\| Resource (?:monitoring supported|monitoring enabled|sample interval) \|.*\n", "", text, flags=re.MULTILINE)
     text = _HARBOR_JOB_TS.sub(r"\1<TS>", text)
     text = _E2E.sub("e2e=<T>s", text)
     text = _PROGRESS.sub(r"[<N>/\1]", text)
@@ -393,6 +400,8 @@ def normalize_json(value, root: Path):
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
+            if key in MONITORING_METADATA_KEYS:
+                continue
             if key in VOLATILE_KEYS:
                 out[key] = VOLATILE_KEYS[key]
             elif key == "PYTHONPATH" and isinstance(item, str):

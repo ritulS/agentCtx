@@ -291,6 +291,7 @@ class SweBench:
             instance_id, config_chain, trajectory_file, step_limit
         )
 
+        monitoring_config = resource_monitor.configuration(env)
         started = time.time()
         returncode = -1
         timed_out = False
@@ -350,6 +351,8 @@ class SweBench:
                 pass
 
         result = {
+            **monitoring_config,
+            "resource_monitoring_started": monitor is not None,
             "key": key,
             "instance_id": instance_id,
             "condition": condition,

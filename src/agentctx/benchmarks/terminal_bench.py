@@ -11,6 +11,7 @@ from typing import Callable, Any
 
 import yaml
 
+from agentctx import resource_monitor
 from .harbor_results import normalize_trial
 from .results import run_key
 from agentctx.compression.selection import condition_environment, prepare_run
@@ -400,6 +401,10 @@ class TerminalBench:
             self._normalize_trial(path.parent, condition, run_num, compression_ratio)
             for path in selected.values()
         ]
+        # This adapter does not start the periodic physical-resource sampler.
+        for row in rows:
+            row.update(resource_monitor.configuration(env, supported=False))
+            row["resource_monitoring_started"] = False
         missing = sorted(set(task_names) - set(selected))
         if missing:
             print(

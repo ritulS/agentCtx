@@ -438,10 +438,21 @@ def test_tb_scenario_exercises_harbor_outcomes(working_tree: Tree, tmp_path):
     if not TB_VERDICTS <= working_tree.features:
         pytest.skip("working tree has no Terminal-Bench verdict handling")
     sandbox = build_sandbox(tmp_path, working_tree)
-    execute(sandbox, _scenario("tb-all-dataset-tasks"))
+    # An ON environment must not claim sampling exists in this adapter.
+    for command in _scenario("tb-all-dataset-tasks").commands:
+        result = sandbox.run(list(command.argv), extra_env={"AGENTCTX_RESOURCE_MONITOR": "1"})
+        assert result.returncode == command.returncode, result.stderr
     rows = _rows(sandbox.root, "results/tbmodel/experiment_results.json")
 
     assert len(rows) == 6 * 3
+    info = json.loads((sandbox.root / "results/tbmodel/run_info.json").read_text())
+    for saved in [info, *rows]:
+        assert saved["resource_monitoring_supported"] is False
+        assert saved["resource_monitoring_enabled"] is False
+        assert saved["resource_sample_interval_s"] is None
+    assert all(row["resource_monitoring_started"] is False for row in rows)
+    markdown = (sandbox.root / "results/tbmodel/run_info.md").read_text()
+    assert "| Resource sample interval | n/a |" in markdown
     assert {row["resolved"] for row in rows} == {True, False, None}
     assert {row["verdict_source"] for row in rows} == {"verifier", "verifier_reward_file", "none"}
     assert {row["exit_status"] for row in rows} == {"Submitted", "AgentTimeoutError", "missing_exit_info"}
@@ -505,13 +516,20 @@ def test_current_agent_invocation_targets_agentctx_package(working_tree: Tree, t
     assert str(sandbox.root) in entries  # the repo root is still importable, as before
 
 
-def test_current_runner_records_resource_usage(working_tree: Tree, tmp_path):
+@pytest.mark.parametrize("monitor_setting,interval,enabled,effective_interval", [
+    ("1", "0.05", True, 0.05),
+    ("0", "2.5", False, 2.5),
+    ("off", "invalid", False, 10.0),
+])
+def test_current_runner_records_resource_usage(
+    working_tree: Tree, tmp_path, monitor_setting, interval, enabled, effective_interval,
+):
     """The SWE-bench runner samples physical resources per run (off in the equivalence scenarios)."""
     sandbox = build_sandbox(tmp_path, working_tree)
     scenario = _scenario("swe-ablation-custom-tasks")
     extra_env = {
-        "AGENTCTX_RESOURCE_MONITOR": "1",
-        "AGENTCTX_RESOURCE_SAMPLE_S": "0.05",
+        "AGENTCTX_RESOURCE_MONITOR": monitor_setting,
+        "AGENTCTX_RESOURCE_SAMPLE_S": interval,
         "AGENTCTX_VLLM_METRICS_URLS": "",  # no endpoint probing from a test
     }
     for command in scenario.commands:
@@ -519,9 +537,22 @@ def test_current_runner_records_resource_usage(working_tree: Tree, tmp_path):
         assert result.returncode == command.returncode, result.stderr
     rows = _rows(sandbox.root, "results/ablations/eq-custom/experiment_results.json")
     assert rows
+    info = json.loads((sandbox.root / "results/ablations/eq-custom/run_info.json").read_text())
+    assert info["resource_monitoring_supported"] is True
+    assert info["resource_monitoring_enabled"] is enabled
+    assert info["resource_sample_interval_s"] == effective_interval
+    markdown = (sandbox.root / "results/ablations/eq-custom/run_info.md").read_text()
+    assert f"| Resource monitoring enabled | {enabled} |" in markdown
     for row in rows:
+        assert row["resource_monitoring_supported"] is True
+        assert row["resource_monitoring_enabled"] is enabled
+        assert row["resource_monitoring_started"] is enabled
+        assert row["resource_sample_interval_s"] == effective_interval
+        if not enabled:
+            run_dir = sandbox.root / "results/ablations/eq-custom" / row["instance_id"] / row["condition"] / f"run_{row['run_num']}"
+            assert not (run_dir / "resource_log.jsonl").exists()
+            continue
         assert row["resource_samples"] >= 1
-        assert row["resource_sample_interval_s"] == 0.05
         assert "peak_agent_rss_mb" in row and "peak_container_mem_mb" in row and "peak_gpu_mem_used_mb" in row
         run_dir = sandbox.root / "results/ablations/eq-custom" / row["instance_id"] / row["condition"] / f"run_{row['run_num']}"
         samples = [json.loads(line) for line in (run_dir / "resource_log.jsonl").read_text().splitlines()]
@@ -604,3 +635,27 @@ def test_current_iclr_tree_is_named_iclr_experiments(working_tree: Tree, tmp_pat
     assert not (sandbox.root / "ICLR_results").exists()
     written = {str(p.relative_to(sandbox.root)) for p in (sandbox.root / "ICLR_experiments").rglob("*") if p.is_file()}
     assert any(path.endswith("experiment_results.json") for path in written), sorted(written)
+
+
+def test_monitoring_settings_survive_resume(working_tree: Tree, tmp_path):
+    sandbox = build_sandbox(tmp_path, working_tree)
+    argv = [RUN, "--model-tag", "monitor-resume", "--n-tasks", "1",
+            "--conditions", "full-context", "--max-workers", "1"]
+    output = sandbox.root / "results/monitor-resume"
+    for count, setting in ((1, "1"), (2, "0")):
+        result = sandbox.run(argv + ["--runs-per-task", str(count)], extra_env={
+            "AGENTCTX_RESOURCE_MONITOR": setting,
+            "AGENTCTX_RESOURCE_SAMPLE_S": "0.05",
+            "AGENTCTX_VLLM_METRICS_URLS": "",
+        })
+        assert result.returncode == 0, result.stderr
+        rows = json.loads((output / "experiment_results.json").read_text())
+        if count == 1:
+            original = rows[0]
+    by_run = {row["run_num"]: row for row in rows}
+    assert by_run[1] == original
+    assert by_run[1]["resource_monitoring_enabled"] is True
+    assert by_run[2]["resource_monitoring_enabled"] is False
+    assert by_run[2]["resource_monitoring_started"] is False
+    info = json.loads((output / "run_info.json").read_text())
+    assert info["resource_monitoring_enabled"] is False
