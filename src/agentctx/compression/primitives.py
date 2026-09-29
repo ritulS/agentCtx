@@ -971,6 +971,20 @@ def truncate_oldest_turns(messages: list[dict], budget_tokens: int) -> tuple[lis
     return result, tokens_before - count_tokens(result)
 
 
+def _trc_cleared_stub(msg: dict, n_tokens: int) -> str:
+    """Placeholder text for a cleared tool result.
+
+    The step label comes from the result's original ``extra.uid_step``
+    (assigned once when the message was added), so it survives truncation and
+    parser-feedback insertions that shift history positions. Legacy histories
+    without that field show ``step unknown``.
+    """
+    step_k = (msg.get("extra") or {}).get("uid_step")
+    if step_k is None:
+        step_k = "unknown"
+    return f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]"
+
+
 def tool_result_clear(
     messages: list[dict],
     budget_tokens: int,
@@ -1002,11 +1016,7 @@ def tool_result_clear(
             ):
                 continue
             n_tokens = count_tokens([msg])
-            step_k = (idx - N_PROTECTED) // 2  # legacy approximate label
-            new_messages[idx] = {
-                **msg,
-                "content": f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]",
-            }
+            new_messages[idx] = {**msg, "content": _trc_cleared_stub(msg, n_tokens)}
             cleared += 1
 
     after_clear = count_tokens(new_messages)
@@ -1187,10 +1197,9 @@ def scored_tool_result_clear(
             break  # remaining results are too valuable to clear
         original_content = new_messages[idx].get("content", "")
         n_tokens = len(_ENCODER.encode(str(original_content)))
-        step_k   = (idx - N_PROTECTED) // 2
         new_messages[idx] = {
             **new_messages[idx],
-            "content": f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]",
+            "content": _trc_cleared_stub(new_messages[idx], n_tokens),
         }
         tokens_saved += n_tokens
 

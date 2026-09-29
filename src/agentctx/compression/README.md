@@ -81,6 +81,8 @@ Before a model call, if the estimated current context exceeds
    not a count of all messages, steps, or assistant turns. Existing cleared
    results still occupy result slots.
 3. Replace **every older result** with a `[TOOL OUTPUT CLEARED …]` placeholder.
+   The placeholder uses the result's original `extra.uid_step`, which survives
+   history truncation. Legacy results without that field show `step unknown`.
    Do not stop early when the context crosses below B. Assistant messages,
    task text and summaries are not cleared. Already-cleared stubs are skipped.
 

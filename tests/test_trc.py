@@ -24,12 +24,14 @@ except ImportError as exc:
 
 def history(n=8, result_words=100, assistant_words=1):
     messages = [{'role': 'system', 'content': 'system'}, {'role': 'user', 'content': 'task'}]
+    # The agent tags each message with the 1-based call index it was added at
+    # (extra["uid_step"]); result i follows call i + 1.
     for i in range(n):
         messages.extend([
             {'role': 'assistant', 'content': f'command {i} ' * assistant_words,
              'extra': {'actions': [{'command': f'echo {i}'}]}},
             {'role': 'user', 'content': f'output {i} ' * result_words,
-             'extra': {'raw_output': f'raw {i}', 'returncode': 0}},
+             'extra': {'raw_output': f'raw {i}', 'returncode': 0, 'uid_step': i + 1}},
         ])
     return messages
 
@@ -86,8 +88,28 @@ class TrcTests(unittest.TestCase):
         for msg in messages:
             msg.pop('extra', None)
         stats = {}
-        memory.tool_result_clear(messages, 1, False, stats=stats)
+        out, _, _ = memory.tool_result_clear(messages, 1, False, stats=stats)
         self.assertEqual(stats['cleared_results'], 2)
+        self.assertIn('step unknown]', out[3]['content'])
+
+    def test_original_step_survives_truncation_and_feedback(self):
+        messages = history(8)
+        for i, msg in enumerate(messages[2:]):
+            msg['extra']['uid_step'] = 115 + i // 2
+        # Remove three oldest turns, then insert parser feedback. Neither the
+        # new position nor alternating-message arithmetic identifies the step.
+        retained = messages[:2] + messages[8:]
+        messages, _ = memory.truncate_oldest_turns(messages, memory.count_tokens(retained))
+        self.assertEqual(messages, retained)
+        messages.insert(2, {'role': 'user', 'content': 'retry',
+                            'extra': {'interrupt_type': 'FormatError'}})
+        original = copy.deepcopy(messages)
+        out, _, _ = memory.tool_result_clear(messages, 1, False)
+        cleared = [m for m in out if m['content'].startswith('[TOOL OUTPUT CLEARED')]
+        self.assertEqual([m['extra']['uid_step'] for m in cleared], [118, 119])
+        for msg, step in zip(cleared, (118, 119)):
+            self.assertIn(f'step {step}]', msg['content'])
+        self.assertEqual(messages, original)
 
     def test_repeated_clearing_is_idempotent_and_counts_stubs_in_window(self):
         messages = history(6)
