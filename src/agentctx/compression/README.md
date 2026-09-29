@@ -238,3 +238,17 @@ venv/bin/python -m unittest discover -s tests -p test_summary_cleaning.py -q
 Tests cover all-old-results clearing, K semantics, summaries and parser errors,
 parallel tool results, pair preservation, exact-budget stopping, unattainable
 budgets, net savings, ratio independence, stacked dispatch, and persisted logs.
+
+
+## Cache reuse around compression
+
+Each `model_call_records` entry in a new token log carries cached/uncached
+prompt tokens and the cache hit rate when the API exposes
+`usage.prompt_tokens_details.cached_tokens`. `compression_cache_comparisons`
+pairs the immediately preceding call with the first call after budget
+compression or Online TRC, and reports `reuse_ratio_vs_before_processed`: the
+observed hit divided by the previous call's prompt + completion. That is a
+reference ratio, not a survival rate (hits can come from other requests, and
+a failed previous call gives null). Missing usage stays null.
+See [cache measurement and CSV export](../../../analysis/COMPRESSION_CACHE.md)
+for server setup, step numbering, and interpretation.

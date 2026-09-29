@@ -7,8 +7,8 @@
 # defaults prefix caching off for this hybrid (mamba + attention) model, so
 # every startup there logged enable_prefix_caching=False and a 0.0% hit rate.
 #
-# This script is that same command with --enable-prefix-caching as the only
-# added argument. Every other serving argument is pinned to the production
+# This script adds --enable-prefix-caching and per-request cache usage reporting
+# (--enable-prompt-tokens-details). Other serving arguments are pinned to the production
 # value on purpose: no env overrides, and no --gpu-memory-utilization or
 # --served-model-name (production left both at the vLLM default). Use
 # REASONING_PARSER=none to reproduce the iclr26 serving (no reasoning parser).
@@ -61,6 +61,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 \
     --max-model-len 102400 \
     --max-num-seqs 64 \
     --enable-prefix-caching \
+    --enable-prompt-tokens-details \
     </dev/null > "$LOG_FILE" 2>&1 &
 
 VLLM_PID=$!

@@ -75,6 +75,7 @@ CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
     "${CONTEXT_ARGS[@]}" \
     --max-num-seqs "$MAX_NUM_SEQS" \
     "$PREFIX_CACHE_ARG" \
+    --enable-prompt-tokens-details \
     </dev/null > "$LOG_FILE" 2>&1 &
 
 VLLM_PID=$!

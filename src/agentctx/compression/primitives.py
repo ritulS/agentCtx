@@ -1328,4 +1328,9 @@ def token_log_dict(agent) -> dict:
         data["adaptive_events"] = agent._mem_adaptive_events
         if getattr(agent, "_memory_selection", None) is not None:
             data["adaptive"] = agent._memory_selection
+    from agentctx.compression.cache_metrics import compression_cache_comparisons
+
+    # Per-call cache usage lives in model_call_records; only the boundary
+    # comparison is derived here.
+    data["compression_cache_comparisons"] = compression_cache_comparisons(data)
     return data
