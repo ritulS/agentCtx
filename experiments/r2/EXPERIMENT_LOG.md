@@ -296,3 +296,63 @@ twice in effect.
 
 `run_info.json` records no commit, so runs are tied to code by launch time
 against the commits above.
+
+## 2026-09-29 — Unclosed-think replies: action taken from `reasoning_content`
+
+Submodule `mini-swe-agent` (branch `event-log`): `LitellmTextbasedModelConfig`
+gains `unclosed_think_fallback: bool = True`; `actions_text.py` gains
+`find_regex_actions` / `count_regex_actions`. Parent: this entry only.
+
+Why: the audit of r2 P30S run1 (`experiments/r2/audits/r2_p30s_run1_20260928/`)
+found 800 FormatErrors in 13,193 agent calls. 444 of them had
+`finish_reason == "stop"`, empty `content` and a non-empty
+`reasoning_content`; every one of the 444 ends with a code block and 420 hold
+exactly one `mswea_bash_command` block (median 83 completion tokens, 31
+contain "THOUGHT:"). These are complete answers, not thinking cut short:
+the Qwen3.5 chat template opens the reply with `<think>\n`, the model wrote
+its answer without ever emitting `</think>`, and vLLM's qwen3 parser files a
+reply with no `</think>` as "truncated, all reasoning" even at
+`finish_reason == "stop"` (`vllm/reasoning/qwen3_reasoning_parser.py`).
+Under the iclr26 serving (no parser) the same text was the content and its
+command was executed (221 such accepted replies in the old FC cell, see
+`thinking_parser_comparison_20260929.md` in the audit dir). The parser
+therefore made action parsing stricter than in iclr26; this change restores
+the iclr26 acceptance rule for exactly that signature.
+
+Rule (`LitellmTextbasedModel._action_text`): when `finish_reason == "stop"`,
+`content` is empty or whitespace, `reasoning_content` is non-empty and holds
+exactly one action block, the action is parsed from `reasoning_content`, that
+text becomes the stored message `content`, the `reasoning_content` key is
+dropped from the message (the raw response stays in `extra.response`) and
+`extra.action_source = "reasoning_content"` marks the message. Everything
+else is unchanged: a `content` with an action always wins, `finish_reason ==
+"length"` replies, zero-block and multi-block reasoning stay FormatErrors,
+and replies that had a `content` keep their `reasoning_content`.
+`unclosed_think_fallback: false` in the model config restores the 09-26
+behaviour.
+
+Not a prompt change: an instruction such as "do not stop inside your
+thinking" targets a state the model is not in (it believes it answered), its
+effect could only be measured by re-running, and it would change every
+cell's condition. Not `enable_thinking: false` (changes the model), not
+`REASONING_PARSER=none` (puts thinking back into `content`, so the budget
+trigger and the summarizer input change too).
+
+Verification: unit tests in
+`mini-swe-agent/tests/models/test_litellm_textbased_model.py` (fallback
+applied; not applied for length / zero / several blocks / no reasoning /
+malformed content; disabled by config; `query()` rewrites the message and
+keeps the raw response). Offline replay of all 13,193 saved r2 P30S run1
+responses through the new `_action_text` + `parse_regex_actions`: 800
+FormatErrors become 380 (420 recovered from `reasoning_content`; TR 81,
+SU-free 97, TRC 159, FC 83), and all 12,393 previously accepted replies are
+parsed identically. The replay only re-reads saved responses; it does not
+predict the error count of a re-run, since the first recovered reply changes
+the rest of the trajectory.
+
+Consequences for the data: this is a harness change. r2 P30S run1 (120 runs,
+2026-09-28) was produced without it and is not mixed with runs made after
+it; failed calls are not replaced selectively. Every cell of the next
+comparison is re-run with the fallback on. The 325 `finish_reason ==
+"length"` errors at `max_tokens: 4096` are a separate decision and were not
+changed here.
