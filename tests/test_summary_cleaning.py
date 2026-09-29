@@ -75,25 +75,47 @@ def history(n_steps: int = 6) -> list[dict]:
 
 class CleanSummaryTextTests(unittest.TestCase):
     def test_think_preamble_is_dropped_and_block_extracted(self):
-        text, flags = memory.clean_summary_text(
-            PREAMBLE + SS_BODY + "\n\nHope this helps!",
-            memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER,
-        )
+        raw = PREAMBLE + SS_BODY + "\n\nHope this helps!"
+        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
         self.assertEqual(text, SS_BODY)
         self.assertEqual(
             flags,
-            {"had_think_preamble": True, "had_open_marker": True, "had_close_marker": True, "rejected": None},
+            {"had_think_preamble": True, "had_open_marker": True, "had_close_marker": True,
+             "finish_reason": None, "raw_chars": len(raw), "rejected": None},
         )
 
-    def test_missing_close_marker_is_appended(self):
+    def test_missing_close_marker_is_rejected(self):
+        # Until 2026-09-29 the body ran to the end of the response and the
+        # close marker was appended. The r2 P30S run1 audit found a 133,948
+        # character transcript copy accepted that way (history 15k -> 31k).
         body = SS_BODY.replace("\n[END CONTEXT SUMMARY]", "")
         text, flags = memory.clean_summary_text(
             PREAMBLE + body, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER
         )
-        self.assertTrue(text.startswith(memory.SS_OPEN_MARKER))
-        self.assertTrue(text.endswith(memory.SS_CLOSE_MARKER))
-        self.assertIn("Next: edit constraints.py", text)
+        self.assertIsNone(text)
+        self.assertEqual(flags["rejected"], "missing_close_marker")
+        self.assertTrue(flags["had_open_marker"])
         self.assertFalse(flags["had_close_marker"])
+
+    def test_length_cut_response_is_rejected_even_with_both_markers(self):
+        # finish_reason=length means the generation was cut off; the block may
+        # look complete when the model had started a second one.
+        raw = SS_BODY + "\n\n[CONTEXT SUMMARY]\n## Task\nFix Check"
+        text, flags = memory.clean_summary_text(
+            raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER, finish_reason="length"
+        )
+        self.assertIsNone(text)
+        self.assertEqual(flags["rejected"], "truncated")
+        self.assertEqual(flags["finish_reason"], "length")
+        self.assertTrue(flags["had_open_marker"] and flags["had_close_marker"])
+        self.assertEqual(flags["raw_chars"], len(raw))
+        # The same text with finish_reason=stop (or unknown) is accepted.
+        for reason in ("stop", None):
+            text, flags = memory.clean_summary_text(
+                raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER, finish_reason=reason
+            )
+            self.assertEqual(text, SS_BODY)
+            self.assertEqual(flags["finish_reason"], reason)
 
     def test_unmarked_prose_without_think_is_rejected(self):
         # Until 2026-09-27 this was accepted as an "unformatted body". With a
@@ -409,6 +431,34 @@ class SummaryPrimitiveTests(unittest.TestCase):
         self.assertIsNone(outcome["fallback"])
         self.assertTrue(outcome["flags"]["had_open_marker"])
 
+    def test_request_summary_retries_after_length_cut_response(self):
+        # The provider's finish_reason travels in extra.response (as the
+        # LiteLLM models store it); a cut-off reply is retried, not accepted.
+        class FinishModel(FakeModel):
+            def __init__(self, replies, reasons):
+                super().__init__(replies)
+                self.reasons = reasons
+
+            def query(self, messages, **kwargs):
+                reason = self.reasons[min(self.calls, len(self.reasons) - 1)]
+                msg = super().query(messages, **kwargs)
+                msg["extra"]["response"]["choices"] = [{"finish_reason": reason}]
+                return msg
+
+        open_only = SS_BODY.replace("\n[END CONTEXT SUMMARY]", "") + "\n[user]:\nline 1 of file"
+        model = FinishModel([open_only, SS_BODY, SS_BODY], ["length", "stop"])
+        text, flags, pt, ct, _ = memory.request_summary(
+            model, [], memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER
+        )
+        self.assertEqual(text, SS_BODY)
+        self.assertEqual(model.calls, 2)
+        self.assertEqual(flags["attempts"], 2)
+        self.assertEqual(flags["finish_reason"], "stop")
+        self.assertEqual((pt, ct), (200, 40))  # usage summed over both attempts
+        outcome = memory.pop_summary_outcome()
+        self.assertEqual(outcome["rejections"], ["truncated"])
+        self.assertTrue(outcome["accepted"])
+
     def test_no_outcome_without_summary_request(self):
         memory.pop_summary_outcome()
         memory.tool_result_clear(history(), 1, fallback_truncate=False)
@@ -445,6 +495,33 @@ class SummaryPrimitiveTests(unittest.TestCase):
         self.assertEqual(len(data["summary_outcomes"]), 2)
         del Agent._mem_summary_outcomes  # agents predating the field
         self.assertEqual(memory.token_log_dict(Agent())["summary_fallback_events"], 0)
+
+    def test_token_log_dict_reports_net_savings_separately_from_clamped_total(self):
+        # Primitives clamp per-event savings at 0, so total_tokens_saved hides
+        # an event that grew the history. net_tokens_saved is the signed sum of
+        # the recorded before/after counts (r2 P30S run1 audit, finding 2).
+        class Agent:
+            _mem_prompt_tokens = _mem_completion_tokens = 0
+            _mem_total_latency = 0.0
+            _mem_call_latencies = []
+            _mem_compression_events = 3
+            _mem_compression_event_steps = [10, 20, 30]
+            _mem_context_tokens_at_compression = [16000, 15123, 31777]
+            _mem_context_tokens_after_compression = [2000, 31684, 1773]
+            _mem_tokens_saved = 14000 + 0 + 30004
+            _mem_compression_ratios = []
+            _mem_step_prompt_tokens = []
+            _mem_step_completion_tokens = []
+            _mem_summarization_prompt_tokens = 0
+            _mem_summarization_latency_s = 0.0
+            _mem_trc_fallback_events = 0
+            _mem_online_trc_flags = []
+            _mem_online_trc_tokens_saved = 0
+
+        data = memory.token_log_dict(Agent())
+        self.assertEqual(data["total_tokens_saved"], 44004)
+        self.assertEqual(data["net_tokens_saved"], 44004 - 16561)
+        self.assertEqual(data["growth_events"], 1)
 
     def test_max_attempts_override(self):
         model = FakeModel("...</think>")

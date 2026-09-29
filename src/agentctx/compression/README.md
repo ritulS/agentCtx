@@ -149,7 +149,53 @@ A clear-only event means clearing fitted within B without TR fallback.
 Event logs also include the stage measurements under `trc_stats`. SWE-bench
 and Terminal-Bench result rows retain these fields when present.
 
+## Summary completeness (SU, SS, partial and free variants)
+
+`clean_summary_text()` accepts a summarizer reply only when it is a finished
+marked block. Besides the marker and reasoning checks (rejections
+`missing_marker`, `empty_body`, `unterminated_reasoning`,
+`ambiguous_reasoning`), since 2026-09-29 it rejects:
+
+- `truncated`: the provider reported `finish_reason == "length"`. The
+  reply was cut off by the token limit whatever it contains.
+- `missing_close_marker`: the open marker line is never followed by a
+  close marker line. Before this date the body ran to the end of the reply
+  and the close marker was appended; the r2 P30S run1 audit
+  (`experiments/r2/audits/r2_p30s_run1_20260929`) found a 133,948-character
+  transcript copy accepted that way, growing the history from 15,123 to
+  31,684 tokens in one SU-free event.
+
+Rejected replies take the existing retry path (`MSWEA_SUMMARY_MAX_ATTEMPTS`,
+default 5) and then the TR fallback. `extra.summary_format` on the accepted
+message and `summary_outcomes[].rejections` in `token_log.json` name the
+reasons; `summary_outcomes[].flags` (and `summary_outcome.flags` in
+`compression_events.jsonl`) hold the accepted or last rejected reply's
+marker flags, `finish_reason` and `raw_chars`, so later audits need not
+re-read the model output. SU-free / SS-free still
+have no length target: an over-long but complete reply is accepted.
+Summary-based runs made before and after this date are not the same
+condition.
+
+## Net savings
+
+`total_tokens_saved` is the sum of what the primitives report per event,
+which is clamped at 0, so an event that grew the history counts as 0.
+`net_tokens_saved` is the signed sum of the recorded
+`context_tokens_at_compression - context_tokens_after_compression`, and
+`growth_events` counts events whose after exceeds before. Both are computed
+from arrays that every token log already holds, so old runs can be
+re-aggregated without re-running; SWE-bench result rows carry them (with
+`summary_fallback_events`) when the token log has them.
+
 ## Failed calls and log durability
+
+After every compression the agent flushes `trajectory.json` together with
+`token_log.json` (since 2026-09-29; before, the trajectory was written only
+at the end of the step, which never happens when the harness kills the
+process on timeout, so it lagged the event log by one compression). A
+SWE-bench run killed by the harness timeout gets `exit_status="Timeout"`
+(when the agent left none) and `timed_out=true` in its result row.
+
 
 For the LiteLLM chat/text model path used by the Qwen, SU-free and FC runs,
 a rejected response retains its provider response in the `FormatError`.

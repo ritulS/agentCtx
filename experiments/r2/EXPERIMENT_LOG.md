@@ -366,3 +366,55 @@ and launch log. Verified all 1,505 files (225,902,483 bytes)
 against SHA-256 hashes after moving. See the archive README for restoration
 and manifest.json for the inventory. The 12-run reasoning-fallback smoke
 remains in place. No new full batch was launched.
+
+## 2026-09-29 — Audit follow-ups: summary completeness, net savings, timeout records
+
+Follow-ups to the r2 P30S run1 re-run audit
+(`experiments/r2/audits/r2_p30s_run1_20260929/report.md`, findings 1, 2
+and 5). No runs were launched or re-evaluated. Finding 4 (non-diff
+submissions accepted as `Submitted`) is not addressed here.
+
+### 1. Incomplete summarizer replies are rejected (changes agent behaviour)
+
+`clean_summary_text()` (`src/agentctx/compression/primitives.py`) now
+rejects a reply whose `finish_reason` is `length` (`truncated`) and a reply
+whose open marker is never closed (`missing_close_marker`); `request_summary()`
+passes the provider's `finish_reason` from `extra.response`. Rejections go
+through the existing 5-attempt retry and TR fallback. The flags stored in
+`extra.summary_format` and `summary_outcomes` gain `finish_reason` and
+`raw_chars`. Rationale: the audit's SU-free / `django__django-15957` event
+(15,123 → 31,684 tokens, 133,948-character transcript copy, open marker
+only, `accepted=true`). Among the 48 accepted SU-free summaries of that
+audit this is the only one without a close marker, so the expected effect
+on a re-run is small, but it changes which replies enter the history:
+summary-based cells produced before this change (all r2 cells to date) and
+after it are not the same condition and are not mixed. No length limit was
+added to SU-free / SS-free; that is a separate methodological decision.
+
+### 2. Net compression is reported next to the clamped total (bookkeeping)
+
+`token_log.json` gains `net_tokens_saved` (signed sum of before − after over
+compression events) and `growth_events`; `total_tokens_saved` keeps its
+meaning (per-event savings clamped at 0, as the primitives report them).
+SWE-bench result rows copy these and `summary_fallback_events` when present.
+For the audited task: `total_tokens_saved=85,848`, net 69,287. Both new
+fields derive from arrays every existing token log already holds, so old
+runs can be re-aggregated without re-running.
+
+### 3. Timeout runs are named and their trajectory is flushed (bookkeeping)
+
+`SweBench._run_agent` sets `timed_out=true` and `exit_status="Timeout"` (when
+the agent left none) on `TimeoutExpired`; the audited 7 timeouts had
+`exit_status=""`, `returncode=-1`. In the agent (submodule
+`mini-swe-agent`, `agents/default.py`), `trajectory.json` is now saved right
+after each compression, next to the token log, so a SIGKILLed run no longer
+leaves a trajectory one compression behind `events.jsonl` (the audit's
+TRC / `django__django-17084` case). The in-flight model call's usage is
+still unrecoverable at kill time.
+
+Tests: `tests/test_summary_cleaning.py` (rejections, retry on `length`,
+net-savings aggregation), `tests/test_truncation.py` (flags and net savings
+reach `token_log.json` through the agent path), `tests/test_tr_result_logging.py`
+(timeout row). `tests/test_summary_query.py` was updated to send marked
+replies: it still expected an unmarked prose reply to be accepted, which
+the 2026-09-27 `missing_marker` rule had already made impossible.

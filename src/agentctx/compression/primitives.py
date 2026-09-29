@@ -200,6 +200,17 @@ def query_summary(model, messages: list[dict]) -> dict:
 # rather than a summary. Requiring the marker line restores the old behaviour
 # for those replies: retry, then truncate().
 #
+# Since 2026-09-29 a response is also rejected when its generation was cut
+# off (finish_reason == "length") or when the open marker is never closed. The
+# r2 P30S run1 audit (experiments/r2/audits/r2_p30s_run1_20260929) found an
+# SU-free summary of 133,948 characters accepted with the open marker only: a
+# copy of the transcript that more than doubled the history (15,123 ->
+# 31,684 tokens). Before this date an unclosed body was taken to the end of
+# the response and finish_reason was never consulted; among the 48 accepted
+# SU-free summaries of that audit exactly one lacked the close marker. Runs
+# from before this date and after it are not the same condition for
+# summary-based primitives.
+#
 # Cleaning and validation are separate steps: a response whose summary body is
 # empty, whose reasoning never closed (an open <think> with no </think>), whose
 # reasoning boundary is undecidable, or that has no marker line is rejected.
@@ -287,7 +298,8 @@ def _reasoning_end(text: str, open_starts: list[int]) -> int | str:
     return 0
 
 
-def clean_summary_text(raw: str, open_marker: str, close_marker: str) -> tuple[str | None, dict]:
+def clean_summary_text(raw: str, open_marker: str, close_marker: str,
+                       finish_reason: str | None = None) -> tuple[str | None, dict]:
     """Normalise a summarizer response into ``open_marker\n<body>\nclose_marker``.
 
     Cleaning:
@@ -306,21 +318,36 @@ def clean_summary_text(raw: str, open_marker: str, close_marker: str) -> tuple[s
 
     Validation (separate from marking): rejected when the body is empty, when
     a ``<think>`` block never closed, when the response has ``</think>`` but
-    no marker line (undecidable), or when it has no marker line at all. The
+    no marker line (undecidable), when it has no marker line at all, when the
+    generation was cut off (``finish_reason == "length"``, "truncated"), or
+    when the open marker is never followed by a closing-marker line
+    ("missing_close_marker"; since 2026-09-29, see the module comment). The
     accepted body is re-wrapped in the canonical markers.
 
     Returns (text, flags); text is None for a rejected response and
     flags["rejected"] then names the reason. flags also records what the raw
-    response looked like: had_think_preamble, had_open_marker, had_close_marker.
+    response looked like: had_think_preamble, had_open_marker,
+    had_close_marker, finish_reason (as given) and raw_chars.
     """
     flags = {
         "had_think_preamble": False,
         "had_open_marker":    False,
         "had_close_marker":   False,
+        "finish_reason":      finish_reason,
+        "raw_chars":          len(raw or ""),
         "rejected":           None,
     }
     text  = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
     opens = _marker_spans(text, open_marker)
+
+    # Completeness first: a generation cut off by the token limit is not a
+    # finished summary whatever it contains (it may even carry both markers
+    # if the model started a second block). Marker flags are still recorded.
+    if finish_reason == "length":
+        flags["had_open_marker"]  = bool(opens)
+        flags["had_close_marker"] = bool(_marker_spans(text, close_marker))
+        flags["rejected"] = "truncated"
+        return None, flags
 
     cut = _reasoning_end(text, [o[0] for o in opens])
     if isinstance(cut, str):
@@ -353,6 +380,11 @@ def clean_summary_text(raw: str, open_marker: str, close_marker: str) -> tuple[s
     if not body:
         flags["rejected"] = "empty_body"
         return None, flags
+    # An open marker never closed means the model was still writing (or
+    # copying the transcript) when it stopped, even with finish_reason=stop.
+    if not flags["had_close_marker"]:
+        flags["rejected"] = "missing_close_marker"
+        return None, flags
     return f"{open_marker}\n{body}\n{close_marker}", flags
 
 
@@ -380,6 +412,17 @@ def pop_summary_outcome() -> dict | None:
     last = getattr(_SUMMARY_OUTCOME, "last", None)
     _SUMMARY_OUTCOME.last = None
     return last
+
+
+def _response_finish_reason(response: dict) -> str | None:
+    """finish_reason of the first choice of the provider response, if kept."""
+    extra = response.get("extra", {}) if isinstance(response, dict) else {}
+    resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
+    choices = resp.get("choices") if isinstance(resp, dict) else None
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        reason = choices[0].get("finish_reason")
+        return str(reason) if reason is not None else None
+    return None
 
 
 def _response_usage(response: dict) -> tuple[int, int]:
@@ -417,7 +460,10 @@ def request_summary(
         pt, ct = _response_usage(response)
         prompt_toks     += pt
         completion_toks += ct
-        text, flags = clean_summary_text(response_text(response), open_marker, close_marker)
+        text, flags = clean_summary_text(
+            response_text(response), open_marker, close_marker,
+            finish_reason=_response_finish_reason(response),
+        )
         flags["attempts"] = attempt
         if text is not None:
             break
@@ -1206,6 +1252,18 @@ def token_log_dict(agent) -> dict:
         "context_tokens_at_compression":   agent._mem_context_tokens_at_compression,
         "context_tokens_after_compression": agent._mem_context_tokens_after_compression,
         "total_tokens_saved":              agent._mem_tokens_saved,
+        # Signed sum of (before - after) over the same events. total_tokens_saved
+        # is what the primitives report and is clamped at 0 per event, so an
+        # event that grew the history (a summary longer than what it replaced)
+        # counts as 0 there and as a negative term here.
+        "net_tokens_saved":                sum(
+            b - a for b, a in zip(agent._mem_context_tokens_at_compression,
+                                  agent._mem_context_tokens_after_compression)
+        ),
+        "growth_events":                   sum(
+            1 for b, a in zip(agent._mem_context_tokens_at_compression,
+                              agent._mem_context_tokens_after_compression) if a > b
+        ),
         "mean_compression_ratio":          (
             sum(agent._mem_compression_ratios) / len(agent._mem_compression_ratios)
             if agent._mem_compression_ratios else 1.0

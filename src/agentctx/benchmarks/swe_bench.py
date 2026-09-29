@@ -293,6 +293,7 @@ class SweBench:
 
         started = time.time()
         returncode = -1
+        timed_out = False
         process = None
         monitor = None  # physical-resource sampler (resource_log.jsonl), off with AGENTCTX_RESOURCE_MONITOR=0
         try:
@@ -315,8 +316,10 @@ class SweBench:
                 process.wait(timeout=agent_timeout)
                 returncode = process.returncode
         except subprocess.TimeoutExpired:
+            timed_out = True
             if process is not None:
                 process.kill()
+                process.wait()
             print(f"    ! Timeout after {agent_timeout}s")
         except Exception as exc:
             print(f"    ! Launch error: {exc}")
@@ -329,6 +332,15 @@ class SweBench:
                 outcome = self.parse_trajectory(trajectory_file)
             except Exception as exc:
                 print(f"    ! Trajectory parse error: {exc}")
+        if timed_out:
+            # The agent was SIGKILLed mid-step: trajectory.json (if any) is the
+            # last state the agent flushed, and its info carries no exit
+            # status because the agent never exited. Name the reason here so
+            # exit_status-based classification does not lump these in with
+            # runs that produced no trajectory at all.
+            outcome["timed_out"] = True
+            if not outcome["exit_status"]:
+                outcome["exit_status"] = "Timeout"
 
         token_log = {}
         if token_log_file.exists():
@@ -379,6 +391,10 @@ class SweBench:
             "trc_truncation_tokens_saved",
             "tr_events", "tr_target_not_met_events", "tr_budget_exceeded_events",
             "tr_zero_reduction_events", "adaptive_config", "adaptive_events",
+            # Signed savings and summary-request outcomes (token logs written
+            # from 2026-09-29 on). total_tokens_saved above stays the clamped
+            # per-event sum the primitives report.
+            "net_tokens_saved", "growth_events", "summary_fallback_events",
         ):
             if key in token_log:
                 result[key] = token_log[key]

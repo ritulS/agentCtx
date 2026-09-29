@@ -243,11 +243,16 @@ class TruncationTests(unittest.TestCase):
                         agent, model = self.agent(history(turns), budget)
                         original = copy.deepcopy(agent.messages)
 
+                        flags = {'had_open_marker': accepted, 'had_close_marker': accepted,
+                                 'finish_reason': 'stop' if accepted else 'length',
+                                 'raw_chars': 12 if accepted else 32768,
+                                 'rejected': None if accepted else 'truncated'}
+
                         def summary(*args):
                             memory._set_summary_outcome({
                                 'attempts': 1 if accepted else 3, 'accepted': accepted,
-                                'rejections': [] if accepted else ['empty'] * 3,
-                                'flags': {}, 'fallback': None,
+                                'rejections': [] if accepted else ['truncated'] * 3,
+                                'flags': flags, 'fallback': None,
                             })
                             return ('summary body' if accepted else None), {}, 321, 27, 0.01
 
@@ -261,6 +266,14 @@ class TruncationTests(unittest.TestCase):
                         self.assertEqual(log['summarization_prompt_tokens'], 321)
                         self.assertEqual(log['summary_fallback_events'], int(not accepted))
                         self.assertEqual(log['compression_events'], 1)
+                        # The reply's flags (finish_reason, raw_chars, markers)
+                        # reach token_log.json, not only compression_events.jsonl.
+                        self.assertEqual(log['summary_outcomes'][0]['flags'], flags)
+                        self.assertEqual(compression['summary_outcome']['flags'], flags)
+                        self.assertEqual(log['net_tokens_saved'],
+                                         log['context_tokens_at_compression'][0]
+                                         - log['context_tokens_after_compression'][0])
+                        self.assertEqual(log['growth_events'], 0)
                         if accepted:
                             self.assertEqual(model.inputs[0][-1]['content'], 'summary body')
                             self.assertEqual(len(model.inputs[0]), 3)
