@@ -12,7 +12,7 @@ model:
     api_base: "http://localhost:8000/v1"
     drop_params: true
     temperature: 0.2
-    max_tokens: 4096
+    max_tokens: 32768
   cost_tracking: ignore_errors
 
 environment:
