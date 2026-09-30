@@ -418,3 +418,16 @@ reach `token_log.json` through the agent path), `tests/test_tr_result_logging.py
 (timeout row). `tests/test_summary_query.py` was updated to send marked
 replies: it still expected an unmarked prose reply to be accepted, which
 the 2026-09-27 `missing_marker` rule had already made impossible.
+
+## 2026-09-29 — Archive SU-free and TRC before post-audit fixes
+
+At the user's request, moved both complete P30S Qwen cells from `data/r2/swebench/p30s/qwen35b/`
+to `archives/r2_p30s_qwen35b_su_free_trc_before_fixes_20260929_232739_847347/`, preserving original relative paths.
+SU-free: 30 run_1 results, 19 resolved; TRC: 30 run_1 results, 18 resolved.
+These are the September 29 fallback-ON / max_tokens=32768 results, produced
+before incomplete-summary rejection (`a34a9bf`) and corrected TRC stub step
+labels (`ab8fc95`). All 795 files verified by SHA-256 after moving.
+The archive's `manifest.json` contains the inventory and restoration instructions;
+the audit and launch log were copied under `provenance/`.
+TR and FC remain in place and were verified unchanged. Smoke results and older
+archives remain in place. No new experiments or evaluations were launched.

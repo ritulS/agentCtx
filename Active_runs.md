@@ -1,5 +1,18 @@
 # Active Experiment Runs
 
+## Latest data status — 2026-09-29: SU-free and TRC archived
+
+The September 29 fallback-ON / max_tokens=32768 full batch completed with
+120 evaluated run_1 results (superseding the older "no new full batch" note below).
+SU-free (30 runs, 19 resolved) and TRC (30 runs, 18 resolved) were subsequently
+archived at the user's request before rerunning with the post-audit fixes.
+Archive: [r2_p30s_qwen35b_su_free_trc_before_fixes_20260929_232739_847347](archives/r2_p30s_qwen35b_su_free_trc_before_fixes_20260929_232739_847347/manifest.json).
+All 795 source files were verified by SHA-256 after moving.
+The active `data/r2/swebench/p30s/qwen35b/` tree now retains only TR
+(30 runs, 16 resolved) and FC (30 runs, 18 resolved); both verified unchanged.
+Smoke results remain separate. No new batch was launched by this archival.
+
+
 ## ✅ RESOLVED 2026-08-07 — Dobby GPU/MIG incident (2026-07-30 → 08-07)
 
 The 2026-07-30 09:55 reboot left MIG Enabled on all 4 A100s with zero
