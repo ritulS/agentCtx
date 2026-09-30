@@ -8,6 +8,11 @@ runner's result directory — but writes to
 launcher (``agentctx.experiments.iclr``); the roots live in
 ``agentctx.experiments.r2``. All remaining command-line arguments are handled
 by the shared runner.
+
+Unlike the ICLR launcher, an r2 cell may also be an ``adaptive-<tag>`` cell
+(``--r2-cell d05__b15k__adaptive-prefix3-tts``): the runner's dedicated
+``adaptive`` condition driven by ``--adaptive-schedule``, whose entries must
+all carry the cell's budget and depth.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from agentctx.experiments import runner  # noqa: E402
 from agentctx.experiments.iclr import (  # noqa: E402
     canonical_cell,
     option_value,
+    validate_adaptive_cell_semantics,
     validate_cell_semantics,
     validate_summarizer,
 )
@@ -67,7 +73,12 @@ def main() -> None:
         adapter_args.r2_model, adapter_args.r2_cell,
         roots=R2_ROOTS, option_prefix="r2",
     )
-    validate_cell_semantics(adapter_args.r2_cell, runner_args, destination)
+    # ``adaptive-<tag>`` cells (r2 only) hold the runner's dedicated adaptive
+    # condition; their budget/depth are checked against the schedule entries.
+    if adapter_args.r2_cell.split("__")[2].startswith("adaptive-"):
+        validate_adaptive_cell_semantics(adapter_args.r2_cell, runner_args, destination)
+    else:
+        validate_cell_semantics(adapter_args.r2_cell, runner_args, destination)
     validate_summarizer(adapter_args.r2_section, runner_args, destination)
 
     # A non-empty ablation name makes the original runner honor the explicit

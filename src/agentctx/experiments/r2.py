@@ -17,6 +17,11 @@ R2_ROOTS = {
     "terminal-bench": R2_ROOT / "terminalbench",
 }
 # The ICLR sections plus the r2-only cohort sections:
-#   p30s  SWE-bench, the 30-task stratified cohort task_lists/swe_verified/p30_stratified.json
-#         (self-summarized, like main/ablation).
-R2_SECTIONS = (*ICLR_SECTIONS, "p30s")
+#   p30s        SWE-bench, the 30-task stratified cohort
+#               task_lists/swe_verified/p30_stratified.json (self-summarized,
+#               like main/ablation).
+#   p30s_never7 SWE-bench, the 7 P30S tasks Qwen3.5-35B-A3B never resolved under
+#               any fixed primitive (task_lists/swe_verified/p30s_qwen35b_never_resolved.json);
+#               holds the adaptive primitive-order cells (``adaptive-*``, see
+#               scripts/expansions/run_r2_swe_never7_adaptive.sh).
+R2_SECTIONS = (*ICLR_SECTIONS, "p30s", "p30s_never7")

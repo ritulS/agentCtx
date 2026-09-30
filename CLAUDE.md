@@ -70,7 +70,9 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   results tree. `scripts/run_experiment_r2.py` is the same launcher for
   the post-ICLR r2 extension campaign; it writes to
   `data/r2/<swebench|terminalbench>/<section>/<model>/<cell>/` (gitignored)
-  and shares cell naming/validation with the ICLR launcher. Launchers are grouped under
+  and shares cell naming/validation with the ICLR launcher; r2-only sections
+  are `p30s` and `p30s_never7`, and r2 alone accepts `adaptive-<tag>` cells
+  (schedule-driven primitive order; see `src/agentctx/compression/ADAPTIVE.md`). Launchers are grouped under
   `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see
   `scripts/README.md`.
 - `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py`,

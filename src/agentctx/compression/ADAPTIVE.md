@@ -30,8 +30,13 @@ venv/bin/python scripts/run_experiment.py \
 ```
 
 These flags work for SWE-bench and `--benchmark terminal-bench` in the generic
-runner. The fixed-grid ICLR/r2 wrappers do not expose adaptive cells. For dynamic
-policies, `my_policy` must be importable by both the runner and agent worker
+runner. The fixed-grid ICLR wrapper does not expose adaptive cells; the r2
+wrapper (`scripts/run_experiment_r2.py`) accepts `adaptive-<tag>` cells
+(`--r2-cell d05__b15k__adaptive-prefix3-tts --conditions adaptive
+--adaptive-schedule ...`), checking that every schedule entry carries the
+cell's budget and depth (`agentctx.experiments.iclr.validate_adaptive_cell_semantics`);
+`scripts/expansions/run_r2_swe_never7_adaptive.sh` is the launcher built on it.
+For dynamic policies, `my_policy` must be importable by both the runner and agent worker
 (for example under `src/`, or on `PYTHONPATH`). All primitives use the agent
 configuration supplied with `--agent-config`; dynamic switching does not switch
 agent prompts/model configs. Supply prompts suitable for the chosen primitives.

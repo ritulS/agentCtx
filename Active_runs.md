@@ -36,6 +36,33 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — r2 P30S-never7 adaptive primitive-order chain (SWE-bench) — this host
+- **Status:** 🟢 RUNNING, launched **2026-09-30 14:18:50 CDT** (notify_run wrapper PID `3547517`,
+  lock `r2_sb_p30s_never7_chain`, Slack unit `r2/swebench/p30s_never7/qwen35b`). Stop with
+  `kill 3547517`. PID file `logs/experiments/r2_sb_p30s_never7_qwen35b.pid`.
+- **What:** can a TR / SU-free *order* solve the 7 P30S tasks Qwen3.5-35B-A3B never resolved
+  under any fixed primitive (`task_lists/swe_verified/p30s_qwen35b_never_resolved.json`)?
+  Six adaptive cells, one per primitive sequence at compression events 1-3 (`t` = TR,
+  `s` = SU-free, last entry held; `ttt`/`sss` are the existing fixed p30s cells), chained
+  tts → tst → tss → stt → sts → sst, 7 tasks × 3 runs = 21 runs per cell, 126 total, each
+  cell evaluated (`--eval-only`) before the next starts. 16 workers, step limit 300,
+  timeout 5400 s, budget 15k, depth 0.5, self-summarized. Code: the commit after `9567b06`
+  on `akiho-dev` ("feat: r2 adaptive primitive-order cells for the never7 tasks": r2
+  `adaptive-<tag>` cells + `p30s_never7` section,
+  `scripts/expansions/run_r2_swe_never7_adaptive.sh`, schedules in
+  `configs/adaptive/never7_prefix3/`); launched from that tree before it was committed.
+- **Dest:** `data/r2/swebench/p30s_never7/qwen35b/d05__b15k__adaptive-prefix3-<pattern>/`;
+  each run's `token_log.json` → `adaptive_events` (per event: applied and next config) and
+  `<cell>/_adaptive/<sha256>.json` (schedule snapshot).
+- **Log:** `logs/experiments/r2_swebench_p30s_never7_qwen35b_20260930_141849.log`.
+- **Smoke (kept, delete when done with it):** `data/r2/swebench/p30s_never7/qwen35b-smoke/`
+  — sympy-20438 × sts, 133 calls, 3 events (SU-free@27 → TR@81 → SU-free@103, held), eval ran
+  (unresolved). Log `logs/experiments/r2_sb_p30s_never7_qwen35b-smoke_20260930_141356.log`.
+- **Interpretation note:** order can only matter for runs with ≥2 compression events; on
+  these tasks SU-free fired 3.1×/run (median 3, max 11) and TR 5.5× (median 4, max 15) but
+  sklearn-26194 / sklearn-14087 often end with 0-2 events.
+
+
 ### Qwen3.5 — reasoning fallback smoke, COMPLETE (2026-09-29)
 - **COMPLETE:** agent execution and evaluation finished at **2026-09-29 01:45:42 CDT**. Resume PID `1016184` is no longer running.
 - **Results:** 3 tasks × 4 conditions × run_1 = 12/12 Submitted and resolved: SU-free 3/3, TRC 3/3, TR 3/3, FC 3/3. Verified against each cell's `experiment_results.json`.
