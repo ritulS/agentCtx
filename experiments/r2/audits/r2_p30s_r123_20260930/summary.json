@@ -1,0 +1,103 @@
+{
+  "stats": {
+    "d05__b15k__tr": {
+      "format_errors": 235,
+      "reasoning_fallback": 737,
+      "length_errors": 161,
+      "compression_events": 270,
+      "summary_fallback": 0,
+      "calls_error": 0,
+      "runs": 90,
+      "resolved": 47,
+      "unscored": 0,
+      "calls": 8768,
+      "timeout": 7,
+      "step_limit": 11,
+      "summary_seconds": 0.0,
+      "fallback_runs": 0,
+      "finish_reasons": {
+        "stop": 74,
+        "length": 161
+      },
+      "summary_rejections": {},
+      "non_git_diff_prefix": 2
+    },
+    "di__b15k__su-free": {
+      "format_errors": 189,
+      "reasoning_fallback": 661,
+      "length_errors": 106,
+      "compression_events": 186,
+      "summary_fallback": 47,
+      "calls_error": 0,
+      "runs": 90,
+      "resolved": 50,
+      "unscored": 0,
+      "calls": 7811,
+      "timeout": 8,
+      "step_limit": 2,
+      "summary_seconds": 39455.719,
+      "fallback_runs": 38,
+      "finish_reasons": {
+        "stop": 83,
+        "length": 106
+      },
+      "summary_rejections": {
+        "missing_marker": 231,
+        "truncated": 58,
+        "ambiguous_reasoning": 3
+      },
+      "non_git_diff_prefix": 3
+    },
+    "di__b15k__trc": {
+      "format_errors": 217,
+      "reasoning_fallback": 1372,
+      "length_errors": 122,
+      "compression_events": 1261,
+      "summary_fallback": 0,
+      "calls_error": 0,
+      "runs": 89,
+      "resolved": 48,
+      "unscored": 0,
+      "calls": 7211,
+      "timeout": 14,
+      "step_limit": 3,
+      "summary_seconds": 0.0,
+      "fallback_runs": 0,
+      "finish_reasons": {
+        "stop": 95,
+        "length": 122
+      },
+      "summary_rejections": {},
+      "non_git_diff_prefix": 0
+    },
+    "di__binf__fc": {
+      "format_errors": 158,
+      "reasoning_fallback": 1346,
+      "length_errors": 81,
+      "compression_events": 0,
+      "summary_fallback": 0,
+      "calls_error": 0,
+      "runs": 90,
+      "resolved": 52,
+      "unscored": 0,
+      "calls": 6390,
+      "timeout": 10,
+      "step_limit": 1,
+      "summary_seconds": 0.0,
+      "fallback_runs": 0,
+      "finish_reasons": {
+        "stop": 77,
+        "length": 81
+      },
+      "summary_rejections": {},
+      "non_git_diff_prefix": 4
+    }
+  },
+  "issues": [
+    [
+      "/home/ak58925/adaptive-context-management/agentCtx/data/r2/swebench/p30s/qwen35b/di__b15k__trc/django__django-15957/tool-result-clear/run_3",
+      "oversize trajectory - detailed audit skipped"
+    ]
+  ],
+  "scope_note": "Detailed event aggregation covers 359 runs; TRC django-15957 run_3 is excluded due to oversized and truncated trajectory. Its 134 completed calls and 20 compression events remain in token_log.json. non_git_diff_prefix is only a heuristic: unified diffs and leading prose may still be valid."
+}

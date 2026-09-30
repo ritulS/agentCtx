@@ -199,6 +199,32 @@ SWE-bench run killed by the harness timeout gets `exit_status="Timeout"`
 (when the agent left none) and `timed_out=true` in its result row.
 
 
+Trajectory writes now stream JSON to a temporary file in the same directory,
+flush and fsync it, then atomically replace the destination. Serialization,
+write, or replacement failure keeps the previous snapshot intact. SIGKILL may
+leave an incomplete `.trajectory.json.*.tmp` file; readers use only the final
+`trajectory.json`.
+
+Observation metadata retains at most 65,536 characters in `extra.raw_output`,
+including an omission marker between the head and tail. Truncated metadata
+carries `raw_output_truncated=true` and `raw_output_original_chars`. The
+observation template still sees the full original output, so model-visible
+content, token counting, summaries and submitted patches are unchanged. This
+bounds retained history/event metadata, not the subprocess's temporary stdout
+buffer or a custom template that renders the entire output.
+
+SWE-bench aggregation records `trajectory_status` (`ok`, `missing`,
+`unreadable`, `oversized`) and `n_calls_source`. Trajectories over 256 MiB are
+not loaded into memory. Missing/unreadable/oversized snapshots recover the
+completed-call count from `token_log.model_call_records`, or from the legacy
+`step_prompt_tokens` array when call records are absent. A token log newer
+than the last atomic snapshot also raises its count, without lowering a
+trajectory's count for an in-flight call. This does not reconstruct a lost
+submission: a run without a readable patch is still graded `resolved=false`,
+and `trajectory_status` is the flag for excluding or annotating such rows in
+analysis. Existing result files are not rewritten by this recovery code.
+
+
 For the LiteLLM chat/text model path used by the Qwen, SU-free and FC runs,
 a rejected response retains its provider response in the `FormatError`.
 The agent counts its prompt/completion tokens, cost and elapsed time exactly

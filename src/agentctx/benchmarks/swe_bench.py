@@ -42,6 +42,9 @@ class SweBench:
     # test suites spawn one thread per host core and never finish (see
     # scripts/swebench_eval_wrapper.py).
     EVAL_THREADS = 8
+    # Legacy trajectories can contain gigabytes of raw-output metadata. Refuse
+    # to load those into RAM during aggregation; use the independent token log.
+    MAX_TRAJECTORY_BYTES = 256 * 1024 * 1024
 
     REPOS = {
         "django/django": "django",
@@ -163,6 +166,48 @@ class SweBench:
             "submission": "",
             "resolved": None,
         }
+
+    def read_run_outcome(self, trajectory_file: Path, token_log: dict) -> dict:
+        """Recover recorded calls when a trajectory is absent, unreadable or stale.
+
+        Token records count completed calls (including failed responses), not
+        a request still in flight at termination. Never infer a submission or
+        a successful exit from them. Kept separate from launch for offline use.
+        """
+        outcome = self.empty_outcome()
+        outcome["trajectory_status"] = "missing"
+        outcome["n_calls_source"] = "unavailable"
+        try:
+            size = trajectory_file.stat().st_size
+            if size > self.MAX_TRAJECTORY_BYTES:
+                outcome["trajectory_status"] = "oversized"
+                outcome["trajectory_bytes"] = size
+            else:
+                parsed = self.parse_trajectory(trajectory_file)
+                calls = parsed["n_calls"]
+                if type(calls) is not int or calls < 0:
+                    raise ValueError("trajectory api_calls must be a nonnegative integer")
+                outcome = parsed
+                outcome["trajectory_status"] = "ok"
+                outcome["n_calls_source"] = "trajectory"
+        except FileNotFoundError:
+            pass
+        except Exception as exc:
+            outcome["trajectory_status"] = "unreadable"
+            outcome["trajectory_error"] = f"{type(exc).__name__}: {exc}"
+            print(f"    ! Trajectory parse error: {exc}")
+
+        # New logs carry one record per returned agent query; legacy logs carry
+        # one prompt-token entry per query. Summary calls are separate in both.
+        for field in ("model_call_records", "step_prompt_tokens"):
+            records = token_log.get(field)
+            if not isinstance(records, list):
+                continue
+            if outcome["trajectory_status"] != "ok" or len(records) > outcome["n_calls"]:
+                outcome["n_calls"] = len(records)
+                outcome["n_calls_source"] = f"token_log.{field}"
+            break
+        return outcome
 
     def run_experiments(
         self,
@@ -327,12 +372,15 @@ class SweBench:
 
         e2e_latency = round(time.time() - started, 2)
         resource_usage = monitor.stop() if monitor is not None else {}
-        outcome = self.empty_outcome()
-        if trajectory_file.exists():
+        token_log = {}
+        if token_log_file.exists():
             try:
-                outcome = self.parse_trajectory(trajectory_file)
-            except Exception as exc:
-                print(f"    ! Trajectory parse error: {exc}")
+                loaded = json.loads(token_log_file.read_text())
+                if isinstance(loaded, dict):
+                    token_log = loaded
+            except Exception:
+                pass
+        outcome = self.read_run_outcome(trajectory_file, token_log)
         if timed_out:
             # The agent was SIGKILLed mid-step: trajectory.json (if any) is the
             # last state the agent flushed, and its info carries no exit
@@ -342,13 +390,6 @@ class SweBench:
             outcome["timed_out"] = True
             if not outcome["exit_status"]:
                 outcome["exit_status"] = "Timeout"
-
-        token_log = {}
-        if token_log_file.exists():
-            try:
-                token_log = json.loads(token_log_file.read_text())
-            except Exception:
-                pass
 
         result = {
             **monitoring_config,
@@ -431,6 +472,10 @@ class SweBench:
         # that (before 2026-09-26 this was set after the last save() and stayed
         # null on disk unless the caller saved again).
         unsaved = False
+        # This includes runs whose trajectory was missing, unreadable or
+        # oversized: no patch reached the grader, so the task was not resolved.
+        # `trajectory_status` records why, so analysis can flag or exclude
+        # such rows without changing the resolve-rate denominator.
         for result in work:
             if not result["patch_generated"] and result["resolved"] is not False:
                 result["resolved"] = False
