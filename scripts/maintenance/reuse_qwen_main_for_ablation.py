@@ -61,7 +61,7 @@ def has_summary_marker_error(path):
 
 
 def build_plan(root):
-    tasks_file = root / 'task_lists/ablation_25tasks.json'
+    tasks_file = root / 'task_lists/swe_verified/ablation_25tasks.json'
     tasks_raw = tasks_file.read_bytes()
     tasks = [r['instance_id'] for r in json.loads(tasks_raw)]
     require(len(tasks) == len(set(tasks)) == 25, 'Expected 25 unique ABL-25 tasks')

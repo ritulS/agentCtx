@@ -15,7 +15,7 @@ import build_dashboard as dashboard
 
 class QwenCoverageTest(unittest.TestCase):
     def test_pinned_ablation_is_25_task_subset(self):
-        tasks = coverage.load_task_list(coverage.ROOT / 'task_lists/ablation_25tasks.json')
+        tasks = coverage.load_task_list(coverage.ROOT / 'task_lists/swe_verified/ablation_25tasks.json')
         legacy = coverage.load_task_list(coverage.ROOT / 'task_lists/ablation_30tasks.json')
         self.assertEqual(len(tasks), 25)
         self.assertLess(tasks, legacy)
@@ -38,10 +38,10 @@ class QwenCoverageTest(unittest.TestCase):
     def test_legacy_main_cohort_and_copied_runs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / 'task_lists').mkdir()
+            (root / 'task_lists' / 'swe_verified').mkdir(parents=True)
             tasks = [{'instance_id': f'task{i}'} for i in range(100)]
-            for name, cohort in [('ablation_25tasks.json', tasks[:25]),
-                                 ('p100_all_100_tasks.json', tasks),
+            for name, cohort in [('swe_verified/ablation_25tasks.json', tasks[:25]),
+                                 ('swe_verified/p100_all_100_tasks.json', tasks),
                                  ('tbench_tasks.json', [])]:
                 (root / 'task_lists' / name).write_text(json.dumps(cohort))
 
@@ -97,10 +97,10 @@ class QwenCoverageTest(unittest.TestCase):
         # "-smoke" directories must never be counted.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / 'task_lists').mkdir()
+            (root / 'task_lists' / 'swe_verified').mkdir(parents=True)
             tasks = [{'instance_id': f'task{i}'} for i in range(100)]
-            for name, cohort in [('ablation_25tasks.json', tasks[:25]),
-                                 ('p100_all_100_tasks.json', tasks),
+            for name, cohort in [('swe_verified/ablation_25tasks.json', tasks[:25]),
+                                 ('swe_verified/p100_all_100_tasks.json', tasks),
                                  ('tbench_tasks.json', [])]:
                 (root / 'task_lists' / name).write_text(json.dumps(cohort))
 
@@ -167,10 +167,10 @@ class QwenCoverageTest(unittest.TestCase):
         # primitive/budget/depth; "-smoke" directories must never be counted.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / 'task_lists').mkdir()
+            (root / 'task_lists' / 'swe_verified').mkdir(parents=True)
             tasks = [{'instance_id': f'task{i}'} for i in range(100)]
-            for name, cohort in [('ablation_25tasks.json', tasks[:25]),
-                                 ('p100_all_100_tasks.json', tasks),
+            for name, cohort in [('swe_verified/ablation_25tasks.json', tasks[:25]),
+                                 ('swe_verified/p100_all_100_tasks.json', tasks),
                                  ('tbench_tasks.json', [])]:
                 (root / 'task_lists' / name).write_text(json.dumps(cohort))
 
@@ -251,9 +251,9 @@ class QwenCoverageTest(unittest.TestCase):
         # attributed to the main model, in OFF cells apart from production.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / 'task_lists').mkdir()
+            (root / 'task_lists' / 'swe_verified').mkdir(parents=True)
             tasks = [{'instance_id': f'task{i}'} for i in range(15)]
-            for name in ('ablation_25tasks.json', 'p100_all_100_tasks.json',
+            for name in ('swe_verified/ablation_25tasks.json', 'swe_verified/p100_all_100_tasks.json',
                          'tbench_tasks.json'):
                 (root / 'task_lists' / name).write_text(json.dumps([]))
 

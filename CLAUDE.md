@@ -201,7 +201,7 @@ Use these terms when discussing experimental coverage and depth runs.
   (`results/ablations/tasks.json`).
 - **NEW-70** — the 70 added tasks (`task_lists/p100_new_tasks.json`).
 - **P100** — full cohort = ABL-30 ∪ NEW-70
-  (`task_lists/p100_all_100_tasks.json`).
+  (`task_lists/swe_verified/p100_all_100_tasks.json`).
 
 **Scope rule** (main model = Qwen3.5-35B-A3B) for whether a
 `(primitive, budget, depth, cohort)` cell is in-scope for the paper:

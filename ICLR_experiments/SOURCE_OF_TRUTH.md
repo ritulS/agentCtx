@@ -35,7 +35,7 @@ in `ICLR_experiments/`; it was `ICLR.md` at the root until 2026-09-26).
 | Topic | Where |
 |---|---|
 | Experiment grid and status | `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md`, section "Experiment grid and status" (hand-updated; `COVERAGE.csv` runs ahead of it) |
-| Task cohorts | `task_lists/`, manifest in `task_lists/README.md`. Ablation analysis filters to `ablation_25tasks.json`. |
+| Task cohorts | `task_lists/`, manifest in `task_lists/README.md`. Ablation analysis filters to `swe_verified/ablation_25tasks.json`. |
 | Experiment plan | `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md` (grid section = plan of record; the numbered sections are the Aug 24 background write-up, updated for ABL-25). |
 | Run data (canonical) | `/home/ak58925/agentCtx/ICLR_experiments/<bench>/<track>/<model>/<cell>/`, layout in `ICLR_experiments/README.md` |
 | Run history | `ICLR_experiments/EXPERIMENT_LOG_SWE.md`, `EXPERIMENT_LOG_TB.md` (dated entries; bugs and audits are sections of the SWE log), plus the command-level timelines `EXPERIMENT_TIMELINE_DETAIL_SWE.md`, `EXPERIMENT_TIMELINE_DETAIL_TB.md` |
@@ -102,9 +102,8 @@ parked until then.
   `git fetch origin && git show origin/akiho-expansion-terminalbench-0829-data:COVERAGE_TB.csv`.
   It runs ahead of the grid in `FOLLOWUP_EXPERIMENTS.md`, which a person updates by hand, so cells the
   grid calls "in progress" may already be complete. Trust the CSV.
-- The TB task files named in the grid (`task_lists/tbench_p40.json`,
-  `task_lists/tbench_abl15.json`) live with the runs, not here. The
-  `tbench_*.json` files in this clone are the older EMNLP-era sets.
+- The TB task files named in the grid are `task_lists/tbench1.0/p40.json` and
+  `task_lists/tbench1.0/abl15.json`.
 - `dashboard/README.md` explains how TB coverage reaches the dashboard.
 
 Before making a Terminal-Bench claim, get the data from that branch or ask
@@ -131,7 +130,7 @@ Akiho. Do not infer TB status from this filesystem.
 - **Filter ablations to ABL-25.** Most ablation runs were launched on the
   older 30-task cohort, so `ICLR_experiments/swebench/ablation/` holds 30 tasks
   per cell. ABL-25 is a strict subset, so analysis filters to
-  `task_lists/ablation_25tasks.json` rather than re-running anything. See
+  `task_lists/swe_verified/ablation_25tasks.json` rather than re-running anything. See
   `task_lists/README.md`. Cells are still filling, so report the
   completeness filter with any ablation table.
 - **Group the outcomes CSV by `model_key`, not `model`.** The 200 `di__binf__fc`

@@ -62,9 +62,9 @@ CTX_LOG_RE = re.compile(
 )
 
 COHORT_FILES = OrderedDict([
-    ("p100", "task_lists/p100_all_100_tasks.json"),
+    ("p100", "task_lists/swe_verified/p100_all_100_tasks.json"),
     ("abl30", "task_lists/ablation_30tasks.json"),
-    ("abl25", "task_lists/ablation_25tasks.json"),
+    ("abl25", "task_lists/swe_verified/ablation_25tasks.json"),
     ("new70", "task_lists/p100_new_tasks.json"),
 ])
 

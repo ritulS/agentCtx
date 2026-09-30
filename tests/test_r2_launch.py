@@ -15,7 +15,7 @@ INF = "999999999"
 
 
 def _sandbox(tmp: Path) -> tuple[Path, dict]:
-    for name in ["scripts/run_experiment_r2.py", "task_lists/p30_swe_stratified.json",
+    for name in ["scripts/run_experiment_r2.py", "task_lists/swe_verified/p30_stratified.json",
                  "configs/config-qwen-vllm.yaml", "configs/config-online-trc.yaml"]:
         p = tmp / name
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -50,7 +50,7 @@ class R2P30sLaunchTests(unittest.TestCase):
         for c in calls:
             self.assertEqual(_opt(c, "--r2-section"), "p30s")
             self.assertEqual(_opt(c, "--r2-model"), "qwen35b")
-            self.assertEqual(Path(_opt(c, "--tasks-file")).name, "p30_swe_stratified.json")
+            self.assertEqual(Path(_opt(c, "--tasks-file")).name, "p30_stratified.json")
             self.assertEqual(_opt(c, "--runs-per-task"), "3")
             self.assertEqual(_opt(c, "--budget"), "15000")
             self.assertEqual(_opt(c, "--depth"), "0.5")

@@ -37,8 +37,8 @@ esac
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"
-P100="$WS/task_lists/p100_all_100_tasks.json"
-ABL25="$WS/task_lists/ablation_25tasks.json"
+P100="$WS/task_lists/swe_verified/p100_all_100_tasks.json"
+ABL25="$WS/task_lists/swe_verified/ablation_25tasks.json"
 RUNS_PER_TASK=3
 MAX_WORKERS="${MAX_WORKERS:-16}"
 RUN_EVAL="${RUN_EVAL:-1}"

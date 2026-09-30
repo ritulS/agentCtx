@@ -184,8 +184,8 @@ def main():
     args = parse_args()
     out = args.output if args.output.is_absolute() else ROOT / args.output
     tb_out = args.tb_output if args.tb_output.is_absolute() else ROOT / args.tb_output
-    abl25 = load_task_list(ROOT / "task_lists/ablation_25tasks.json")
-    p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
+    abl25 = load_task_list(ROOT / "task_lists/swe_verified/ablation_25tasks.json")
+    p100 = load_task_list(ROOT / "task_lists/swe_verified/p100_all_100_tasks.json")
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
 
     # ---- 1. scan disk -------------------------------------------------------

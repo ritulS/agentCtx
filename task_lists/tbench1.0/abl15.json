@@ -3,7 +3,7 @@
   "name": "ABL-15",
   "selection": {
     "parent": "P-40",
-    "parent_task_list": "task_lists/tbench_p40.json",
+    "parent_task_list": "task_lists/tbench1.0/p40.json",
     "criterion": "Manually selected 15-task ablation set"
   },
   "tasks": [

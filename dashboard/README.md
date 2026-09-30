@@ -89,7 +89,7 @@ total target is 7,800 runs. Main and Ablation have separate progress bars. Progr
 `p1a_all_runs_v3` and `p1b_abl25_v4` so throughput
 is not compared with older snapshots that counted only the additional run.
 
-SWE-Bench ablations use `task_lists/ablation_25tasks.json`, a strict subset of
+SWE-Bench ablations use `task_lists/swe_verified/ablation_25tasks.json`, a strict subset of
 ABL-30. Coverage counts only those 25 task IDs, including existing runs from
 ABL-30/P100 cells. Each model has a 3,900-run ablation target; Priority 2 totals
 15,600 runs and the summarizer ablation totals 480 runs including Terminal-Bench

@@ -6,25 +6,23 @@ clones. **Do not rename or edit these files** — live scripts and the coverage
 builder reference them by path, and editing one silently changes the meaning of
 data already collected. To change a cohort, add a new file.
 
-## SWE-bench Verified
+## SWE-bench Verified (`swe_verified/`)
 
 Schema is a JSON list of `{"instance_id", "repo"}`.
 
 | File | n | Cohort | Relation | Status |
 |---|---|---|---|---|
-| `p100_all_100_tasks.json` | 100 | **P100** | the main-track cohort | current |
-| `ablation_25tasks.json` | 25 | **ABL-25** | ⊂ ABL-30 ⊂ P100 | **current ablation cohort** |
-| `ablation_30tasks.json` | 30 | ABL-30 | ⊂ P100 | superseded, still the cohort most ablation runs were launched on |
-| `p100_new_tasks.json` | 70 | NEW-70 | P100 ∖ ABL-30 | historical, used by `Review1/` |
-| `p30_swe_stratified.json` | 30 | **P30S** | difficulty-stratified subset (each entry also carries `difficulty`) | current r2 cohort; `scripts/expansions/run_r2_swe_p30s.sh` writes it to `data/r2/swebench/p30s/` |
-| `selected_tasks.json` | 100 | alias of P100 | byte-content identical to `p100_all_100_tasks.json` | keep — it is the default `--tasks-file` in `scripts/run_experiment.py` |
+| `swe_verified/p100_all_100_tasks.json` | 100 | **P100** | the main-track cohort | current |
+| `swe_verified/ablation_25tasks.json` | 25 | **ABL-25** | ⊂ ABL-30 ⊂ P100 | **current ablation cohort** |
+| `swe_verified/p30_stratified.json` | 30 | **P30S** | difficulty-stratified subset (each entry also carries `difficulty`) | current r2 cohort; `scripts/expansions/run_r2_swe_p30s.sh` writes it to `data/r2/swebench/p30s/` |
+| `swe_verified/p30s_qwen35b_never_resolved.json` | 7 | P30S-NR | ⊂ P30S; tasks with 0/12 resolves on qwen35b across fc (binf), tr (d05, b15k), trc and su-free (b15k), 3 runs each (as of 2026-09-30) | analysis subset |
 
 ### The ABL-25 rule
 
 ABL-30 was reduced to ABL-25 for time. Most ablation runs on disk were launched
 against ABL-30, so `ICLR_experiments/swebench/ablation/` contains 30 tasks per cell.
 
-**Analysis filters to `ablation_25tasks.json`.** ABL-25 is a strict subset, so
+**Analysis filters to `swe_verified/ablation_25tasks.json`.** ABL-25 is a strict subset, so
 this is a filter and not a data problem. `dashboard/build_coverage.py` already
 treats ABL-25 as the cohort of record and reports extras as `ABL-25 (+N)`. The
 5 tasks dropped in the reduction are `django__django-17087`,
@@ -35,24 +33,32 @@ Ablation cells are still filling. As of 2026-09-13, 32 of 52 qwen35b cells and
 15 of 52 devstral24b cells are complete on all 25 tasks. Report the completeness
 filter with any ablation table.
 
-## Terminal-Bench
+## Terminal-Bench 1.0 (`tbench1.0/`)
 
-Schema differs — a JSON object with `dataset`, a provenance note, and a `tasks`
+Tasks from `terminal-bench-core@0.1.1`. The schema differs from SWE-bench: a JSON
+object with `dataset`, `name`, a `selection` provenance note, and a `tasks`
 list of task names.
 
-| File | n | Status |
-|---|---|---|
-| `tbench_tasks.json` | 20 | EMNLP-era, stratified selection from terminal-bench-core 0.1.1 |
-| `tbench_pilot_tasks.json` | 18 | EMNLP-era pilot pool |
-| `tbench_fc_char_batch2.json` | 17 | EMNLP-era FC characterization batch |
+| File | n | Cohort | Relation | Status |
+|---|---|---|---|---|
+| `tbench1.0/p40.json` | 40 | **P-40** | primary evaluation set, manually selected from P-80 | current (ICLR main) |
+| `tbench1.0/abl15.json` | 15 | **ABL-15** | ⊂ P-40, manually selected | current (ICLR ablation) |
 
-**None of these are the ICLR cohorts.** The grid in `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md` names
-`tbench_p40.json` and `tbench_abl15.json`, which live with the runs on Albus and
-are not in this repo. Copy them here before TB analysis starts, and record the
-cohort-name mismatch noted in `ICLR_experiments/SOURCE_OF_TRUTH.md`.
+For the cohort-name mismatch (P15 vs ABL-15), see
+`ICLR_experiments/SOURCE_OF_TRUTH.md`.
+
+## Smoke tests (`smoke/`)
+
+Small lists for smoke tests and runs that check the setup works. They are not
+cohorts, and their results are not used in analysis.
+
+| File | n | Relation | Used by |
+|---|---|---|---|
+| `smoke/p3_swe_reasoning_fallback_smoke.json` | 3 | ⊂ P30S (one per repo) | reasoning-fallback smoke, 2026-09-29 (`Active_runs.md`) |
 
 ## Adding a list
 
 Name it after the cohort, not the experiment. Keep the schema of its benchmark.
 Add a row above with its size, its relation to an existing cohort, and its
-status. Commit it in the same change as the first run that uses it.
+status. Commit it in the same change as the first run that uses it. Put lists
+used only for smoke tests under `smoke/`.

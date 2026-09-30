@@ -152,7 +152,7 @@ then republish the dashboard to keep the link current.
 ```bash
 source venv/bin/activate
 python scripts/run_experiment.py --ablation <name> --budget 15000 \
-    --tasks-file task_lists/p100_all_100_tasks.json
+    --tasks-file task_lists/swe_verified/p100_all_100_tasks.json
 ```
 
 Update `Active_runs.md` on every launch/kill/completion.

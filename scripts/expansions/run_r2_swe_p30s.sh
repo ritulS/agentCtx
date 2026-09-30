@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # r2 extension campaign on SWE-Bench: the Qwen3.5-35B-A3B compression grid on
-# the 30-task stratified cohort (P30S, task_lists/p30_swe_stratified.json).
+# the 30-task stratified cohort (P30S, task_lists/swe_verified/p30_stratified.json).
 #
 # Mirrors scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh, minus the
 # prefix-cache checks, and drives scripts/run_experiment_r2.py instead of the
@@ -52,7 +52,7 @@ AGENT_CONFIG="${QWEN_AGENT_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
 OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 MODEL_TAG="${QWEN_TAG:-qwen35-a3b}"                 # same tag as the ICLR Qwen runs
 AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
-TASKS_FILE="${TASKS_FILE:-$WS/task_lists/p30_swe_stratified.json}"
+TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/p30_stratified.json}"
 R2_SECTION="p30s"                                   # data/r2/swebench/p30s/
 R2_MODEL="${R2_MODEL:-qwen35b}"                     # lowercase/digits/hyphens
 INF_BUDGET=999999999

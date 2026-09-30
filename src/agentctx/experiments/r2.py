@@ -17,6 +17,6 @@ R2_ROOTS = {
     "terminal-bench": R2_ROOT / "terminalbench",
 }
 # The ICLR sections plus the r2-only cohort sections:
-#   p30s  SWE-bench, the 30-task stratified cohort task_lists/p30_swe_stratified.json
+#   p30s  SWE-bench, the 30-task stratified cohort task_lists/swe_verified/p30_stratified.json
 #         (self-summarized, like main/ablation).
 R2_SECTIONS = (*ICLR_SECTIONS, "p30s")

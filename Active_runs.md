@@ -101,7 +101,7 @@ need rebuilding for serving/tbench.
   300 steps / 5400 s per run. Slack units `r2/swebench/p30s/qwen35b-{chain,su-free,fc,ss-free}`.
 - **What:** first cells of the post-ICLR r2 campaign (length-free summaries and the
   full-context baseline) on the 30-task difficulty-stratified cohort
-  `task_lists/p30_swe_stratified.json`.
+  `task_lists/swe_verified/p30_stratified.json`.
 - **Command:** `RUNS_PER_TASK=3 bash scripts/notify_run.sh --unit r2/swebench/p30s/qwen35b-chain
   --lock r2_p30s_chain -- bash -c 'for p in su-free fc ss-free; do bash scripts/notify_run.sh
   --foreground --unit "r2/swebench/p30s/qwen35b-$p" -- bash scripts/expansions/run_r2_swe_p30s.sh "$p"
