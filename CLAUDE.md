@@ -71,7 +71,8 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   the post-ICLR r2 extension campaign; it writes to
   `data/r2/<swebench|terminalbench>/<section>/<model>/<cell>/` (gitignored)
   and shares cell naming/validation with the ICLR launcher; r2-only sections
-  are `p30s` and `p30s_never7`, and r2 alone accepts `adaptive-<tag>` cells
+  are `p30s`, `p30s_never7` and `p100_minus_p30s` (the 70 P100 tasks outside
+  P30S), and r2 alone accepts `adaptive-<tag>` cells
   (schedule-driven primitive order; see `src/agentctx/compression/ADAPTIVE.md`). Launchers are grouped under
   `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see
   `scripts/README.md`.

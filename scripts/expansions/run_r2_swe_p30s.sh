@@ -36,7 +36,11 @@
 # "-smoke" model dirs are ignored by build_coverage.py and aggregate_benchmark_results.py):
 #   N_TASKS=1 RUNS_PER_TASK=1 MAX_WORKERS=1 CELLS=di__b15k__su-free:summarization-free:0.5 \
 #     R2_MODEL=qwen35b-smoke bash scripts/expansions/run_r2_swe_p30s.sh
-# Overrides: R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
+# The other 70 P100 tasks (task_lists/swe_verified/p100_minus_p30s.json), kept in
+# their own section data/r2/swebench/p100_minus_p30s/:
+#   R2_SECTION=p100_minus_p30s bash scripts/expansions/run_r2_swe_p30s.sh
+# Overrides: R2_SECTION (p30s | p100_minus_p30s; also picks the default TASKS_FILE),
+#   R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
 #   TASKS_FILE), TASKS_FILE, QWEN_AGENT_CONFIG, QWEN_OTRC_CONFIG, QWEN_TAG,
 #   RUN_EVAL, QWEN_HEALTH_URL, CELLS.
 # Completed task/condition/run keys are skipped on rerun.
@@ -52,8 +56,13 @@ AGENT_CONFIG="${QWEN_AGENT_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
 OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 MODEL_TAG="${QWEN_TAG:-qwen35-a3b}"                 # same tag as the ICLR Qwen runs
 AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
-TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/p30_stratified.json}"
-R2_SECTION="p30s"                                   # data/r2/swebench/p30s/
+R2_SECTION="${R2_SECTION:-p30s}"                    # data/r2/swebench/<section>/
+case "$R2_SECTION" in
+    p30s)            DEFAULT_TASKS="p30_stratified.json" ;;
+    p100_minus_p30s) DEFAULT_TASKS="p100_minus_p30s.json" ;;
+    *) echo "[ERROR] unknown R2_SECTION '$R2_SECTION'; use p30s | p100_minus_p30s" >&2; exit 1 ;;
+esac
+TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/$DEFAULT_TASKS}"
 R2_MODEL="${R2_MODEL:-qwen35b}"                     # lowercase/digits/hyphens
 INF_BUDGET=999999999
 RUNS_PER_TASK="${RUNS_PER_TASK:-3}"          # override: RUNS_PER_TASK=<n> bash ...

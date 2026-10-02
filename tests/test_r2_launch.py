@@ -16,6 +16,7 @@ INF = "999999999"
 
 def _sandbox(tmp: Path) -> tuple[Path, dict]:
     for name in ["scripts/run_experiment_r2.py", "task_lists/swe_verified/p30_stratified.json",
+                 "task_lists/swe_verified/p100_minus_p30s.json",
                  "configs/config-qwen-vllm.yaml", "configs/config-online-trc.yaml"]:
         p = tmp / name
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -106,6 +107,22 @@ class R2P30sLaunchTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("no b<N>k / binf budget tag", result.stderr)
             self.assertEqual(capture.read_text(), "")   # validated before the first run
+
+    def test_section_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, env = _sandbox(Path(tmp))
+            env.update(R2_SECTION="p100_minus_p30s", CELLS="d05__b15k__tr:truncation:0.5", RUN_EVAL="0")
+            subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+            (c,) = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(_opt(c, "--r2-section"), "p100_minus_p30s")
+            self.assertEqual(Path(_opt(c, "--tasks-file")).name, "p100_minus_p30s.json")
+            self.assertEqual(_opt(c, "--ablation"), "r2-qwen35b-p100_minus_p30s-d05__b15k__tr")
+            self.assertTrue((Path(tmp) / "logs/experiments/r2_sb_p100_minus_p30s_qwen35b.lock").exists())
+
+            env["R2_SECTION"] = "bogus"
+            result = subprocess.run(["bash", str(LAUNCHER)], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unknown R2_SECTION", result.stderr)
 
 
 if __name__ == "__main__":

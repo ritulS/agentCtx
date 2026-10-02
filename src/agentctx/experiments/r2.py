@@ -24,4 +24,7 @@ R2_ROOTS = {
 #               any fixed primitive (task_lists/swe_verified/p30s_qwen35b_never_resolved.json);
 #               holds the adaptive primitive-order cells (``adaptive-*``, see
 #               scripts/expansions/run_r2_swe_never7_adaptive.sh).
-R2_SECTIONS = (*ICLR_SECTIONS, "p30s", "p30s_never7")
+#   p100_minus_p30s SWE-bench, the 70 P100 tasks outside P30S
+#               (task_lists/swe_verified/p100_minus_p30s.json; self-summarized,
+#               launched with R2_SECTION=p100_minus_p30s scripts/expansions/run_r2_swe_p30s.sh).
+R2_SECTIONS = (*ICLR_SECTIONS, "p30s", "p30s_never7", "p100_minus_p30s")

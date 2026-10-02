@@ -15,6 +15,7 @@ Schema is a JSON list of `{"instance_id", "repo"}`.
 | `swe_verified/p100_all_100_tasks.json` | 100 | **P100** | the main-track cohort | current |
 | `swe_verified/ablation_25tasks.json` | 25 | **ABL-25** | ⊂ ABL-30 ⊂ P100 | **current ablation cohort** |
 | `swe_verified/p30_stratified.json` | 30 | **P30S** | difficulty-stratified subset (each entry also carries `difficulty`) | current r2 cohort; `scripts/expansions/run_r2_swe_p30s.sh` writes it to `data/r2/swebench/p30s/` |
+| `swe_verified/p100_minus_p30s.json` | 70 | P100∖P30S | P100 minus P30S, in P100 order (24 django, 24 sympy, 22 scikit-learn); not the same set as NEW-70 (P100 minus ABL-30) | r2 cohort; `R2_SECTION=p100_minus_p30s scripts/expansions/run_r2_swe_p30s.sh` writes it to `data/r2/swebench/p100_minus_p30s/` |
 | `swe_verified/p30s_qwen35b_never_resolved.json` | 7 | P30S-NR | ⊂ P30S; tasks with 0/12 resolves on qwen35b across fc (binf), tr (d05, b15k), trc and su-free (b15k), 3 runs each (as of 2026-09-30) | analysis subset |
 
 ### The ABL-25 rule
