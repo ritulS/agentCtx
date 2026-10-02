@@ -36,10 +36,35 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — r2 P100-minus-P30S chain: fc → tr → su-free → trc (SWE-bench) — this host
+- **Status:** ✅ COMPLETE — launched 2026-10-01 01:40:31 CDT; all four cells run and evaluated by
+  **2026-10-02 17:24:19 CDT** (840/840 rows, every verdict populated). No experiment process remains;
+  vLLM (PID 293626) and `podman system service` (PID 348542) are still running.
+- **Results (of 210 each):** FC 120, TR 106, SU-free 119, TRC 120 resolved.
+- **Interruption:** a host reboot at 2026-10-02 07:45 CDT (kernel 5.15.0-190 → -194) killed the
+  chain during TRC (201/210 runs recorded, none evaluated). The 9 in-flight run dirs were moved to
+  `archives/r2_p100_minus_p30s_trc_interrupted_20261002/`.
+- **Failed first resume (14:03):** podman lives in `/home/rs67788/.local/bin`, which the reboot dropped
+  from `PATH` together with `MSWEA_DOCKER_EXECUTABLE=podman`, `DOCKER_HOST` and the manually started
+  `podman system service`. The agent fell back to `/usr/bin/docker` (permission denied), so the 9 runs
+  died with 0 calls and all 163 evals were "patch mismatch". Those 9 rows were removed (pre-cleanup
+  copy: `di__b15k__trc/experiment_results.json.bak_20261002`). **After a reboot, restore the PATH/env and
+  the podman service before launching.**
+- **Second resume (14:15):** 9 runs redone (5 Submitted, 4 Timeout at 5400 s), then 168 evals.
+- **Logs:** `logs/experiments/r2_swebench_p100_minus_p30s_qwen35b_20261001_014031.log` (original),
+  `..._20261002_140322.log` (failed resume), `..._20261002_141515.log` (successful resume).
+
 ### Qwen3.5-35B-A3B — r2 P30S-never7 adaptive primitive-order chain (SWE-bench) — this host
-- **Status:** 🟢 RUNNING, launched **2026-09-30 14:18:50 CDT** (notify_run wrapper PID `3547517`,
-  lock `r2_sb_p30s_never7_chain`, Slack unit `r2/swebench/p30s_never7/qwen35b`). Stop with
-  `kill 3547517`. PID file `logs/experiments/r2_sb_p30s_never7_qwen35b.pid`.
+- **Status:** ✅ COMPLETE — launched 2026-09-30 14:18:50 CDT, all six cells run and evaluated
+  by **2026-10-01 00:22:38 CDT**; wrapper PID `3547517` has exited, no process remains.
+- **Results (126/126 rows, all verdicts populated):** 3/126 resolved, vs 0/84 for the fixed
+  TR / SU-free / TRC / FC cells on the same tasks. tts 0, tst 0, tss 0, stt 0, sts 2, sst 1
+  (of 21 each). Resolved: sklearn-26194 sts r1 and sst r1 (both 1 compression event, SU-free
+  only — the order was never exercised) and sympy-14248 sts r1 (7 events; 3 of its 6 SU-free
+  events fell back to truncate, so the applied order was t,t,s,t,t,s,s). 5 tasks stay at 0/18.
+- **Caveats:** 32/126 runs hit the 5400 s timeout (fixed cells: 20/84), 24 hit the step
+  limit. 62/269 SU-free events fell back to truncate; only 48 runs reached 3 events with the
+  nominal prefix applied as written.
 - **What:** can a TR / SU-free *order* solve the 7 P30S tasks Qwen3.5-35B-A3B never resolved
   under any fixed primitive (`task_lists/swe_verified/p30s_qwen35b_never_resolved.json`)?
   Six adaptive cells, one per primitive sequence at compression events 1-3 (`t` = TR,
