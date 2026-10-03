@@ -79,7 +79,7 @@ def build_plan(root, name):
     raw = index.read_bytes()
     records = json.loads(raw)
     require(isinstance(records, list), "Expected a list result index")
-    tasks = {r["instance_id"] for r in json.loads((root / "task_lists/p100_all_100_tasks.json").read_text())}
+    tasks = {r["instance_id"] for r in json.loads((root / "task_lists/swe_verified/p100_all_100_tasks.json").read_text())}
     require(tasks, "Empty task list")
     require(len({r["key"] for r in records}) == len(records), "Duplicate result keys")
     require(all(r["condition"] == "full-context" and r["budget"] == 999999999

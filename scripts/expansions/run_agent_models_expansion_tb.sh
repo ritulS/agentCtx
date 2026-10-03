@@ -24,8 +24,8 @@ WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 PY="${TB_PYTHON_BIN:-$WS/venv-harbor/bin/python}"
 RUNNER="$WS/scripts/run_experiment_iclr.py"
-P40="${TB_P40_TASKS_FILE:-$WS/task_lists/tbench_p40.json}"
-ABL15="${TB_ABL15_TASKS_FILE:-$WS/task_lists/tbench_abl15.json}"
+P40="${TB_P40_TASKS_FILE:-$WS/task_lists/tbench1.0/p40.json}"
+ABL15="${TB_ABL15_TASKS_FILE:-$WS/task_lists/tbench1.0/abl15.json}"
 RUNS_PER_TASK=3
 N_CONCURRENT="${N_CONCURRENT:-4}"
 INF_BUDGET=999999999

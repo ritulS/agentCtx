@@ -50,8 +50,8 @@ from typing import Any, Iterable
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE_ROOT = ROOT / "ICLR_experiments" / "terminalbench"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "outcomes" / "terminalbench_outcomes.csv"
-DEFAULT_P40_TASKS = ROOT / "task_lists" / "tbench_p40.json"
-DEFAULT_ABL15_TASKS = ROOT / "task_lists" / "tbench_abl15.json"
+DEFAULT_P40_TASKS = ROOT / "task_lists" / "tbench1.0" / "p40.json"
+DEFAULT_ABL15_TASKS = ROOT / "task_lists" / "tbench1.0" / "abl15.json"
 DEFAULT_P80_ROOTLESS_TASKS = ROOT / "task_lists" / "tbench_p80_rootless.json"
 DEFAULT_P80_SUBUID_TASKS = ROOT / "task_lists" / "tbench_p80_subuid_required.json"
 RUNS_PER_TASK = 3

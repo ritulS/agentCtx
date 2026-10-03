@@ -27,6 +27,7 @@ from harness import (
     build_sandbox,
     describe_differences,
     execute,
+    normalize_json,
 )
 
 RUN = "run_experiment.py"
@@ -437,10 +438,21 @@ def test_tb_scenario_exercises_harbor_outcomes(working_tree: Tree, tmp_path):
     if not TB_VERDICTS <= working_tree.features:
         pytest.skip("working tree has no Terminal-Bench verdict handling")
     sandbox = build_sandbox(tmp_path, working_tree)
-    execute(sandbox, _scenario("tb-all-dataset-tasks"))
+    # An ON environment must not claim sampling exists in this adapter.
+    for command in _scenario("tb-all-dataset-tasks").commands:
+        result = sandbox.run(list(command.argv), extra_env={"AGENTCTX_RESOURCE_MONITOR": "1"})
+        assert result.returncode == command.returncode, result.stderr
     rows = _rows(sandbox.root, "results/tbmodel/experiment_results.json")
 
     assert len(rows) == 6 * 3
+    info = json.loads((sandbox.root / "results/tbmodel/run_info.json").read_text())
+    for saved in [info, *rows]:
+        assert saved["resource_monitoring_supported"] is False
+        assert saved["resource_monitoring_enabled"] is False
+        assert saved["resource_sample_interval_s"] is None
+    assert all(row["resource_monitoring_started"] is False for row in rows)
+    markdown = (sandbox.root / "results/tbmodel/run_info.md").read_text()
+    assert "| Resource sample interval | n/a |" in markdown
     assert {row["resolved"] for row in rows} == {True, False, None}
     assert {row["verdict_source"] for row in rows} == {"verifier", "verifier_reward_file", "none"}
     assert {row["exit_status"] for row in rows} == {"Submitted", "AgentTimeoutError", "missing_exit_info"}
@@ -504,6 +516,87 @@ def test_current_agent_invocation_targets_agentctx_package(working_tree: Tree, t
     assert str(sandbox.root) in entries  # the repo root is still importable, as before
 
 
+@pytest.mark.parametrize("monitor_setting,interval,enabled,effective_interval", [
+    ("1", "0.05", True, 0.05),
+    ("0", "2.5", False, 2.5),
+    ("off", "invalid", False, 10.0),
+])
+def test_current_runner_records_resource_usage(
+    working_tree: Tree, tmp_path, monitor_setting, interval, enabled, effective_interval,
+):
+    """The SWE-bench runner samples physical resources per run (off in the equivalence scenarios)."""
+    sandbox = build_sandbox(tmp_path, working_tree)
+    scenario = _scenario("swe-ablation-custom-tasks")
+    extra_env = {
+        "AGENTCTX_RESOURCE_MONITOR": monitor_setting,
+        "AGENTCTX_RESOURCE_SAMPLE_S": interval,
+        "AGENTCTX_VLLM_METRICS_URLS": "",  # no endpoint probing from a test
+    }
+    for command in scenario.commands:
+        result = sandbox.run(list(command.argv), extra_env=extra_env)
+        assert result.returncode == command.returncode, result.stderr
+    rows = _rows(sandbox.root, "results/ablations/eq-custom/experiment_results.json")
+    assert rows
+    info = json.loads((sandbox.root / "results/ablations/eq-custom/run_info.json").read_text())
+    assert info["resource_monitoring_supported"] is True
+    assert info["resource_monitoring_enabled"] is enabled
+    assert info["resource_sample_interval_s"] == effective_interval
+    markdown = (sandbox.root / "results/ablations/eq-custom/run_info.md").read_text()
+    assert f"| Resource monitoring enabled | {enabled} |" in markdown
+    for row in rows:
+        assert row["resource_monitoring_supported"] is True
+        assert row["resource_monitoring_enabled"] is enabled
+        assert row["resource_monitoring_started"] is enabled
+        assert row["resource_sample_interval_s"] == effective_interval
+        if not enabled:
+            run_dir = sandbox.root / "results/ablations/eq-custom" / row["instance_id"] / row["condition"] / f"run_{row['run_num']}"
+            assert not (run_dir / "resource_log.jsonl").exists()
+            continue
+        assert row["resource_samples"] >= 1
+        assert "peak_agent_rss_mb" in row and "peak_container_mem_mb" in row and "peak_gpu_mem_used_mb" in row
+        run_dir = sandbox.root / "results/ablations/eq-custom" / row["instance_id"] / row["condition"] / f"run_{row['run_num']}"
+        samples = [json.loads(line) for line in (run_dir / "resource_log.jsonl").read_text().splitlines()]
+        assert len(samples) == row["resource_samples"]
+        assert {"t", "elapsed_s", "agent_rss_mb", "container", "container_mem_mb", "gpus", "vllm"} <= set(samples[0])
+        serving = json.loads((run_dir / "serving_info.json").read_text())
+        assert {"captured_at", "endpoints", "server_logs"} <= set(serving)
+        assert serving["endpoints"] == {} and serving["server_logs"] == []  # no endpoints, no logs/servers in the sandbox
+
+
+def test_current_r2_launcher_mirrors_iclr_cell_under_data_r2(working_tree: Tree, tmp_path):
+    """``run_experiment_r2.py`` is the ICLR cell launcher re-rooted at ``data/r2/``.
+
+    Same cell arguments, same validation, same run outputs; only the results
+    tree (and the derived ``--ablation`` name) differ.
+    """
+    if not (working_tree.root / "scripts" / "run_experiment_r2.py").is_file():
+        pytest.skip("working tree has no r2 launcher")
+    sandbox = build_sandbox(tmp_path, working_tree)
+    common = ["--tasks-file", "task_lists/custom_tasks.json", "--conditions", "truncation",
+              "--budget", "10000", "--depth", "0.3", "--runs-per-task", "1", "--max-workers", "1"]
+    for argv in (
+        [ICLR, "--iclr-section", "main", "--iclr-model", "eqmodel", "--iclr-cell", "d03__b10k__tr", *common],
+        ["run_experiment_r2.py", "--r2-section", "main", "--r2-model", "eqmodel", "--r2-cell", "d03__b10k__tr", *common],
+    ):
+        result = sandbox.run(argv)
+        assert result.returncode == 0, result.stderr
+    iclr_cell = sandbox.root / "ICLR_experiments/swebench/main/eqmodel/d03__b10k__tr"
+    r2_cell = sandbox.root / "data/r2/swebench/main/eqmodel/d03__b10k__tr"
+    assert r2_cell.is_dir() and not (sandbox.root / "results" / "r2-d03__b10k__tr").exists()
+    assert sorted(p.relative_to(r2_cell) for p in r2_cell.rglob("*")) == \
+        sorted(p.relative_to(iclr_cell) for p in iclr_cell.rglob("*"))
+    iclr_rows = _rows(sandbox.root, "ICLR_experiments/swebench/main/eqmodel/d03__b10k__tr/experiment_results.json")
+    r2_rows = _rows(sandbox.root, "data/r2/swebench/main/eqmodel/d03__b10k__tr/experiment_results.json")
+    assert r2_rows and len(r2_rows) == len(iclr_rows)
+    for iclr_row, r2_row in zip(iclr_rows, r2_rows):
+        assert normalize_json(r2_row, r2_cell) == normalize_json(iclr_row, iclr_cell)
+    # Rejections are shared with the ICLR launcher.
+    mismatched_budget = [arg if arg != "10000" else "15000" for arg in common]
+    bad = sandbox.run(["run_experiment_r2.py", "--r2-section", "main", "--r2-model", "eqmodel",
+                       "--r2-cell", "d03__b10k__tr", *mismatched_budget])
+    assert bad.returncode == 1 and "does not match --budget" in bad.stderr
+
+
 def test_current_harbor_invocation_targets_agentctx_package(working_tree: Tree, tmp_path):
     if "terminal-bench" not in working_tree.features:
         pytest.skip("working tree has no Terminal-Bench adapter")
@@ -542,3 +635,27 @@ def test_current_iclr_tree_is_named_iclr_experiments(working_tree: Tree, tmp_pat
     assert not (sandbox.root / "ICLR_results").exists()
     written = {str(p.relative_to(sandbox.root)) for p in (sandbox.root / "ICLR_experiments").rglob("*") if p.is_file()}
     assert any(path.endswith("experiment_results.json") for path in written), sorted(written)
+
+
+def test_monitoring_settings_survive_resume(working_tree: Tree, tmp_path):
+    sandbox = build_sandbox(tmp_path, working_tree)
+    argv = [RUN, "--model-tag", "monitor-resume", "--n-tasks", "1",
+            "--conditions", "full-context", "--max-workers", "1"]
+    output = sandbox.root / "results/monitor-resume"
+    for count, setting in ((1, "1"), (2, "0")):
+        result = sandbox.run(argv + ["--runs-per-task", str(count)], extra_env={
+            "AGENTCTX_RESOURCE_MONITOR": setting,
+            "AGENTCTX_RESOURCE_SAMPLE_S": "0.05",
+            "AGENTCTX_VLLM_METRICS_URLS": "",
+        })
+        assert result.returncode == 0, result.stderr
+        rows = json.loads((output / "experiment_results.json").read_text())
+        if count == 1:
+            original = rows[0]
+    by_run = {row["run_num"]: row for row in rows}
+    assert by_run[1] == original
+    assert by_run[1]["resource_monitoring_enabled"] is True
+    assert by_run[2]["resource_monitoring_enabled"] is False
+    assert by_run[2]["resource_monitoring_started"] is False
+    info = json.loads((output / "run_info.json").read_text())
+    assert info["resource_monitoring_enabled"] is False

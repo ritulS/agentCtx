@@ -314,7 +314,7 @@ The derivation rule is the same **P5 / P15 / P25 rule** as SWE-Bench (P5 / P15 /
 | `polyglot-rust-c` | missing (7 calls) | present | present | Qwen 8/29 collection only; token log not written |
 | `intrusion-detection` | present | missing (12 calls, `CancelledError`) | present | Devstral native only; token log not written at task timeout |
 
-- The 6 tasks above fail on the environment side, so they fail consistently in calibration. They are in neither `tbench_p40.json` nor `tbench_abl15.json`, so Main / ablation are unaffected.
+- The 6 tasks above fail on the environment side, so they fail consistently in calibration. They are in neither `tbench1.0/p40.json` nor `tbench1.0/abl15.json`, so Main / ablation are unaffected.
 
 #### Exit status (valid trajectories)
 

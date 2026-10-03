@@ -1,5 +1,8 @@
 # Outcome analysis
 
+Run audits and harness investigations for the r2 campaign live in
+[`experiments/r2/audits/`](../experiments/r2/audits/), alongside its experiment log.
+
 `aggregate_benchmark_results.py` aggregates canonical experiment records into
 one CSV per benchmark:
 

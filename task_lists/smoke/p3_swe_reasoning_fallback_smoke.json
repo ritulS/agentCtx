@@ -1,0 +1,17 @@
+[
+  {
+    "instance_id": "django__django-15278",
+    "repo": "django",
+    "difficulty": "15 min - 1 hour"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-13779",
+    "repo": "scikit-learn",
+    "difficulty": "<15 min fix"
+  },
+  {
+    "instance_id": "sympy__sympy-15345",
+    "repo": "sympy",
+    "difficulty": "<15 min fix"
+  }
+]

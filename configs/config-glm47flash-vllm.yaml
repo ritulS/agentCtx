@@ -1,5 +1,5 @@
 agent:
-  step_limit: 125
+  step_limit: 300
   cost_limit: 0.0
   cost_tracking: ignore_errors
   mode: yolo

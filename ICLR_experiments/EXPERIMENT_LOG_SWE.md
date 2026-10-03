@@ -251,7 +251,7 @@ Summary calls incorrectly required a bash command, causing FormatErrors and
 making affected runs require rerunning. After applying the fix, 2,359 local
 SWE-Bench runs with `summary_marker_error` were archived and their result-index
 entries removed where present. See
-[ARCHIVE_LOG.md](../archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md)
+[ARCHIVE_LOG.md](archive_provenance/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md)
 for the audit, selection rules, archive tooling, and Qwen result-reuse details.
 
 - Qwen resumed: **2026-09-07 20:01:53 CDT**, as recorded in the launcher log.
@@ -416,7 +416,8 @@ Read-only audits of the canonical indexes, formerly one directory each under
 `ICLR_experiments/issue/<name>/` (README + scripts + candidate CSVs). The
 closed ones were removed from the tree on 2026-09-26; their files are in git
 at `4baa6fb` (09-10 audits), `b6b9f75` (review-253 lists) and `8caf652`
-(ablation-155 list). Still open, kept under `issue/`:
+(ablation-155 list). Still open, kept under `open_issues/` (the directory
+was `issue/` until 2026-09-26; older paths below use the old name):
 `resume_audit_20260908/`, `qwen_fc_15min_1hour_20260910/` (see the end).
 
 ### `devstral_summary_20260910` — Devstral main SU/SU-p/SS/SS-p/TRC+SU/TRC+SS @21K (closed 09-11)
@@ -485,7 +486,7 @@ at `4baa6fb` (09-10 audits), `b6b9f75` (review-253 lists) and `8caf652`
   04-20..08-28). Re-graded 09-24, all 155 stay False; applied anyway so every
   row now carries a `reevaluation` provenance block.
 
-### Still open (kept under `issue/`)
+### Still open (kept under `open_issues/`)
 - `resume_audit_20260908/` — audit of the 645 runs completed after the
   09-07 Qwen resume. Done since: the 8 sklearn-14710 evaluation timeouts
   were covered by the 09-11 Qwen pass; the 1500 s agent-timeout question
@@ -493,8 +494,10 @@ at `4baa6fb` (09-10 audits), `b6b9f75` (review-253 lists) and `8caf652`
   saved structured summaries carry the model's `</think>` preamble
   (`structured_summarize` forwards `response.content` unvalidated, and TRC's
   `content.startswith` summary guard therefore misses them); 33 runs show
-  the agent re-summarizing after a summary. No code change yet in
-  `src/agentctx/compression/primitives.py`.
+  the agent re-summarizing after a summary. Fixed on 09-26 for the next
+  campaign; see `experiments/r2/EXPERIMENT_LOG.md`. Every run in this tree
+  predates the fix, so the ICLR data is unchanged and stays affected as
+  described.
 - `qwen_fc_15min_1hour_20260910/` — why 98/165 FC∞ runs on the 55
   "15 min – 1 hour" tasks failed (45 agent timeouts, 26 wrong fixes, 10 step
   limits, 4 non-diff submissions, 13 evaluation problems, 2 provenance
@@ -534,7 +537,7 @@ in the shell before every launch below and are omitted.
   ```
 - Output: `ICLR_experiments/swebench/main/qwen35b/{d05__b15k__*,di__b15k__*,di__binf__*}`;
   log `logs/followup_agent_models_qwen_launcher.log`. Audit of the resumed runs:
-  `ICLR_experiments/issue/resume_audit_20260908/report.md`.
+  `ICLR_experiments/open_issues/resume_audit_20260908/report.md`.
 
 ### 2026-09-09 — Devstral main rerun of the archived summary-bug runs (P100 @21K)
 - Launched **15:33:07**, `sections run: main (ablation skipped)` at

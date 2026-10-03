@@ -12,7 +12,7 @@ set -euo pipefail
 
 WORKSPACE="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PYTHON_BIN="${PYTHON_BIN:-$WORKSPACE/venv/bin/python}"
-TASKS_FILE="${TASKS_FILE:-$WORKSPACE/task_lists/p100_all_100_tasks.json}"
+TASKS_FILE="${TASKS_FILE:-$WORKSPACE/task_lists/swe_verified/p100_all_100_tasks.json}"
 MAX_WORKERS="${MAX_WORKERS:-16}"
 LAUNCHER="$WORKSPACE/scripts/calibration/run_budget_calibration_sb.py"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"

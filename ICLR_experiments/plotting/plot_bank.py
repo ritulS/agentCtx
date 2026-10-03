@@ -417,10 +417,10 @@ BENCHMARKS = [("swebench", "SWE-bench"), ("terminalbench", "Terminal-Bench")]
 SWE_TIMEOUT = 1500.0          # scripts/run_experiment.py AGENT_TIMEOUT
 LAG = 5                       # token_cost_ledger.LAG (online TRC clears lag)
 BLOCK = 16                    # prefix-cache block size
-COHORTS = {"swebench": {"full": "p100_all_100_tasks.json", "ablation": "ablation_25tasks.json"},
-           "terminalbench": {"full": "tbench_p40.json", "ablation": "tbench_abl15.json"}}
+COHORTS = {"swebench": {"full": "swe_verified/p100_all_100_tasks.json", "ablation": "swe_verified/ablation_25tasks.json"},
+           "terminalbench": {"full": "tbench1.0/p40.json", "ablation": "tbench1.0/abl15.json"}}
 COHORT_LABELS = {"p100_all_100_tasks.json": "P100", "ablation_25tasks.json": "ABL-25",
-                 "tbench_p40.json": "TB-40", "tbench_abl15.json": "TB-15"}
+                 "p40.json": "TB-40", "abl15.json": "TB-15"}
 
 
 # ---------------------------------------------------------------- loading
@@ -1008,8 +1008,8 @@ LIMIT_MODELS=[('qwen35b','Qwen'),('devstral24b','Devstral'),('glm47flash','GLM')
 def limit_inputs(swe,tb):
     parts=[]
     for benchmark,path,thresholds,taskfile,n in [
-        ('SWE-bench',swe,[15000,21000,13000],'p100_all_100_tasks.json',100),
-        ('Terminal-Bench',tb,[3000,4000,3000],'tbench_p40.json',40)]:
+        ('SWE-bench',swe,[15000,21000,13000],'swe_verified/p100_all_100_tasks.json',100),
+        ('Terminal-Bench',tb,[3000,4000,3000],'tbench1.0/p40.json',40)]:
         tasks=json.loads((ROOT/'task_lists'/taskfile).read_text())
         if isinstance(tasks,dict):
             tasks=tasks.get('tasks',tasks.get('task_ids',tasks))
@@ -1181,7 +1181,7 @@ SUMMARIZER_CELLS = {'d05__b15k__su-full': 'SU', 'di__b15k__trc-su': 'TRC+SU'}
 
 def summarizer_inputs(outcomes):
     d = pd.read_csv(outcomes, low_memory=False)
-    tasks = sorted(x['instance_id'] for x in json.loads((ROOT / 'task_lists/ablation_25tasks.json').read_text()))
+    tasks = sorted(x['instance_id'] for x in json.loads((ROOT / 'task_lists/swe_verified/ablation_25tasks.json').read_text()))
     parts = []
     for model, label in SUMMARIZER_MODELS:
         track = 'main' if label == 'Self' else 'model_ablation'
@@ -1291,7 +1291,7 @@ following existing analysis exports locally, or via the CLI paths:
   analysis/aggregate_benchmark_results.py. --tasks: the pinned P100 JSON,
   a list of objects with instance_id. See load_q2_runs for the CSV schema.
 * --tb-outcomes: analysis/outcomes/terminalbench_outcomes.csv; --tb-tasks:
-  task_lists/tbench_p40.json. Terminal-Bench censoring reads Harbor results
+  task_lists/tbench1.0/p40.json. Terminal-Bench censoring reads Harbor results
   beneath --run-root, falling back to CancelledError/empty exit status.
 The Q1 exports come from q1_frontier.py and q1_step_factor.py; neither is
 imported or run here. Q2 is computed directly, with no scratch-file inputs.
@@ -1767,9 +1767,9 @@ def paper_figures_main(argv=None):
     parser.add_argument("--figure", choices=["all", "q1-o1", "q1-o2", "q1-qwen-overview", "q2"], default="all")
     parser.add_argument("--data-dir", type=Path, default=ROOT / "ICLR_experiments/plotting")
     parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
-    parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/p100_all_100_tasks.json")
+    parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/swe_verified/p100_all_100_tasks.json")
     parser.add_argument("--tb-outcomes", type=Path, default=ROOT / "analysis/outcomes/terminalbench_outcomes.csv")
-    parser.add_argument("--tb-tasks", type=Path, default=ROOT / "task_lists/tbench_p40.json")
+    parser.add_argument("--tb-tasks", type=Path, default=ROOT / "task_lists/tbench1.0/p40.json")
     parser.add_argument("--run-root", type=Path, default=ROOT, help="Root for outcome source_file paths and Harbor records")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots")
     parser.add_argument("--audit-dir", type=Path, help="Optional directory for Q2 values and task-order CSVs")
@@ -2690,7 +2690,7 @@ def plot_bank_main(argv=None):
                         help="SWE-bench outcomes table (main + ablation tracks)")
     parser.add_argument("--tb-outcomes", type=Path, default=TB_OUTCOMES,
                         help="Terminal-Bench outcomes table")
-    parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/p100_all_100_tasks.json")
+    parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/swe_verified/p100_all_100_tasks.json")
     parser.add_argument("--q3-data-dir", type=Path, default=Q3_DATA_DIR,
                         help="audited Q3 exports; Devstral, GLM and Terminal-Bench rows are reused")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots",

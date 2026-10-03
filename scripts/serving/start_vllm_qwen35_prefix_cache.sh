@@ -7,10 +7,11 @@
 # defaults prefix caching off for this hybrid (mamba + attention) model, so
 # every startup there logged enable_prefix_caching=False and a 0.0% hit rate.
 #
-# This script is that same command with --enable-prefix-caching as the only
-# added argument. Every other serving argument is pinned to the production
+# This script adds --enable-prefix-caching and per-request cache usage reporting
+# (--enable-prompt-tokens-details). Other serving arguments are pinned to the production
 # value on purpose: no env overrides, and no --gpu-memory-utilization or
 # --served-model-name (production left both at the vLLM default). Use
+# REASONING_PARSER=none to reproduce the iclr26 serving (no reasoning parser).
 # scripts/serving/start_vllm_qwen35_swe_summarizer_ablation.sh instead when sharing the GPUs with a summarizer.
 #
 # Usage:  bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
@@ -22,6 +23,9 @@ set -euo pipefail
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
+reasoning_parser_args qwen3
 
 PORT=8000
 PYTHON_BIN="$WS/venv/bin/python3"
@@ -47,9 +51,12 @@ fi
 # Each startup gets its own timestamped log (it records its own engine config);
 # vllm_qwen35_a3b.latest.log points at the newest one.
 LOG_FILE="$(server_log vllm_qwen35_a3b)"
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES=0,1,2,3 \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model Qwen/Qwen3.5-35B-A3B \
+    "${REASONING_ARGS[@]}" \
     --host 127.0.0.1 \
     --port "$PORT" \
     --dtype auto \
@@ -57,6 +64,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 \
     --max-model-len 102400 \
     --max-num-seqs 64 \
     --enable-prefix-caching \
+    --enable-prompt-tokens-details \
     </dev/null > "$LOG_FILE" 2>&1 &
 
 VLLM_PID=$!
@@ -77,6 +85,7 @@ fi
 
 echo "[$(date)] vLLM Qwen3.5-35B-A3B launched as PID $VLLM_PID on GPUs 0,1,2,3, port $PORT, prefix caching ON"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "Follow startup with:"

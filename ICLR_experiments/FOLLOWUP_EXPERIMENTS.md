@@ -2,7 +2,7 @@
 Last update: September 26, 2026 (absorbed `exp_grid.md` as the "Experiment grid and status" section; September 21: merged the Terminal-Bench plan of branch akiho-expansion-terminalbench-0829; SWE-bench ablation cohort is ABL-25, Terminal-Bench ETAs are from September 3)
 
 Future SWE-bench ablation launches for Qwen, Devstral, and GLM use
-`task_lists/ablation_25tasks.json` (25 tasks, 3 runs/task). Existing ABL-30
+`task_lists/swe_verified/ablation_25tasks.json` (25 tasks, 3 runs/task). Existing ABL-30
 results are retained; only ABL-25 tasks are scheduled and counted.
 
 ## Overview
@@ -66,12 +66,12 @@ Notes
   - DI (depth-invariant, no depth parameter): TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial, OTRC+SS-partial
 - Cohorts
   - SWE-bench
-    - P100 = `task_lists/p100_all_100_tasks.json` (100 tasks)
-    - ABL-25 = `task_lists/ablation_25tasks.json` (25 ⊂ P100)
+    - P100 = `task_lists/swe_verified/p100_all_100_tasks.json` (100 tasks)
+    - ABL-25 = `task_lists/swe_verified/ablation_25tasks.json` (25 ⊂ P100)
   - Terminal-Bench
-    - P40 = `task_lists/tbench_p40.json` (40 tasks)
+    - P40 = `task_lists/tbench1.0/p40.json` (40 tasks)
     - ABL-20 (summarizer ablation) = TBD (20 ⊂ P40)
-    - ABL-15 = `task_lists/tbench_abl15.json` (15 ⊂ ABL-20 ⊂ P40)
+    - ABL-15 = `task_lists/tbench1.0/abl15.json` (15 ⊂ ABL-20 ⊂ P40)
 - Paper scope, decided 2026-09-13. The SWE-bench main track is the primary
   budget only (Qwen 15K, Devstral 21K, GLM 13K) plus the unlimited-budget
   baseline. Qwen P100 runs exist on disk at 10K and 20K as well; they are out

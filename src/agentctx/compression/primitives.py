@@ -7,11 +7,12 @@ experiment runners).
 Parameters
 ----------
 token_budget  : int   — MSWEA_TOKEN_BUDGET env var
-                        When the accumulated prompt tokens exceed this value,
-                        the selected primitive fires.
-compression_r : float — fixed at 0.5
-                        Target = budget * r tokens after compression.
-                        e.g. budget=50 000, r=0.5  →  compress down to 25 000 tokens.
+                        When estimated current context tokens exceed this value,
+                        the selected budget-triggered primitive fires.
+compression_r : float — MSWEA_COMPRESSION_RATIO, default 0.5
+                        Standalone TR and SU-free/SS-free fallbacks target token_budget * r.
+                        Other proportional policies target current context tokens * r.
+                        TRC clearing and its turn-truncation fallback ignore r.
 
 Protected messages (never compressed)
   index 0 — system prompt
@@ -20,9 +21,20 @@ Protected messages (never compressed)
 Compressible: messages[2:]
 
 Truncation
-  Drop messages from the front of the compressible window until the total
+  Standalone TR and SU-free/SS-free fallbacks use truncate_oldest_turns():
+  drop oldest assistant/result turns to token_budget * r, protecting system,
+  task, and the latest turn.
+  If those alone exceed the target, retain them and continue over target.
+  Other policies keep the legacy truncate() fallback: drop messages until the total
   estimated token count of (protected + remaining) ≤ target_tokens.
   Always keeps at least the last message in the compressible window.
+
+Tool-result clearing (TRC)
+  On budget overflow, replace all but the latest three tool results with stubs.
+  If still over budget, drop oldest complete assistant/result turns until the
+  budget is met, preserving system, task, and the latest turn. If these alone
+  cannot fit, the agent records the overflow and continues with the model call.
+  See compression/README.md for the full contract and measurements.
 
 Summarization
   Make a single LLM call asking for a summary of the compressible window
@@ -31,6 +43,19 @@ Summarization
   The call goes to the agent's model unless MSWEA_SUMMARY_MODEL_CONFIG (or
   MSWEA_SUMMARY_MODEL_NAME / MSWEA_SUMMARY_API_BASE) selects a different
   summarization model — see "Summarization model" below.
+  The response is cleaned before it enters the history (reasoning preamble
+  dropped, the marked block extracted or the text wrapped in the markers),
+  rejected when the body is empty or the reasoning never closed (re-queried
+  up to SUMMARY_MAX_ATTEMPTS times, then truncate() is the fallback), and the
+  message is tagged extra["kind"] = "summary" so TRC never clears it — see
+  "Summary message handling" below.
+
+Summarization, length-free (SU-free / SS-free)
+  summarize_free() / structured_summarize_free(): same LLM call and cleaning
+  as summarize() / structured_summarize(), but the prompt asks for a
+  *concise* summary with no word target, so compression_ratio does not engage
+  in the prompt (depth-invariant). target_tokens only sizes the complete-turn
+  TR fallback to B*r when all summary attempts fail.
 
 Token log (MSWEA_TOKEN_LOG_PATH)
   Written after every agent step.  Schema:
@@ -130,6 +155,483 @@ def query_summary(model, messages: list[dict]) -> dict:
     return model.query(messages)
 
 
+# ── Summary message handling ───────────────────────────────────────────────────
+#
+# Summaries are identified two ways. Structurally, via extra["kind"] ==
+# SUMMARY_KIND on the message (survives the agent's uid tagging, is stripped
+# before the API call, and is saved in trajectory.json / events.jsonl). And by
+# content, via the SU / SS marker lines, kept for trajectories written before
+# the tag existed. Only messages that pass neither test are tool output that
+# TRC may clear.
+#
+# The summarizer's raw response is normalised by clean_summary_text() before
+# it enters the history. Qwen-style chat templates open a <think> block in the
+# generation prompt, and the vLLM servers here run without a reasoning parser
+# (mini-swe-agent parses raw text), so the reasoning arrives inline in
+# `content` and ends with `</think>`. Passing that through verbatim (a) hid the
+# marker line from the prefix checks, so TRC treated the summary as tool output,
+# and (b) put "Let me create a structured summary ..." prose in front of the
+# agent. The 2026-09-08 audit found the preamble on 219/220 saved SS summaries
+# and, in 33 runs, the agent re-summarising after a summary; whether (b) caused
+# the re-summarising is a hypothesis the audit could not confirm. The flags
+# returned alongside the text are stored in extra["summary_format"] so later
+# audits can count these cases without re-reading the model output.
+#
+# Both SU and SS ask for the summary between marker lines. Markers count only
+# when they are a line of their own, so a marker mentioned inside the model's
+# reasoning ("I must use [CONTEXT SUMMARY] and ...") is never taken as the start
+# of the body. Reasoning ends at the first </think> when the response opens
+# with <think>, or when no marker line precedes that </think>; a marked body
+# that merely quotes "</think>" is therefore left intact. A response with no
+# marker line at all that contains "</think>" cannot be told apart from
+# reasoning followed by an unformatted body, so it is rejected rather than
+# guessed at; rejection feeds the retry / fallback path below.
+#
+# A response with no marker line is rejected as well (since 2026-09-27). Until
+# then an unmarked response without "</think>" was accepted as an unformatted
+# body. That was safe while the vLLM servers ran without a reasoning parser:
+# Qwen's reasoning arrived inline, so a reply that ignored the instructions
+# carried "</think>" and fell under the ambiguous-reasoning rejection above.
+# With --reasoning-parser the reasoning is stripped server-side and such
+# replies reached the history unchecked. In the r2 P30S SU-free / SS-free
+# cells 76/245 and 83/252 summaries had no marker, and most of them were the
+# summarizer continuing the transcript as the agent (a bare
+# ```mswea_bash_command``` block, or "[user]: <returncode>..." tool output)
+# rather than a summary. Requiring the marker line restores the old behaviour
+# for those replies: retry, then truncate().
+#
+# Since 2026-09-29 a response is also rejected when its generation was cut
+# off (finish_reason == "length") or when the open marker is never closed. The
+# r2 P30S run1 audit (experiments/r2/audits/r2_p30s_run1_20260929) found an
+# SU-free summary of 133,948 characters accepted with the open marker only: a
+# copy of the transcript that more than doubled the history (15,123 ->
+# 31,684 tokens). Before this date an unclosed body was taken to the end of
+# the response and finish_reason was never consulted; among the 48 accepted
+# SU-free summaries of that audit exactly one lacked the close marker. Runs
+# from before this date and after it are not the same condition for
+# summary-based primitives.
+#
+# Cleaning and validation are separate steps: a response whose summary body is
+# empty, whose reasoning never closed (an open <think> with no </think>), whose
+# reasoning boundary is undecidable, or that has no marker line is rejected.
+# request_summary() re-queries up to SUMMARY_MAX_ATTEMPTS times
+# and returns None when every attempt is rejected; the primitives then fall
+# back to truncate() rather than replace the history with a non-summary.
+#
+# Each request_summary() call also leaves a per-thread outcome record
+# (attempts, per-attempt rejection reasons, accepted flags, and whether the
+# primitive fell back to truncate()). The agent pops it with
+# pop_summary_outcome() right after the primitive returns and stores it in the
+# compression event and the token log, so a truncation under a summarizing
+# condition can be traced to its cause. Thread-local because Harbor runs
+# several agents in one process; the record is consumed synchronously.
+
+SUMMARY_KIND       = "summary"
+SS_OPEN_MARKER     = "[CONTEXT SUMMARY]"
+SS_CLOSE_MARKER    = "[END CONTEXT SUMMARY]"
+SU_OPEN_MARKER     = "[COMPRESSED HISTORY SUMMARY]"
+SU_CLOSE_MARKER    = "[END SUMMARY]"
+_SUMMARY_PREFIXES  = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
+_THINK_OPEN        = "<think>"
+_THINK_CLOSE       = "</think>"
+# Retries before the truncate() fallback. Each attempt is one summarizer call
+# with the same prompt; usage is summed. 5 is the deployment-class default
+# (Terminus 2 and OpenHands also retry several times before giving up).
+SUMMARY_MAX_ATTEMPTS = max(1, int(os.environ.get("MSWEA_SUMMARY_MAX_ATTEMPTS", "5")))
+
+
+def is_summary_message(msg: dict) -> bool:
+    """True for a summary produced by any summarize* primitive.
+
+    Checks the structural tag first, then the marker prefixes for summaries
+    written before the tag existed.
+    """
+    extra = msg.get("extra")
+    if isinstance(extra, dict) and extra.get("kind") == SUMMARY_KIND:
+        return True
+    content = msg.get("content") or ""
+    return isinstance(content, str) and content.startswith(_SUMMARY_PREFIXES)
+
+
+def response_text(response: dict) -> str:
+    """Plain text of a model response (str or list-of-blocks content)."""
+    text = response.get("content") or ""
+    if isinstance(text, list):
+        text = " ".join(
+            block.get("text", "")
+            for block in text
+            if isinstance(block, dict)
+        )
+    return text
+
+
+def _marker_spans(text: str, marker: str) -> list[tuple[int, int]]:
+    """(start, end) of the marker itself on every line consisting only of
+    ``marker`` (surrounding blanks allowed). Offsets exclude the blanks."""
+    pattern = re.compile(r"^[ \t]*(" + re.escape(marker) + r")[ \t]*$", re.MULTILINE)
+    return [(m.start(1), m.end(1)) for m in pattern.finditer(text)]
+
+
+def _reasoning_end(text: str, open_starts: list[int]) -> int | str:
+    """Offset just past the reasoning preamble, 0 when there is none, or a
+    rejection reason ("unterminated_reasoning" / "ambiguous_reasoning").
+
+    Rules (see the "Summary message handling" comment):
+    - text opens with <think>: reasoning runs to the first </think>; none → unterminated.
+    - no </think> anywhere: no reasoning.
+    - </think> present but no marker line at all: undecidable → ambiguous.
+    - no marker line precedes the first </think>: implicit-open reasoning
+      (Qwen template) ends there.
+    - a marker line precedes it: the reasoning quoted a marker only if another
+      marker line follows the </think>; else the </think> is a literal inside
+      the marked body and there is no reasoning.
+    """
+    close = text.find(_THINK_CLOSE)
+    if text.startswith(_THINK_OPEN):
+        return "unterminated_reasoning" if close < 0 else close + len(_THINK_CLOSE)
+    if close < 0:
+        return 0
+    if not open_starts:
+        return "ambiguous_reasoning"
+    if not any(pos < close for pos in open_starts) or any(pos > close for pos in open_starts):
+        return close + len(_THINK_CLOSE)
+    return 0
+
+
+def clean_summary_text(raw: str, open_marker: str, close_marker: str,
+                       finish_reason: str | None = None) -> tuple[str | None, dict]:
+    """Normalise a summarizer response into ``open_marker\n<body>\nclose_marker``.
+
+    Cleaning:
+    1. Newlines are normalised (CRLF / CR → LF) so marker lines are found
+       regardless of the model's line endings.
+    2. Reasoning preamble: removed according to _reasoning_end(). Markers are
+       recognised only as standalone lines, so a marker mentioned inside the
+       reasoning does not start the body, and a literal ``</think>`` inside a
+       marked body is preserved.
+    3. The body is the text between the first marker line after the reasoning
+       and the next closing-marker line (or the end of the response). Text
+       outside the block, including indentation around the markers, is dropped.
+    4. A response with no marker line is rejected ("missing_marker"); the
+       markers are the only signal that the model answered the summary
+       request rather than continued the conversation (see the module comment).
+
+    Validation (separate from marking): rejected when the body is empty, when
+    a ``<think>`` block never closed, when the response has ``</think>`` but
+    no marker line (undecidable), when it has no marker line at all, when the
+    generation was cut off (``finish_reason == "length"``, "truncated"), or
+    when the open marker is never followed by a closing-marker line
+    ("missing_close_marker"; since 2026-09-29, see the module comment). The
+    accepted body is re-wrapped in the canonical markers.
+
+    Returns (text, flags); text is None for a rejected response and
+    flags["rejected"] then names the reason. flags also records what the raw
+    response looked like: had_think_preamble, had_open_marker,
+    had_close_marker, finish_reason (as given) and raw_chars.
+    """
+    flags = {
+        "had_think_preamble": False,
+        "had_open_marker":    False,
+        "had_close_marker":   False,
+        "finish_reason":      finish_reason,
+        "raw_chars":          len(raw or ""),
+        "rejected":           None,
+    }
+    text  = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
+    opens = _marker_spans(text, open_marker)
+
+    # Completeness first: a generation cut off by the token limit is not a
+    # finished summary whatever it contains (it may even carry both markers
+    # if the model started a second block). Marker flags are still recorded.
+    if finish_reason == "length":
+        flags["had_open_marker"]  = bool(opens)
+        flags["had_close_marker"] = bool(_marker_spans(text, close_marker))
+        flags["rejected"] = "truncated"
+        return None, flags
+
+    cut = _reasoning_end(text, [o[0] for o in opens])
+    if isinstance(cut, str):
+        flags["had_think_preamble"] = True
+        # Reasoning followed by nothing is reported as an empty body, not as ambiguous.
+        if cut == "ambiguous_reasoning" and not text.split(_THINK_CLOSE, 1)[1].strip():
+            cut = "empty_body"
+        flags["rejected"] = cut
+        return None, flags
+    if cut > 0:
+        flags["had_think_preamble"] = True
+        text  = text[cut:].strip()
+        opens = _marker_spans(text, open_marker)
+
+    if opens:
+        flags["had_open_marker"] = True
+        body_start = opens[0][1]
+        closes = [c for c in _marker_spans(text, close_marker) if c[0] >= body_start]
+        if closes:
+            flags["had_close_marker"] = True
+            body = text[body_start:closes[0][0]]
+        else:
+            body = text[body_start:]
+    else:
+        flags["had_close_marker"] = bool(_marker_spans(text, close_marker))
+        flags["rejected"] = "empty_body" if not text else "missing_marker"
+        return None, flags
+
+    body = body.strip()
+    if not body:
+        flags["rejected"] = "empty_body"
+        return None, flags
+    # An open marker never closed means the model was still writing (or
+    # copying the transcript) when it stopped, even with finish_reason=stop.
+    if not flags["had_close_marker"]:
+        flags["rejected"] = "missing_close_marker"
+        return None, flags
+    return f"{open_marker}\n{body}\n{close_marker}", flags
+
+
+_SUMMARY_OUTCOME = threading.local()
+
+
+def _set_summary_outcome(outcome: dict) -> None:
+    _SUMMARY_OUTCOME.last = outcome
+
+
+def _mark_summary_fallback(kind: str = "truncate") -> None:
+    """Record on the current outcome that the primitive fell back to ``kind``."""
+    last = getattr(_SUMMARY_OUTCOME, "last", None)
+    if isinstance(last, dict):
+        last["fallback"] = kind
+
+
+def pop_summary_outcome() -> dict | None:
+    """Return and clear the outcome of the most recent request_summary() on
+    this thread, or None when no summary was requested since the last pop.
+
+    Keys: attempts, accepted, rejections (one reason per rejected attempt),
+    flags (of the accepted or last response), fallback ("truncate" | None),
+    response_ids (one provider response id per attempt, None when absent),
+    interrupted (exception type name when a query raised, else None) and
+    interrupted_attempt. An interrupted record is left in the slot for the
+    agent to salvage; ``accepted`` is False and ``attempts`` counts only the
+    queries that returned.
+    """
+    last = getattr(_SUMMARY_OUTCOME, "last", None)
+    _SUMMARY_OUTCOME.last = None
+    return last
+
+
+def _response_finish_reason(response: dict) -> str | None:
+    """finish_reason of the first choice of the provider response, if kept."""
+    extra = response.get("extra", {}) if isinstance(response, dict) else {}
+    resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
+    choices = resp.get("choices") if isinstance(resp, dict) else None
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        reason = choices[0].get("finish_reason")
+        return str(reason) if reason is not None else None
+    return None
+
+
+def _response_usage(response: dict) -> tuple[int, int]:
+    extra = response.get("extra", {}) if isinstance(response, dict) else {}
+    resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
+    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
+    return (usage.get("prompt_tokens", 0) or 0), (usage.get("completion_tokens", 0) or 0)
+
+
+def _response_id(response: dict) -> str | None:
+    """Provider response id (vLLM: ``chatcmpl-...``), used to join the
+    summarizer request to the server-side KV trace (agentctx.kv_cache_trace).
+    None when the model kept no provider response or it carried no id."""
+    extra = response.get("extra", {}) if isinstance(response, dict) else {}
+    resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
+    rid = resp.get("id") if isinstance(resp, dict) else None
+    return rid if isinstance(rid, str) and rid else None
+
+
+def request_summary(
+    summary_model,
+    summary_prompt: list[dict],
+    open_marker: str,
+    close_marker: str,
+    max_attempts: int | None = None,
+) -> tuple[str | None, dict, int, int, float]:
+    """Query the summarizer until clean_summary_text() accepts a response.
+
+    Re-queries with the same prompt up to ``max_attempts`` times (default
+    SUMMARY_MAX_ATTEMPTS). Token usage and latency are summed over attempts.
+
+    Returns (text, flags, prompt_tokens, completion_tokens, latency_s); text is
+    None when every attempt was rejected, and flags then describes the last
+    rejected response. flags["attempts"] is the number of queries made.
+
+    The outcome record keeps one provider response id per attempt (rejected
+    attempts included, None when unavailable) so a summarizer request served
+    by the traced vLLM can be attributed to this compression event. The record
+    is published to the thread-local slot before the first query and updated
+    after every attempt, so a transport error on a later attempt (which
+    propagates to the caller) leaves the ids obtained so far in place with
+    ``interrupted`` set to the exception type and ``interrupted_attempt`` to
+    the attempt that failed.
+    """
+    attempts = max_attempts or SUMMARY_MAX_ATTEMPTS
+    prompt_toks = completion_toks = 0
+    latency_s   = 0.0
+    text, flags = None, {}
+    rejections: list[str] = []
+    response_ids: list[str | None] = []
+    outcome = {
+        "attempts":   0,
+        "accepted":   False,
+        "rejections": rejections,
+        "flags":      {},
+        "fallback":   None,
+        # one per query made, in order; joins to kv-cache-*.jsonl request ids
+        "response_ids": response_ids,
+        "interrupted": None,
+        "interrupted_attempt": None,
+    }
+    _set_summary_outcome(outcome)
+    for attempt in range(1, attempts + 1):
+        _t0       = time.time()
+        try:
+            response = query_summary(summary_model, summary_prompt)
+        except BaseException as exc:
+            outcome["interrupted"] = type(exc).__name__
+            outcome["interrupted_attempt"] = attempt
+            outcome["flags"] = dict(flags)
+            raise
+        latency_s += time.time() - _t0
+        response_ids.append(_response_id(response))
+        outcome["attempts"] = attempt
+        pt, ct = _response_usage(response)
+        prompt_toks     += pt
+        completion_toks += ct
+        text, flags = clean_summary_text(
+            response_text(response), open_marker, close_marker,
+            finish_reason=_response_finish_reason(response),
+        )
+        flags["attempts"] = attempt
+        if text is not None:
+            break
+        rejections.append(flags.get("rejected") or "unknown")
+    outcome["attempts"] = len(rejections) + (1 if text is not None else 0)
+    outcome["accepted"] = text is not None
+    outcome["flags"]    = dict(flags)
+    return text, flags, prompt_toks, completion_toks, latency_s
+
+
+def make_summary_message(model, text: str, flags: dict) -> dict:
+    """User-role summary message tagged with extra["kind"] = SUMMARY_KIND."""
+    msg = model.format_message(role="user", content=text)
+    extra = msg.get("extra")
+    if not isinstance(extra, dict):
+        extra = {}
+    msg["extra"] = {**extra, "kind": SUMMARY_KIND, "summary_format": dict(flags)}
+    return msg
+
+
+def _history_text(compressible: list[dict]) -> str:
+    """Plain-text dump of the compressible window: one "[role]:" block per message."""
+    text = ""
+    for msg in compressible:
+        role    = msg.get("role", "unknown")
+        content = msg.get("content") or ""
+        if isinstance(content, list):
+            content = " ".join(
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict)
+            )
+        text += f"[{role}]:\n{content}\n\n"
+    return text
+
+
+def _su_prompt(summary_model, history_text: str, target_words: int | None) -> list[dict]:
+    """Prose-summary (SU) prompt.
+
+    target_words is the approximate length asked of the summarizer (derived
+    from target_tokens, i.e. from compression_ratio). None asks for a concise
+    summary with no length target at all (SU-free, depth-invariant).
+    """
+    length = (
+        f"in approximately {target_words} words" if target_words is not None
+        else "concisely"
+    )
+    return [
+        summary_model.format_message(
+            role="system",
+            content=(
+                "You are summarizing an agent's work history to free up context window space. "
+                "Your output will replace the conversation history — the agent will only see "
+                "your summary, so it must be complete enough to continue the task."
+            ),
+        ),
+        summary_model.format_message(
+            role="user",
+            content=(
+                f"Summarize the following agent conversation history {length}. "
+                f"Your summary MUST include all of:\n"
+                f"1. Current task objective and progress made so far\n"
+                f"2. Files examined and any modifications made (include exact file paths)\n"
+                f"3. Key observations, errors encountered, and decisions taken\n"
+                f"4. Current state — what has been done and what remains\n\n"
+                f"Preserve exact file paths, error messages, and code snippets that are "
+                f"likely still relevant. Be factual and concise.\n\n"
+                f"Put the summary between a line containing only {SU_OPEN_MARKER} and a "
+                f"line containing only {SU_CLOSE_MARKER}. Do not add any text outside "
+                f"those two lines.\n\n"
+                f"{history_text}"
+            ),
+        ),
+    ]
+
+
+def _ss_prompt(summary_model, history_text: str, target_words: int | None) -> list[dict]:
+    """Structured-summary (SS) prompt; target_words=None as in _su_prompt()."""
+    opening = (
+        f"Produce a structured summary of the agent conversation below in approximately "
+        f"{target_words} words total."
+        if target_words is not None
+        else "Produce a concise structured summary of the agent conversation below."
+    )
+    return [
+        summary_model.format_message(
+            role="system",
+            content=(
+                "You are compressing an agent's working memory to free up context window space. "
+                "Your output will REPLACE the entire conversation history — the agent will only "
+                "see your summary. It must contain everything needed to continue the task without "
+                "any other context."
+            ),
+        ),
+        summary_model.format_message(
+            role="user",
+            content=(
+                f"{opening} Use EXACTLY this format and section order:\n\n"
+                f"{SS_OPEN_MARKER}\n"
+                f"## Task\n"
+                f"<One sentence: what the task is asking for.>\n\n"
+                f"## Files Modified\n"
+                f"<Each file the agent has written or edited. Format: path — what changed and why. "
+                f"If none yet, write 'None'.>\n\n"
+                f"## Files Examined\n"
+                f"<Each file the agent has read. Format: path — key observation. "
+                f"If none yet, write 'None'.>\n\n"
+                f"## Execution Anchors\n"
+                f"<Exact commands run, test results, error messages, or shell output that the agent "
+                f"will need to reference going forward. Quote verbatim where possible.>\n\n"
+                f"## Current State\n"
+                f"<What has been done, what has NOT been done, and the immediate next step.>\n"
+                f"{SS_CLOSE_MARKER}\n\n"
+                f"Rules:\n"
+                f"- Preserve exact file paths, line numbers, error strings, and symbol names.\n"
+                f"- Do not speculate or add information not present in the history.\n"
+                f"- Do not add any text outside the {SS_OPEN_MARKER} block.\n\n"
+                f"Conversation history:\n{history_text}"
+            ),
+        ),
+    ]
+
+
 # ── Primitives ─────────────────────────────────────────────────────────────────
 
 def truncate(messages: list[dict], target_tokens: int) -> tuple[list[dict], int]:
@@ -175,18 +677,7 @@ def summarize(
     compressible = messages[N_PROTECTED:]
     tokens_before = count_tokens(messages)
 
-    # Build plain-text dump
-    history_text = ""
-    for msg in compressible:
-        role    = msg.get("role", "unknown")
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            content = " ".join(
-                block.get("text", "")
-                for block in content
-                if isinstance(block, dict)
-            )
-        history_text += f"[{role}]:\n{content}\n\n"
+    history_text = _history_text(compressible)
 
     # Target compressible tokens = target_tokens minus what the protected msgs use
     protected_tokens  = count_tokens(protected)
@@ -199,53 +690,21 @@ def summarize(
     # by the agent's model since it goes back into the agent's history.
     summary_model = get_summary_model(model)
 
-    summary_prompt = [
-        summary_model.format_message(
-            role="system",
-            content=(
-                "You are summarizing an agent's work history to free up context window space. "
-                "Your output will replace the conversation history — the agent will only see "
-                "your summary, so it must be complete enough to continue the task."
-            ),
-        ),
-        summary_model.format_message(
-            role="user",
-            content=(
-                f"Summarize the following agent conversation history in approximately "
-                f"{target_words} words. Your summary MUST include all of:\n"
-                f"1. Current task objective and progress made so far\n"
-                f"2. Files examined and any modifications made (include exact file paths)\n"
-                f"3. Key observations, errors encountered, and decisions taken\n"
-                f"4. Current state — what has been done and what remains\n\n"
-                f"Preserve exact file paths, error messages, and code snippets that are "
-                f"likely still relevant. Be factual and concise.\n\n"
-                f"{history_text}"
-            ),
-        ),
-    ]
+    summary_prompt = _su_prompt(summary_model, history_text, target_words)
 
-    _t0          = time.time()
-    response     = query_summary(summary_model, summary_prompt)
-    latency_s    = time.time() - _t0
-    summary_text = response.get("content") or ""
-    if isinstance(summary_text, list):
-        summary_text = " ".join(
-            block.get("text", "")
-            for block in summary_text
-            if isinstance(block, dict)
-        )
-
-    # Collect actual tokens used by the summarization call
-    extra = response.get("extra", {})
-    resp  = extra.get("response", {})
-    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
-    prompt_toks     = usage.get("prompt_tokens", 0) or 0
-    completion_toks = usage.get("completion_tokens", 0) or 0
-
-    summary_msg  = model.format_message(
-        role="user",
-        content=f"[COMPRESSED HISTORY SUMMARY]\n{summary_text}\n[END SUMMARY]",
+    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
+        summary_model, summary_prompt, SU_OPEN_MARKER, SU_CLOSE_MARKER
     )
+
+    # Explicit fallback: no attempt produced a usable summary, so enforce the
+    # target by truncation instead of replacing the history with a non-summary.
+    if summary_text is None:
+        _mark_summary_fallback("truncate")
+        new_messages, _ = truncate(messages, target_tokens)
+        tokens_after    = count_tokens(new_messages)
+        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+    summary_msg   = make_summary_message(model, summary_text, summary_flags)
     new_messages  = protected + [summary_msg]
     tokens_after  = count_tokens(new_messages)
 
@@ -274,17 +733,7 @@ def structured_summarize(
     compressible  = messages[N_PROTECTED:]
     tokens_before = count_tokens(messages)
 
-    history_text = ""
-    for msg in compressible:
-        role    = msg.get("role", "unknown")
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            content = " ".join(
-                block.get("text", "")
-                for block in content
-                if isinstance(block, dict)
-            )
-        history_text += f"[{role}]:\n{content}\n\n"
+    history_text = _history_text(compressible)
 
     protected_tokens = count_tokens(protected)
     compress_target  = max(50, target_tokens - protected_tokens)
@@ -292,67 +741,20 @@ def structured_summarize(
 
     summary_model = get_summary_model(model)  # see "Summarization model" above
 
-    summary_prompt = [
-        summary_model.format_message(
-            role="system",
-            content=(
-                "You are compressing an agent's working memory to free up context window space. "
-                "Your output will REPLACE the entire conversation history — the agent will only "
-                "see your summary. It must contain everything needed to continue the task without "
-                "any other context."
-            ),
-        ),
-        summary_model.format_message(
-            role="user",
-            content=(
-                f"Produce a structured summary of the agent conversation below in approximately "
-                f"{target_words} words total. Use EXACTLY this format and section order:\n\n"
-                f"[CONTEXT SUMMARY]\n"
-                f"## Task\n"
-                f"<One sentence: what the task is asking for.>\n\n"
-                f"## Files Modified\n"
-                f"<Each file the agent has written or edited. Format: path — what changed and why. "
-                f"If none yet, write 'None'.>\n\n"
-                f"## Files Examined\n"
-                f"<Each file the agent has read. Format: path — key observation. "
-                f"If none yet, write 'None'.>\n\n"
-                f"## Execution Anchors\n"
-                f"<Exact commands run, test results, error messages, or shell output that the agent "
-                f"will need to reference going forward. Quote verbatim where possible.>\n\n"
-                f"## Current State\n"
-                f"<What has been done, what has NOT been done, and the immediate next step.>\n"
-                f"[END CONTEXT SUMMARY]\n\n"
-                f"Rules:\n"
-                f"- Preserve exact file paths, line numbers, error strings, and symbol names.\n"
-                f"- Do not speculate or add information not present in the history.\n"
-                f"- Do not add any text outside the [CONTEXT SUMMARY] block.\n\n"
-                f"Conversation history:\n{history_text}"
-            ),
-        ),
-    ]
+    summary_prompt = _ss_prompt(summary_model, history_text, target_words)
 
-    _t0       = time.time()
-    response  = query_summary(summary_model, summary_prompt)
-    latency_s = time.time() - _t0
-
-    summary_text = response.get("content") or ""
-    if isinstance(summary_text, list):
-        summary_text = " ".join(
-            block.get("text", "")
-            for block in summary_text
-            if isinstance(block, dict)
-        )
-
-    extra = response.get("extra", {})
-    resp  = extra.get("response", {})
-    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
-    prompt_toks     = usage.get("prompt_tokens", 0) or 0
-    completion_toks = usage.get("completion_tokens", 0) or 0
-
-    summary_msg  = model.format_message(
-        role="user",
-        content=summary_text,
+    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
+        summary_model, summary_prompt, SS_OPEN_MARKER, SS_CLOSE_MARKER
     )
+
+    # Explicit fallback: no attempt produced a usable summary (see summarize()).
+    if summary_text is None:
+        _mark_summary_fallback("truncate")
+        new_messages, _ = truncate(messages, target_tokens)
+        tokens_after    = count_tokens(new_messages)
+        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+    summary_msg  = make_summary_message(model, summary_text, summary_flags)
     new_messages = protected + [summary_msg]
 
     # Fallback: if model over-generated past target, truncate the summary itself
@@ -361,6 +763,81 @@ def structured_summarize(
 
     tokens_after = count_tokens(new_messages)
     return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+
+def _summarize_free(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+    build_prompt,
+    open_marker: str,
+    close_marker: str,
+) -> tuple[list[dict], int, int, int, float]:
+    """Shared body of summarize_free() / structured_summarize_free()."""
+    if len(messages) <= N_PROTECTED:
+        return messages, 0, 0, 0, 0.0
+
+    protected     = messages[:N_PROTECTED]
+    compressible  = messages[N_PROTECTED:]
+    tokens_before = count_tokens(messages)
+
+    summary_model  = get_summary_model(model)
+    summary_prompt = build_prompt(summary_model, _history_text(compressible), None)
+
+    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
+        summary_model, summary_prompt, open_marker, close_marker
+    )
+
+    # Explicit fallback: no attempt produced a usable summary (see summarize()).
+    # This is the only place target_tokens (hence compression_ratio) is used.
+    if summary_text is None:
+        _mark_summary_fallback("truncate")
+        new_messages, _ = truncate_oldest_turns(messages, target_tokens)
+        tokens_after    = count_tokens(new_messages)
+        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+    summary_flags["length_free"] = True
+    summary_msg  = make_summary_message(model, summary_text, summary_flags)
+    new_messages = protected + [summary_msg]
+    tokens_after = count_tokens(new_messages)
+    return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+
+def summarize_free(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+) -> tuple[list[dict], int, int, int, float]:
+    """SU-free: summarize() with no length target (depth-invariant).
+
+    Same prompt and cleaning as summarize(), but the summarizer is
+    asked for a *concise* summary instead of "approximately N words", so the
+    summary length is whatever the model produces and compression_ratio never
+    reaches the prompt. ``target_tokens`` (B*r from the agent) is used only for
+    the truncate_oldest_turns() fallback when every attempt is rejected.
+    This retains system, task, and the latest complete assistant/result turn.
+    No post-hoc length enforcement: if the summary alone were still above the
+    budget the trigger would fire again on the next step, as for SS today.
+
+    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
+    """
+    return _summarize_free(
+        messages, model, target_tokens, _su_prompt, SU_OPEN_MARKER, SU_CLOSE_MARKER
+    )
+
+
+def structured_summarize_free(
+    messages: list[dict],
+    model,
+    target_tokens: int,
+) -> tuple[list[dict], int, int, int, float]:
+    """SS-free: structured_summarize() with no length target (depth-invariant).
+
+    See summarize_free(); the schema-guided SS prompt is used instead.
+    """
+    return _summarize_free(
+        messages, model, target_tokens, _ss_prompt, SS_OPEN_MARKER, SS_CLOSE_MARKER
+    )
 
 
 def _fit_tail(messages: list[dict], tail_budget: int) -> int:
@@ -484,74 +961,127 @@ def structured_summarize_partial(
     return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
 
 
+def _trc_result_indices(messages: list[dict]) -> list[int]:
+    """Find tool observations, including tagged results and legacy text histories.
+
+    Text-based models store results as user turns with raw_output/returncode.
+    Legacy histories lack those fields; accept a user turn immediately following
+    an assistant in that case. Parser feedback and summaries are not results.
+    Already-cleared results still count towards the retention window.
+    """
+    indices = []
+    for i in range(N_PROTECTED, len(messages)):
+        msg = messages[i]
+        extra = msg.get("extra") or {}
+        if is_summary_message(msg) or extra.get("interrupt_type"):
+            continue
+        if msg.get("role") == "tool" or (
+            msg.get("role") == "user"
+            and (
+                "raw_output" in extra or "returncode" in extra
+                or messages[i - 1].get("role") == "assistant"
+            )
+        ):
+            indices.append(i)
+    return indices
+
+
+def truncate_oldest_turns(messages: list[dict], budget_tokens: int) -> tuple[list[dict], int]:
+    """Drop oldest complete turns, preserving the protected head and latest turn.
+
+    An assistant turn includes all following observations/feedback up to the
+    next assistant. This keeps parallel tool results together with their call.
+    A leading summary or feedback block is a separate removable unit. If the
+    protected head plus latest turn cannot fit, return them over the supplied
+    limit. Standalone TR supplies B*r; TRC supplies B. The agent continues
+    with the model request; TRC additionally records an explicit overflow flag.
+    """
+    tokens_before = count_tokens(messages)
+    protected = messages[:N_PROTECTED]
+    turns: list[list[dict]] = []
+    for msg in messages[N_PROTECTED:]:
+        if not turns or msg.get("role") == "assistant":
+            turns.append([])
+        turns[-1].append(msg)
+    remaining = tokens_before
+    first = 0
+    while first < len(turns) - 1 and remaining > budget_tokens:
+        remaining -= count_tokens(turns[first])
+        first += 1
+    result = protected + [msg for turn in turns[first:] for msg in turn]
+    return result, tokens_before - count_tokens(result)
+
+
+def _trc_cleared_stub(msg: dict, n_tokens: int) -> str:
+    """Placeholder text for a cleared tool result.
+
+    The step label comes from the result's original ``extra.uid_step``
+    (assigned once when the message was added), so it survives truncation and
+    parser-feedback insertions that shift history positions. Legacy histories
+    without that field show ``step unknown``.
+    """
+    step_k = (msg.get("extra") or {}).get("uid_step")
+    if step_k is None:
+        step_k = "unknown"
+    return f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]"
+
+
 def tool_result_clear(
     messages: list[dict],
-    target_tokens: int,
+    budget_tokens: int,
     fallback_truncate: bool = True,
-) -> tuple[list[dict], int]:
-    """Clear bash tool output bodies from old user turns to reduce context size.
+    *,
+    stats: dict | None = None,
+) -> tuple[list[dict], int, bool]:
+    """On budget overflow, clear ALL results older than the latest KEEP_RECENT.
 
-    Works front-to-back (oldest first) through compressible user-role messages,
-    replacing verbose output with a stub. Preserves the last KEEP_RECENT tool
-    results (the agent is actively working with these). If clearing all eligible
-    tool outputs is still insufficient and fallback_truncate=True, falls back to
-    truncate(). Set fallback_truncate=False when a caller will apply a second
-    primitive (e.g. summarization) after TRC.
+    Clearing does not stop early and never uses COMPRESSION_RATIO. If enabled,
+    fallback drops oldest complete turns only until the budget is met. KEEP_RECENT
+    applies to clearing; fallback may retain fewer results. The protected head
+    and latest turn always survive, even if they alone exceed the budget.
 
-    Returns (new_message_list, tokens_saved, used_fallback).
+    Returns (new_messages, net_tokens_saved, used_fallback). Savings are signed:
+    replacing very short outputs can grow the context. Optional stats separate
+    clearing from truncation and report an unattainable budget for the caller.
     """
-    if len(messages) <= N_PROTECTED:
-        return messages, 0
-
-    if count_tokens(messages) <= target_tokens:
-        return messages, 0
-
+    tokens_before = count_tokens(messages)
     new_messages = list(messages)
-    tokens_saved = 0
+    cleared = 0
+    if tokens_before > budget_tokens:
+        result_indices = _trc_result_indices(messages)
+        for idx in result_indices[:-KEEP_RECENT]:
+            msg = new_messages[idx]
+            content = msg.get("content") or ""
+            if isinstance(content, str) and content.startswith(
+                ("[TOOL OUTPUT CLEARED", "[tool-result cleared")
+            ):
+                continue
+            n_tokens = count_tokens([msg])
+            new_messages[idx] = {**msg, "content": _trc_cleared_stub(msg, n_tokens)}
+            cleared += 1
 
-    _STUB_PREFIX      = "[TOOL OUTPUT CLEARED"
-    _SUMMARY_PREFIXES = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
-
-    def _is_clearable(msg: dict) -> bool:
-        if msg.get("role") != "user":
-            return False
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            return False
-        return (
-            not content.startswith(_STUB_PREFIX)
-            and not content.startswith(_SUMMARY_PREFIXES)
-        )
-
-    # Indices into new_messages for clearable turns (compressible window only)
-    compressible_user_indices = [
-        i for i in range(N_PROTECTED, len(new_messages))
-        if _is_clearable(new_messages[i])
-    ]
-
-    # Respect KEEP_RECENT — never clear the last N tool-result turns
-    eligible = compressible_user_indices[:-KEEP_RECENT] if len(compressible_user_indices) > KEEP_RECENT else []
-
-    for idx in eligible:
-        original_content = new_messages[idx].get("content", "")
-        n_tokens = len(_ENCODER.encode(str(original_content)))
-        step_k   = (idx - N_PROTECTED) // 2  # approximate step number (2 msgs per step)
-        new_messages[idx] = {
-            **new_messages[idx],
-            "content": f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]",
-        }
-        tokens_saved += n_tokens
-        if count_tokens(new_messages) <= target_tokens:
-            break
-
-    # Fallback: if still above target after clearing all eligible outputs
+    after_clear = count_tokens(new_messages)
     used_fallback = False
-    if fallback_truncate and count_tokens(new_messages) > target_tokens:
-        new_messages, extra_saved = truncate(new_messages, target_tokens)
-        tokens_saved  += extra_saved
-        used_fallback  = True
-
-    return new_messages, tokens_saved, used_fallback
+    truncation_saved = 0
+    if fallback_truncate and after_clear > budget_tokens:
+        new_messages, truncation_saved = truncate_oldest_turns(new_messages, budget_tokens)
+        used_fallback = True
+    tokens_after = count_tokens(new_messages)
+    if stats is not None:
+        stats.update(
+            policy="clear_all_keep3_budget_turns_v1",
+            budget_tokens=budget_tokens,
+            keep_recent=KEEP_RECENT,
+            cleared_results=cleared,
+            tokens_before=tokens_before,
+            tokens_after_clear=after_clear,
+            tokens_after_trc=tokens_after,
+            clearing_tokens_saved=tokens_before - after_clear,
+            truncation_tokens_saved=truncation_saved,
+            used_truncation_fallback=used_fallback,
+            budget_exceeded_after_trc=tokens_after > budget_tokens,
+        )
+    return new_messages, tokens_before - tokens_after, used_fallback
 
 
 # ── Scored TRC helpers ─────────────────────────────────────────────────────────
@@ -657,19 +1187,15 @@ def scored_tool_result_clear(
     if count_tokens(messages) <= target_tokens:
         return messages, 0, False
 
-    _STUB_PREFIX      = "[TOOL OUTPUT CLEARED"
-    _SUMMARY_PREFIXES = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
+    _STUB_PREFIX = "[TOOL OUTPUT CLEARED"
 
     def _is_clearable(msg: dict) -> bool:
-        if msg.get("role") != "user":
+        if msg.get("role") != "user" or is_summary_message(msg):
             return False
         content = msg.get("content") or ""
         if isinstance(content, list):
             return False
-        return (
-            not content.startswith(_STUB_PREFIX)
-            and not content.startswith(_SUMMARY_PREFIXES)
-        )
+        return not content.startswith(_STUB_PREFIX)
 
     compressible_user_indices = [
         i for i in range(N_PROTECTED, len(messages))
@@ -712,10 +1238,9 @@ def scored_tool_result_clear(
             break  # remaining results are too valuable to clear
         original_content = new_messages[idx].get("content", "")
         n_tokens = len(_ENCODER.encode(str(original_content)))
-        step_k   = (idx - N_PROTECTED) // 2
         new_messages[idx] = {
             **new_messages[idx],
-            "content": f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]",
+            "content": _trc_cleared_stub(new_messages[idx], n_tokens),
         }
         tokens_saved += n_tokens
 
@@ -736,8 +1261,23 @@ def write_token_log(agent) -> None:
     log_path = os.environ.get("MSWEA_TOKEN_LOG_PATH")
     if not log_path:
         return
-    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(log_path).write_text(json.dumps(token_log_dict(agent), indent=2))
+    # Replace atomically so interruption during serialization/writing leaves
+    # the previous complete log readable, never a truncated JSON document.
+    import tempfile
+
+    path = Path(log_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(token_log_dict(agent), indent=2)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=f".{path.name}.", suffix=".tmp", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            tmp.write(payload)
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 def token_log_dict(agent) -> dict:
@@ -762,6 +1302,18 @@ def token_log_dict(agent) -> dict:
         "context_tokens_at_compression":   agent._mem_context_tokens_at_compression,
         "context_tokens_after_compression": agent._mem_context_tokens_after_compression,
         "total_tokens_saved":              agent._mem_tokens_saved,
+        # Signed sum of (before - after) over the same events. total_tokens_saved
+        # is what the primitives report and is clamped at 0 per event, so an
+        # event that grew the history (a summary longer than what it replaced)
+        # counts as 0 there and as a negative term here.
+        "net_tokens_saved":                sum(
+            b - a for b, a in zip(agent._mem_context_tokens_at_compression,
+                                  agent._mem_context_tokens_after_compression)
+        ),
+        "growth_events":                   sum(
+            1 for b, a in zip(agent._mem_context_tokens_at_compression,
+                              agent._mem_context_tokens_after_compression) if a > b
+        ),
         "mean_compression_ratio":          (
             sum(agent._mem_compression_ratios) / len(agent._mem_compression_ratios)
             if agent._mem_compression_ratios else 1.0
@@ -769,16 +1321,59 @@ def token_log_dict(agent) -> dict:
         # ── Per-step breakdown ───────────────────────────────────────────────
         "step_prompt_tokens":      agent._mem_step_prompt_tokens,
         "step_completion_tokens":  agent._mem_step_completion_tokens,
+        # One entry per completed/failed agent query; null tokens mean usage
+        # was unavailable, unlike the zero placeholders in the legacy arrays.
+        "model_call_records":      getattr(agent, "_mem_model_call_records", []),
         "step_latency_s":          [round(x, 3) for x in agent._mem_call_latencies],
         # ── Summarization-specific ───────────────────────────────────────────
         "summarization_prompt_tokens": agent._mem_summarization_prompt_tokens,
         "summarization_latency_s":     round(agent._mem_summarization_latency_s, 3),
         "summarization_model":         summary_model_info(),
+        # one entry per compression event that requested a summary:
+        # {"step", "primitive", "picked", "attempts", "accepted", "rejections",
+        #  "fallback", "flags", "response_ids"}; plus "interrupted" /
+        # "interrupted_attempt" when a summarizer query raised mid-event
+        "summary_outcomes":            getattr(agent, "_mem_summary_outcomes", []),
+        "summary_fallback_events":     sum(
+            1 for o in getattr(agent, "_mem_summary_outcomes", []) if o.get("fallback")
+        ),
+        # ── Standalone / length-free fallback TR diagnostics ─────────────────
+        "tr_events": getattr(agent, "_mem_tr_events", []),
+        "tr_target_not_met_events": sum(
+            e["target_not_met"] for e in getattr(agent, "_mem_tr_events", [])
+        ),
+        "tr_budget_exceeded_events": sum(
+            e["budget_exceeded"] for e in getattr(agent, "_mem_tr_events", [])
+        ),
+        "tr_zero_reduction_events": sum(
+            e["zero_reduction"] for e in getattr(agent, "_mem_tr_events", [])
+        ),
         # ── TRC-specific ─────────────────────────────────────────────────────
+        "trc_events": getattr(agent, "_mem_trc_events", []),
+        "trc_clear_only_events": sum(
+            not e["used_truncation_fallback"] and not e["budget_exceeded_after_trc"]
+            for e in getattr(agent, "_mem_trc_events", [])
+        ),
+        "trc_clearing_tokens_saved": sum(
+            e["clearing_tokens_saved"] for e in getattr(agent, "_mem_trc_events", [])
+        ),
+        "trc_truncation_tokens_saved": sum(
+            e["truncation_tokens_saved"] for e in getattr(agent, "_mem_trc_events", [])
+        ),
         "trc_truncation_fallback_events": agent._mem_trc_fallback_events,
         # ── Online TRC ───────────────────────────────────────────────────────
         "online_trc_flags":              agent._mem_online_trc_flags,
         "online_trc_total_tokens_saved": agent._mem_online_trc_tokens_saved,
         "online_trc_clears":             len(agent._mem_online_trc_flags),
     }
+    if getattr(agent, "_memory_config", None) is not None:
+        data["adaptive_config"] = agent._memory_config.to_dict()
+        data["adaptive_events"] = agent._mem_adaptive_events
+        if getattr(agent, "_memory_selection", None) is not None:
+            data["adaptive"] = agent._memory_selection
+    from agentctx.compression.cache_metrics import compression_cache_comparisons
+
+    # Per-call cache usage lives in model_call_records; only the boundary
+    # comparison is derived here.
+    data["compression_cache_comparisons"] = compression_cache_comparisons(data)
     return data

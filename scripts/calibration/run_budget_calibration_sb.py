@@ -27,7 +27,7 @@ if str(AGENTCTX_SRC) not in sys.path:
 
 from agentctx import INFINITE_BUDGET  # noqa: E402
 
-DEFAULT_TASKS = ROOT / "task_lists" / "p100_all_100_tasks.json"
+DEFAULT_TASKS = ROOT / "task_lists" / "swe_verified" / "p100_all_100_tasks.json"
 MODEL_LABELS = {
     "qwen35b": "Qwen3.5-35B-A3B",
     "devstral24b": "Devstral-Small-2-24B",

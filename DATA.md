@@ -33,6 +33,8 @@ symlinks into `data/`, so every script path in this repo keeps working.
 |------|------|------|
 | `data/` | ~9.9 GB | Older (EMNLP-era) run outputs; grid in `data/swebench/ablations/`. |
 | `ICLR_experiments/swebench` | large | Canonical ICLR run data; see [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md). |
+| `data/r2/` | growing | r2 extension-campaign runs written by `scripts/run_experiment_r2.py`, laid out as `<swebench|terminalbench>/<section>/<model>/<cell>/`. |
+| `archives/` | varies | Superseded run data moved out of `data/` (gitignored). One directory per batch, `archives/<what_and_why>_<YYYYMMDD>/`, with the original relative path kept below it and a `README.md` saying why and how to restore. |
 | `venv/` | ~11 GB | Python env; recreate locally (see README). |
 | `logs/`, `archive/`, `temp/` | varies | Run logs and scratch. |
 | `Review1/figures*/`, `figures/`, `paper_sections_ICLR/`, `paper_layout_EMNLP/` | varies | Regeneratable / paper-local. |

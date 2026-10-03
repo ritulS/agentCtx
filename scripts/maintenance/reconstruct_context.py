@@ -204,6 +204,10 @@ def main() -> int:
         print(f"\nevent {args.event}: kind={c['kind']} primitive={c.get('primitive')} picked={c.get('picked')} "
               f"step={c['step']} {c['tokens_before']}→{c['tokens_after']} tok "
               f"(target {c.get('target_tokens')}, fallback={c.get('trc_fallback')})")
+        if c.get("summary_outcome"):
+            o = c["summary_outcome"]
+            print(f"  summary: attempts={o.get('attempts')} accepted={o.get('accepted')} "
+                  f"rejections={o.get('rejections')} fallback={o.get('fallback')}")
         print(f"dropped {len(c['dropped'])}, replaced {len(c['replaced'])}, added {len(c['added'])}")
         for m in r.removed_messages(args.event):
             print("  -", _brief(m))

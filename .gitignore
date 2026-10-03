@@ -79,65 +79,21 @@ venv-glm-cu129-clean
 ICLR_experiments/terminalbench2
 analysis/reports
 
-# Archives are ignored by default; keep only the selected tooling and reports.
-/archives/**
-
-# Archive notes and task lists for the glm/devstral archives (no run data).
-!/archives/glm_since_20260905_145712_CDT/
-!/archives/glm_since_20260905_145712_CDT/README.md
-!/archives/glm_since_20260905_145712_CDT/tasks.tsv
-!/archives/glm_since_20260905_145712_CDT/partial_tasks.tsv
-!/archives/devstral_since_20260905_145630_CDT/
-!/archives/devstral_since_20260905_145630_CDT/README.md
-!/archives/devstral_since_20260905_145630_CDT/tasks.tsv
-# Notes and task lists for the 2026-09-08 summary-bug rerun archives (no run data).
-!/archives/*_summary_bug_rerun2_*/
-!/archives/*_summary_bug_rerun2_*/README.md
-!/archives/*_summary_bug_rerun2_*/tasks.tsv
-
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/*.py
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/rerun_list/
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/rerun_list/*.csv
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/rerun_list/*.txt
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/rerun_runs_tb_additions.csv
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/tb_condition_summary.csv
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/method_anomalies.csv
-!/archives/summary_bug_rerun_tooling_20260907_175359_CDT/erasure-terminalbench/tb_README.txt
-
-!/archives/summary-bug-audit-20260907_185802_CDT/
-!/archives/summary-bug-audit-20260907_185802_CDT/README.md
-!/archives/summary-bug-audit-20260907_185802_CDT/*.csv
-!/archives/summary-bug-audit-20260907_185802_CDT/verification.json
-!/archives/summary-bug-audit-20260907_185802_CDT/unindexed_archive_candidates.json
-!/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/
-!/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/*.csv
-!/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/rerun_README.txt
-!/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/rerun_ablation_seeded_README.txt
-!/archives/summary-bug-audit-20260907_185802_CDT/rerun-list/source_file_stats_ablation_seeded.json
-
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/rerun_runs_agentlog_additions.csv
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/agentlog_condition_summary.csv
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench/agentlog_README.txt
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/method_anomalies.csv
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/nonsummary_integrity.csv
-!/archives/summary-bug-audit-20260907_185802_CDT/agentlog-swebench-allconditions/agentlog_README.txt
+# archives/ holds retired run data moved out of ICLR_experiments by the archive
+# scripts (never in git). The notes, task lists and tooling that describe those
+# archives are tracked under ICLR_experiments/archive_provenance/.
+/archives/
 
 ICLR_experiments/terminalbench
 backups/
 
-# issue audits (ICLR_experiments/issue/*): keep scripts, README, summary.json and
+# issue audits (ICLR_experiments/open_issues/*): keep scripts, README, summary.json and
 # the small candidate lists; drop the large derived CSVs.
-ICLR_experiments/issue/*/runs.csv
-ICLR_experiments/issue/*/evaluation_classification.csv
-ICLR_experiments/issue/*/evaluation_checks.csv
-ICLR_experiments/issue/*/review_candidates.csv
-ICLR_experiments/issue/*/reevaluation_candidates_combined.csv
+ICLR_experiments/open_issues/*/runs.csv
+ICLR_experiments/open_issues/*/evaluation_classification.csv
+ICLR_experiments/open_issues/*/evaluation_checks.csv
+ICLR_experiments/open_issues/*/review_candidates.csv
+ICLR_experiments/open_issues/*/reevaluation_candidates_combined.csv
 
 # Keep the canonical analysis snapshot; ignore filtered result copies.
 /adaptive_context_management_analysis/results/*
@@ -155,3 +111,4 @@ ICLR_experiments/reeval_evidence/.*.lock
 *.png
 *.pdf
 ICLR_experiments/plotting/plots/
+task_lists/p30_stratified_vs_p100.csv

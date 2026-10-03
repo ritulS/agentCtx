@@ -26,7 +26,7 @@ MAIN = "Qwen3.5-35B-A3B"
 
 FAMILIES = [
     ("Depth-tunable", ["TR", "SU-full", "SU-partial", "SS", "SS-partial"]),
-    ("Depth-invariant", ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial"]),
+    ("Depth-invariant", ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial", "SU-free", "SS-free"]),
     ("∞-budget baselines", ["FC", "OTRC"]),
 ]
 DEPTHS = ["0.3", "0.5", "0.7"]
@@ -91,7 +91,7 @@ def load_cells():
     prefix_cache_cells = {}
     invariant = {
         "FC", "OTRC", "TRC", "TRC+SU", "TRC+SS",
-        "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial",
+        "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial", "SU-free", "SS-free",
     }
     for path, benchmark in (
         (ROOT / "COVERAGE.csv", "swebench"),
@@ -580,7 +580,7 @@ def main():
 
     # ---- follow-up experiment roadmap (Priority 1–4) -----------------------
     tunable = ["TR", "SU-full", "SU-partial", "SS", "SS-partial"]
-    invariant = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial"]
+    invariant = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial", "SU-free", "SS-free"]
 
     def depth_set(main_name, abl_name, budget, include_main=True, include_abl=True):
         parts = []
