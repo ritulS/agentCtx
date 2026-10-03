@@ -18,13 +18,20 @@
 #
 # Usage: bash scripts/notify_run.sh --unit r2/swebench/p30s_never7/qwen35b \
 #            -- bash scripts/expansions/run_r2_swe_never7_adaptive.sh
+# The 13 P100-minus-P30S tasks the same model never resolved
+# (task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json), same six
+# cells, kept in their own section data/r2/swebench/p100_minus_p30s_never13/:
+#   bash scripts/notify_run.sh --unit r2/swebench/p100_minus_p30s_never13/qwen35b \
+#        -- env R2_SECTION=p100_minus_p30s_never13 bash scripts/expansions/run_r2_swe_never7_adaptive.sh
+#   (13 tasks x 3 runs x 6 cells = 234 runs)
 # One pattern only:
 #   PATTERNS=tss bash scripts/expansions/run_r2_swe_never7_adaptive.sh
 # Smoke test (1 task x 1 pattern x 1 run into a throwaway model dir; delete it afterwards —
 # "-smoke" model dirs are ignored by build_coverage.py and aggregate_benchmark_results.py):
 #   N_TASKS=1 RUNS_PER_TASK=1 MAX_WORKERS=1 PATTERNS=sts RUN_EVAL=0 \
 #     R2_MODEL=qwen35b-smoke bash scripts/expansions/run_r2_swe_never7_adaptive.sh
-# Overrides: R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
+# Overrides: R2_SECTION (p30s_never7 | p100_minus_p30s_never13; also picks the
+#   default TASKS_FILE), R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
 #   TASKS_FILE), TASKS_FILE, SCHEDULE_DIR, PATTERNS, QWEN_AGENT_CONFIG,
 #   QWEN_OTRC_CONFIG, QWEN_TAG, RUN_EVAL, QWEN_HEALTH_URL.
 # Completed task/run keys are skipped on rerun; a different schedule in an
@@ -41,9 +48,14 @@ AGENT_CONFIG="${QWEN_AGENT_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
 OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 MODEL_TAG="${QWEN_TAG:-qwen35-a3b}"                 # same tag as the ICLR Qwen runs
 AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
-TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/p30s_qwen35b_never_resolved.json}"
+R2_SECTION="${R2_SECTION:-p30s_never7}"            # data/r2/swebench/<section>/
+case "$R2_SECTION" in
+    p30s_never7)             DEFAULT_TASKS="p30s_qwen35b_never_resolved.json" ;;
+    p100_minus_p30s_never13) DEFAULT_TASKS="p100_minus_p30s_qwen35b_never_resolved.json" ;;
+    *) echo "[ERROR] unknown R2_SECTION '$R2_SECTION'; use p30s_never7 | p100_minus_p30s_never13" >&2; exit 1 ;;
+esac
+TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/$DEFAULT_TASKS}"
 SCHEDULE_DIR="${SCHEDULE_DIR:-$WS/configs/adaptive/never7_prefix3}"
-R2_SECTION="p30s_never7"                            # data/r2/swebench/p30s_never7/
 R2_MODEL="${R2_MODEL:-qwen35b}"                     # lowercase/digits/hyphens
 RUNS_PER_TASK="${RUNS_PER_TASK:-3}"          # override: RUNS_PER_TASK=<n> bash ...
 MAX_WORKERS="${MAX_WORKERS:-16}"

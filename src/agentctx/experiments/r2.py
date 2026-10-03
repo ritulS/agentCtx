@@ -27,4 +27,10 @@ R2_ROOTS = {
 #   p100_minus_p30s SWE-bench, the 70 P100 tasks outside P30S
 #               (task_lists/swe_verified/p100_minus_p30s.json; self-summarized,
 #               launched with R2_SECTION=p100_minus_p30s scripts/expansions/run_r2_swe_p30s.sh).
-R2_SECTIONS = (*ICLR_SECTIONS, "p30s", "p30s_never7", "p100_minus_p30s")
+#   p100_minus_p30s_never13 SWE-bench, the 13 P100-minus-P30S tasks Qwen3.5-35B-A3B
+#               never resolved under any fixed primitive
+#               (task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json);
+#               the same adaptive primitive-order cells as p30s_never7, launched with
+#               R2_SECTION=p100_minus_p30s_never13 scripts/expansions/run_r2_swe_never7_adaptive.sh.
+R2_SECTIONS = (*ICLR_SECTIONS, "p30s", "p30s_never7", "p100_minus_p30s",
+               "p100_minus_p30s_never13")

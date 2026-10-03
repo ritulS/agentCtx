@@ -24,6 +24,7 @@ from agentctx.experiments.iclr import validate_adaptive_cell_semantics  # noqa: 
 def _sandbox(tmp: Path) -> tuple[Path, dict]:
     for name in ["scripts/run_experiment_r2.py",
                  "task_lists/swe_verified/p30s_qwen35b_never_resolved.json",
+                 "task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json",
                  "configs/config-qwen-vllm.yaml", "configs/config-online-trc.yaml"]:
         p = tmp / name
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -99,6 +100,26 @@ class Never7LaunchTests(unittest.TestCase):
             self.assertEqual(_opt(calls[0], "--r2-model"), "qwen35b-smoke")
             self.assertEqual(_opt(calls[0], "--n-tasks"), "1")
             self.assertEqual(_opt(calls[0], "--runs-per-task"), "1")
+
+            capture.write_text("")
+            env.update(PATTERNS="sts", R2_SECTION="p100_minus_p30s_never13")
+            subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(_opt(calls[0], "--r2-section"), "p100_minus_p30s_never13")
+            self.assertEqual(Path(_opt(calls[0], "--tasks-file")).name,
+                             "p100_minus_p30s_qwen35b_never_resolved.json")
+            self.assertEqual(_opt(calls[0], "--ablation"),
+                             "r2-qwen35b-smoke-p100_minus_p30s_never13-d05__b15k__adaptive-prefix3-sts")
+            self.assertTrue((Path(tmp) / "logs/experiments/r2_sb_p100_minus_p30s_never13_qwen35b-smoke.lock").exists())
+
+            capture.write_text("")
+            env.update(R2_SECTION="p100_never")   # not a known section
+            result = subprocess.run(["bash", str(LAUNCHER)], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unknown R2_SECTION", result.stderr)
+            self.assertEqual(capture.read_text(), "")
+            env.update(R2_SECTION="p30s_never7")
 
             capture.write_text("")
             env.update(PATTERNS="tts ttt")   # ttt has no schedule (it is the fixed TR cell)
