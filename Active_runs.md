@@ -54,6 +54,20 @@ need rebuilding for serving/tbench.
 - **Logs:** `logs/experiments/r2_swebench_p100_minus_p30s_qwen35b_20261001_014031.log` (original),
   `..._20261002_140322.log` (failed resume), `..._20261002_141515.log` (successful resume).
 
+### Qwen3.5-35B-A3B — r2 P100-minus-P30S never13 adaptive primitive-order chain (SWE-bench) — this host
+- **Status:** ✅ COMPLETE — launched 2026-10-02 18:47:39 CDT (notify_run wrapper PID 1407787,
+  `env R2_SECTION=p100_minus_p30s_never13 bash scripts/expansions/run_r2_swe_never7_adaptive.sh`);
+  all six cells run and evaluated by **2026-10-03 10:33:14 CDT**. No experiment process remains.
+- **What:** the never7 design applied to the 13 P100-minus-P30S tasks no fixed cell resolved
+  (`task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json`, django 8 / sympy 5).
+  Same six schedules (`configs/adaptive/never7_prefix3/`), 13 tasks × 3 runs = 39 per cell, 234 total.
+- **Results (234/234 rows, all verdicts populated):** 1/234 resolved — sympy-20916 sts r1
+  (5 events, applied s,t,s,s,s, no fallback, 154 calls). tts 0, tst 0, tss 0, stt 0, sts 1, sst 0.
+- **Caveats:** 53/234 runs hit the 5400 s timeout, 37 the step limit; 3 Submitted runs had no
+  patch. 104 SU-free events fell back to truncate (1,198 compression events in total).
+- **Dest:** `data/r2/swebench/p100_minus_p30s_never13/qwen35b/d05__b15k__adaptive-prefix3-<pattern>/`.
+- **Log:** `logs/experiments/r2_swebench_p100_minus_p30s_never13_qwen35b_20261002_184739.log`.
+
 ### Qwen3.5-35B-A3B — r2 P30S-never7 adaptive primitive-order chain (SWE-bench) — this host
 - **Status:** ✅ COMPLETE — launched 2026-09-30 14:18:50 CDT, all six cells run and evaluated
   by **2026-10-01 00:22:38 CDT**; wrapper PID `3547517` has exited, no process remains.
