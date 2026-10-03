@@ -59,6 +59,7 @@ if pgrep -f "vllm.entrypoints.openai.api_server.*--served-model-name ${SERVED_NA
     exit 1
 fi
 
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     "${KV_TRACE_ARGS[@]}" \
@@ -91,6 +92,7 @@ fi
 
 echo "[$(date)] vLLM ${SERVED_NAME} (summarizer) launched as PID $VLLM_PID on GPUs $CUDA_DEVICES, port $PORT"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "The first launch downloads the model (~24 GB) and takes several minutes."

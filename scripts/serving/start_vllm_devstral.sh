@@ -57,6 +57,7 @@ if pgrep -f 'vllm.entrypoints.openai.api_server.*Devstral' >/dev/null; then
 fi
 
 LOG_FILE="$(server_log vllm_devstral)"
+kv_trace_args "$LOG_FILE"
 PID_FILE="$SERVER_LOG_DIR/vllm_devstral.pid"
 # Keep the existing dtype/KV-cache precision; native only removes the context cap.
 CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
@@ -76,6 +77,7 @@ echo "$VLLM_PID" > "$PID_FILE"
 disown || true
 echo "[$(date)] vLLM Devstral-Small-2-24B-2512 launched as PID $VLLM_PID"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "Wait for 'Uvicorn running on http://0.0.0.0:8002' (typically 30-90s),"

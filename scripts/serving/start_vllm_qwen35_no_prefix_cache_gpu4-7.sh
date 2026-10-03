@@ -49,6 +49,7 @@ if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     exit 1
 fi
 
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     "${KV_TRACE_ARGS[@]}" \
@@ -77,6 +78,7 @@ fi
 
 echo "[$(date)] vLLM Qwen3.5-35B-A3B (--no-enable-prefix-caching) launched as PID $VLLM_PID on GPUs $CUDA_DEVICES, port $PORT"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "Follow startup with:"

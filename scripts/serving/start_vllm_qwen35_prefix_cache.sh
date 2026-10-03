@@ -51,6 +51,7 @@ fi
 # Each startup gets its own timestamped log (it records its own engine config);
 # vllm_qwen35_a3b.latest.log points at the newest one.
 LOG_FILE="$(server_log vllm_qwen35_a3b)"
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES=0,1,2,3 \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     "${KV_TRACE_ARGS[@]}" \
@@ -84,6 +85,7 @@ fi
 
 echo "[$(date)] vLLM Qwen3.5-35B-A3B launched as PID $VLLM_PID on GPUs 0,1,2,3, port $PORT, prefix caching ON"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "Follow startup with:"

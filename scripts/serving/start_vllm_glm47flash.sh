@@ -63,6 +63,7 @@ if pgrep -f "vllm.entrypoints.openai.api_server.*GLM-4.7-Flash" >/dev/null; then
 fi
 
 LOG_FILE="$(server_log vllm_glm47flash)"
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     "${KV_TRACE_ARGS[@]}" \
@@ -81,6 +82,7 @@ echo "$VLLM_PID" > "$PID_FILE"
 
 echo "[$(date)] vLLM GLM-4.7-Flash launched as PID $VLLM_PID"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo
 echo "The first launch may need time to download the model. Follow progress with:"

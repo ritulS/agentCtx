@@ -125,11 +125,13 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   supported/enabled/started as false and the interval as null.
   These flags do not describe the separate server-side KV ownership tracer.
   Runs before 2026-09-27 have no resource data.
-- Per-request KV-cache ownership (opt-in, `src/agentctx/KV_CACHE_TRACE.md`):
-  launching a serving script with `AGENTCTX_KV_TRACE_DIR` set installs
+- Per-request KV-cache ownership (on by default, `src/agentctx/KV_CACHE_TRACE.md`):
+  every `scripts/serving/start_vllm_*.sh` installs
   `agentctx.vllm_kv_trace.TracingScheduler` (`--scheduler-cls`), which logs
   each live request's exclusive vs. shared physical blocks on every scheduler
-  change to `kv-cache-<pid>-<uuid>.jsonl`. `python -m agentctx.kv_cache_trace
+  change to `kv-cache-<pid>-<uuid>.jsonl` in `logs/kv-cache/<server log name>/`
+  (`AGENTCTX_KV_TRACE_DIR` overrides the dir, `AGENTCTX_KV_TRACE=0` turns it
+  off; servers launched before 2026-10-03 traced only when the dir was set). `python -m agentctx.kv_cache_trace
   <run_dir> --trace-dir <dir>` joins them to agent steps
   (`model_call_records[].response_id`) and summarizer calls
   (`summary_outcomes[].response_ids`) into `<run_dir>/kv_cache_steps.json`.

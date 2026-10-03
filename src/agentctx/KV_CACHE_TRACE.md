@@ -1,22 +1,26 @@
 # Per-step KV cache ownership
 
-This opt-in tracer records blocks held exclusively by a model request and
+This tracer records blocks held exclusively by a model request and
 blocks simultaneously held by other requests. It uses vLLM V1's actual block
 tables, not `cached_tokens` or server-wide `/metrics`.
 
-## Enable for a new server session
+## Serving with the tracer
 
-The serving launchers accept `AGENTCTX_KV_TRACE_DIR`. For example, after the
-existing server has been stopped at an appropriate time:
+Every `scripts/serving/start_vllm_*.sh` launcher traces by default (since
+2026-10-03; before that only when `AGENTCTX_KV_TRACE_DIR` was set). The trace
+directory is named after the server log, so each server session gets its own:
 
 ```bash
-AGENTCTX_KV_TRACE_DIR="$PWD/logs/kv-cache/qwen" \
-  bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
+bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
+# logs/servers/vllm_qwen35_a3b_<YYYYmmdd_HHMMSS>.log
+# logs/kv-cache/vllm_qwen35_a3b_<YYYYmmdd_HHMMSS>/kv-cache-<pid>-<uuid>.jsonl
 ```
 
-Unset the variable for normal serving without instrumentation. An already
-running server must be restarted to enable this; this implementation does not
-stop or restart servers. The helper adds the repository's `src` to PYTHONPATH
+The launcher prints the directory (`KV ownership trace: ...`).
+`AGENTCTX_KV_TRACE_DIR=<dir>` traces into `<dir>` instead, and
+`AGENTCTX_KV_TRACE=0` serves without instrumentation (e.g. for latency
+measurements, see the overhead note below). A running server keeps the setting
+it was started with; this implementation does not stop or restart servers. The helper adds the repository's `src` to PYTHONPATH
 and selects `agentctx.vllm_kv_trace.TracingScheduler`. For a manual vLLM launch,
 set the same environment variables and pass that class with `--scheduler-cls`.
 The factory preserves the configured synchronous/asynchronous scheduler.

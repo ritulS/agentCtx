@@ -1,4 +1,4 @@
-"""Opt-in vLLM V1 scheduler instrumentation; see KV_CACHE_TRACE.md.
+"""vLLM V1 scheduler instrumentation (on by default in the serving launchers); see KV_CACHE_TRACE.md.
 
 Loaded by --scheduler-cls agentctx.vllm_kv_trace.TracingScheduler. This factory
 preserves vLLM's sync/async scheduler selection and never changes allocation.
