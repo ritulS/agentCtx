@@ -39,7 +39,8 @@ need rebuilding for serving/tbench.
 ### Qwen3.5-35B-A3B — r2 P100-minus-P30S chain: fc → tr → su-free → trc (SWE-bench) — this host
 - **Status:** ✅ COMPLETE — launched 2026-10-01 01:40:31 CDT; all four cells run and evaluated by
   **2026-10-02 17:24:19 CDT** (840/840 rows, every verdict populated). No experiment process remains;
-  vLLM (PID 293626) and `podman system service` (PID 348542) are still running.
+  vLLM (PID 293626) and `podman system service` (PID 348542) were stopped on 2026-10-03 after the
+  never13 chain below finished; restart both (and the podman PATH/env) before the next launch.
 - **Results (of 210 each):** FC 120, TR 106, SU-free 119, TRC 120 resolved.
 - **Interruption:** a host reboot at 2026-10-02 07:45 CDT (kernel 5.15.0-190 → -194) killed the
   chain during TRC (201/210 runs recorded, none evaluated). The 9 in-flight run dirs were moved to
