@@ -32,5 +32,12 @@ R2_ROOTS = {
 #               (task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json);
 #               the same adaptive primitive-order cells as p30s_never7, launched with
 #               R2_SECTION=p100_minus_p30s_never13 scripts/expansions/run_r2_swe_never7_adaptive.sh.
+#   p100_fc_only4 SWE-bench, the 4 P100 tasks Qwen3.5-35B-A3B resolved under full
+#               context but never under fixed TR or SU-free
+#               (task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json); all
+#               eight prefix-3 primitive-order cells (the six mixed ones plus
+#               ttt / sss) at 10 runs per task and raised limits (400 steps,
+#               7200 s per run), launched with
+#               R2_SECTION=p100_fc_only4 scripts/expansions/run_r2_swe_never7_adaptive.sh.
 R2_SECTIONS = (*ICLR_SECTIONS, "p30s", "p30s_never7", "p100_minus_p30s",
-               "p100_minus_p30s_never13")
+               "p100_minus_p30s_never13", "p100_fc_only4")

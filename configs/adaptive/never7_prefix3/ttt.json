@@ -1,0 +1,17 @@
+[
+  {
+    "primitive": "truncation",
+    "budget": 15000,
+    "depth": 0.5
+  },
+  {
+    "primitive": "truncation",
+    "budget": 15000,
+    "depth": 0.5
+  },
+  {
+    "primitive": "truncation",
+    "budget": 15000,
+    "depth": 0.5
+  }
+]

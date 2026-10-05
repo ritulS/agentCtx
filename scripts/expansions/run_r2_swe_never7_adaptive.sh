@@ -12,7 +12,8 @@
 #   Agent      : Qwen3.5-35B-A3B, configs/config-qwen-vllm.yaml, :8000
 #   Summarizer : the agent model itself (no --summary-config, no second server)
 #   Cells      : d05__b15k__adaptive-prefix3-<pattern>, one per PATTERNS entry
-#                (default: the six mixed patterns tts tst tss stt sts sst)
+#                (default: the six mixed patterns tts tst tss stt sts sst;
+#                p100_fc_only4 adds the uniform ttt and sss)
 #   Tasks      : never7 x RUNS_PER_TASK runs (default 3) -> 6 cells x 7 x 3 = 126 runs
 # Results go to data/r2/swebench/p30s_never7/<R2_MODEL>/<cell>/ (gitignored; see DATA.md).
 #
@@ -24,14 +25,23 @@
 #   bash scripts/notify_run.sh --unit r2/swebench/p100_minus_p30s_never13/qwen35b \
 #        -- env R2_SECTION=p100_minus_p30s_never13 bash scripts/expansions/run_r2_swe_never7_adaptive.sh
 #   (13 tasks x 3 runs x 6 cells = 234 runs)
+# The 4 P100 tasks the same model resolved under full context but never under
+# fixed TR or SU-free (task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json):
+# all eight prefix-3 orders (the six mixed ones plus ttt / sss, run through the
+# same adaptive condition) at 10 runs per task, in data/r2/swebench/p100_fc_only4/:
+#   bash scripts/notify_run.sh --unit r2/swebench/p100_fc_only4/qwen35b \
+#        -- env R2_SECTION=p100_fc_only4 bash scripts/expansions/run_r2_swe_never7_adaptive.sh
+#   (4 tasks x 10 runs x 8 cells = 320 runs; this section raises the limits to
+#   400 steps / 7200 s per run, the other sections keep the runner's 300 / 5400)
 # One pattern only:
 #   PATTERNS=tss bash scripts/expansions/run_r2_swe_never7_adaptive.sh
 # Smoke test (1 task x 1 pattern x 1 run into a throwaway model dir; delete it afterwards —
 # "-smoke" model dirs are ignored by build_coverage.py and aggregate_benchmark_results.py):
 #   N_TASKS=1 RUNS_PER_TASK=1 MAX_WORKERS=1 PATTERNS=sts RUN_EVAL=0 \
 #     R2_MODEL=qwen35b-smoke bash scripts/expansions/run_r2_swe_never7_adaptive.sh
-# Overrides: R2_SECTION (p30s_never7 | p100_minus_p30s_never13; also picks the
-#   default TASKS_FILE), R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
+# Overrides: R2_SECTION (p30s_never7 | p100_minus_p30s_never13 | p100_fc_only4;
+#   also picks the default TASKS_FILE, RUNS_PER_TASK, PATTERNS, STEP_LIMIT and
+#   AGENT_TIMEOUT), STEP_LIMIT (LLM calls per run), AGENT_TIMEOUT (seconds), R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
 #   TASKS_FILE), TASKS_FILE, SCHEDULE_DIR, PATTERNS, QWEN_AGENT_CONFIG,
 #   QWEN_OTRC_CONFIG, QWEN_TAG, RUN_EVAL, QWEN_HEALTH_URL.
 # Completed task/run keys are skipped on rerun; a different schedule in an
@@ -49,19 +59,30 @@ OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 MODEL_TAG="${QWEN_TAG:-qwen35-a3b}"                 # same tag as the ICLR Qwen runs
 AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 R2_SECTION="${R2_SECTION:-p30s_never7}"            # data/r2/swebench/<section>/
+DEFAULT_RUNS=3
+DEFAULT_PATTERNS="tts tst tss stt sts sst"
+DEFAULT_STEP_LIMIT=""      # empty = the runner's default (300 steps / 5400 s)
+DEFAULT_AGENT_TIMEOUT=""
 case "$R2_SECTION" in
     p30s_never7)             DEFAULT_TASKS="p30s_qwen35b_never_resolved.json" ;;
     p100_minus_p30s_never13) DEFAULT_TASKS="p100_minus_p30s_qwen35b_never_resolved.json" ;;
-    *) echo "[ERROR] unknown R2_SECTION '$R2_SECTION'; use p30s_never7 | p100_minus_p30s_never13" >&2; exit 1 ;;
+    p100_fc_only4)           DEFAULT_TASKS="p100_qwen35b_fc_not_tr_su-free.json"
+                             DEFAULT_RUNS=10
+                             DEFAULT_STEP_LIMIT=400
+                             DEFAULT_AGENT_TIMEOUT=7200
+                             DEFAULT_PATTERNS="ttt $DEFAULT_PATTERNS sss" ;;
+    *) echo "[ERROR] unknown R2_SECTION '$R2_SECTION'; use p30s_never7 | p100_minus_p30s_never13 | p100_fc_only4" >&2; exit 1 ;;
 esac
 TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/$DEFAULT_TASKS}"
 SCHEDULE_DIR="${SCHEDULE_DIR:-$WS/configs/adaptive/never7_prefix3}"
 R2_MODEL="${R2_MODEL:-qwen35b}"                     # lowercase/digits/hyphens
-RUNS_PER_TASK="${RUNS_PER_TASK:-3}"          # override: RUNS_PER_TASK=<n> bash ...
+RUNS_PER_TASK="${RUNS_PER_TASK:-$DEFAULT_RUNS}"          # override: RUNS_PER_TASK=<n> bash ...
 MAX_WORKERS="${MAX_WORKERS:-16}"
 RUN_EVAL="${RUN_EVAL:-1}"
 N_TASKS="${N_TASKS:-}"          # empty = every task in TASKS_FILE
-PATTERNS="${PATTERNS:-tts tst tss stt sts sst}"
+PATTERNS="${PATTERNS:-$DEFAULT_PATTERNS}"
+STEP_LIMIT="${STEP_LIMIT:-$DEFAULT_STEP_LIMIT}"            # max LLM calls per run
+AGENT_TIMEOUT="${AGENT_TIMEOUT:-$DEFAULT_AGENT_TIMEOUT}"   # wall-clock seconds per run
 LOG_FILE="${R2_NEVER7_LOG_FILE:-$(experiment_log "r2_sb_${R2_SECTION}_${R2_MODEL}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
@@ -71,6 +92,14 @@ EXTRA_ARGS=()
 if [[ -n "$N_TASKS" ]]; then
     [[ "$N_TASKS" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] N_TASKS must be a positive integer: $N_TASKS" >&2; exit 1; }
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
+fi
+if [[ -n "$STEP_LIMIT" ]]; then
+    [[ "$STEP_LIMIT" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] STEP_LIMIT must be a positive integer: $STEP_LIMIT" >&2; exit 1; }
+    EXTRA_ARGS+=(--step-limit "$STEP_LIMIT")
+fi
+if [[ -n "$AGENT_TIMEOUT" ]]; then
+    [[ "$AGENT_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] AGENT_TIMEOUT must be a positive integer (seconds): $AGENT_TIMEOUT" >&2; exit 1; }
+    EXTRA_ARGS+=(--agent-timeout "$AGENT_TIMEOUT")
 fi
 
 # Validate every pattern before the first run, so a typo in PATTERNS cannot
@@ -94,7 +123,7 @@ agent_api_base="$(sed -n 's/^[[:space:]]*api_base:[[:space:]]*"\{0,1\}\([^"]*\)"
 
 log() { echo "[$(date)] $*" | emit; }
 log "=== r2 SWE-Bench $R2_SECTION | dest: data/r2/swebench/$R2_SECTION/$R2_MODEL | patterns: $PATTERNS | schedules: $SCHEDULE_DIR | agent: $AGENT_CONFIG | summarizer: agent model ==="
-log "=== runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL ==="
+log "=== runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL step_limit=${STEP_LIMIT:-runner default} agent_timeout=${AGENT_TIMEOUT:-runner default} ==="
 
 # run_runner <cell> <schedule.json> [extra runner args]
 # No --budget / --depth: the adaptive condition takes both from the schedule
