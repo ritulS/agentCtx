@@ -39,5 +39,20 @@ R2_ROOTS = {
 #               ttt / sss) at 10 runs per task and raised limits (400 steps,
 #               7200 s per run), launched with
 #               R2_SECTION=p100_fc_only4 scripts/expansions/run_r2_swe_never7_adaptive.sh.
+#   p100_su_free_majority SWE-bench, the P100 tasks Qwen3.5-35B-A3B resolved in
+#               at least 2 of 3 runs under fixed SU-free (b15k)
+#               (task_lists/swe_verified/p100_qwen35b_su-free_majority_resolved.json,
+#               55 tasks; the launcher takes the first N_TASKS, default 5);
+#               holds the uniform adaptive cell d05__b15k__adaptive-prefix3-sss
+#               (SU-free at every compression event), launched with
+#               R2_SECTION=p100_su_free_majority scripts/expansions/run_r2_swe_never7_adaptive.sh
+#               or scripts/expansions/run_r2_swe_majority_uniform.sh (both sections).
+#   p100_tr_majority SWE-bench, the same for fixed TR (d05, b15k)
+#               (task_lists/swe_verified/p100_qwen35b_tr_majority_resolved.json,
+#               53 tasks; first N_TASKS, default 5); holds
+#               d05__b15k__adaptive-prefix3-ttt (TR at every event), launched with
+#               R2_SECTION=p100_tr_majority scripts/expansions/run_r2_swe_never7_adaptive.sh
+#               or scripts/expansions/run_r2_swe_majority_uniform.sh.
 R2_SECTIONS = (*ICLR_SECTIONS, "p30s", "p30s_never7", "p100_minus_p30s",
-               "p100_minus_p30s_never13", "p100_fc_only4")
+               "p100_minus_p30s_never13", "p100_fc_only4",
+               "p100_su_free_majority", "p100_tr_majority")

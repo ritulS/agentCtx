@@ -15,6 +15,7 @@ import unittest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 LAUNCHER = ROOT / "scripts/expansions/run_r2_swe_never7_adaptive.sh"
+CHAIN = ROOT / "scripts/expansions/run_r2_swe_majority_uniform.sh"
 SCHEDULES = ROOT / "configs/adaptive/never7_prefix3"
 PATTERNS = ["tts", "tst", "tss", "stt", "sts", "sst"]
 UNIFORM = ["ttt", "sss"]   # only in the default chain of p100_fc_only4
@@ -27,6 +28,8 @@ def _sandbox(tmp: Path) -> tuple[Path, dict]:
                  "task_lists/swe_verified/p30s_qwen35b_never_resolved.json",
                  "task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json",
                  "task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json",
+                 "task_lists/swe_verified/p100_qwen35b_su-free_majority_resolved.json",
+                 "task_lists/swe_verified/p100_qwen35b_tr_majority_resolved.json",
                  "configs/config-qwen-vllm.yaml", "configs/config-online-trc.yaml"]:
         p = tmp / name
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -109,6 +112,74 @@ class Never7LaunchTests(unittest.TestCase):
             self.assertEqual(_opt(c, "--step-limit"), "400")
             self.assertEqual(_opt(c, "--agent-timeout"), "7200")
             self.assertEqual(_opt(c, "--conditions"), "adaptive")
+
+    def test_majority_sections_run_one_uniform_order_on_first_five_tasks(self):
+        expected = {"p100_su_free_majority": ("sss", "p100_qwen35b_su-free_majority_resolved.json"),
+                    "p100_tr_majority": ("ttt", "p100_qwen35b_tr_majority_resolved.json")}
+        for section, (pat, tasks) in expected.items():
+            with self.subTest(section), tempfile.TemporaryDirectory() as tmp:
+                capture, env = _sandbox(Path(tmp))
+                env.update(R2_SECTION=section)
+                subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+                calls = [json.loads(line) for line in capture.read_text().splitlines()]
+                self.assertEqual([("--eval-only" in c) for c in calls], [False, True])
+                for c in calls:
+                    self.assertEqual(_opt(c, "--r2-section"), section)
+                    self.assertEqual(_opt(c, "--r2-cell"), f"d05__b15k__adaptive-prefix3-{pat}")
+                    self.assertEqual(Path(_opt(c, "--adaptive-schedule")).name, f"{pat}.json")
+                    self.assertEqual(Path(_opt(c, "--tasks-file")).name, tasks)
+                    self.assertEqual(_opt(c, "--n-tasks"), "5")
+                    self.assertEqual(_opt(c, "--runs-per-task"), "3")
+                    self.assertEqual(_opt(c, "--conditions"), "adaptive")
+                    self.assertNotIn("--step-limit", c)
+                    self.assertNotIn("--agent-timeout", c)
+                # N_TASKS=all lifts the section's 5-task default.
+                capture.write_text("")
+                env.update(N_TASKS="all", RUN_EVAL="0")
+                subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+                calls = [json.loads(line) for line in capture.read_text().splitlines()]
+                self.assertEqual(len(calls), 1)
+                self.assertNotIn("--n-tasks", calls[0])
+
+    def test_majority_uniform_chain_runs_su_free_section_then_tr_section(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, env = _sandbox(Path(tmp))
+            subprocess.run(["bash", str(CHAIN)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual([(_opt(c, "--r2-section"), _opt(c, "--r2-cell"), "--eval-only" in c) for c in calls], [
+                ("p100_su_free_majority", "d05__b15k__adaptive-prefix3-sss", False),
+                ("p100_su_free_majority", "d05__b15k__adaptive-prefix3-sss", True),
+                ("p100_tr_majority", "d05__b15k__adaptive-prefix3-ttt", False),
+                ("p100_tr_majority", "d05__b15k__adaptive-prefix3-ttt", True),
+            ])
+            for c in calls:
+                self.assertEqual(_opt(c, "--r2-model"), "qwen35b")
+                self.assertEqual(_opt(c, "--n-tasks"), "5")
+                self.assertEqual(_opt(c, "--runs-per-task"), "3")
+            # One log, owned by the chain, holding both sections' output.
+            logs = sorted((Path(tmp) / "logs/experiments").glob("r2_sb_majority_uniform_qwen35b_*.log"))
+            self.assertEqual(len(logs), 1)
+            text = logs[0].read_text()
+            self.assertIn("section p100_su_free_majority", text)
+            self.assertIn("section p100_tr_majority", text)
+            self.assertIn("p100_tr_majority/qwen35b/d05__b15k__adaptive-prefix3-ttt", text)
+            self.assertFalse(list((Path(tmp) / "logs/experiments").glob("r2_sb_p100_*_majority_qwen35b_*.log")))
+
+            # Overrides pass through; the per-section settings are refused.
+            capture.write_text("")
+            env.update(N_TASKS="2", RUNS_PER_TASK="1", RUN_EVAL="0", R2_MODEL="qwen35b-smoke",
+                       SECTIONS="p100_tr_majority")
+            subprocess.run(["bash", str(CHAIN)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(len(calls), 1)
+            self.assertEqual((_opt(calls[0], "--r2-section"), _opt(calls[0], "--r2-model"),
+                              _opt(calls[0], "--n-tasks"), _opt(calls[0], "--runs-per-task")),
+                             ("p100_tr_majority", "qwen35b-smoke", "2", "1"))
+            for bad in ({"PATTERNS": "sss"}, {"SECTIONS": "p30s_never7"}):
+                capture.write_text("")
+                result = subprocess.run(["bash", str(CHAIN)], env={**env, **bad}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1, bad)
+                self.assertEqual(capture.read_text(), "")
 
     def test_overrides_and_bad_patterns(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -33,16 +33,26 @@
 #        -- env R2_SECTION=p100_fc_only4 bash scripts/expansions/run_r2_swe_never7_adaptive.sh
 #   (4 tasks x 10 runs x 8 cells = 320 runs; this section raises the limits to
 #   400 steps / 7200 s per run, the other sections keep the runner's 300 / 5400)
+# Uniform orders on tasks the model usually resolves under the fixed primitive:
+# R2_SECTION=p100_su_free_majority runs sss only (SU-free at every compression
+# event, through the adaptive condition) on the first N_TASKS (default 5) of
+# task_lists/swe_verified/p100_qwen35b_su-free_majority_resolved.json, and
+# R2_SECTION=p100_tr_majority runs ttt only on the first N_TASKS (default 5) of
+# task_lists/swe_verified/p100_qwen35b_tr_majority_resolved.json, each into
+# data/r2/swebench/<section>/<R2_MODEL>/ at the runner's default limits;
+# scripts/expansions/run_r2_swe_majority_uniform.sh chains the two.
 # One pattern only:
 #   PATTERNS=tss bash scripts/expansions/run_r2_swe_never7_adaptive.sh
 # Smoke test (1 task x 1 pattern x 1 run into a throwaway model dir; delete it afterwards —
 # "-smoke" model dirs are ignored by build_coverage.py and aggregate_benchmark_results.py):
 #   N_TASKS=1 RUNS_PER_TASK=1 MAX_WORKERS=1 PATTERNS=sts RUN_EVAL=0 \
 #     R2_MODEL=qwen35b-smoke bash scripts/expansions/run_r2_swe_never7_adaptive.sh
-# Overrides: R2_SECTION (p30s_never7 | p100_minus_p30s_never13 | p100_fc_only4;
-#   also picks the default TASKS_FILE, RUNS_PER_TASK, PATTERNS, STEP_LIMIT and
-#   AGENT_TIMEOUT), STEP_LIMIT (LLM calls per run), AGENT_TIMEOUT (seconds), R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
-#   TASKS_FILE), TASKS_FILE, SCHEDULE_DIR, PATTERNS, QWEN_AGENT_CONFIG,
+# Overrides: R2_SECTION (p30s_never7 | p100_minus_p30s_never13 | p100_fc_only4 |
+#   p100_su_free_majority | p100_tr_majority; also picks the default TASKS_FILE,
+#   RUNS_PER_TASK, PATTERNS, N_TASKS, STEP_LIMIT and AGENT_TIMEOUT), STEP_LIMIT
+#   (LLM calls per run), AGENT_TIMEOUT (seconds), R2_MODEL, RUNS_PER_TASK,
+#   MAX_WORKERS, N_TASKS (first N tasks of TASKS_FILE; N_TASKS=all for every
+#   task in the majority sections), TASKS_FILE, SCHEDULE_DIR, PATTERNS, QWEN_AGENT_CONFIG,
 #   QWEN_OTRC_CONFIG, QWEN_TAG, RUN_EVAL, QWEN_HEALTH_URL.
 # Completed task/run keys are skipped on rerun; a different schedule in an
 # existing cell is refused by the runner (use a new cell or model dir).
@@ -63,6 +73,7 @@ DEFAULT_RUNS=3
 DEFAULT_PATTERNS="tts tst tss stt sts sst"
 DEFAULT_STEP_LIMIT=""      # empty = the runner's default (300 steps / 5400 s)
 DEFAULT_AGENT_TIMEOUT=""
+DEFAULT_N_TASKS=""         # empty = every task in TASKS_FILE
 case "$R2_SECTION" in
     p30s_never7)             DEFAULT_TASKS="p30s_qwen35b_never_resolved.json" ;;
     p100_minus_p30s_never13) DEFAULT_TASKS="p100_minus_p30s_qwen35b_never_resolved.json" ;;
@@ -71,7 +82,13 @@ case "$R2_SECTION" in
                              DEFAULT_STEP_LIMIT=400
                              DEFAULT_AGENT_TIMEOUT=7200
                              DEFAULT_PATTERNS="ttt $DEFAULT_PATTERNS sss" ;;
-    *) echo "[ERROR] unknown R2_SECTION '$R2_SECTION'; use p30s_never7 | p100_minus_p30s_never13 | p100_fc_only4" >&2; exit 1 ;;
+    p100_su_free_majority)   DEFAULT_TASKS="p100_qwen35b_su-free_majority_resolved.json"
+                             DEFAULT_PATTERNS="sss"
+                             DEFAULT_N_TASKS=5 ;;
+    p100_tr_majority)        DEFAULT_TASKS="p100_qwen35b_tr_majority_resolved.json"
+                             DEFAULT_PATTERNS="ttt"
+                             DEFAULT_N_TASKS=5 ;;
+    *) echo "[ERROR] unknown R2_SECTION '$R2_SECTION'; use p30s_never7 | p100_minus_p30s_never13 | p100_fc_only4 | p100_su_free_majority | p100_tr_majority" >&2; exit 1 ;;
 esac
 TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/$DEFAULT_TASKS}"
 SCHEDULE_DIR="${SCHEDULE_DIR:-$WS/configs/adaptive/never7_prefix3}"
@@ -79,7 +96,8 @@ R2_MODEL="${R2_MODEL:-qwen35b}"                     # lowercase/digits/hyphens
 RUNS_PER_TASK="${RUNS_PER_TASK:-$DEFAULT_RUNS}"          # override: RUNS_PER_TASK=<n> bash ...
 MAX_WORKERS="${MAX_WORKERS:-16}"
 RUN_EVAL="${RUN_EVAL:-1}"
-N_TASKS="${N_TASKS:-}"          # empty = every task in TASKS_FILE
+N_TASKS="${N_TASKS:-$DEFAULT_N_TASKS}"   # empty or "all" = every task in TASKS_FILE
+[[ "$N_TASKS" == all ]] && N_TASKS=""
 PATTERNS="${PATTERNS:-$DEFAULT_PATTERNS}"
 STEP_LIMIT="${STEP_LIMIT:-$DEFAULT_STEP_LIMIT}"            # max LLM calls per run
 AGENT_TIMEOUT="${AGENT_TIMEOUT:-$DEFAULT_AGENT_TIMEOUT}"   # wall-clock seconds per run

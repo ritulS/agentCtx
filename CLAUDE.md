@@ -74,8 +74,11 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   are `p30s`, `p30s_never7`, `p100_minus_p30s` (the 70 P100 tasks outside
   P30S), `p100_minus_p30s_never13` (its 13 never-resolved tasks; the
   never-resolved lists come from `scripts/maintenance/never_resolved_tasks.py`)
-  and `p100_fc_only4` (the 4 P100 tasks resolved under full context but never
-  under fixed TR or SU-free),
+  `p100_fc_only4` (the 4 P100 tasks resolved under full context but never
+  under fixed TR or SU-free) and `p100_su_free_majority` / `p100_tr_majority`
+  (tasks resolved in ≥2 of 3 fixed SU-free / TR runs, from
+  `scripts/maintenance/majority_resolved_tasks.py`; uniform `sss` / `ttt`
+  adaptive cells via `scripts/expansions/run_r2_swe_majority_uniform.sh`),
   and r2 alone accepts `adaptive-<tag>` cells
   (schedule-driven primitive order; see `src/agentctx/compression/ADAPTIVE.md`). Launchers are grouped under
   `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see

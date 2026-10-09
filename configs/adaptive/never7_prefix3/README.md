@@ -29,6 +29,15 @@ That section also raises the per-run limits to 400 steps / 7200 s (runner
 default 300 / 5400), so its cells are not comparable run-for-run with the
 fixed cells of `p30s` / `p100_minus_p30s`.
 
+`sss` and `ttt` also serve the `p100_su_free_majority` / `p100_tr_majority`
+sections (`scripts/expansions/run_r2_swe_majority_uniform.sh`, or the same
+launcher with that `R2_SECTION`): SU-free at every compression event on the
+tasks the model resolved in at least 2 of 3 fixed SU-free runs
+(`task_lists/swe_verified/p100_qwen35b_su-free_majority_resolved.json`), and TR
+at every event on the fixed-TR counterpart
+(`p100_qwen35b_tr_majority_resolved.json`), first 5 tasks of each list by
+default, at the runner's default limits.
+
 Why a prefix of 3: on these tasks SU-free fired 3.1 times per run on average
 (median 3, max 11) and TR 5.5 (median 4, max 15), so the six schedules here
 enumerate every TR/SU-free path through the events most runs actually have.
