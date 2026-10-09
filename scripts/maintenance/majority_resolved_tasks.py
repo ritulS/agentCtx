@@ -10,11 +10,16 @@ evaluated runs in that cell resolved at least ``--min-resolved`` times (default
 
 The output follows the ``task_lists/swe_verified/`` schema (``instance_id``,
 ``repo``, ``difficulty``), in the order of ``--order`` (default: P100 order)
-and falls back to sorted ids for tasks outside that list.
+and falls back to sorted ids for tasks outside that list. With ``--interleave``
+the list is reordered so that a prefix is a mixed sample: tasks that were not
+resolved in every run alternate with the always-resolved ones (starting with the
+former), and each of the two groups cycles through the difficulty levels
+(easiest first for the former, hardest first for the latter), keeping the
+``--order`` order inside a level.
 
     venv/bin/python scripts/maintenance/majority_resolved_tasks.py \\
         data/r2/swebench/p30s/qwen35b data/r2/swebench/p100_minus_p30s/qwen35b \\
-        --cell d05__b15k__tr \\
+        --cell d05__b15k__tr --interleave \\
         -o task_lists/swe_verified/p100_qwen35b_tr_majority_resolved.json
 
 This is how ``p100_qwen35b_tr_majority_resolved.json`` (cell ``d05__b15k__tr``)
@@ -33,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from never_resolved_tasks import difficulties, load_rows  # noqa: E402
 
 P100 = Path(__file__).resolve().parents[2] / "task_lists" / "swe_verified" / "p100_all_100_tasks.json"
+DIFFICULTY_ORDER = ["<15 min fix", "15 min - 1 hour", "1-4 hours", ">4 hours"]
 
 
 def majority_resolved(model_dirs: list[Path], cell: str, min_runs: int, min_resolved: int) -> tuple[list[str], dict]:
@@ -48,6 +54,29 @@ def majority_resolved(model_dirs: list[Path], cell: str, min_runs: int, min_reso
     return hits, verdicts
 
 
+def cycle_difficulty(tasks: list[str], diff: dict[str, str], hardest_first: bool) -> list[str]:
+    """Round-robin over the difficulty levels, keeping the input order inside a level."""
+    rank = {d: i for i, d in enumerate(DIFFICULTY_ORDER)}
+    buckets: dict[int, list[str]] = collections.defaultdict(list)
+    for task in tasks:
+        buckets[rank.get(diff.get(task), len(rank))].append(task)
+    queues = [collections.deque(buckets[k]) for k in sorted(buckets, reverse=hardest_first)]
+    out = []
+    while any(queues):
+        out.extend(q.popleft() for q in queues if q)
+    return out
+
+
+def interleave(hits: list[str], verdicts: dict, diff: dict[str, str]) -> list[str]:
+    """Alternate the not-always-resolved tasks with the always-resolved ones."""
+    partial = cycle_difficulty([t for t in hits if not all(verdicts[t])], diff, hardest_first=False)
+    unanimous = cycle_difficulty([t for t in hits if all(verdicts[t])], diff, hardest_first=True)
+    out = []
+    for i in range(max(len(partial), len(unanimous))):
+        out.extend(group[i] for group in (partial, unanimous) if i < len(group))
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("model_dirs", nargs="+", type=Path, help="e.g. data/r2/swebench/p30s/qwen35b data/r2/swebench/p100_minus_p30s/qwen35b")
@@ -55,6 +84,8 @@ def main() -> None:
     ap.add_argument("--min-runs", type=int, default=3, help="evaluated runs required per task")
     ap.add_argument("--min-resolved", type=int, default=2, help="resolved runs required per task")
     ap.add_argument("--order", type=Path, default=P100, help="task list giving the output order (default: P100)")
+    ap.add_argument("--interleave", action="store_true",
+                    help="alternate not-always-resolved and always-resolved tasks, cycling through difficulty levels")
     ap.add_argument("--no-difficulty", action="store_true", help="do not look up difficulty in SWE-bench Verified")
     ap.add_argument("-o", "--output", type=Path, help="write the task list JSON here (stdout otherwise)")
     args = ap.parse_args()
@@ -65,6 +96,8 @@ def main() -> None:
     hits.sort(key=lambda t: (rank.get(t, len(rank)), t))
 
     diff = {} if args.no_difficulty else difficulties(hits)
+    if args.interleave:
+        hits = interleave(hits, verdicts, diff)
     entries = []
     for task in hits:
         entry = {"instance_id": task, "repo": task.split("__")[0]}
