@@ -36,6 +36,27 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — r2 majority-uniform chain: SU-free majority (sss) → TR majority (ttt) (SWE-bench) — Albus
+- **Status:** 🔄 RUNNING — relaunched 2026-10-08 23:32:48 CDT on Albus (notify_run wrapper PID 571991,
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_uniform/qwen35b -- bash scripts/expansions/run_r2_swe_majority_uniform.sh`;
+  vLLM PID 2939238 on 8 GPUs / TP=8, 8 workers, first 5 tasks × 15 runs per section, 300 steps / 5400 s per run).
+  Stop with `kill 571991`. Task lists are in the interleaved order of commit 3823293 (merged as fb2a673).
+- **SU-free section** (`data/r2/swebench/p100_su_free_majority/qwen35b/d05__b15k__adaptive-prefix3-sss`): new
+  first 5 = django-11299, sklearn-25102, sklearn-10908, django-11292, sklearn-11310. The two django tasks were
+  already run by the first launch and are skipped (their 16 unevaluated runs are evaluated by this launch); the
+  three scikit-learn tasks are new (45 runs). At 2026-10-09 00:27: 9/45 new runs done, all Submitted, 1-7
+  compression events each.
+- **TR section** (`p100_tr_majority`, 75 runs): starts after the SU-free cell is evaluated.
+- **First launch (2026-10-08 18:54:53, wrapper PID 2989424), stopped:** ran the P100-ordered first 5
+  (django-11066, -11292, -11299, -13012, -14580): 75/75 agent runs by 22:29:26 (70 Submitted, 4 Timeout,
+  1 LimitsExceeded); its evaluation stopped at ~23:24 with 29/75 verdicts (all resolved) and the TR section never
+  started. The cause of the stop is not in the log. Those rows stay in the same cell; django-11066, -13012 and
+  -14580 (45 runs, 30 unevaluated) are outside the new first 5 and are not evaluated by the relaunch.
+- **Logs:** `logs/experiments/r2_swebench_majority_uniform_qwen35b_20261008_233248.log` (current; the runner's
+  per-run lines reach it in 8 KB blocks, so `experiment_results.json` is the live progress),
+  `..._20261008_185453.log` (first launch), `..._20261008_184954.log` (exited at once: the `--lock` name passed
+  to notify_run collided with the chain's own lock).
+
 ### Qwen3.5-35B-A3B — r2 P100-minus-P30S chain: fc → tr → su-free → trc (SWE-bench) — this host
 - **Status:** ✅ COMPLETE — launched 2026-10-01 01:40:31 CDT; all four cells run and evaluated by
   **2026-10-02 17:24:19 CDT** (840/840 rows, every verdict populated). No experiment process remains;
