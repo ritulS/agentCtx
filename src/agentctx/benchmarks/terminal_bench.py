@@ -11,8 +11,10 @@ from typing import Callable, Any
 
 import yaml
 
+from agentctx import resource_monitor
 from .harbor_results import normalize_trial
 from .results import run_key
+from agentctx.compression.selection import condition_environment, prepare_run
 from .tb_verdict import (
     needs_rerun,
     retry_exceptions_from_env,
@@ -121,6 +123,8 @@ class TerminalBench:
         compression_ratio: float,
     ) -> list[dict]:
         """Run one Harbor batch for each condition and repetition."""
+        # Repeat runner validation intentionally: adapters may also be called directly.
+        prepare_run(conditions, existing_results, self.results_dir)
         del step_limit, agent_timeout  # Terminal-Bench prompt/Harbor own these limits.
         self._validate_runtime(agent_config)
         model_name, api_base = self._load_model_config(agent_config)
@@ -163,7 +167,7 @@ class TerminalBench:
                         model_name=model_name,
                         api_base=api_base,
                         n_concurrent=max_workers,
-                        compression_ratio=compression_ratio,
+                        compression_ratio=condition.get("depth", compression_ratio),
                         attempt=attempt,
                     )
                     for row in rows:
@@ -298,13 +302,14 @@ class TerminalBench:
                 str(self.workspace_root / "mini-swe-agent" / "src"),
             )),
             "MSWEA_PRIMITIVE": str(condition["primitive"]),
-            "MSWEA_TOKEN_BUDGET": str(condition["budget"]),
+            "MSWEA_TOKEN_BUDGET": "" if condition["budget"] is None else str(condition["budget"]),
             "MSWEA_COMPRESSION_RATIO": str(compression_ratio),
             "MSWEA_COST_TRACKING": "ignore_errors",
             "MSWEA_TB_CONFIGS": os.pathsep.join(config_specs),
             "OPENAI_BASE_URL": api_base,
             "OPENAI_API_BASE": api_base,
         })
+        env = condition_environment(env, condition, self.results_dir)
         env.setdefault("MSWEA_API_KEY", "EMPTY")
 
         command = [
@@ -396,6 +401,10 @@ class TerminalBench:
             self._normalize_trial(path.parent, condition, run_num, compression_ratio)
             for path in selected.values()
         ]
+        # This adapter does not start the periodic physical-resource sampler.
+        for row in rows:
+            row.update(resource_monitor.configuration(env, supported=False))
+            row["resource_monitoring_started"] = False
         missing = sorted(set(task_names) - set(selected))
         if missing:
             print(

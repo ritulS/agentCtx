@@ -24,13 +24,13 @@ from agentctx.experiments import runner  # noqa: E402
 class AblationLaunchTests(unittest.TestCase):
     def test_all_model_launches_select_abl25(self):
         ids = lambda name: {r['instance_id'] for r in json.loads((ROOT / 'task_lists' / name).read_text())}
-        selected = ids('ablation_25tasks.json')
+        selected = ids('swe_verified/ablation_25tasks.json')
         self.assertEqual(len(selected), 25)
         self.assertLess(selected, ids('ablation_30tasks.json'))
         with tempfile.TemporaryDirectory() as tmp:
             ws = Path(tmp)
-            for name in ['scripts/run_experiment_iclr.py', 'task_lists/p100_all_100_tasks.json',
-                         'task_lists/ablation_25tasks.json', 'configs/config-devstral-vllm.yaml',
+            for name in ['scripts/run_experiment_iclr.py', 'task_lists/swe_verified/p100_all_100_tasks.json',
+                         'task_lists/swe_verified/ablation_25tasks.json', 'configs/config-devstral-vllm.yaml',
                          'configs/config-glm47flash-vllm.yaml', 'configs/config-qwen-vllm.yaml',
                          'configs/config-online-trc.yaml']:
                 p = ws / name

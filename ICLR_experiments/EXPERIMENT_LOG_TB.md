@@ -387,8 +387,8 @@ and archived for re-execution:
 
 | Model | Withdrawn from | Archived results | Archive directory / notes |
 |---|---|---|---|
-| Devstral | 2026-09-05 14:56:30 | 680 task-condition-run results | [archives/devstral_since_20260905_145630_CDT](../archives/devstral_since_20260905_145630_CDT/README.md) |
-| GLM | 2026-09-05 14:57:12 | 240 results + 11 unaggregated trials | [archives/glm_since_20260905_145712_CDT](../archives/glm_since_20260905_145712_CDT/README.md) |
+| Devstral | 2026-09-05 14:56:30 | 680 task-condition-run results | [archive_provenance/devstral_since_20260905_145630_CDT](archive_provenance/devstral_since_20260905_145630_CDT/README.md) |
+| GLM | 2026-09-05 14:57:12 | 240 results + 11 unaggregated trials | [archive_provenance/glm_since_20260905_145712_CDT](archive_provenance/glm_since_20260905_145712_CDT/README.md) |
 
 Both Main launchers restarted at **2026-09-06 14:46:19**, with the corrected
 assignment **Devstral 4–7 / GLM 0–3**:
@@ -449,7 +449,7 @@ Only `summary_marker_error` results were archived;
 in this rerun selection.
 
 For the affected cells, selection lists, archive operations, and detailed
-status, see [Summary-bug rerun: tooling and archive log](../archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md).
+status, see [Summary-bug rerun: tooling and archive log](archive_provenance/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md).
 
 <a id="main-completion"></a>
 
@@ -469,9 +469,9 @@ remaining reasons were archived for rerun: `summary_failure_accounting`,
 
 | Archive (2026-09-08 19:14 CDT) | Runs | Cells | Result rows |
 |---|---:|---:|---|
-| `archives/devstral24b_summary_bug_rerun2_20260908_191403_CDT` | 407 | 8 | 960 → 553 |
-| `archives/glm47flash_summary_bug_rerun2_20260908_191403_CDT` | 407 | 6 | 698 → 291 |
-| `archives/qwen35b_summary_bug_rerun2_20260908_191404_CDT` (main + ablation) | 577 | 16 | 1,148 → 571 |
+| `archive_provenance/devstral24b_summary_bug_rerun2_20260908_191403_CDT` | 407 | 8 | 960 → 553 |
+| `archive_provenance/glm47flash_summary_bug_rerun2_20260908_191403_CDT` | 407 | 6 | 698 → 291 |
+| `archive_provenance/qwen35b_summary_bug_rerun2_20260908_191404_CDT` (main + ablation) | 577 | 16 | 1,148 → 571 |
 
 Code: **`26d5fbc`** (`fix: expand TB summary-bug rerun candidates and archive
 targets`, 2026-09-08 19:21); `archive_rerun_targets.py` unchanged since
@@ -479,7 +479,7 @@ targets`, 2026-09-08 19:21); `archive_rerun_targets.py` unchanged since
 
 ```bash
 cd /home/ak58925/agentCtx
-T=archives/summary_bug_rerun_tooling_20260907_175359_CDT
+T=archive_provenance/summary_bug_rerun_tooling_20260907_175359_CDT
 python3 $T/scripts/append_rerun_additions.py --rerun-list $T/rerun_list/rerun_runs.csv \
   --additions $T/erasure-terminalbench/rerun_runs_tb_additions.csv --label tb-erasure
 for c in devstral24b glm47flash qwen35b; do

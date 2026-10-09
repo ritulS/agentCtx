@@ -221,12 +221,12 @@ class Sandbox:
         assert len(found) == 1, f"{self.tree.label}: expected exactly one scripts/**/{name}, found {found}"
         return found[0]
 
-    def run(self, argv: list[str], *, timeout: int = 300) -> CommandResult:
+    def run(self, argv: list[str], *, timeout: int = 300, extra_env: dict[str, str] | None = None) -> CommandResult:
         """Run ``scripts/**/<argv[0]>`` with the remaining arguments, cwd at the root."""
         completed = subprocess.run(
             [self.python, str(self.script(argv[0])), *argv[1:]],
             cwd=self.root,
-            env=runner_environment(),
+            env={**runner_environment(), **(extra_env or {})},
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -242,9 +242,13 @@ def runner_environment() -> dict[str, str]:
     ``PYTHONPATH`` is deliberately absent so the runner's "extend an existing
     PYTHONPATH" branch behaves identically; ``PYTHONHASHSEED`` pins set
     iteration order in error messages that print sets. No ``MSWEA_*`` or
-    ``TB_*`` variable leaks in from the developer's shell.
+    ``TB_*`` variable leaks in from the developer's shell. The working tree's
+    physical-resource sampler (``resource_log.jsonl`` + ``peak_*`` row fields,
+    a post-reorganization addition) is switched off so both sides write the
+    same files; ``test_current_runner_records_resource_usage`` covers it.
     """
     return {
+        "AGENTCTX_RESOURCE_MONITOR": "0",
         "PATH": os.pathsep.join((str(FAKES_DIR / "bin"), os.environ.get("PATH", ""))),
         "HOME": os.environ.get("HOME", str(Path.home())),
         "LANG": "C.UTF-8",
@@ -373,10 +377,17 @@ INTENTIONAL_TEXT_REWRITES = (
     ("ICLR_results/", "ICLR_experiments/"),
 )
 INTENTIONAL_PYTHONPATH_ENTRIES = ("<WS>/src",)
+# Monitoring provenance is a deliberate addition, asserted on raw artifacts in
+# test_current_runner_records_resource_usage / test_monitoring_settings_survive_resume.
+MONITORING_METADATA_KEYS = {
+    "resource_monitoring_supported", "resource_monitoring_enabled",
+    "resource_monitoring_started", "resource_sample_interval_s",
+}
 
 
 def normalize_text(text: str, root: Path) -> str:
     text = text.replace(str(root), "<WS>")
+    text = re.sub(r"^\| Resource (?:monitoring supported|monitoring enabled|sample interval) \|.*\n", "", text, flags=re.MULTILINE)
     text = _HARBOR_JOB_TS.sub(r"\1<TS>", text)
     text = _E2E.sub("e2e=<T>s", text)
     text = _PROGRESS.sub(r"[<N>/\1]", text)
@@ -389,6 +400,8 @@ def normalize_json(value, root: Path):
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
+            if key in MONITORING_METADATA_KEYS:
+                continue
             if key in VOLATILE_KEYS:
                 out[key] = VOLATILE_KEYS[key]
             elif key == "PYTHONPATH" and isinstance(item, str):

@@ -19,6 +19,9 @@ set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
+reasoning_parser_args qwen3
 
 PORT=8002
 MODEL="Qwen/Qwen3.5-35B-A3B"
@@ -46,9 +49,12 @@ if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     exit 1
 fi
 
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model "$MODEL" \
+    "${REASONING_ARGS[@]}" \
     --served-model-name Qwen/Qwen3.5-35B-A3B \
     --port "$PORT" \
     --dtype auto \
@@ -72,6 +78,7 @@ fi
 
 echo "[$(date)] vLLM Qwen3.5-35B-A3B (--no-enable-prefix-caching) launched as PID $VLLM_PID on GPUs $CUDA_DEVICES, port $PORT"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "Follow startup with:"

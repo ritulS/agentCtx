@@ -182,10 +182,22 @@ class CheckpointAgent(DefaultAgent):
 
     def checkpoint(self) -> None:
         path = self.config.output_path
+        # Every persistence path ends here, including save() in query()'s
+        # finally after a summarizer query raised mid-event. DefaultAgent only
+        # salvages that event's partial outcome (summarizer response ids so
+        # far) inside _write_token_log(), which this class bypasses, so do it
+        # before serializing. No-op when no compression event is in progress.
+        self._salvage_interrupted_summary(memory)
         write_json(path.parent / "worker_checkpoint.json", {
             "n_calls": self.n_calls,
             "token_log": memory.token_log_dict(self),
         })
+
+    def _write_token_log(self) -> None:
+        # DefaultAgent flushes here after compression, before model.query().
+        # Harbor has no MSWEA_TOKEN_LOG_PATH: persist to this trial's checkpoint
+        # so its parent can recover the new stats even if inference is killed.
+        self.checkpoint()
 
     def query(self) -> dict:
         # Save the initial state too, in case the first model call hangs.

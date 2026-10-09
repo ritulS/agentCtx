@@ -8,13 +8,18 @@ operational launchers.
 | --- | --- |
 | `run_experiment.py` | General SWE-Bench / Terminal-Bench experiment CLI (`agentctx.experiments.runner`). |
 | `run_experiment_iclr.py` | Run a cell in the canonical ICLR results tree (`agentctx.experiments.iclr`). |
+| `run_experiment_r2.py` | Same, for the r2 extension campaign: writes to `data/r2/<benchmark>/<section>/<model>/<cell>/` (`agentctx.experiments.r2`). |
 | `swebench_eval_wrapper.py` | SWE-bench harness wrapper the SWE-bench adapter launches for evaluation (thread cap inside eval containers). |
 | `notify_run.sh` | Run any launcher with Slack start / completion / failure notices (see below). |
 | `calibration/` | Collect full-context trajectories and calibrate token budgets. |
+| `expansions/run_r2_swe_p30s.sh` | r2 campaign on the P30S cohort with Qwen3.5-35B-A3B, into `data/r2/swebench/p30s/<model>/<cell>`; the first argument picks a preset (`free` = `di__b15k__{su-free,ss-free}`, default; `su-free`, `ss-free`, `fc`, `otrc`, `baselines`), `CELLS` and `RUNS_PER_TASK` override. `R2_SECTION=p100_minus_p30s` runs the other 70 P100 tasks (`task_lists/swe_verified/p100_minus_p30s.json`) into `data/r2/swebench/p100_minus_p30s/<model>/<cell>` instead. |
+| `expansions/run_r2_swe_never7_adaptive.sh` | r2 adaptive primitive-order cells on the 7 P30S tasks Qwen3.5-35B-A3B never resolved, into `data/r2/swebench/p30s_never7/<model>/d05__b15k__adaptive-prefix3-<pattern>`; one cell per `PATTERNS` entry (default `tts tst tss stt sts sst` = the primitive at compression events 1-3, `t` TR / `s` SU-free, last held), schedules in `configs/adaptive/never7_prefix3/`. `R2_SECTION=p100_minus_p30s_never13` runs the same six cells on the 13 P100-minus-P30S tasks the model never resolved (`task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json`) into `data/r2/swebench/p100_minus_p30s_never13/<model>/...` instead. `R2_SECTION=p100_fc_only4` runs all eight orders (the six plus `ttt` / `sss`) at 10 runs per task on the 4 P100 tasks resolved under full context but never under fixed TR or SU-free (`task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json`) into `data/r2/swebench/p100_fc_only4/<model>/...`. |
 | `expansions/` | Launch model grids, additional repetitions and the summarizer / prefix-cache ablations. |
 | `serving/` | Start and stop model-specific vLLM servers. |
 | `harbor/` | Prebuild Terminal-Bench images, configure Harbor tasks, check worker cancellation. |
 | `maintenance/` | Audit, re-evaluate, repair and archive existing results. |
+| `maintenance/never_resolved_tasks.py` | Lists the tasks with no resolved run across a set of cells of one model dir (e.g. `data/r2/swebench/p100_minus_p30s/qwen35b`) in the `task_lists/swe_verified/` schema, with difficulty from the cached SWE-bench Verified dataset; produced `p30s_qwen35b_never_resolved.json` (7) and `p100_minus_p30s_qwen35b_never_resolved.json` (13). |
+| `maintenance/majority_resolved_tasks.py` | The complement: lists the tasks resolved in at least `--min-resolved` (default 2) of `--min-runs` (default 3) evaluated runs of one `--cell` across one or more model dirs (e.g. the r2 `p30s` and `p100_minus_p30s` sections together), in P100 order with difficulty (`--interleave` instead alternates the not-always-resolved tasks with the always-resolved ones, cycling through the difficulty levels); produced, with `--interleave`, `p100_qwen35b_tr_majority_resolved.json` (53) and `p100_qwen35b_su-free_majority_resolved.json` (55). |
 
 ## Calibration
 

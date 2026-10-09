@@ -70,6 +70,7 @@ Per-model serving configs live in [configs/](configs/).
 | `dashboard/build_coverage.py` | Regenerates the coverage CSVs from experiment results. |
 | `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
 | `scripts/run_experiment_iclr.py` | Wraps the runner to write into the canonical `ICLR_experiments/` tree (`src/agentctx/experiments/iclr.py`). |
+| `scripts/run_experiment_r2.py` | Same wrapper for the r2 extension campaign; writes into `data/r2/` with the ICLR `<benchmark>/<section>/<model>/<cell>` layout (`src/agentctx/experiments/r2.py`). |
 | `src/agentctx/benchmarks/` | Per-benchmark adapters (SWE-bench, Terminal-Bench through Harbor), verdict handling and shared result conversion. |
 | `src/agentctx/__init__.py` | `WORKSPACE_ROOT` and the shared `INFINITE_BUDGET` sentinel used by uncompressed baselines. |
 | `scripts/{calibration,expansions,serving,harbor,maintenance}/` | Launchers and operational tools; see [scripts/README.md](scripts/README.md). |
@@ -78,6 +79,18 @@ Per-model serving configs live in [configs/](configs/).
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
 | `ICLR_experiments/`, `analysis/` | Canonical ICLR run data, the experiment plan/grid and logs (`FOLLOWUP_EXPERIMENTS.md`, `EXPERIMENT_LOG*.md`), and per-run outcome aggregation. |
+
+The current TRC contract (K=3, clear all older results, then truncate complete
+turns only to the budget) and its measurements are documented in
+[src/agentctx/compression/README.md](src/agentctx/compression/README.md).
+
+Per-step exclusive/shared KV cache memory can be collected with the opt-in
+vLLM scheduler tracer; see [setup and export instructions](src/agentctx/KV_CACHE_TRACE.md).
+
+Adaptive runs can change primitive, trigger (token budget or OTRC step interval),
+and depth using a Python callback or JSON schedule. The generic runner accepts
+`--adaptive-schedule` or `--adaptive-policy` for a dedicated `adaptive` condition;
+fixed conditions and baselines ignore ambient adaptive options. See the [adaptive API and examples](src/agentctx/compression/ADAPTIVE.md).
 
 ## Data
 
@@ -139,7 +152,7 @@ then republish the dashboard to keep the link current.
 ```bash
 source venv/bin/activate
 python scripts/run_experiment.py --ablation <name> --budget 15000 \
-    --tasks-file task_lists/p100_all_100_tasks.json
+    --tasks-file task_lists/swe_verified/p100_all_100_tasks.json
 ```
 
 Update `Active_runs.md` on every launch/kill/completion.

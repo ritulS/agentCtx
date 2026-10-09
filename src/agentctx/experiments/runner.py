@@ -38,9 +38,10 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT
+from agentctx import INFINITE_BUDGET, WORKSPACE_ROOT, resource_monitor
 from agentctx.benchmarks import BENCHMARKS, create_benchmark
 from agentctx.experiments.conditions import default_conditions
+from agentctx.compression.selection import build_selection, prepare_run, selection_metadata
 from agentctx.summary_config import summary_model_info
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -67,8 +68,12 @@ N_TASKS            = 100   # total tasks (~33 per repo); overridden by --n-tasks
 N_TASKS_OVERRIDE: int | None = None  # set by --n-tasks; slices ablation task lists too
 RUNS_PER_TASK      = 2
 COMPRESSION_RATIO  = 0.5   # fraction of budget retained after compression; overridden by --depth
-STEP_LIMIT    = 125
-AGENT_TIMEOUT = 1500  # 25 min; 125 steps × ~10s/step + headroom
+# SWE-bench per-run limits (r2 campaign values; iclr26 ran 125 steps / 1500 s).
+# The 2026-09-08 audit found 152/645 runs killed by the 1500 s limit, almost
+# all of it LLM latency, so the timeout scales with the step limit at ~18 s/step.
+# Override per launch with --step-limit / --agent-timeout.
+STEP_LIMIT    = 300
+AGENT_TIMEOUT = 5400  # 90 min; 300 steps × ~18 s/step
 MAX_WORKERS   = 16    # concurrent runs against the shared vLLM server (override with --max-workers)
 
 # Selected in main(). All benchmark-specific operations go through this adapter.
@@ -105,7 +110,11 @@ def save_results(results: list[dict]) -> None:
 
 # ── Run metadata ───────────────────────────────────────────────────────────────
 
-def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budget: int) -> None:
+def _format_budget(budget: int | None, suffix: str = "") -> str:
+    return "no token budget" if budget is None else f"{budget:,}{suffix}"
+
+
+def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budget: int | None) -> None:
     """Write run_info.json and run_info.md into the results directory."""
     run_dir = model_results_dir()
     # Extract model name from config yaml if present, else fall back to stem
@@ -123,6 +132,7 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
     )
 
     info = {
+        **resource_monitor.configuration(supported=BENCHMARK.name == "swe-bench"),
         "benchmark":    BENCHMARK.name,
         "run_tag":      MODEL_TAG,
         "model":        _model_name,
@@ -137,11 +147,16 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
         "n_conditions": len(conditions),
         "total_runs":   total_runs,
         "step_limit":   STEP_LIMIT,
+        "agent_timeout_s": AGENT_TIMEOUT,
         "started":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
+    adaptive = {c["condition"]: selection_metadata(c["adaptive"])
+                for c in conditions if c.get("adaptive") is not None}
+    if adaptive:
+        info["adaptive_conditions"] = adaptive
     (run_dir / "run_info.json").write_text(json.dumps(info, indent=2))
 
-    cond_list = "\n".join(f"- {c['condition']} (budget={c['budget']:,})" for c in conditions)
+    cond_list = "\n".join(f"- {c['condition']} (budget={_format_budget(c['budget'])})" for c in conditions)
     md = f"""# Run: {MODEL_TAG}
 
 ## Identity
@@ -151,12 +166,16 @@ def _write_run_info(conditions: list[dict], n_tasks: int, total_runs: int, budge
 | Agent config | `{AGENT_CONFIG}` |
 | Summary config | `{_summary_config_label}` |
 | Summary model | `{_summary_model_name}` |
-| Budget | {budget:,} tokens (context window threshold) |
+| Budget | {_format_budget(budget, ' tokens (context window threshold)')} |
 | Tasks | {n_tasks} |
 | Conditions | {len(conditions)} |
 | Runs per task | {RUNS_PER_TASK} |
 | Total runs | {total_runs} |
 | Step limit | {STEP_LIMIT} LLM calls per run |
+| Agent timeout | {AGENT_TIMEOUT} s per run |
+| Resource monitoring supported | {info['resource_monitoring_supported']} |
+| Resource monitoring enabled | {info['resource_monitoring_enabled']} |
+| Resource sample interval | {"n/a" if info['resource_sample_interval_s'] is None else f"{info['resource_sample_interval_s']} s (configured)"} |
 | Started | {info['started']} |
 
 ## Conditions
@@ -181,6 +200,7 @@ results/{MODEL_TAG}/
 
 def main() -> None:
     global MODEL_TAG, AGENT_CONFIG, N_TASKS, N_TASKS_OVERRIDE, MAX_WORKERS, RUNS_PER_TASK, BENCHMARK
+    global STEP_LIMIT, AGENT_TIMEOUT
 
     parser = argparse.ArgumentParser(description="Experiment runner")
     parser.add_argument("--benchmark", choices=sorted(BENCHMARKS), default="swe-bench",
@@ -199,7 +219,7 @@ def main() -> None:
                              "default is configs/config-online-trc.yaml which targets Qwen port 8000.")
     parser.add_argument("--summary-config", default=None, metavar="YAML",
                         help="Config YAML whose `model:` section is used for the summarization "
-                             "LLM call (SU-full, SU-partial, SS, SS-partial, and their OTRC/TRC-stacked "
+                             "LLM call (SU-full, SU-partial, SU-free, SS, SS-partial, SS-free, and their OTRC/TRC-stacked "
                              "variants). Default: the agent model itself. Exported to the agent as "
                              "MSWEA_SUMMARY_MODEL_CONFIG. Use a dedicated --ablation name so runs "
                              "are not deduplicated against same-model results.")
@@ -219,10 +239,23 @@ def main() -> None:
                         help=f"Override runs per (task, condition) (default: {RUNS_PER_TASK}). "
                              "Existing runs already recorded in experiment_results.json are skipped, "
                              "so raising this resumes by adding only the missing run numbers.")
+    parser.add_argument("--step-limit", type=int, default=None,
+                        help=f"Max LLM calls per run (default: {STEP_LIMIT}).")
+    parser.add_argument("--agent-timeout", type=int, default=None, metavar="SECONDS",
+                        help=f"Wall-clock limit per agent run (default: {AGENT_TIMEOUT}).")
     grp = parser.add_mutually_exclusive_group()
     grp.add_argument("--eval-only",  action="store_true")
     grp.add_argument("--with-eval",  action="store_true")
+    adaptive_group = parser.add_mutually_exclusive_group()
+    adaptive_group.add_argument("--adaptive-schedule", metavar="JSON",
+                                help="Run the dedicated adaptive condition from a JSON schedule")
+    adaptive_group.add_argument("--adaptive-policy", metavar="MODULE:FUNCTION",
+                                help="Run the dedicated adaptive condition using a Python policy")
+    parser.add_argument("--adaptive-initial-config", metavar="JSON",
+                        help="Initial CompressionConfig JSON object; required with --adaptive-policy")
     args = parser.parse_args()
+    if args.adaptive_initial_config and not args.adaptive_policy:
+        parser.error("--adaptive-initial-config requires --adaptive-policy")
 
     # Per-run copy: the flags below rewrite budgets, swap configs and filter the
     # list, so the shared definition in conditions.py must not be touched.
@@ -259,6 +292,14 @@ def main() -> None:
         MAX_WORKERS = args.max_workers
     if args.runs_per_task is not None:
         RUNS_PER_TASK = args.runs_per_task
+    if args.step_limit is not None:
+        if args.step_limit <= 0:
+            raise SystemExit("--step-limit must be positive")
+        STEP_LIMIT = args.step_limit
+    if args.agent_timeout is not None:
+        if args.agent_timeout <= 0:
+            raise SystemExit("--agent-timeout must be positive")
+        AGENT_TIMEOUT = args.agent_timeout
     if args.budget is not None:
         for c in conditions:
             if c["budget"] != INFINITE_BUDGET:
@@ -266,6 +307,21 @@ def main() -> None:
     if args.depth is not None:
         global COMPRESSION_RATIO
         COMPRESSION_RATIO = args.depth
+    if args.adaptive_schedule or args.adaptive_policy:
+        try:
+            selection = build_selection(schedule=args.adaptive_schedule, policy=args.adaptive_policy,
+                                        initial=args.adaptive_initial_config)
+        except (OSError, ValueError, TypeError, ImportError) as exc:
+            parser.error(str(exc))
+        spec = selection["spec"]
+        initial = spec["configs"][0] if spec["kind"] == "schedule" else spec["initial"]
+        conditions.append({"condition": "adaptive", "primitive": "adaptive",
+                           "budget": initial["budget"], "depth": initial["depth"],
+                           "adaptive": selection})
+        if args.conditions is None:
+            args.conditions = ["adaptive"]
+        elif "adaptive" not in args.conditions:
+            parser.error("adaptive flags require adaptive in --conditions")
     if args.conditions is not None:
         valid = {c["condition"] for c in conditions}
         unknown = set(args.conditions) - valid
@@ -275,6 +331,9 @@ def main() -> None:
         conditions = [c for c in conditions if c["condition"] in args.conditions]
 
     model_results_dir().mkdir(parents=True, exist_ok=True)
+    if not args.eval_only:
+        # Validate before run_info is overwritten; adapters repeat this for direct callers.
+        prepare_run(conditions, load_existing_results(), model_results_dir())
     BENCHMARK = create_benchmark(
         args.benchmark,
         workspace_root=WORKSPACE_ROOT,
@@ -297,8 +356,9 @@ def main() -> None:
     print(f"  Results dir: {model_results_dir()}")
     print(f"  Tasks      : {len(tasks)}")
     print(f"  Conditions : {[c['condition'] for c in conditions]}")
-    print(f"  Budget     : {budget:,} tokens context window threshold")
+    print(f"  Budget     : {_format_budget(budget, ' tokens context window threshold')}")
     print(f"  Step limit : {STEP_LIMIT}")
+    print(f"  Timeout    : {AGENT_TIMEOUT} s per run")
     print(f"  Runs/config: {RUNS_PER_TASK}")
     print(f"  Total runs : {total}")
     print("=" * 72)

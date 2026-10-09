@@ -54,14 +54,18 @@ class SummaryQueryTests(unittest.TestCase):
         )
 
     def test_all_summary_variants_accept_prose_and_preserve_usage(self):
+        # Since 2026-09-27 a reply is accepted only as a marked block (SU or
+        # SS markers, depending on the variant); the prose goes inside it.
         variants = (
-            memory.summarize,
-            memory.structured_summarize,
-            memory.summarize_partial,
-            memory.structured_summarize_partial,
+            (memory.summarize, memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER),
+            (memory.structured_summarize, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER),
+            (memory.summarize_partial, memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER),
+            (memory.structured_summarize_partial, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER),
+            (memory.summarize_free, memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER),
+            (memory.structured_summarize_free, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER),
         )
         for override in (False, True):
-            for primitive in variants:
+            for primitive, open_marker, close_marker in variants:
                 with self.subTest(override=override, primitive=primitive.__name__):
                     memory._SUMMARY_MODEL = None
                     if override:
@@ -72,8 +76,9 @@ class SummaryQueryTests(unittest.TestCase):
                     else:
                         os.environ.pop("MSWEA_SUMMARY_MODEL_CONFIG", None)
                     prose = "The save call in management.py needs using=db."
+                    reply = f"{open_marker}\n{prose}\n{close_marker}"
                     with patch.object(
-                        LitellmTextbasedModel, "_query", return_value=self.response(prose)
+                        LitellmTextbasedModel, "_query", return_value=self.response(reply)
                     ) as api, patch.object(
                         LitellmTextbasedModel, "_calculate_cost", return_value={"cost": 0.0}
                     ):

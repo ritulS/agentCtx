@@ -112,9 +112,16 @@ fakes: SWE-bench ids ending in `-crash` / `-nopatch` / `-applyfail` /
 |---|---|---|
 | `test_tb_verdict.py` | pyyaml | Terminal-Bench verdict handling, re-run loop, superseded attempts |
 | `test_iclr_summarizer_guard.py` | – | `agentctx.experiments.iclr.validate_summarizer` |
+| `test_resource_monitor.py` | – | `agentctx.resource_monitor` (per-run RSS/container/GPU/vLLM sampler; parsing, process-tree sampling, summary). The equivalence sandbox runs with `AGENTCTX_RESOURCE_MONITOR=0`; `test_current_runner_records_resource_usage` switches it on. |
 | `test_ablation_launch.py` | bash | ABL-25 selection in `run_agent_models_expansion.sh`, selective evaluation |
+| `test_vllm_kv_trace_launch.py` | bash | KV ownership tracing on by default in `scripts/lib/vllm_kv_trace.sh` (default dir next to the server log, `AGENTCTX_KV_TRACE_DIR` override, `AGENTCTX_KV_TRACE=0` opt-out) and wired into every `scripts/serving/start_vllm_*.sh` |
 | `test_notify_run.py` | bash, flock | `scripts/notify_run.sh` (notices, lock, PID file, signal forwarding, `--on-success`, background/foreground), `scripts/lib/logpaths.sh` (timestamped logs, log ownership) and `dashboard/notify_slack.py` |
 | `test_summary_query.py` | litellm, mini-swe-agent (`venv`) | prose summaries through mini-swe-agent v2 models |
+| `test_call_accounting.py` | litellm, tiktoken, mini-swe-agent (`venv`) | Rejected-response usage/cost/latency, step alignment, final and pre-call log persistence, atomic writes; runnable with `venv/bin/python -m unittest discover -s tests -p test_call_accounting.py`. |
+| `test_adaptive_runner.py` | pyyaml | Explicit adaptive CLI for SWE/TB, baseline isolation, immutable configuration/source snapshots, result provenance and resume mismatch rejection. |
+| `test_adaptive_compression.py` | tiktoken, mini-swe-agent (`venv`) | Per-trigger primitive/budget/depth switching, Python/JSON policy loading, OTRC step intervals and no-op triggers, per-agent isolation and failure log persistence. |
+| `test_trc.py` | tiktoken, mini-swe-agent (`venv`) | K=3 clear-all policy, complete-turn fallback, signed token savings, budget overflow continuation and logging, real agent dispatch and logs. Also runnable with `venv/bin/python -m unittest discover -s tests -p test_trc.py`. |
+| `test_summary_free.py` | tiktoken | SU-free / SS-free carry no word target; SU/SS prompts unchanged by the helper refactor |
 | `test_harbor_cancellation.py` | Harbor, mini-swe-agent (`venv-harbor`) | worker cancellation in the Harbor adapter |
 | `test_replay.py` | Harbor (`venv-harbor`) | trajectory replay re-verification |
 

@@ -26,20 +26,25 @@ set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
 
 NAME="${1:-}"
 case "$NAME" in
     qwen35-9b)
         DEFAULT_MODEL="Qwen/Qwen3.5-9B"
         DEFAULT_PYTHON="$WS/venv/bin/python3"
+        DEFAULT_REASONING_PARSER=qwen3
         ;;
     gemma4-12b)
         DEFAULT_MODEL="google/gemma-4-12B-it"
         DEFAULT_PYTHON="$WS/venv-glm-cu129-clean/bin/python3"
+        DEFAULT_REASONING_PARSER=none   # thinking is off in Gemma 4's template
         ;;
     *) echo "Usage: $0 {qwen35-9b|gemma4-12b}" >&2; exit 2 ;;
 esac
 
+reasoning_parser_args "$DEFAULT_REASONING_PARSER"
 PORT="${SUMMARIZER_VLLM_PORT:-8001}"
 MODEL="${SUMMARIZER_MODEL:-$DEFAULT_MODEL}"
 SERVED_NAME="$MODEL"     # must match model_name in configs/config-summary-<name>.yaml
@@ -87,9 +92,12 @@ if pgrep -f "vllm.entrypoints.openai.api_server.*--served-model-name ${SERVED_NA
     exit 1
 fi
 
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model "$MODEL" \
+    "${REASONING_ARGS[@]}" \
     --served-model-name "$SERVED_NAME" \
     --port "$PORT" \
     --dtype auto \
@@ -118,6 +126,7 @@ fi
 
 echo "[$(date)] vLLM ${SERVED_NAME} (summarizer) launched as PID $VLLM_PID on GPUs $CUDA_DEVICES, port $PORT, gpu-memory-utilization $GPU_MEM_UTIL"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "The first launch may download the model and take several minutes."

@@ -3,7 +3,9 @@
 #
 # This server is consumed by configs/config-glm47flash-vllm.yaml and the
 # SWE-Bench calibration launcher. mini-swe-agent uses raw text generation,
-# so vLLM tool-call/reasoning parsers are intentionally not enabled here.
+# so the vLLM tool-call parser is not enabled. The reasoning parser (glm47)
+# is on by default since r2 so "<think>" text stays out of message.content;
+# REASONING_PARSER=none reproduces the iclr26 serving. See scripts/lib/vllm_reasoning.sh.
 #
 # Usage:  bash scripts/serving/start_vllm_glm47flash.sh
 # Model-native context: GLM_MAX_MODEL_LEN=native bash scripts/serving/start_vllm_glm47flash.sh
@@ -35,6 +37,9 @@ if [[ "$MAX_MODEL_LEN" != "native" ]]; then
 fi
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
+reasoning_parser_args glm47
 PID_FILE="$SERVER_LOG_DIR/vllm_glm47flash.pid"
 PYTHON_BIN="${PYTHON_BIN:-$WORKSPACE/venv-glm-cu129-clean/bin/python3}"
 
@@ -58,9 +63,12 @@ if pgrep -f "vllm.entrypoints.openai.api_server.*GLM-4.7-Flash" >/dev/null; then
 fi
 
 LOG_FILE="$(server_log vllm_glm47flash)"
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model "$MODEL" \
+    "${REASONING_ARGS[@]}" \
     --port "$PORT" \
     --dtype auto \
     --tensor-parallel-size "$TENSOR_PARALLEL_SIZE" \
@@ -74,6 +82,7 @@ echo "$VLLM_PID" > "$PID_FILE"
 
 echo "[$(date)] vLLM GLM-4.7-Flash launched as PID $VLLM_PID"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo
 echo "The first launch may need time to download the model. Follow progress with:"

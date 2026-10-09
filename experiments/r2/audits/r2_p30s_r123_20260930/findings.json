@@ -1,0 +1,104 @@
+{
+  "audited_at": "2026-09-30T12:47:12.315144-05:00",
+  "scope": "P30S Qwen3.5: 30 tasks x 3 repetitions x 4 conditions; includes 60 previously completed FC/TR run_1 results.",
+  "experiment_completed_at": "2026-09-30T12:15:36-05:00",
+  "final_resolved": {
+    "FC": 52,
+    "TR": 47,
+    "TRC": 48,
+    "SU-free": 50
+  },
+  "runs_per_condition": 90,
+  "findings": [
+    {
+      "priority": "high",
+      "kind": "resource and persistence defect",
+      "run": "di__b15k__trc/django__django-15957/tool-result-clear/run_3",
+      "trigger": "Agent-generated script mutates the same list being iterated, repeatedly printing Fixed line; 8 multi-gigabyte timeout outputs at steps 88,96,101,105,110,113,118,125.",
+      "code_mechanism": "Docker execute buffers stdout in memory; observation rendering limits visible text but retains full extra.raw_output; trajectory is fully serialized and overwritten non-atomically every step. Compression changes visible content without bounding raw metadata.",
+      "events_bytes": 24767660699,
+      "trajectory_bytes": 12484440064,
+      "trajectory_valid_json": false,
+      "peak_agent_rss_mb": 70925.9,
+      "result_n_calls": 0,
+      "token_log_completed_calls": 134,
+      "result_exit_status": "Timeout",
+      "result_resolved": false,
+      "interpretation": "Cannot treat this run as solely a model/compression failure. Exact contribution of I/O to elapsed time has not been isolated.",
+      "code": [
+        "mini-swe-agent/src/minisweagent/environments/docker.py:119",
+        "mini-swe-agent/src/minisweagent/models/utils/actions_text.py:63",
+        "mini-swe-agent/src/minisweagent/agents/default.py:955",
+        "src/agentctx/benchmarks/swe_bench.py:330"
+      ],
+      "offline_reproduction": {
+        "raw_chars": 2000000,
+        "visible_chars": 10615,
+        "retained_raw_chars": 2000000
+      },
+      "recommended_fix": "Bound subprocess output collection; separate raw artifacts from hot trajectory metadata; atomically replace trajectory; recover completed call count from token_log on parse failure."
+    },
+    {
+      "priority": "medium",
+      "kind": "submission validation gap",
+      "confirmed_invalid_patch_submissions": 6,
+      "by_condition": {
+        "FC": 3,
+        "TR": 1,
+        "SU-free": 2,
+        "TRC": 0
+      },
+      "mechanism": "Completion marker plus successful command exit accepts source excerpts or selected added lines as final submissions. Nonempty text sets patch_generated. These 6 fail patch application.",
+      "code": [
+        "mini-swe-agent/src/minisweagent/environments/docker.py:142",
+        "src/agentctx/benchmarks/swe_bench.py:141"
+      ],
+      "offline_reproduction": "Plain text after completion marker raises Submitted.",
+      "interpretation": "Evaluation failures are correct for the submitted artifacts; successful repair after a validation fix is not established. Do not reject valid unified diffs merely for lacking diff --git.",
+      "recommended_fix": "Validate the benchmark submission format and return actionable feedback before terminating."
+    },
+    {
+      "priority": "interpretation",
+      "kind": "intentional summary retry/fallback behavior",
+      "summary_events": 186,
+      "accepted_summaries": 139,
+      "truncation_fallbacks": 47,
+      "affected_runs": 38,
+      "rejections": {
+        "missing_marker": 231,
+        "truncated": 58,
+        "ambiguous_reasoning": 3
+      },
+      "summary_latency_seconds_sum": 39455.719,
+      "interpretation": "SU-free contains complete-turn truncation in 25.3% of its compression events. Same prompt retried up to five times; intended fallback, not wrong primitive dispatch."
+    },
+    {
+      "priority": "interpretation",
+      "kind": "generation/format failures",
+      "length_format_errors": 470,
+      "completion_tokens_for_length_errors": 15400960,
+      "timeouts_total": 40,
+      "timeouts_spending_over_half_limit_on_recorded_length_errors": 27,
+      "interpretation": "32K generations ending without usable actions consume time. These logs establish wasted time, not that an implementation defect caused the model output. The giant-file run has zero such length errors."
+    }
+  ],
+  "verified": {
+    "trajectory_replays_passed": 359,
+    "trajectory_replays_excluded": 1,
+    "accepted_summaries_complete_and_stop": 139,
+    "compression_growth_or_over_budget_in_audited_events": 0,
+    "submitted_artifacts_match_results_predictions_and_evaluation": 302,
+    "evaluation_reports_match_verdict": 296,
+    "patch_apply_failures": 6,
+    "no_patch_failures": 58,
+    "pending_verdicts": 0
+  },
+  "limits": [
+    "No re-generation or re-evaluation performed.",
+    "Full factual correctness of each summary has not been assessed.",
+    "Excluded giant trajectory cannot be fully replayed; giant JSONL records scanned in bounded chunks.",
+    "Per-run metrics of retained FC/TR run_1 predate newer bookkeeping fields.",
+    "A fix would not guarantee any additional resolved tasks."
+  ],
+  "changes": "Only new audit artifacts written; experiment code and data unchanged."
+}

@@ -42,6 +42,8 @@ CONDITION_TO_PRIMITIVE = {
     "summarization-partial": "SU-partial",
     "structured-summarize": "SS",
     "structured-summarize-partial": "SS-partial",
+    "summarization-free": "SU-free",
+    "structured-summarize-free": "SS-free",
     "tool-result-clear": "TRC",
     "trc-su": "TRC+SU",
     "trc-ss": "TRC+SS",
@@ -55,7 +57,7 @@ CONDITION_TO_PRIMITIVE = {
 }
 
 DEPTH_TUNABLE = ["TR", "SU-full", "SU-partial", "SS", "SS-partial"]
-DEPTH_INVARIANT = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial"]
+DEPTH_INVARIANT = ["TRC", "TRC+SU", "TRC+SS", "OTRC+TR", "OTRC+SU-partial", "OTRC+SS-partial", "SU-free", "SS-free"]
 BUDGETS = [10_000, 15_000, 20_000]
 DEPTH_GRID = [0.3, 0.5, 0.7]
 
@@ -182,8 +184,8 @@ def main():
     args = parse_args()
     out = args.output if args.output.is_absolute() else ROOT / args.output
     tb_out = args.tb_output if args.tb_output.is_absolute() else ROOT / args.tb_output
-    abl25 = load_task_list(ROOT / "task_lists/ablation_25tasks.json")
-    p100 = load_task_list(ROOT / "task_lists/p100_all_100_tasks.json")
+    abl25 = load_task_list(ROOT / "task_lists/swe_verified/ablation_25tasks.json")
+    p100 = load_task_list(ROOT / "task_lists/swe_verified/p100_all_100_tasks.json")
     tb20 = load_task_list(ROOT / "task_lists/tbench_tasks.json")
 
     # ---- 1. scan disk -------------------------------------------------------

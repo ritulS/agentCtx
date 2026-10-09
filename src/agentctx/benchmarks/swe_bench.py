@@ -14,9 +14,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from agentctx import INFINITE_BUDGET
+from agentctx import INFINITE_BUDGET, resource_monitor
 
 from .results import run_key
+from agentctx.compression.selection import condition_environment, prepare_run, selection_metadata
 
 
 class SweBench:
@@ -41,6 +42,9 @@ class SweBench:
     # test suites spawn one thread per host core and never finish (see
     # scripts/swebench_eval_wrapper.py).
     EVAL_THREADS = 8
+    # Legacy trajectories can contain gigabytes of raw-output metadata. Refuse
+    # to load those into RAM during aggregation; use the independent token log.
+    MAX_TRAJECTORY_BYTES = 256 * 1024 * 1024
 
     REPOS = {
         "django/django": "django",
@@ -163,6 +167,48 @@ class SweBench:
             "resolved": None,
         }
 
+    def read_run_outcome(self, trajectory_file: Path, token_log: dict) -> dict:
+        """Recover recorded calls when a trajectory is absent, unreadable or stale.
+
+        Token records count completed calls (including failed responses), not
+        a request still in flight at termination. Never infer a submission or
+        a successful exit from them. Kept separate from launch for offline use.
+        """
+        outcome = self.empty_outcome()
+        outcome["trajectory_status"] = "missing"
+        outcome["n_calls_source"] = "unavailable"
+        try:
+            size = trajectory_file.stat().st_size
+            if size > self.MAX_TRAJECTORY_BYTES:
+                outcome["trajectory_status"] = "oversized"
+                outcome["trajectory_bytes"] = size
+            else:
+                parsed = self.parse_trajectory(trajectory_file)
+                calls = parsed["n_calls"]
+                if type(calls) is not int or calls < 0:
+                    raise ValueError("trajectory api_calls must be a nonnegative integer")
+                outcome = parsed
+                outcome["trajectory_status"] = "ok"
+                outcome["n_calls_source"] = "trajectory"
+        except FileNotFoundError:
+            pass
+        except Exception as exc:
+            outcome["trajectory_status"] = "unreadable"
+            outcome["trajectory_error"] = f"{type(exc).__name__}: {exc}"
+            print(f"    ! Trajectory parse error: {exc}")
+
+        # New logs carry one record per returned agent query; legacy logs carry
+        # one prompt-token entry per query. Summary calls are separate in both.
+        for field in ("model_call_records", "step_prompt_tokens"):
+            records = token_log.get(field)
+            if not isinstance(records, list):
+                continue
+            if outcome["trajectory_status"] != "ok" or len(records) > outcome["n_calls"]:
+                outcome["n_calls"] = len(records)
+                outcome["n_calls_source"] = f"token_log.{field}"
+            break
+        return outcome
+
     def run_experiments(
         self,
         *,
@@ -178,6 +224,8 @@ class SweBench:
         compression_ratio: float,
     ) -> list[dict]:
         """Run the SWE-bench task × condition × repetition grid."""
+        # Repeat runner validation intentionally: adapters may also be called directly.
+        prepare_run(conditions, existing_results, self.results_dir)
         results = existing_results
         existing_keys = {result["key"] for result in results}
         needed = []
@@ -209,7 +257,8 @@ class SweBench:
                 step_limit=step_limit,
                 agent_timeout=agent_timeout,
                 config=condition.get("config"),
-                compression_ratio=compression_ratio,
+                compression_ratio=condition.get("depth", compression_ratio),
+                **({"adaptive": condition["adaptive"]} if condition.get("adaptive") else {}),
             )
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -235,13 +284,14 @@ class SweBench:
         instance_id: str,
         condition: str,
         primitive: str,
-        budget: int,
+        budget: int | None,
         run_num: int,
         agent_config: Path,
         step_limit: int,
         agent_timeout: int,
         config: Path | None = None,
         compression_ratio: float = 0.5,
+        adaptive: dict | None = None,
     ) -> dict:
         """Run mini-swe-agent for one task, condition, and repetition."""
         key = run_key(instance_id, condition, run_num)
@@ -256,13 +306,14 @@ class SweBench:
         env.update({
             "MSWEA_COST_TRACKING": "ignore_errors",
             "MSWEA_PRIMITIVE": primitive,
-            "MSWEA_TOKEN_BUDGET": str(budget),
+            "MSWEA_TOKEN_BUDGET": "" if budget is None else str(budget),
             "MSWEA_COMPRESSION_RATIO": str(compression_ratio),
             "MSWEA_TOKEN_LOG_PATH": str(token_log_file),
             "MSWEA_RUN_KEY": key,
             "MSWEA_EVENT_LOG_DIR": str(output_dir),  # events.jsonl + compression_events.jsonl (failure analysis)
         })
         env.update(self.agent_environment())
+        env = condition_environment(env, {"condition": condition, "adaptive": adaptive}, self.results_dir)
 
         local_bin = str(Path.home() / ".local" / "bin")
         if local_bin not in env.get("PATH", ""):
@@ -285,50 +336,71 @@ class SweBench:
             instance_id, config_chain, trajectory_file, step_limit
         )
 
+        monitoring_config = resource_monitor.configuration(env)
         started = time.time()
         returncode = -1
+        timed_out = False
         process = None
+        monitor = None  # physical-resource sampler (resource_log.jsonl), off with AGENTCTX_RESOURCE_MONITOR=0
         try:
             with log_file.open("w") as log:
                 process = subprocess.Popen(
                     command,
                     cwd=self.workspace_root / "mini-swe-agent",
                     env=env,
+                    # Never inherit the launcher's terminal: at the step limit the
+                    # interactive agent would prompt for a new limit on a tty stdin
+                    # and exit with ValueError instead of LimitsExceeded.
+                    stdin=subprocess.DEVNULL,
                     stdout=log,
                     stderr=subprocess.STDOUT,
+                )
+                monitor = resource_monitor.start_for_process(
+                    process.pid, output_dir, agent_log=log_file, env=env, config_paths=config_chain,
+                    servers_log_dir=self.workspace_root / "logs" / "servers",
                 )
                 process.wait(timeout=agent_timeout)
                 returncode = process.returncode
         except subprocess.TimeoutExpired:
+            timed_out = True
             if process is not None:
                 process.kill()
+                process.wait()
             print(f"    ! Timeout after {agent_timeout}s")
         except Exception as exc:
             print(f"    ! Launch error: {exc}")
 
         e2e_latency = round(time.time() - started, 2)
-        outcome = self.empty_outcome()
-        if trajectory_file.exists():
-            try:
-                outcome = self.parse_trajectory(trajectory_file)
-            except Exception as exc:
-                print(f"    ! Trajectory parse error: {exc}")
-
+        resource_usage = monitor.stop() if monitor is not None else {}
         token_log = {}
         if token_log_file.exists():
             try:
-                token_log = json.loads(token_log_file.read_text())
+                loaded = json.loads(token_log_file.read_text())
+                if isinstance(loaded, dict):
+                    token_log = loaded
             except Exception:
                 pass
+        outcome = self.read_run_outcome(trajectory_file, token_log)
+        if timed_out:
+            # The agent was SIGKILLed mid-step: trajectory.json (if any) is the
+            # last state the agent flushed, and its info carries no exit
+            # status because the agent never exited. Name the reason here so
+            # exit_status-based classification does not lump these in with
+            # runs that produced no trajectory at all.
+            outcome["timed_out"] = True
+            if not outcome["exit_status"]:
+                outcome["exit_status"] = "Timeout"
 
         result = {
+            **monitoring_config,
+            "resource_monitoring_started": monitor is not None,
             "key": key,
             "instance_id": instance_id,
             "condition": condition,
             "primitive": primitive,
             "budget": budget,
             "compression_ratio": compression_ratio,
-            "is_baseline": budget == INFINITE_BUDGET,
+            "is_baseline": adaptive is None and budget == INFINITE_BUDGET,
             "run_num": run_num,
             "timestamp": datetime.now().isoformat(),
             "returncode": returncode,
@@ -354,6 +426,23 @@ class SweBench:
             "online_trc_clears": token_log.get("online_trc_clears", 0),
             "online_trc_flags": token_log.get("online_trc_flags", []),
         }
+        if adaptive is not None:
+            result["adaptive"] = selection_metadata(adaptive)
+        # New TR/TRC runs carry event measurements; retain legacy row
+        # shape when resuming artifacts produced before these fields existed.
+        for key in (
+            "trc_events", "trc_clear_only_events", "trc_clearing_tokens_saved",
+            "trc_truncation_tokens_saved",
+            "tr_events", "tr_target_not_met_events", "tr_budget_exceeded_events",
+            "tr_zero_reduction_events", "adaptive_config", "adaptive_events",
+            # Signed savings and summary-request outcomes (token logs written
+            # from 2026-09-29 on). total_tokens_saved above stays the clamped
+            # per-event sum the primitives report.
+            "net_tokens_saved", "growth_events", "summary_fallback_events",
+        ):
+            if key in token_log:
+                result[key] = token_log[key]
+        result.update(resource_usage)
         result.update(outcome)
 
         icon = "P" if outcome["submission_generated"] else "x"
@@ -383,6 +472,10 @@ class SweBench:
         # that (before 2026-09-26 this was set after the last save() and stayed
         # null on disk unless the caller saved again).
         unsaved = False
+        # This includes runs whose trajectory was missing, unreadable or
+        # oversized: no patch reached the grader, so the task was not resolved.
+        # `trajectory_status` records why, so analysis can flag or exclude
+        # such rows without changing the resolve-rate denominator.
         for result in work:
             if not result["patch_generated"] and result["resolved"] is not False:
                 result["resolved"] = False

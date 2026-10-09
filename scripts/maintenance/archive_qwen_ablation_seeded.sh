@@ -23,8 +23,8 @@ fi
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WS"
 PY="${PYTHON:-$WS/venv/bin/python3}"
-AUDIT="$WS/archives/summary-bug-audit-20260907_185802_CDT/rerun-list"
-ARCHIVER="$WS/archives/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/archive_swebench_rerun_targets.py"
+AUDIT="$WS/ICLR_experiments/archive_provenance/summary-bug-audit-20260907_185802_CDT/rerun-list"
+ARCHIVER="$WS/ICLR_experiments/archive_provenance/summary_bug_rerun_tooling_20260907_175359_CDT/scripts/archive_swebench_rerun_targets.py"
 
 # Refuse a changed cohort instead of silently expanding the requested scope.
 "$PY" - "$AUDIT/rerun_runs_ablation_seeded.csv" <<'PY'

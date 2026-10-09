@@ -1,7 +1,7 @@
 # Identical to config-glm47flash-vllm.yaml except api_base -> port 8004 (second
 # GLM-4.7-Flash vLLM on GPUs 4-7). Used by the gpu4-7 half of the split TB ablation.
 agent:
-  step_limit: 125
+  step_limit: 300
   cost_limit: 0.0
   cost_tracking: ignore_errors
   mode: yolo

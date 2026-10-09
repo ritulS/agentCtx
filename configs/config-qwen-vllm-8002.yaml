@@ -2,7 +2,7 @@
 # Qwen3.5-35B-A3B vLLM on GPUs 4-7). Used by the gpu4-7 half of the split TB
 # prefix-cache ablation (scripts/serving/start_vllm_qwen35_no_prefix_cache_gpu4-7.sh).
 agent:
-  step_limit: 125
+  step_limit: 300
   cost_limit: 0.0
   cost_tracking: ignore_errors
   mode: yolo

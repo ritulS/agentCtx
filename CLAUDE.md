@@ -67,7 +67,17 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `--tasks-file`, `--conditions`, `--summary-config` control a single sweep;
   the runner selects a benchmark adapter with `--benchmark`.
   `scripts/run_experiment_iclr.py` runs one cell of the canonical ICLR
-  results tree. Launchers are grouped under
+  results tree. `scripts/run_experiment_r2.py` is the same launcher for
+  the post-ICLR r2 extension campaign; it writes to
+  `data/r2/<swebench|terminalbench>/<section>/<model>/<cell>/` (gitignored)
+  and shares cell naming/validation with the ICLR launcher; r2-only sections
+  are `p30s`, `p30s_never7`, `p100_minus_p30s` (the 70 P100 tasks outside
+  P30S), `p100_minus_p30s_never13` (its 13 never-resolved tasks; the
+  never-resolved lists come from `scripts/maintenance/never_resolved_tasks.py`)
+  and `p100_fc_only4` (the 4 P100 tasks resolved under full context but never
+  under fixed TR or SU-free),
+  and r2 alone accepts `adaptive-<tag>` cells
+  (schedule-driven primitive order; see `src/agentctx/compression/ADAPTIVE.md`). Launchers are grouped under
   `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see
   `scripts/README.md`.
 - `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py`,
@@ -86,6 +96,50 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   order). `scripts/maintenance/reconstruct_context.py <run_dir> [--step N]
   [--event K]` replays them and verifies against trajectory.json /
   token_log.json. Runs before 2026-09-23 only have the final trajectory.
+- Physical-resource log: `src/agentctx/resource_monitor.py` samples, while
+  the SWE-bench adapter waits for the agent subprocess, the agent process
+  tree's RSS, the task container's cgroup memory (name taken from
+  `agent.log`), `nvidia-smi` per GPU and the vLLM `/metrics` KV-cache usage
+  of the endpoints in the config chain and of a separately served summarizer
+  (`MSWEA_SUMMARY_MODEL_CONFIG` / `MSWEA_SUMMARY_API_BASE`; every 10 s,
+  `AGENTCTX_RESOURCE_SAMPLE_S`)
+  into `<run_dir>/resource_log.jsonl`, and adds `peak_agent_rss_mb`,
+  `peak_container_mem_mb`, `peak_gpu_mem_used_mb`, `mean_kv_cache_usage_pct`
+  etc. to the run's row in `experiment_results.json`. GPU and vLLM figures are
+  machine-wide (shared by concurrent runs). It also writes
+  `<run_dir>/serving_info.json` once per run: the endpoints' `/v1/models` and
+  `vllm:cache_config_info` labels plus the startup lines of the live vLLM
+  logs ("GPU KV cache size: N tokens", "Available KV cache memory", ...; the
+  periodic usage lines are kept apart, last few only), so
+  a run's per-step context length (`step_prompt_tokens` in token_log.json)
+  can later be converted into the KV-cache MB it occupied.
+  `AGENTCTX_RESOURCE_MONITOR=0` disables it. `run_info.json` / `run_info.md`
+  record `resource_monitoring_enabled`, `resource_monitoring_supported` and
+  `resource_sample_interval_s` (configured interval, including when OFF).
+  Each new `experiment_results.json` row retains these settings and adds
+  `resource_monitoring_started`: whether the sampler was started, not whether
+  every probe succeeded. To tell whether a row was sampled, check
+  `resource_monitoring_started`, not the presence of these keys (the settings
+  are written to every new row, sampled or not). Existing rows are not
+  backfilled on resume; absent fields mean unknown, not OFF. `run_info`
+  describes the latest launch, so use individual rows for comparisons across
+  resumed launches. Terminal-Bench has no periodic sampler and records
+  supported/enabled/started as false and the interval as null.
+  These flags do not describe the separate server-side KV ownership tracer.
+  Runs before 2026-09-27 have no resource data.
+- Per-request KV-cache ownership (on by default, `src/agentctx/KV_CACHE_TRACE.md`):
+  every `scripts/serving/start_vllm_*.sh` installs
+  `agentctx.vllm_kv_trace.TracingScheduler` (`--scheduler-cls`), which logs
+  each live request's exclusive vs. shared physical blocks on every scheduler
+  change to `kv-cache-<pid>-<uuid>.jsonl` in `logs/kv-cache/<server log name>/`
+  (`AGENTCTX_KV_TRACE_DIR` overrides the dir, `AGENTCTX_KV_TRACE=0` turns it
+  off; servers launched before 2026-10-03 traced only when the dir was set). `python -m agentctx.kv_cache_trace
+  <run_dir> --trace-dir <dir>` joins them to agent steps
+  (`model_call_records[].response_id`) and summarizer calls
+  (`summary_outcomes[].response_ids`) into `<run_dir>/kv_cache_steps.json`.
+  Caveats: shared = simultaneous co-ownership only; peaks are not
+  simultaneous; bytes are per TP shard. Runs before 2026-09-29 have no
+  response ids.
 - `ICLR_experiments/plotting/` — ICLR figure code: `plot_bank.py` is the
   single file holding every renderer (shared style, Figure 1 schematic,
   Figures 2-5, appendix companions, the former `paper_figures.py` and
@@ -97,9 +151,10 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   (paper target and source-of-truth table; it wins over every other doc), the
   experiment plan/grid (`FOLLOWUP_EXPERIMENTS.md`), `EXPERIMENT_LOG_{SWE,TB}.md`
   (bugs and audits are sections of the SWE log), `BUDGET_CALIBRATION.md`,
-  `issue/` (still-open data audits with their scripts), `reeval_evidence/`
-  (re-evaluation manifests and verdicts) and `plotting/` (figure code, see
-  above).
+  `open_issues/` (still-open data audits with their scripts), `reeval_evidence/`
+  (re-evaluation manifests and verdicts), `archive_provenance/` (notes, task
+  lists and tooling for run data retired to the gitignored `archives/`) and
+  `plotting/` (figure code, see above).
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,
   `predictability_sprint.py`, `winners_table.py`, `plot_review1.py`,
@@ -136,8 +191,11 @@ Use these terms when discussing experimental coverage and depth runs.
   primitives whose behavior is a function of `compression_ratio`. Studied at
   all 3 depths.
 - **depth-invariant** — TRC, TRC+SU, TRC+SS, OTRC+TR, OTRC+SU-partial,
-  OTRC+SS-partial. The 6 primitives where `compression_ratio` doesn't engage
-  meaningfully. Studied at canonical depth only.
+  OTRC+SS-partial, SU-free, SS-free. The 8 primitives where `compression_ratio`
+  doesn't engage meaningfully. Studied at canonical depth only. SU-free /
+  SS-free (`summarization-free`, `structured-summarize-free`) are SU-full / SS
+  with no word target in the summarizer prompt ("concisely" only); depth only
+  sizes their truncate fallback.
 
 **Depths:**
 
@@ -152,7 +210,7 @@ Use these terms when discussing experimental coverage and depth runs.
   (`results/ablations/tasks.json`).
 - **NEW-70** — the 70 added tasks (`task_lists/p100_new_tasks.json`).
 - **P100** — full cohort = ABL-30 ∪ NEW-70
-  (`task_lists/p100_all_100_tasks.json`).
+  (`task_lists/swe_verified/p100_all_100_tasks.json`).
 
 **Scope rule** (main model = Qwen3.5-35B-A3B) for whether a
 `(primitive, budget, depth, cohort)` cell is in-scope for the paper:

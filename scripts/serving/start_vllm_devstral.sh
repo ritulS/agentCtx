@@ -3,6 +3,8 @@
 # 24B dense Mistral 3 architecture (full attention, sliding_window=null).
 # TP=4 on GPUs 4-7 by default. Port 8002 (separate from Qwen / GLM).
 #
+# NOTE: no --reasoning-parser: Devstral does not emit thinking (its chat
+# template has no think tags), see scripts/lib/vllm_reasoning.sh.
 # NOTE: NOT using --tool-call-parser since mini-swe-agent talks to vLLM via
 # litellm_textbased (raw completions), not OpenAI function-calling. Adding
 # the parser flag changes generation behavior even in textbased mode.
@@ -38,6 +40,7 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
 fi
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
 
 # Refuse if port already in use.
 if ss -ltnp 2>/dev/null | grep -q ':8002 '; then
@@ -54,10 +57,12 @@ if pgrep -f 'vllm.entrypoints.openai.api_server.*Devstral' >/dev/null; then
 fi
 
 LOG_FILE="$(server_log vllm_devstral)"
+kv_trace_args "$LOG_FILE"
 PID_FILE="$SERVER_LOG_DIR/vllm_devstral.pid"
 # Keep the existing dtype/KV-cache precision; native only removes the context cap.
 CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model mistralai/Devstral-Small-2-24B-Instruct-2512 \
     --port 8002 \
     --dtype auto \
@@ -72,6 +77,7 @@ echo "$VLLM_PID" > "$PID_FILE"
 disown || true
 echo "[$(date)] vLLM Devstral-Small-2-24B-2512 launched as PID $VLLM_PID"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "Wait for 'Uvicorn running on http://0.0.0.0:8002' (typically 30-90s),"

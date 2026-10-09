@@ -62,7 +62,10 @@ def main() -> None:
         raise SystemExit(
             "--iclr-benchmark and --benchmark must select the same benchmark"
         )
-    destination = canonical_cell(adapter_args)
+    destination = canonical_cell(
+        adapter_args.iclr_benchmark, adapter_args.iclr_section,
+        adapter_args.iclr_model, adapter_args.iclr_cell,
+    )
     validate_cell_semantics(adapter_args.iclr_cell, runner_args, destination)
     validate_summarizer(adapter_args.iclr_section, runner_args, destination)
 

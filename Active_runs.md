@@ -1,5 +1,18 @@
 # Active Experiment Runs
 
+## Latest data status — 2026-09-29: SU-free and TRC archived
+
+The September 29 fallback-ON / max_tokens=32768 full batch completed with
+120 evaluated run_1 results (superseding the older "no new full batch" note below).
+SU-free (30 runs, 19 resolved) and TRC (30 runs, 18 resolved) were subsequently
+archived at the user's request before rerunning with the post-audit fixes.
+Archive: [r2_p30s_qwen35b_su_free_trc_before_fixes_20260929_232739_847347](archives/r2_p30s_qwen35b_su_free_trc_before_fixes_20260929_232739_847347/manifest.json).
+All 795 source files were verified by SHA-256 after moving.
+The active `data/r2/swebench/p30s/qwen35b/` tree now retains only TR
+(30 runs, 16 resolved) and FC (30 runs, 18 resolved); both verified unchanged.
+Smoke results remain separate. No new batch was launched by this archival.
+
+
 ## ✅ RESOLVED 2026-08-07 — Dobby GPU/MIG incident (2026-07-30 → 08-07)
 
 The 2026-07-30 09:55 reboot left MIG Enabled on all 4 A100s with zero
@@ -12,7 +25,164 @@ the next reboot repeats this; (2) persistence mode is off (`nvidia-smi
 -pm 1`); (3) vLLM `vllm-qwen35` user unit + rootless podman socket still
 need rebuilding for serving/tbench.
 
+## Archived completion — 2026-09-28: r2 P30S fixed run1
+
+- **ARCHIVED (2026-09-29):** Qwen3.5-35B-A3B, SU-free → TRC → TR → FC, 30 tasks × run_1 per cell (120 runs). Finished agent execution and evaluation at **2026-09-28 06:34:24 CDT**. No experiment/evaluation process remains at the audit; vLLM remains running.
+- **Results:** SU-free 17/30, TRC 17/30, TR 16/30, FC 18/30 resolved. All verdicts populated; 17 step-limit failures, 5 invalid submissions (source excerpts instead of diffs). No outstanding infrastructure evaluation errors.
+- **Audit:** 120/120 event replays verified. 800/13,193 agent calls have format errors (444 empty final content with reasoning, 325 output-length limits, 31 other format errors). SU-free falls back to TR in 15/74 compression events. See [audit report](experiments/r2/audits/r2_p30s_run1_20260928/report.md) and [per-run CSV](experiments/r2/audits/r2_p30s_run1_20260928/runs.csv).
+- **Log:** `logs/experiments/r2_swebench_p30s_qwen35b-fixed-run1_20260928_023626.log`.
+- **Archive:** [archives/r2_p30s_qwen35b_run1_before_reasoning_fallback_20260929_034952](archives/r2_p30s_qwen35b_run1_before_reasoning_fallback_20260929_034952/README.md). All 120 run_1 outputs moved out of `data/`; 1,505 files verified by SHA-256. Fallback smoke remains separate. No new full batch launched.
+- The older local P30S statuses below are historical and superseded by the fixed-run1 batch. Prior SU-free/TRC/FC run_1–3 data was archived before this batch; it is not mixed into this audit.
+
 ## Currently Running
+
+### Qwen3.5-35B-A3B — r2 P100-minus-P30S chain: fc → tr → su-free → trc (SWE-bench) — this host
+- **Status:** ✅ COMPLETE — launched 2026-10-01 01:40:31 CDT; all four cells run and evaluated by
+  **2026-10-02 17:24:19 CDT** (840/840 rows, every verdict populated). No experiment process remains;
+  vLLM (PID 293626) and `podman system service` (PID 348542) were stopped on 2026-10-03 after the
+  never13 chain below finished; restart both (and the podman PATH/env) before the next launch.
+- **Results (of 210 each):** FC 120, TR 106, SU-free 119, TRC 120 resolved.
+- **Interruption:** a host reboot at 2026-10-02 07:45 CDT (kernel 5.15.0-190 → -194) killed the
+  chain during TRC (201/210 runs recorded, none evaluated). The 9 in-flight run dirs were moved to
+  `archives/r2_p100_minus_p30s_trc_interrupted_20261002/`.
+- **Failed first resume (14:03):** podman lives in `/home/rs67788/.local/bin`, which the reboot dropped
+  from `PATH` together with `MSWEA_DOCKER_EXECUTABLE=podman`, `DOCKER_HOST` and the manually started
+  `podman system service`. The agent fell back to `/usr/bin/docker` (permission denied), so the 9 runs
+  died with 0 calls and all 163 evals were "patch mismatch". Those 9 rows were removed (pre-cleanup
+  copy: `di__b15k__trc/experiment_results.json.bak_20261002`). **After a reboot, restore the PATH/env and
+  the podman service before launching.**
+- **Second resume (14:15):** 9 runs redone (5 Submitted, 4 Timeout at 5400 s), then 168 evals.
+- **Logs:** `logs/experiments/r2_swebench_p100_minus_p30s_qwen35b_20261001_014031.log` (original),
+  `..._20261002_140322.log` (failed resume), `..._20261002_141515.log` (successful resume).
+
+### Qwen3.5-35B-A3B — r2 P100-minus-P30S never13 adaptive primitive-order chain (SWE-bench) — this host
+- **Status:** ✅ COMPLETE — launched 2026-10-02 18:47:39 CDT (notify_run wrapper PID 1407787,
+  `env R2_SECTION=p100_minus_p30s_never13 bash scripts/expansions/run_r2_swe_never7_adaptive.sh`);
+  all six cells run and evaluated by **2026-10-03 10:33:14 CDT**. No experiment process remains.
+- **What:** the never7 design applied to the 13 P100-minus-P30S tasks no fixed cell resolved
+  (`task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json`, django 8 / sympy 5).
+  Same six schedules (`configs/adaptive/never7_prefix3/`), 13 tasks × 3 runs = 39 per cell, 234 total.
+- **Results (234/234 rows, all verdicts populated):** 1/234 resolved — sympy-20916 sts r1
+  (5 events, applied s,t,s,s,s, no fallback, 154 calls). tts 0, tst 0, tss 0, stt 0, sts 1, sst 0.
+- **Caveats:** 53/234 runs hit the 5400 s timeout, 37 the step limit; 3 Submitted runs had no
+  patch. 104 SU-free events fell back to truncate (1,198 compression events in total).
+- **Dest:** `data/r2/swebench/p100_minus_p30s_never13/qwen35b/d05__b15k__adaptive-prefix3-<pattern>/`.
+- **Log:** `logs/experiments/r2_swebench_p100_minus_p30s_never13_qwen35b_20261002_184739.log`.
+
+### Qwen3.5-35B-A3B — r2 P30S-never7 adaptive primitive-order chain (SWE-bench) — this host
+- **Status:** ✅ COMPLETE — launched 2026-09-30 14:18:50 CDT, all six cells run and evaluated
+  by **2026-10-01 00:22:38 CDT**; wrapper PID `3547517` has exited, no process remains.
+- **Results (126/126 rows, all verdicts populated):** 3/126 resolved, vs 0/84 for the fixed
+  TR / SU-free / TRC / FC cells on the same tasks. tts 0, tst 0, tss 0, stt 0, sts 2, sst 1
+  (of 21 each). Resolved: sklearn-26194 sts r1 and sst r1 (both 1 compression event, SU-free
+  only — the order was never exercised) and sympy-14248 sts r1 (7 events; 3 of its 6 SU-free
+  events fell back to truncate, so the applied order was t,t,s,t,t,s,s). 5 tasks stay at 0/18.
+- **Caveats:** 32/126 runs hit the 5400 s timeout (fixed cells: 20/84), 24 hit the step
+  limit. 62/269 SU-free events fell back to truncate; only 48 runs reached 3 events with the
+  nominal prefix applied as written.
+- **What:** can a TR / SU-free *order* solve the 7 P30S tasks Qwen3.5-35B-A3B never resolved
+  under any fixed primitive (`task_lists/swe_verified/p30s_qwen35b_never_resolved.json`)?
+  Six adaptive cells, one per primitive sequence at compression events 1-3 (`t` = TR,
+  `s` = SU-free, last entry held; `ttt`/`sss` are the existing fixed p30s cells), chained
+  tts → tst → tss → stt → sts → sst, 7 tasks × 3 runs = 21 runs per cell, 126 total, each
+  cell evaluated (`--eval-only`) before the next starts. 16 workers, step limit 300,
+  timeout 5400 s, budget 15k, depth 0.5, self-summarized. Code: the commit after `9567b06`
+  on `akiho-dev` ("feat: r2 adaptive primitive-order cells for the never7 tasks": r2
+  `adaptive-<tag>` cells + `p30s_never7` section,
+  `scripts/expansions/run_r2_swe_never7_adaptive.sh`, schedules in
+  `configs/adaptive/never7_prefix3/`); launched from that tree before it was committed.
+- **Dest:** `data/r2/swebench/p30s_never7/qwen35b/d05__b15k__adaptive-prefix3-<pattern>/`;
+  each run's `token_log.json` → `adaptive_events` (per event: applied and next config) and
+  `<cell>/_adaptive/<sha256>.json` (schedule snapshot).
+- **Log:** `logs/experiments/r2_swebench_p30s_never7_qwen35b_20260930_141849.log`.
+- **Smoke (kept, delete when done with it):** `data/r2/swebench/p30s_never7/qwen35b-smoke/`
+  — sympy-20438 × sts, 133 calls, 3 events (SU-free@27 → TR@81 → SU-free@103, held), eval ran
+  (unresolved). Log `logs/experiments/r2_sb_p30s_never7_qwen35b-smoke_20260930_141356.log`.
+- **Interpretation note:** order can only matter for runs with ≥2 compression events; on
+  these tasks SU-free fired 3.1×/run (median 3, max 11) and TR 5.5× (median 4, max 15) but
+  sklearn-26194 / sklearn-14087 often end with 0-2 events.
+
+
+### Qwen3.5 — reasoning fallback smoke, COMPLETE (2026-09-29)
+- **COMPLETE:** agent execution and evaluation finished at **2026-09-29 01:45:42 CDT**. Resume PID `1016184` is no longer running.
+- **Results:** 3 tasks × 4 conditions × run_1 = 12/12 Submitted and resolved: SU-free 3/3, TRC 3/3, TR 3/3, FC 3/3. Verified against each cell's `experiment_results.json`.
+- **Fallback audit:** 156 accepted messages have `extra.action_source = "reasoning_content"` (SU-free 13, TRC 15, TR 77, FC 51). All 156 satisfy the stop/empty-content/single-action rule, store reasoning as content, and preserve the raw response. Across 891 agent calls, 27 FormatErrors remain (18 length, 9 stop).
+- Original foreground launch stopped around 01:21; cause is unconfirmed. Background resume at 01:26:41 kept completed SU-free/TRC and one TR run, then completed the remaining TR → FC runs and evaluation.
+- Interrupted TR artifacts preserved in `archives/r2_reasoning_fallback_smoke_interrupted_20260929_012641`; unfinished tasks restart from the beginning.
+- **Log:** `logs/experiments/r2_sb_p30s_qwen35b-reasoning-fallback-20260929-smoke_resume_20260929_012641.log`. **PID file:** `logs/experiments/r2_sb_p30s_qwen35b-reasoning-fallback-20260929-smoke.pid`.
+- Settings unchanged: parser ON, reasoning fallback ON, max_tokens=4096, step_limit=300, run_1, 3 workers.
+
+### Qwen3.5-35B-A3B — r2 P30S SU-free re-run (marker fix) → FC eval completion — this host
+- **Status:** SUPERSEDED / ARCHIVED (confirmed 2026-09-28). Historical launch: 2026-09-27 16:15:49 CDT (notify_run wrapper PID 161524, lock
+  `r2_p30s_chain`, Slack units `r2/swebench/p30s/qwen35b-{chain,su-free,fc}`). Code `2efba79`
+  (missing-marker fix `fca4779`). su-free agent phase ✅ 90/90 at 17:34 (78 Submitted, 12
+  LimitsExceeded); eval running (15/78 at 17:42), then the `fc` preset evaluates the 54
+  remaining FC runs. Expected done ~19:00.
+- **Log:** `logs/experiments/r2_swebench_p30s_qwen35b-chain_20260927_161549.log`; stop with
+  `kill 161524`.
+- **Fix check:** 0 summaries accepted without a marker. But the rejections are frequent:
+  354 `missing_marker` rejections, and 64/241 compression events (27 %) exhausted all 5
+  attempts and fell back to truncate(); 34/76 runs with compression have >=1 fallback,
+  7 runs fell back on every event. SU-free in this cell is therefore partly TR.
+
+### Qwen3.5-35B-A3B — r2 P30S chain: su-free → fc → ss-free (SWE-bench) — this host
+- **Status:** agent runs ✅ COMPLETE 2026-09-27 09:45 CDT (launched 03:18:39, wrapper PID
+  2163816; 90/90 runs per cell, all returncode 0 except 2 FC wall-clock timeouts). The
+  in-chain SWE-bench eval **failed for all 242 patches** (every instance under
+  `error_ids`, no verdict): the harness's `put_archive` of `patch.diff` died with
+  `lchown ...: invalid argument` because the venv rebuilt at 02:40 lost the venv-local
+  uid/gid-zeroing patch of `swebench/harness/docker_utils.py` (rootless podman cannot chown
+  to the AD uid). The smoke test evaluated 0 runs (its only run had no patch), so it did
+  not catch this. Fix moved into `scripts/swebench_eval_wrapper.py` (replaces
+  `copy_to_container` with an owner-less tar; verified on 1 instance → resolved).
+  **Eval re-run 2026-09-27 15:01:34 → ⏹ stopped by user 16:03 CDT** (wrapper PID 3975920,
+  `ALLOW_NO_SLACK=1`; log
+  `logs/experiments/r2_swebench_p30s_qwen35b-chain-eval_20260927_150134.log`). State at
+  stop: su-free fully evaluated (52 resolved / 38 unresolved, 0 harness errors); fc 36/90
+  evaluated (23 resolved), 54 still `resolved: null`; ss-free not evaluated (80 null).
+  The in-flight fc eval container was removed. To finish fc: run the `fc` preset again
+  (agent phase skips all 90 keys, `--eval-only` picks up the nulls). The old su-free /
+  ss-free cells were moved on 2026-09-27 to
+  `archives/r2_p30s_qwen35b_free_missing_marker_20260927/` (README there). Only **su-free**
+  is re-run with the marker fix (preset `su-free` now starts from scratch); ss-free stays
+  archived and is not re-run for now. Details: `experiments/r2/EXPERIMENT_LOG.md`
+  (2026-09-27, first r2 P30S cells).
+  ⚠️ **su-free / ss-free summary quality:** with the qwen3 reasoning parser on, the
+  summarizer's reply arrives without `</think>`, so replies that ignore the marker
+  instruction are accepted as an "unformatted body" instead of being rejected as
+  ambiguous reasoning (which is what caught them in the ICLR SU-full runs). 76/245
+  su-free and 83/252 ss-free summaries have no marker; most of those are the model
+  continuing the transcript as the agent (a bare ```mswea_bash_command``` block, 7-30
+  words) rather than a summary. Reproduced live on 2 windows (3/3 samples each, also
+  with a 600-word target): not specific to the length-free prompt. Runs with >=1
+  marker-less summary: su-free 38/90, ss-free 40/90; 8 of the 13 su-free LimitsExceeded
+  runs had a bare-command summary. **Fixed
+  2026-09-27 (uncommitted):** `clean_summary_text` now rejects replies without a marker
+  line (`rejected="missing_marker"` → up to 5 retries → truncate fallback), restoring the
+  pre-parser behaviour; tests in `tests/test_summary_cleaning.py`. Replies that write
+  the marker and then continue as the agent (8/245 su-free) still pass. The archived
+  su-free verdicts are contaminated; su-free is re-run with the fix.
+- **Original launch:** 03:18:39 CDT (wrapper PID 2163816). Three presets run sequentially, each
+  with SWE-bench eval after its agent runs: `di__b15k__su-free` → `di__binf__fc` →
+  `di__b15k__ss-free`, P30S × 3 runs/task = 90 runs per preset, 270 total, 16 workers,
+  300 steps / 5400 s per run. Slack units `r2/swebench/p30s/qwen35b-{chain,su-free,fc,ss-free}`.
+- **What:** first cells of the post-ICLR r2 campaign (length-free summaries and the
+  full-context baseline) on the 30-task difficulty-stratified cohort
+  `task_lists/swe_verified/p30_stratified.json`.
+- **Command:** `RUNS_PER_TASK=3 bash scripts/notify_run.sh --unit r2/swebench/p30s/qwen35b-chain
+  --lock r2_p30s_chain -- bash -c 'for p in su-free fc ss-free; do bash scripts/notify_run.sh
+  --foreground --unit "r2/swebench/p30s/qwen35b-$p" -- bash scripts/expansions/run_r2_swe_p30s.sh "$p"
+  || exit 1; done'` (safe to re-run: completed keys are skipped).
+- **Results:** `data/r2/swebench/p30s/qwen35b/<cell>/` (`scripts/run_experiment_r2.py`, r2
+  tree; not under `ICLR_experiments/`).
+- **Log:** `logs/experiments/r2_swebench_p30s_qwen35b-chain.latest.log`. Stop with
+  `kill 2163816` (posts a "killed" notice).
+- **Infra:** vLLM Qwen3.5-35B-A3B :8000 (TP=4, GPUs 0-3, **prefix caching ON, max-model-len =
+  model default 262144**, reasoning parser qwen3; PID 2052914, `logs/servers/vllm_qwen35_a3b.pid`,
+  started 02:41 with the same arguments as `QWEN_MAX_MODEL_LEN=native
+  scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh`). Rootless podman socket (PID 4142791).
+  Smoke test (1 task, su-free, 02:50-03:14) passed end to end; its ValueError exit at the step
+  limit was the agent inheriting a tty stdin, fixed in `swe_bench.py` (stdin=/dev/null) before launch.
 
 ### Qwen3.5-35B-A3B — prefix-cache ablation, SWE-Bench (dashboard 5.a) — Dobby
 - **Status:** 15K grid ✅ COMPLETE 2026-09-19 02:23 CDT (launched 09-18 14:37, launcher
@@ -113,7 +283,7 @@ need rebuilding for serving/tbench.
   `agent-model-expansion/qwen` (start/stop notices).
 - **What:** resume of `ICLR_experiments/swebench/main/qwen35b/` after the
   summary-bug archives (marker 09-07 + remaining 09-08; see
-  `archives/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md`).
+  `ICLR_experiments/archive_provenance/summary_bug_rerun_tooling_20260907_175359_CDT/ARCHIVE_LOG.md`).
   `run_experiment_iclr.py` re-executes every key missing from each cell's
   `experiment_results.json`. 917 runs expected: su-partial 209, su-full 207,
   ss 128, otrc-su-partial 121, ss-partial 80, trc-su 79, trc-ss 58,

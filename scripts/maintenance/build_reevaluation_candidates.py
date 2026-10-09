@@ -117,7 +117,7 @@ def main() -> int:
         tag = args.model_tag or DEFAULT_TAG[args.model]
         base = ROOT / "ICLR_experiments" / "swebench" / args.section / args.model
         label = f"{args.model}/{args.section}"
-        out = args.out or (ROOT / "ICLR_experiments" / "issue" /
+        out = args.out or (ROOT / "ICLR_experiments" / "open_issues" /
                            f"reeval_candidates_{args.model}_{args.section}_{today}" / "candidates.csv")
     if not base.is_dir():
         raise SystemExit(f"results directory not found: {base}")

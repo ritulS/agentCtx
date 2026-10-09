@@ -33,7 +33,7 @@ AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 SUMMARY_HEALTH_URL="${SUMMARY_HEALTH_URL:-http://localhost:8001/v1/models}"
 # Baseline (self-summarization) cells are P-40 x 3 runs at 3k, so default to the
 # same grid for a paired comparison. Set TB_TASKS_FILE / RUNS_PER_TASK to change.
-TASKS_FILE="${TB_TASKS_FILE:-$WS/task_lists/tbench_p40.json}"
+TASKS_FILE="${TB_TASKS_FILE:-$WS/task_lists/tbench1.0/p40.json}"
 ICLR_SECTION="${ICLR_SECTION:-model_ablation}"     # main | ablation | model_ablation
 ICLR_MODEL="${ICLR_MODEL:-qwen35b-sum-qwen35-9b}"   # lowercase/digits/hyphens only
 BUDGET="${BUDGET:-3000}"

@@ -23,6 +23,9 @@ set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
+reasoning_parser_args qwen3
 
 PORT="${QWEN_VLLM_PORT:-8000}"
 MODEL="${QWEN_MODEL:-Qwen/Qwen3.5-35B-A3B}"
@@ -62,9 +65,12 @@ if pgrep -f 'vllm.entrypoints.openai.api_server.*Qwen3.5-35B-A3B' >/dev/null; th
     exit 1
 fi
 
+kv_trace_args "$LOG_FILE"
 CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+    "${KV_TRACE_ARGS[@]}" \
     --model "$MODEL" \
+    "${REASONING_ARGS[@]}" \
     --served-model-name Qwen/Qwen3.5-35B-A3B \
     --port "$PORT" \
     --dtype auto \
@@ -72,6 +78,7 @@ CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
     "${CONTEXT_ARGS[@]}" \
     --max-num-seqs "$MAX_NUM_SEQS" \
     "$PREFIX_CACHE_ARG" \
+    --enable-prompt-tokens-details \
     </dev/null > "$LOG_FILE" 2>&1 &
 
 VLLM_PID=$!
@@ -92,6 +99,7 @@ fi
 
 echo "[$(date)] vLLM Qwen3.5-35B-A3B launched as PID $VLLM_PID ($PREFIX_CACHE_ARG)"
 echo "[$(date)] Log: $LOG_FILE"
+echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"
 echo ""
 echo "The first launch may download the model and take several minutes."

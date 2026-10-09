@@ -24,6 +24,10 @@ CONDITIONS = [
     # Partial summary primitives: summarize the head, keep budget-fitting tail verbatim
     {"condition": "summarization-partial",        "primitive": "summarization_partial",        "budget": 15_000},
     {"condition": "structured-summarize-partial", "primitive": "structured_summarize_partial", "budget": 15_000},
+    # Length-free summaries: same LLM call as SU-full / SS but no word target in the
+    # prompt, so compression_ratio does not engage (depth-invariant).
+    {"condition": "summarization-free",        "primitive": "summarization_free",        "budget": 15_000},
+    {"condition": "structured-summarize-free", "primitive": "structured_summarize_free", "budget": 15_000},
     # OTRC stacked variants: per-step freeze-window clearing + budget-triggered fallback.
     # All three reuse configs/config-online-trc.yaml (agent prompts expect cleared tool stubs).
     {"condition": "otrc-tr",         "primitive": "online_trc",                              "budget": 15_000,
