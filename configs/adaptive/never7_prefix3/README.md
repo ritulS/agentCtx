@@ -35,8 +35,8 @@ launcher with that `R2_SECTION`): SU-free at every compression event on the
 tasks the model resolved in at least 2 of 3 fixed SU-free runs
 (`task_lists/swe_verified/p100_qwen35b_su-free_majority_resolved.json`), and TR
 at every event on the fixed-TR counterpart
-(`p100_qwen35b_tr_majority_resolved.json`), first 5 tasks of each list by
-default, at the runner's default limits.
+(`p100_qwen35b_tr_majority_resolved.json`), first 5 tasks of each list at
+15 runs per task by default, at the runner's default limits.
 
 Why a prefix of 3: on these tasks SU-free fired 3.1 times per run on average
 (median 3, max 11) and TR 5.5 (median 4, max 15), so the six schedules here

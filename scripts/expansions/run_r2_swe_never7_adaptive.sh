@@ -38,8 +38,9 @@
 # event, through the adaptive condition) on the first N_TASKS (default 5) of
 # task_lists/swe_verified/p100_qwen35b_su-free_majority_resolved.json, and
 # R2_SECTION=p100_tr_majority runs ttt only on the first N_TASKS (default 5) of
-# task_lists/swe_verified/p100_qwen35b_tr_majority_resolved.json, each into
-# data/r2/swebench/<section>/<R2_MODEL>/ at the runner's default limits;
+# task_lists/swe_verified/p100_qwen35b_tr_majority_resolved.json, each at
+# 15 runs per task (RUNS_PER_TASK) into data/r2/swebench/<section>/<R2_MODEL>/
+# at the runner's default limits (300 steps / 5400 s per run);
 # scripts/expansions/run_r2_swe_majority_uniform.sh chains the two.
 # One pattern only:
 #   PATTERNS=tss bash scripts/expansions/run_r2_swe_never7_adaptive.sh
@@ -53,7 +54,8 @@
 #   (LLM calls per run), AGENT_TIMEOUT (seconds), R2_MODEL, RUNS_PER_TASK,
 #   MAX_WORKERS, N_TASKS (first N tasks of TASKS_FILE; N_TASKS=all for every
 #   task in the majority sections), TASKS_FILE, SCHEDULE_DIR, PATTERNS, QWEN_AGENT_CONFIG,
-#   QWEN_OTRC_CONFIG, QWEN_TAG, RUN_EVAL, QWEN_HEALTH_URL.
+#   QWEN_OTRC_CONFIG, QWEN_TAG, RUN_EVAL, QWEN_HEALTH_URL, AGENTCTX_PROFILE
+#   (albus-swe: MAX_WORKERS defaults to 8; scripts/lib/profiles.sh).
 # Completed task/run keys are skipped on rerun; a different schedule in an
 # existing cell is refused by the runner (use a new cell or model dir).
 set -euo pipefail
@@ -61,6 +63,8 @@ set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/profiles.sh"
+agentctx_profile    # AGENTCTX_PROFILE=albus-swe -> 8 workers unless MAX_WORKERS is set
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_r2.py"
@@ -84,9 +88,11 @@ case "$R2_SECTION" in
                              DEFAULT_PATTERNS="ttt $DEFAULT_PATTERNS sss" ;;
     p100_su_free_majority)   DEFAULT_TASKS="p100_qwen35b_su-free_majority_resolved.json"
                              DEFAULT_PATTERNS="sss"
+                             DEFAULT_RUNS=15
                              DEFAULT_N_TASKS=5 ;;
     p100_tr_majority)        DEFAULT_TASKS="p100_qwen35b_tr_majority_resolved.json"
                              DEFAULT_PATTERNS="ttt"
+                             DEFAULT_RUNS=15
                              DEFAULT_N_TASKS=5 ;;
     *) echo "[ERROR] unknown R2_SECTION '$R2_SECTION'; use p30s_never7 | p100_minus_p30s_never13 | p100_fc_only4 | p100_su_free_majority | p100_tr_majority" >&2; exit 1 ;;
 esac
@@ -94,7 +100,7 @@ TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/$DEFAULT_TASKS}"
 SCHEDULE_DIR="${SCHEDULE_DIR:-$WS/configs/adaptive/never7_prefix3}"
 R2_MODEL="${R2_MODEL:-qwen35b}"                     # lowercase/digits/hyphens
 RUNS_PER_TASK="${RUNS_PER_TASK:-$DEFAULT_RUNS}"          # override: RUNS_PER_TASK=<n> bash ...
-MAX_WORKERS="${MAX_WORKERS:-16}"
+MAX_WORKERS="${MAX_WORKERS:-${PROFILE_MAX_WORKERS:-16}}"
 RUN_EVAL="${RUN_EVAL:-1}"
 N_TASKS="${N_TASKS:-$DEFAULT_N_TASKS}"   # empty or "all" = every task in TASKS_FILE
 [[ "$N_TASKS" == all ]] && N_TASKS=""

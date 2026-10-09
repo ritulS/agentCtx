@@ -49,6 +49,8 @@ set -euo pipefail
 WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/profiles.sh"
+agentctx_profile    # AGENTCTX_PROFILE=albus-swe -> 8 workers unless MAX_WORKERS is set
 
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_r2.py"
@@ -66,7 +68,7 @@ TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/$DEFAULT_TASKS}"
 R2_MODEL="${R2_MODEL:-qwen35b}"                     # lowercase/digits/hyphens
 INF_BUDGET=999999999
 RUNS_PER_TASK="${RUNS_PER_TASK:-3}"          # override: RUNS_PER_TASK=<n> bash ...
-MAX_WORKERS="${MAX_WORKERS:-16}"
+MAX_WORKERS="${MAX_WORKERS:-${PROFILE_MAX_WORKERS:-16}}"
 RUN_EVAL="${RUN_EVAL:-1}"
 N_TASKS="${N_TASKS:-}"          # empty = every task in TASKS_FILE
 # "cell:condition:depth" triples, from the PRESET argument unless CELLS is set.

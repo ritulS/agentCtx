@@ -12,22 +12,31 @@
 # value on purpose: no env overrides, and no --gpu-memory-utilization or
 # --served-model-name (production left both at the vLLM default). Use
 # REASONING_PARSER=none to reproduce the iclr26 serving (no reasoning parser).
+# The one named exception is the machine profile (scripts/lib/profiles.sh):
+# AGENTCTX_PROFILE=albus-swe serves on all 8 GPUs of Albus with
+# --tensor-parallel-size 8 (everything else unchanged); unset, this is the
+# Dobby production server on GPUs 0-3 with TP=4.
 # scripts/serving/start_vllm_qwen35_swe_summarizer_ablation.sh instead when sharing the GPUs with a summarizer.
 #
 # Usage:  bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
+# Albus:  AGENTCTX_PROFILE=albus-swe bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
 # Tail:   tail -f logs/servers/vllm_qwen35_a3b.latest.log
 # Check:  grep -a -o 'enable_prefix_caching=[A-Za-z]*' logs/servers/vllm_qwen35_a3b.latest.log | tail -1
 # Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_qwen35_a3b.pid
 set -euo pipefail
 
-WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$WS"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/logpaths.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_kv_trace.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/vllm_reasoning.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/profiles.sh"
 reasoning_parser_args qwen3
+agentctx_profile
 
 PORT=8000
+CUDA_DEVICES="${PROFILE_CUDA_DEVICES:-0,1,2,3}"
+TP_SIZE="${PROFILE_TP_SIZE:-4}"
 PYTHON_BIN="$WS/venv/bin/python3"
 PID_FILE="$SERVER_LOG_DIR/vllm_qwen35_a3b.pid"
 
@@ -52,7 +61,7 @@ fi
 # vllm_qwen35_a3b.latest.log points at the newest one.
 LOG_FILE="$(server_log vllm_qwen35_a3b)"
 kv_trace_args "$LOG_FILE"
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
+CUDA_VISIBLE_DEVICES="$CUDA_DEVICES" \
   nohup setsid "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
     "${KV_TRACE_ARGS[@]}" \
     --model Qwen/Qwen3.5-35B-A3B \
@@ -60,7 +69,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 \
     --host 127.0.0.1 \
     --port "$PORT" \
     --dtype auto \
-    --tensor-parallel-size 4 \
+    --tensor-parallel-size "$TP_SIZE" \
     --max-model-len 102400 \
     --max-num-seqs 64 \
     --enable-prefix-caching \
@@ -83,7 +92,7 @@ if ! kill -0 "$VLLM_PID" 2>/dev/null; then
     exit 1
 fi
 
-echo "[$(date)] vLLM Qwen3.5-35B-A3B launched as PID $VLLM_PID on GPUs 0,1,2,3, port $PORT, prefix caching ON"
+echo "[$(date)] vLLM Qwen3.5-35B-A3B launched as PID $VLLM_PID on GPUs $CUDA_DEVICES (TP=$TP_SIZE, $(profile_status)), port $PORT, prefix caching ON"
 echo "[$(date)] Log: $LOG_FILE"
 echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"

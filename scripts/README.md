@@ -14,7 +14,7 @@ operational launchers.
 | `calibration/` | Collect full-context trajectories and calibrate token budgets. |
 | `expansions/run_r2_swe_p30s.sh` | r2 campaign on the P30S cohort with Qwen3.5-35B-A3B, into `data/r2/swebench/p30s/<model>/<cell>`; the first argument picks a preset (`free` = `di__b15k__{su-free,ss-free}`, default; `su-free`, `ss-free`, `fc`, `otrc`, `baselines`), `CELLS` and `RUNS_PER_TASK` override. `R2_SECTION=p100_minus_p30s` runs the other 70 P100 tasks (`task_lists/swe_verified/p100_minus_p30s.json`) into `data/r2/swebench/p100_minus_p30s/<model>/<cell>` instead. |
 | `expansions/run_r2_swe_never7_adaptive.sh` | r2 adaptive primitive-order cells on the 7 P30S tasks Qwen3.5-35B-A3B never resolved, into `data/r2/swebench/p30s_never7/<model>/d05__b15k__adaptive-prefix3-<pattern>`; one cell per `PATTERNS` entry (default `tts tst tss stt sts sst` = the primitive at compression events 1-3, `t` TR / `s` SU-free, last held), schedules in `configs/adaptive/never7_prefix3/`. `R2_SECTION=p100_minus_p30s_never13` runs the same six cells on the 13 P100-minus-P30S tasks the model never resolved (`task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json`) into `data/r2/swebench/p100_minus_p30s_never13/<model>/...` instead. `R2_SECTION=p100_fc_only4` runs all eight orders (the six plus `ttt` / `sss`) at 10 runs per task on the 4 P100 tasks resolved under full context but never under fixed TR or SU-free (`task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json`) into `data/r2/swebench/p100_fc_only4/<model>/...`. `R2_SECTION=p100_su_free_majority` / `R2_SECTION=p100_tr_majority` run the uniform `sss` / `ttt` order only (SU-free / TR at every compression event) on the first `N_TASKS` (default 5; `N_TASKS=all` for every task) of `task_lists/swe_verified/p100_qwen35b_{su-free,tr}_majority_resolved.json` into `data/r2/swebench/<section>/<model>/...`. |
-| `expansions/run_r2_swe_majority_uniform.sh` | Chains the two majority sections of `run_r2_swe_never7_adaptive.sh`: `p100_su_free_majority` (sss) then `p100_tr_majority` (ttt), first 5 tasks of each list × `RUNS_PER_TASK` (default 3), one log for both; `SECTIONS`, `N_TASKS`, `RUNS_PER_TASK`, `R2_MODEL`, `RUN_EVAL`, `MAX_WORKERS` override. |
+| `expansions/run_r2_swe_majority_uniform.sh` | Chains the two majority sections of `run_r2_swe_never7_adaptive.sh`: `p100_su_free_majority` (sss) then `p100_tr_majority` (ttt), first 5 tasks of each list × `RUNS_PER_TASK` (default 15), one log for both; `SECTIONS`, `N_TASKS`, `RUNS_PER_TASK`, `R2_MODEL`, `RUN_EVAL`, `MAX_WORKERS` override. |
 | `expansions/` | Launch model grids, additional repetitions and the summarizer / prefix-cache ablations. |
 | `serving/` | Start and stop model-specific vLLM servers. |
 | `harbor/` | Prebuild Terminal-Bench images, configure Harbor tasks, check worker cancellation. |
@@ -103,6 +103,16 @@ bash scripts/notify_run.sh --foreground --unit smoke -- bash scripts/expansions/
 `--on-success '<command>'` runs a follow-up (for example a results summary)
 after a clean exit; `--pid-file` records the launched command's PID for
 chained scripts.
+
+### Machine profiles: `lib/profiles.sh`
+
+`AGENTCTX_PROFILE=albus-swe` is the only profile: on Albus (8× A6000) it makes
+`serving/start_vllm_qwen35_prefix_cache.sh` serve Qwen3.5-35B-A3B on all 8 GPUs
+with `--tensor-parallel-size 8`, and the r2 SWE-bench launchers
+(`expansions/run_r2_swe_p30s.sh`, `expansions/run_r2_swe_never7_adaptive.sh`
+and so `expansions/run_r2_swe_majority_uniform.sh`) default `MAX_WORKERS` to 8.
+Unset, everything keeps the Dobby defaults (GPUs 0-3, TP=4, 16 workers); an
+explicit `MAX_WORKERS` always wins; an unknown profile name is an error.
 
 ### Log files: `lib/logpaths.sh`
 

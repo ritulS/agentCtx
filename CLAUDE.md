@@ -24,7 +24,9 @@ This project is worked on across two machines:
 - **Dobby** (primary): development, P100 expansion runs, depth/budget
   ablations, the staggered pilot. Serves Qwen3.5-35B-A3B continuously.
 - **Albus** (8× A6000): hosts model-expansion runs (Qwen2.5-7B, Llama 3.3 70B)
-  and the quantization sweep. Different model serving per phase.
+  and the quantization sweep. Different model serving per phase. For
+  Qwen3.5-35B-A3B SWE-bench runs there, `AGENTCTX_PROFILE=albus-swe`
+  (`scripts/lib/profiles.sh`) serves on all 8 GPUs (TP=8) and runs 8 workers.
 
 **Sync discipline**: at task boundaries — finishing one experiment phase or
 moving from analysis to runs — push commits from whichever machine you edited

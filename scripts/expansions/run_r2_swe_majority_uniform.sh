@@ -14,16 +14,21 @@
 #
 # Both steps are scripts/expansions/run_r2_swe_never7_adaptive.sh with that
 # section (same agent, summarizer = agent model, budget 15k, depth 0.5, runner
-# default limits 300 steps / 5400 s, RUNS_PER_TASK default 3, evaluation after
+# default limits 300 steps / 5400 s, RUNS_PER_TASK default 15, evaluation after
 # each cell), so every override of that launcher applies here too: N_TASKS
 # (N_TASKS=all for every task of both lists), RUNS_PER_TASK, MAX_WORKERS,
 # R2_MODEL, RUN_EVAL, STEP_LIMIT, AGENT_TIMEOUT, QWEN_* ... PATTERNS and
 # TASKS_FILE are owned by the sections and must not be set.
 # SECTIONS picks a subset / order (default "p100_su_free_majority p100_tr_majority").
+# On Albus: AGENTCTX_PROFILE=albus-swe (scripts/lib/profiles.sh) makes the
+# server script take all 8 GPUs and this chain run 8 workers (MAX_WORKERS wins).
 #
 # Usage: bash scripts/notify_run.sh --unit r2/swebench/majority_uniform/qwen35b \
 #            -- bash scripts/expansions/run_r2_swe_majority_uniform.sh
-#   (default: 5 tasks x 3 runs x 1 cell per section = 30 runs)
+# Albus:  AGENTCTX_PROFILE=albus-swe bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
+#         AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_uniform/qwen35b \
+#            -- bash scripts/expansions/run_r2_swe_majority_uniform.sh
+#   (default: 5 tasks x 15 runs x 1 cell per section = 150 runs)
 # Smoke test (1 task x 1 run per section, no eval, throwaway model dir; delete it afterwards):
 #   N_TASKS=1 RUNS_PER_TASK=1 MAX_WORKERS=1 RUN_EVAL=0 R2_MODEL=qwen35b-smoke \
 #     bash scripts/expansions/run_r2_swe_majority_uniform.sh
@@ -57,7 +62,7 @@ exec 8>"$EXPERIMENT_LOG_DIR/r2_sb_majority_uniform_${R2_MODEL}.lock"
 flock -n 8 || { echo "r2 majority-uniform chain for $R2_MODEL already running." >&2; exit 1; }
 
 log() { echo "[$(date)] $*" | emit; }
-log "=== r2 SWE-Bench majority-uniform chain | model: $R2_MODEL | sections: $SECTIONS | n_tasks=${N_TASKS:-5 (section default)} runs/task=${RUNS_PER_TASK:-3 (launcher default)} ==="
+log "=== r2 SWE-Bench majority-uniform chain | model: $R2_MODEL | sections: $SECTIONS | n_tasks=${N_TASKS:-5 (section default)} runs/task=${RUNS_PER_TASK:-15 (section default)} ==="
 for section in $SECTIONS; do
     log "--- section $section ---"
     AGENTCTX_LOG_FILE="$LOG_FILE" R2_SECTION="$section" R2_MODEL="$R2_MODEL" bash "$LAUNCHER" 2>&1 | emit

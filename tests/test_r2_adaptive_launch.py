@@ -129,7 +129,7 @@ class Never7LaunchTests(unittest.TestCase):
                     self.assertEqual(Path(_opt(c, "--adaptive-schedule")).name, f"{pat}.json")
                     self.assertEqual(Path(_opt(c, "--tasks-file")).name, tasks)
                     self.assertEqual(_opt(c, "--n-tasks"), "5")
-                    self.assertEqual(_opt(c, "--runs-per-task"), "3")
+                    self.assertEqual(_opt(c, "--runs-per-task"), "15")
                     self.assertEqual(_opt(c, "--conditions"), "adaptive")
                     self.assertNotIn("--step-limit", c)
                     self.assertNotIn("--agent-timeout", c)
@@ -155,7 +155,7 @@ class Never7LaunchTests(unittest.TestCase):
             for c in calls:
                 self.assertEqual(_opt(c, "--r2-model"), "qwen35b")
                 self.assertEqual(_opt(c, "--n-tasks"), "5")
-                self.assertEqual(_opt(c, "--runs-per-task"), "3")
+                self.assertEqual(_opt(c, "--runs-per-task"), "15")
             # One log, owned by the chain, holding both sections' output.
             logs = sorted((Path(tmp) / "logs/experiments").glob("r2_sb_majority_uniform_qwen35b_*.log"))
             self.assertEqual(len(logs), 1)
@@ -180,6 +180,42 @@ class Never7LaunchTests(unittest.TestCase):
                 result = subprocess.run(["bash", str(CHAIN)], env={**env, **bad}, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 1, bad)
                 self.assertEqual(capture.read_text(), "")
+
+    def test_albus_swe_profile_defaults_to_eight_workers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, env = _sandbox(Path(tmp))
+            env.update(PATTERNS="sts", RUN_EVAL="0")
+            subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(_opt(calls[0], "--max-workers"), "16")      # Dobby default
+
+            capture.write_text("")
+            env.update(AGENTCTX_PROFILE="albus-swe")
+            subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(_opt(calls[0], "--max-workers"), "8")
+
+            capture.write_text("")
+            env.update(MAX_WORKERS="3")                                   # explicit value wins
+            subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(_opt(calls[0], "--max-workers"), "3")
+            del env["MAX_WORKERS"]
+
+            capture.write_text("")
+            env.update(AGENTCTX_PROFILE="albus")                          # unknown profile
+            result = subprocess.run(["bash", str(LAUNCHER)], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unknown AGENTCTX_PROFILE", result.stderr)
+            self.assertEqual(capture.read_text(), "")
+
+            # The chain passes the profile through to both sections.
+            capture.write_text("")
+            env.update(AGENTCTX_PROFILE="albus-swe")
+            del env["PATTERNS"]
+            subprocess.run(["bash", str(CHAIN)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual([_opt(c, "--max-workers") for c in calls], ["8", "8"])
 
     def test_overrides_and_bad_patterns(self):
         with tempfile.TemporaryDirectory() as tmp:
