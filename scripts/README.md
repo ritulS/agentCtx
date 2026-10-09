@@ -19,7 +19,7 @@ operational launchers.
 | `harbor/` | Prebuild Terminal-Bench images, configure Harbor tasks, check worker cancellation. |
 | `maintenance/` | Audit, re-evaluate, repair and archive existing results. |
 | `maintenance/never_resolved_tasks.py` | Lists the tasks with no resolved run across a set of cells of one model dir (e.g. `data/r2/swebench/p100_minus_p30s/qwen35b`) in the `task_lists/swe_verified/` schema, with difficulty from the cached SWE-bench Verified dataset; produced `p30s_qwen35b_never_resolved.json` (7) and `p100_minus_p30s_qwen35b_never_resolved.json` (13). |
-| `maintenance/majority_resolved_tasks.py` | The complement: lists the tasks resolved in at least `--min-resolved` (default 2) of `--min-runs` (default 3) evaluated runs of one `--cell` across one or more model dirs (e.g. the r2 `p30s` and `p100_minus_p30s` sections together), in P100 order with difficulty; produced `p100_qwen35b_tr_majority_resolved.json` (53) and `p100_qwen35b_su-free_majority_resolved.json` (55). |
+| `maintenance/majority_resolved_tasks.py` | The complement: lists the tasks resolved in at least `--min-resolved` (default 2) of `--min-runs` (default 3) evaluated runs of one `--cell` across one or more model dirs (e.g. the r2 `p30s` and `p100_minus_p30s` sections together), in P100 order with difficulty (`--interleave` instead alternates the not-always-resolved tasks with the always-resolved ones, cycling through the difficulty levels); produced, with `--interleave`, `p100_qwen35b_tr_majority_resolved.json` (53) and `p100_qwen35b_su-free_majority_resolved.json` (55). |
 
 ## Calibration
 
