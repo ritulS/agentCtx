@@ -101,6 +101,12 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   order). `scripts/maintenance/reconstruct_context.py <run_dir> [--step N]
   [--event K]` replays them and verifies against trajectory.json /
   token_log.json. Runs before 2026-09-23 only have the final trajectory.
+  Since 2026-10-11 the same dir also gets `summary_attempts.jsonl`: every
+  summarizer reply verbatim (accepted or rejected, with the rejection reason,
+  `outcome` accepted|retry|fallback, finish_reason, usage, provider response
+  id, the model's reasoning when returned, and the cleaned summary when
+  accepted); written by `request_summary` in `primitives.py`
+  (`MSWEA_SUMMARY_ATTEMPT_LOG` names another file, `0` disables).
 - Physical-resource log: `src/agentctx/resource_monitor.py` samples, while
   the SWE-bench adapter waits for the agent subprocess, the agent process
   tree's RSS, the task container's cgroup memory (name taken from

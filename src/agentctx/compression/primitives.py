@@ -57,6 +57,15 @@ Summarization, length-free (SU-free / SS-free)
   in the prompt (depth-invariant). target_tokens only sizes the complete-turn
   TR fallback to B*r when all summary attempts fail.
 
+Summary attempt log (MSWEA_EVENT_LOG_DIR/summary_attempts.jsonl)
+  Every summarizer reply, accepted or rejected, is appended verbatim as one
+  JSON line (request_seq, attempt, attempts_allowed, accepted, rejected
+  reason, outcome accepted|retry|fallback, finish_reason, usage, latency,
+  provider response id, the raw content, the model's reasoning when the
+  provider returned it, and the cleaned summary when accepted), so a
+  rejected summary can be read afterwards. MSWEA_SUMMARY_ATTEMPT_LOG names
+  another file ("0" disables); nothing is written when neither is set.
+
 Token log (MSWEA_TOKEN_LOG_PATH)
   Written after every agent step.  Schema:
     total_prompt_tokens, total_completion_tokens, total_tokens,
@@ -447,6 +456,64 @@ def _response_id(response: dict) -> str | None:
     return rid if isinstance(rid, str) and rid else None
 
 
+def _response_reasoning(response: dict) -> str | None:
+    """The provider's parsed reasoning for the first choice (vLLM
+    --reasoning-parser: ``reasoning`` since 0.17, ``reasoning_content``
+    before), None when absent."""
+    extra = response.get("extra", {}) if isinstance(response, dict) else {}
+    resp  = extra.get("response", {}) if isinstance(extra, dict) else {}
+    choices = resp.get("choices") if isinstance(resp, dict) else None
+    if not (isinstance(choices, list) and choices and isinstance(choices[0], dict)):
+        return None
+    message = choices[0].get("message")
+    if not isinstance(message, dict):
+        return None
+    for key in ("reasoning", "reasoning_content"):
+        value = message.get(key)
+        if isinstance(value, str) and value:
+            return value
+    provider = message.get("provider_specific_fields")
+    if isinstance(provider, dict):
+        for key in ("reasoning", "reasoning_content"):
+            value = provider.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return None
+
+
+_SUMMARY_ATTEMPT_LOCK = threading.Lock()
+_SUMMARY_REQUEST_SEQ  = [0]   # per process; increments once per request_summary()
+
+
+def summary_attempt_log_path() -> Path | None:
+    """Where summarizer replies are appended, or None when logging is off.
+
+    MSWEA_SUMMARY_ATTEMPT_LOG names the file ("0" / "off" disables it);
+    otherwise MSWEA_EVENT_LOG_DIR/summary_attempts.jsonl next to the run's
+    events.jsonl / compression_events.jsonl; nothing without either.
+    """
+    explicit = os.environ.get("MSWEA_SUMMARY_ATTEMPT_LOG", "").strip()
+    if explicit:
+        return None if explicit.lower() in ("0", "off", "none") else Path(explicit)
+    event_dir = os.environ.get("MSWEA_EVENT_LOG_DIR", "").strip()
+    return Path(event_dir) / "summary_attempts.jsonl" if event_dir else None
+
+
+def _log_summary_attempt(record: dict) -> None:
+    """Append one summarizer reply to the attempt log (best effort: a logging
+    failure never fails the compression event)."""
+    path = summary_attempt_log_path()
+    if path is None:
+        return
+    try:
+        with _SUMMARY_ATTEMPT_LOCK:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(record, default=str) + "\n")
+    except Exception:   # noqa: BLE001 - diagnostics only
+        pass
+
+
 def request_summary(
     summary_model,
     summary_prompt: list[dict],
@@ -471,8 +538,15 @@ def request_summary(
     propagates to the caller) leaves the ids obtained so far in place with
     ``interrupted`` set to the exception type and ``interrupted_attempt`` to
     the attempt that failed.
+
+    Every reply, accepted or rejected, is also appended verbatim to the
+    summary attempt log (summary_attempt_log_path(); see the module
+    docstring) so rejected summaries can be inspected afterwards.
     """
     attempts = max_attempts or SUMMARY_MAX_ATTEMPTS
+    with _SUMMARY_ATTEMPT_LOCK:
+        _SUMMARY_REQUEST_SEQ[0] += 1
+        request_seq = _SUMMARY_REQUEST_SEQ[0]
     prompt_toks = completion_toks = 0
     latency_s   = 0.0
     text, flags = None, {}
@@ -499,17 +573,38 @@ def request_summary(
             outcome["interrupted_attempt"] = attempt
             outcome["flags"] = dict(flags)
             raise
-        latency_s += time.time() - _t0
+        attempt_latency = time.time() - _t0
+        latency_s += attempt_latency
         response_ids.append(_response_id(response))
         outcome["attempts"] = attempt
         pt, ct = _response_usage(response)
         prompt_toks     += pt
         completion_toks += ct
-        text, flags = clean_summary_text(
-            response_text(response), open_marker, close_marker,
-            finish_reason=_response_finish_reason(response),
-        )
+        raw = response_text(response)
+        finish_reason = _response_finish_reason(response)
+        text, flags = clean_summary_text(raw, open_marker, close_marker, finish_reason=finish_reason)
         flags["attempts"] = attempt
+        _log_summary_attempt({
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "request_seq": request_seq,
+            "attempt": attempt,
+            "attempts_allowed": attempts,
+            "marker": open_marker,
+            "accepted": text is not None,
+            "rejected": flags.get("rejected"),
+            "outcome": "accepted" if text is not None else ("fallback" if attempt >= attempts else "retry"),
+            "finish_reason": finish_reason,
+            "response_id": response_ids[-1],
+            "prompt_tokens": pt,
+            "completion_tokens": ct,
+            "latency_s": round(attempt_latency, 3),
+            "raw_chars": len(raw),
+            "had_open_marker": flags.get("had_open_marker"),
+            "had_close_marker": flags.get("had_close_marker"),
+            "content": raw,
+            "reasoning": _response_reasoning(response),
+            "summary": text,
+        })
         if text is not None:
             break
         rejections.append(flags.get("rejected") or "unknown")
