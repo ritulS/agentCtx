@@ -46,6 +46,36 @@ need rebuilding for serving/tbench.
   38 calls (0.5%) at the 4,096 cap. Summary fallback 45/228 (20%) vs 21/207 (10%) uncapped: the cap now cuts the
   summarizer too (61 `truncated` rejections vs 6), while `missing_marker` is unchanged (164 vs 166). Output:
   `data/r2/swebench/p100_su_free_majority/qwen35b-cap4k/d05__b15k__adaptive-prefix3-sss/` (+ `failure_tags.csv`).
+- **✅ COMPLETE (user-launched 2026-10-10 15:54:43 CDT, agent + eval finished 2026-10-11 03:07:00 CDT, 11.2 h; caching-OFF server, 3 workers):** summarizer-only
+  thinking OFF cell `qwen35b-cap4k-sumnothink` (agent cap4k config, summary requests via
+  `configs/config-summary-qwen35-35b-nothink.yaml`, `MSWEA_SUMMARY_MAX_ATTEMPTS=2`; provenance recorded in every row).
+  Result: 60/60 evaluated, **48 resolved** (django-11299 15/15, sklearn-10908 11/15, sklearn-11310 9/15, sklearn-25102 13/15)
+  vs 44/60 (cap4k) and 39/60 (uncapped); all 60 `Submitted` (no Timeout / LimitsExceeded). `tag_run_failures.py`: 4 infra
+  (all = a capped agent call in a run that still submitted) / 8 model, wasted 1.2 h (cap4k 1.9 h). 5,523 agent calls, 25 capped,
+  0 >=600 s. Summarizer: 179 events, 28 fallbacks (16%; cap4k 20% with 5 attempts), 211 attempts with 60 rejections
+  (39 missing_marker, 20 truncated, 1 missing_close_marker) vs 470 attempts / 287 rejections in cap4k; summarizer time
+  2.5 h = 9% of the 27.5 h e2e (cap4k 8.3 h = 22% of 37.8 h). Output `.../qwen35b-cap4k-sumnothink/d05__b15k__adaptive-prefix3-sss/`
+  (+ `failure_tags.csv`). Log
+  `logs/experiments/r2_swebench_majority_capped_qwen35b-cap4k-sumnothink_20261010_155443.log`.
+- **Next (prepared 2026-10-11, not launched): `SUMMARIZER=nothink4k`** = sumnothink with the summarizer reply cap back at 4096
+  (`configs/config-summary-qwen35-35b-nothink-4k.yaml`) and the primitive's default 5 attempts, dest `qwen35b-cap4k-sumnothink4k`.
+  Why: of sumnothink's 28 fallbacks, 12 began with a reply cut at 2048 tokens (0/12 recovered on the single retry) and 16 with
+  missing_marker (3/19 rescued with one retry; uncapped rescued 36/57 with four). In uncapped / cap4k most >2048-token
+  summaries completed below 16k chars (4096 tokens), and a thinking-OFF attempt costs ~33 s median, so both limits can go back up.
+  Expect fallback near or below uncapped's 10% if ~2/3 of the 2048-overflows finish at 4096. This cell (and any run
+  launched from now on) also writes `<run_dir>/summary_attempts.jsonl`: every summarizer reply verbatim with its
+  accept/reject verdict, so the truncated / marker-less summaries can be read afterwards. Launch:
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_capped/qwen35b-cap4k-sumnothink4k -- env SUMMARIZER=nothink4k bash scripts/expansions/run_r2_swe_majority_capped_pilot.sh`
+- **Prepared 2026-10-10 (recipe):** summarizer-only thinking OFF. `configs/config-summary-qwen35-35b-nothink.yaml`
+  (same model and server, thinking OFF, max_tokens 2048) goes through `--summary-config`; `validate_summarizer` now admits an
+  override of the agent's own model in self-summarized sections and pins the cell to that config file. The pilot launcher takes
+  `SUMMARIZER=nothink` (dest `qwen35b-cap4k-sumnothink`, `MSWEA_SUMMARY_MAX_ATTEMPTS=2`). Before the 60-run cell, run the
+  replay probe on the idle sandbox server (~30 events x 2 modes x 2 samples, about 1 h):
+  `venv/bin/python scripts/maintenance/probe_summarizer_thinking.py collect` then `... compare`
+  (output `data/r2/probes/summarizer_thinking/`). Decide on the marker-acceptance rate: thinking OFF cannot fix the
+  `truncated` fallbacks (summary content alone filled the cap; the 2048 cap bounds them), it is a bet on `missing_marker`
+  and on summarizer wall-clock (22% of e2e). Launch:
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_capped/qwen35b-cap4k-sumnothink -- env SUMMARIZER=nothink bash scripts/expansions/run_r2_swe_majority_capped_pilot.sh`
 - **Previous launch:** ❌ KILLED 2026-10-09 21:49 CDT by the user after 4 h 20 min (launched 17:29:18, wrapper PID 507871,
   against `scripts/serving/start_vllm_qwen35_sandbox.sh` = prefix caching OFF, TP=8, 6 workers). 32/60 runs
   completed (django-11299 15, sklearn-25102 15, sklearn-10908 2), **14 of them `Timeout`**: not the 5,400 s
