@@ -11,6 +11,9 @@
 # Mirrors scripts/expansions/run_r2_swe_p30s.sh:
 #   Agent      : Qwen3.5-35B-A3B, configs/config-qwen-vllm.yaml, :8000
 #   Summarizer : the agent model itself (no --summary-config, no second server)
+#                unless SUMMARY_CONFIG=<yaml> is set: passed as --summary-config
+#                (a same-model override such as configs/config-summary-qwen35-35b-nothink.yaml
+#                is admitted in these sections; use a distinct R2_MODEL dir for it)
 #   Cells      : d05__b15k__adaptive-prefix3-<pattern>, one per PATTERNS entry
 #                (default: the six mixed patterns tts tst tss stt sts sst;
 #                p100_fc_only4 adds the uniform ttt and sss)
@@ -107,12 +110,17 @@ N_TASKS="${N_TASKS:-$DEFAULT_N_TASKS}"   # empty or "all" = every task in TASKS_
 PATTERNS="${PATTERNS:-$DEFAULT_PATTERNS}"
 STEP_LIMIT="${STEP_LIMIT:-$DEFAULT_STEP_LIMIT}"            # max LLM calls per run
 AGENT_TIMEOUT="${AGENT_TIMEOUT:-$DEFAULT_AGENT_TIMEOUT}"   # wall-clock seconds per run
+SUMMARY_CONFIG="${SUMMARY_CONFIG:-}"                       # summarizer override YAML (--summary-config)
 LOG_FILE="${R2_NEVER7_LOG_FILE:-$(experiment_log "r2_sb_${R2_SECTION}_${R2_MODEL}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
 require_file "$OTRC_CONFIG"; require_file "$TASKS_FILE"
+[[ -z "$SUMMARY_CONFIG" ]] || require_file "$SUMMARY_CONFIG"
 EXTRA_ARGS=()
+if [[ -n "$SUMMARY_CONFIG" ]]; then
+    EXTRA_ARGS+=(--summary-config "$SUMMARY_CONFIG")
+fi
 if [[ -n "$N_TASKS" ]]; then
     [[ "$N_TASKS" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] N_TASKS must be a positive integer: $N_TASKS" >&2; exit 1; }
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
@@ -146,7 +154,7 @@ agent_api_base="$(sed -n 's/^[[:space:]]*api_base:[[:space:]]*"\{0,1\}\([^"]*\)"
 }
 
 log() { echo "[$(date)] $*" | emit; }
-log "=== r2 SWE-Bench $R2_SECTION | dest: data/r2/swebench/$R2_SECTION/$R2_MODEL | patterns: $PATTERNS | schedules: $SCHEDULE_DIR | agent: $AGENT_CONFIG | summarizer: agent model ==="
+log "=== r2 SWE-Bench $R2_SECTION | dest: data/r2/swebench/$R2_SECTION/$R2_MODEL | patterns: $PATTERNS | schedules: $SCHEDULE_DIR | agent: $AGENT_CONFIG | summarizer: ${SUMMARY_CONFIG:-agent model} ==="
 log "=== runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL step_limit=${STEP_LIMIT:-runner default} agent_timeout=${AGENT_TIMEOUT:-runner default} ==="
 
 # run_runner <cell> <schedule.json> [extra runner args]

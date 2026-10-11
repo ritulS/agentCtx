@@ -1,0 +1,39 @@
+# Summarizer-only override for the controlled sandbox: the SAME model and server
+# as the agent (Qwen3.5-35B-A3B on :8000) but with thinking OFF and a 2048-token
+# reply cap for summary requests only. The agent keeps its own config
+# (configs/config-qwen-vllm-cap4k.yaml: thinking ON, max_tokens 4096).
+#
+# Why (capped pilot qwen35b-cap4k, 2026-10-10, 228 SU-free summary events):
+#   - summarizer time was 8.3 h of the 37.8 h e2e (22%); an accepted summary is
+#     ~1,900 chars (~500 tokens) of content yet took a median 40 s per attempt,
+#     so most of that time is the hidden reasoning (the server runs
+#     --reasoning-parser qwen3, so reasoning never reaches the validator).
+#   - 7 fallbacks were "truncated": the summary *content* alone ran to 13-16k
+#     chars (the whole 4096 cap). Thinking OFF does not fix those; the lower
+#     max_tokens bounds them (an accepted summary is p90 = 4,142 chars).
+#   - sklearn-25102 run_4 timed out at 7200 s with 2,379 s inside the
+#     summarizer (3 fallback events x 5 attempts x up to 260 s).
+# Pair with MSWEA_SUMMARY_MAX_ATTEMPTS=2 (default 5) in the launcher.
+#
+# Only the `model:` section is read (agentctx.summary_config.summary_model_config),
+# via `--summary-config` -> MSWEA_SUMMARY_MODEL_CONFIG. The runner records
+# {source: override, model_name, config_path} in each row's summarization_model,
+# so these runs are distinguishable from self-summarized ones; the launcher's
+# validate_summarizer admits a same-model override in self-summarized sections
+# but pins the cell to it (a new model dir, e.g. qwen35b-cap4k-sumnothink).
+# Before a 60-run cell, measure the effect on acceptance with
+# scripts/maintenance/probe_summarizer_thinking.py (replays real summary prompts
+# ON vs OFF against the live server).
+model:
+  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.2
+    max_tokens: 2048
+    timeout: 600
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: false
+  cost_tracking: ignore_errors

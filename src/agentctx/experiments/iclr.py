@@ -84,8 +84,14 @@ def validate_summarizer(section: str, runner_args: list[str], destination: Path)
     ``model_ablation`` cells hold runs whose summarizer differs from the agent,
     so they require ``--summary-config``; ``main``/``ablation``/
     ``prefix_cache_ablation`` cells are self-summarized and must not get one.
-    Within a cell, every existing run
-    that recorded its summarizer must match this launch's, so changing
+    One exception: an override whose ``model_name`` is the agent's own
+    (``--agent-config``) only changes the summarizer's *sampling settings*
+    (thinking off, a smaller reply cap, ...), and is admitted in any section
+    as a same-model summarizer override; the rows then record
+    ``{source: override, model_name, config_path}``, so such cells stay
+    distinguishable from self-summarized ones. Within a cell, every existing run
+    that recorded its summarizer must match this launch's (for a same-model
+    override, the config file name as well), so changing
     SUMMARY_CONFIG without changing the destination is refused instead of
     silently filling the remaining keys with a different summarizer.
     """
@@ -106,30 +112,62 @@ def validate_summarizer(section: str, runner_args: list[str], destination: Path)
     overridden = launch["source"] == "override"
     origin = (f"--summary-config {config_arg}" if config_arg is not None
               else "MSWEA_SUMMARY_MODEL_CONFIG/_NAME/_API_BASE in the environment")
+    same_model = overridden and launch.get("model_name") == _agent_model_name(runner_args)
     if section == "model_ablation" and not overridden:
         raise SystemExit("model_ablation cells require a summarizer override "
                          "(--summary-config); none is in effect")
-    if section != "model_ablation" and overridden:
+    if section != "model_ablation" and overridden and not same_model:
         raise SystemExit(f"a summarizer override is in effect ({origin}: {launch.get('model_name')}) "
-                         f"but section {section!r} holds self-summarized cells; use model_ablation")
+                         f"but section {section!r} holds self-summarized cells; use model_ablation "
+                         "(an override of the agent's own model, i.e. summarizer settings only, "
+                         "is admitted when --agent-config names that model)")
+    launch_config_name = Path(launch["config_path"]).name if same_model and launch.get("config_path") else None
 
     results_file = destination / "experiment_results.json"
     if not results_file.exists():
         return
     payload = json.loads(results_file.read_text())
     rows = payload.get("results", []) if isinstance(payload, dict) else payload
-    recorded = {
-        (row["summarization_model"].get("source"), row["summarization_model"].get("model_name"))
-        for row in rows
-        if isinstance(row.get("summarization_model"), dict)
-        and row["summarization_model"].get("source")
-    }
+    provenance = [row["summarization_model"] for row in rows
+                  if isinstance(row.get("summarization_model"), dict)
+                  and row["summarization_model"].get("source")]
+    recorded = {(p.get("source"), p.get("model_name")) for p in provenance}
     if recorded - {launch_identity}:
         raise SystemExit(
             f"existing runs in {destination} recorded summarizer(s) "
             f"{sorted(recorded - {launch_identity})}, but this launch uses {launch_identity}; "
             "use a different --iclr-model (<agent>-sum-<summarizer>) for a different summarizer"
         )
+    if launch_config_name is not None:
+        # Same model, different settings: the config file is the only thing
+        # that tells two such summarizers apart, so it is pinned as well.
+        recorded_configs = {Path(p["config_path"]).name for p in provenance if p.get("config_path")}
+        if recorded_configs - {launch_config_name}:
+            raise SystemExit(
+                f"existing runs in {destination} recorded same-model summarizer config(s) "
+                f"{sorted(recorded_configs - {launch_config_name})}, but this launch uses "
+                f"{launch_config_name}; use a different model dir for a different summarizer config"
+            )
+
+
+def _agent_model_name(runner_args: list[str]) -> str | None:
+    """``model.model_name`` of the ``--agent-config`` YAML in runner_args, if any."""
+    if "--agent-config" not in " ".join(runner_args):
+        return None
+    try:
+        path = Path(option_value(runner_args, "--agent-config")).resolve()
+    except SystemExit:
+        return None
+    if not path.is_file():
+        return None
+    try:
+        import yaml
+        cfg = yaml.safe_load(path.read_text()) or {}
+    except Exception:
+        return None
+    model = cfg.get("model") if isinstance(cfg, dict) else None
+    name = model.get("model_name") if isinstance(model, dict) else None
+    return name if isinstance(name, str) and name else None
 
 
 def _conditions_option(runner_args: list[str]) -> list[str]:

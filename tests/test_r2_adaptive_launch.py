@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 LAUNCHER = ROOT / "scripts/expansions/run_r2_swe_never7_adaptive.sh"
 CHAIN = ROOT / "scripts/expansions/run_r2_swe_majority_uniform.sh"
+CAPPED = ROOT / "scripts/expansions/run_r2_swe_majority_capped_pilot.sh"
 SCHEDULES = ROOT / "configs/adaptive/never7_prefix3"
 PATTERNS = ["tts", "tst", "tss", "stt", "sts", "sst"]
 UNIFORM = ["ttt", "sss"]   # only in the default chain of p100_fc_only4
@@ -140,6 +141,77 @@ class Never7LaunchTests(unittest.TestCase):
                 calls = [json.loads(line) for line in capture.read_text().splitlines()]
                 self.assertEqual(len(calls), 1)
                 self.assertNotIn("--n-tasks", calls[0])
+
+    def test_summary_config_passes_through_as_summary_config_option(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, env = _sandbox(Path(tmp))
+            env.update(PATTERNS="sss", RUN_EVAL="0", R2_SECTION="p100_su_free_majority")
+            subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertNotIn("--summary-config", calls[0])          # default: the agent summarizes
+            summary = Path(tmp) / "configs/config-summary-qwen35-35b-nothink.yaml"
+            summary.write_text("model:\n  model_name: hosted_vllm/Qwen/Qwen3.5-35B-A3B\n")
+            capture.write_text("")
+            env.update(SUMMARY_CONFIG=str(summary))
+            subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(_opt(calls[0], "--summary-config"), str(summary))
+            # A missing file is refused before anything runs.
+            capture.write_text("")
+            result = subprocess.run(["bash", str(LAUNCHER)], env={**env, "SUMMARY_CONFIG": str(summary) + ".missing"},
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(capture.read_text(), "")
+
+    def test_capped_pilot_summarizer_nothink_routes_only_summaries_through_the_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, env = _sandbox(Path(tmp))
+            for name in ["configs/config-qwen-vllm-cap4k.yaml", "configs/config-qwen-vllm-cap4k-nothink.yaml",
+                         "task_lists/swe_verified/sandbox_su_free_compressing4.json"]:
+                (Path(tmp) / name).parent.mkdir(parents=True, exist_ok=True)
+                (Path(tmp) / name).write_text('model:\n  api_base: "http://localhost:8000/v1"\n')
+            summary = Path(tmp) / "configs/config-summary-qwen35-35b-nothink.yaml"
+            summary.write_text("model:\n  model_name: hosted_vllm/Qwen/Qwen3.5-35B-A3B\n")
+            summary4k = Path(tmp) / "configs/config-summary-qwen35-35b-nothink-4k.yaml"
+            summary4k.write_text("model:\n  model_name: hosted_vllm/Qwen/Qwen3.5-35B-A3B\n")
+            env.update(RUN_EVAL="0")
+            subprocess.run(["bash", str(CAPPED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(_opt(calls[0], "--r2-model"), "qwen35b-cap4k")
+            self.assertEqual(Path(_opt(calls[0], "--agent-config")).name, "config-qwen-vllm-cap4k.yaml")
+            self.assertNotIn("--summary-config", calls[0])
+
+            capture.write_text("")
+            env.update(SUMMARIZER="nothink")
+            subprocess.run(["bash", str(CAPPED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(_opt(calls[0], "--r2-model"), "qwen35b-cap4k-sumnothink")
+            self.assertEqual(Path(_opt(calls[0], "--agent-config")).name, "config-qwen-vllm-cap4k.yaml")  # agent: thinking ON
+            self.assertEqual(_opt(calls[0], "--summary-config"), str(summary))
+            self.assertEqual(Path(_opt(calls[0], "--tasks-file")).name, "sandbox_su_free_compressing4.json")
+
+            # nothink4k: the 4096-cap file, the primitive's default attempts, its own model dir.
+            capture.write_text("")
+            subprocess.run(["bash", str(CAPPED)], env={**env, "SUMMARIZER": "nothink4k"}, check=True,
+                           stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(_opt(calls[0], "--r2-model"), "qwen35b-cap4k-sumnothink4k")
+            self.assertEqual(_opt(calls[0], "--summary-config"), str(summary4k))
+            self.assertEqual(Path(_opt(calls[0], "--agent-config")).name, "config-qwen-vllm-cap4k.yaml")
+
+            # An explicit R2_MODEL is kept; NOTHINK=1 with SUMMARIZER=nothink is refused.
+            capture.write_text("")
+            subprocess.run(["bash", str(CAPPED)], env={**env, "R2_MODEL": "qwen35b-smoke"}, check=True,
+                           stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(_opt(calls[0], "--r2-model"), "qwen35b-smoke")
+            capture.write_text("")
+            result = subprocess.run(["bash", str(CAPPED)], env={**env, "NOTHINK": "1"}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("redundant", result.stderr)
+            self.assertEqual(capture.read_text(), "")
 
     def test_majority_uniform_chain_runs_su_free_section_then_tr_section(self):
         with tempfile.TemporaryDirectory() as tmp:

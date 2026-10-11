@@ -1,0 +1,35 @@
+# Summarizer-only override, second sandbox variant: configs/config-summary-qwen35-35b-nothink.yaml
+# (same model and server as the agent, thinking OFF) with the reply cap raised
+# back to 4096 tokens. Pair with MSWEA_SUMMARY_MAX_ATTEMPTS=5 (the primitive's
+# default) in the launcher (SUMMARIZER=nothink4k).
+#
+# Why (qwen35b-cap4k-sumnothink, 2026-10-11, 179 SU-free events on the 4 sandbox tasks):
+#   - thinking OFF raised first-attempt acceptance to 82% (cap4k 66%, uncapped 71%)
+#     and cut summarizer time to 9% of e2e (cap4k 22%), but 12 of the 28 fallbacks
+#     started with a reply cut at 2048 tokens (5-9k chars of content), and
+#     none of those recovered on the single retry.
+#   - in uncapped / cap4k, most summaries longer than 2048 tokens complete
+#     between 8k and 16k chars with both markers (uncapped: 9 of the 13 accepted
+#     summaries above 8k chars are below 16k; cap4k rescued 8,656 / 10,548 /
+#     15,189-char retries), so 4096 should finish roughly two thirds of them.
+#   - the 2-attempt limit was set when one attempt could cost 260 s (thinking
+#     ON at 4096); with thinking OFF an attempt is ~33 s median, so the
+#     primitive's default of 5 attempts is affordable again and rescues part
+#     of the missing_marker fallbacks (uncapped rescued 36/57 with 4 retries).
+#
+# Only the `model:` section is read (agentctx.summary_config.summary_model_config),
+# via `--summary-config` -> MSWEA_SUMMARY_MODEL_CONFIG; validate_summarizer pins a
+# cell to this file name, so it needs its own model dir (qwen35b-cap4k-sumnothink4k).
+model:
+  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.2
+    max_tokens: 4096
+    timeout: 600
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: false
+  cost_tracking: ignore_errors
