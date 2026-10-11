@@ -56,8 +56,12 @@
 #                  at 2048 tokens, none recovered on the single retry, and most
 #                  >2048-token summaries in the earlier cells completed below
 #                  4096. Same NOTHINK=1 restriction as nothink.
-#   SECTIONS     : default "p100_su_free_majority" (p100_tr_majority runs ttt on the same tasks)
-#   TASKS_FILE   : default task_lists/swe_verified/sandbox_su_free_compressing4.json
+#   SECTIONS     : default "p100_su_free_majority" (p100_tr_majority runs ttt on the same tasks;
+#                  p100_fc_only4 runs the section's eight prefix-3 orders ttt tts tst tss stt
+#                  sts sst sss on its own task list, 400 steps / 7200 s, PATTERNS overrides)
+#   TASKS_FILE   : default task_lists/swe_verified/sandbox_su_free_compressing4.json for the
+#                  majority sections; p100_fc_only4 keeps its own list
+#                  (p100_qwen35b_fc_not_tr_su-free.json; N_TASKS=2 = django-11433, sklearn-13124)
 #   N_TASKS      : default all tasks of TASKS_FILE (the section's own default is 5)
 #   MAX_WORKERS  : default 3 (overrides the albus-swe profile's 8)
 #   AGENT_TIMEOUT: default 7200 s (runner default 5400; calls are slow without the cache)
@@ -110,18 +114,27 @@ esac
 SECTIONS="${SECTIONS:-p100_su_free_majority}"
 export MAX_WORKERS="${MAX_WORKERS:-3}"
 export AGENT_TIMEOUT="${AGENT_TIMEOUT:-7200}"
-export TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/sandbox_su_free_compressing4.json}"
+TASKS_FILE_EXPLICIT="${TASKS_FILE:-}"
+SANDBOX_TASKS="$WS/task_lists/swe_verified/sandbox_su_free_compressing4.json"
 export N_TASKS="${N_TASKS:-all}"
 LAUNCHER="$SCRIPT_DIR/run_r2_swe_never7_adaptive.sh"
-for f in "$QWEN_AGENT_CONFIG" "$TASKS_FILE" "$LAUNCHER" ${SUMMARY_CONFIG:+"$SUMMARY_CONFIG"}; do
+for f in "$QWEN_AGENT_CONFIG" "$LAUNCHER" ${SUMMARY_CONFIG:+"$SUMMARY_CONFIG"} ${TASKS_FILE_EXPLICIT:+"$TASKS_FILE_EXPLICIT"}; do
     [[ -f "$f" ]] || { echo "[ERROR] Required file not found: $f" >&2; exit 1; }
 done
 for section in $SECTIONS; do
     case "$section" in
-        p100_su_free_majority|p100_tr_majority) ;;
-        *) echo "[ERROR] SECTIONS entry '$section' is not p100_su_free_majority | p100_tr_majority" >&2; exit 1 ;;
+        p100_su_free_majority|p100_tr_majority|p100_fc_only4) ;;
+        *) echo "[ERROR] SECTIONS entry '$section' is not p100_su_free_majority | p100_tr_majority | p100_fc_only4" >&2; exit 1 ;;
     esac
 done
+# The majority sections run on the sandbox 4-task list unless TASKS_FILE is given;
+# p100_fc_only4 keeps the section launcher's own list (first N_TASKS of it).
+section_tasks_file() {
+    if [[ -n "$TASKS_FILE_EXPLICIT" ]]; then echo "$TASKS_FILE_EXPLICIT"
+    elif [[ "$1" == p100_fc_only4 ]]; then echo ""
+    else echo "$SANDBOX_TASKS"; fi
+}
+[[ -n "$TASKS_FILE_EXPLICIT" || -f "$SANDBOX_TASKS" ]] || { echo "[ERROR] Required file not found: $SANDBOX_TASKS" >&2; exit 1; }
 
 # The sandbox serving condition is prefix caching OFF; refuse a caching-ON server
 # unless explicitly allowed, so the two cells cannot be mixed by accident.
@@ -140,9 +153,14 @@ case "$prefix_state" in
     *) echo "[$(date)] WARNING: could not read enable_prefix_caching from $metrics_url; continuing" ;;
 esac
 
-echo "[$(date)] capped pilot | agent config: $QWEN_AGENT_CONFIG | summarizer: ${SUMMARY_CONFIG:-agent model}${MSWEA_SUMMARY_MAX_ATTEMPTS:+ (max attempts $MSWEA_SUMMARY_MAX_ATTEMPTS)} | R2_MODEL=$R2_MODEL | retry attempts: $MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT | workers: $MAX_WORKERS | agent timeout: ${AGENT_TIMEOUT}s | tasks: $TASKS_FILE (n_tasks=$N_TASKS) | sections: $SECTIONS"
+echo "[$(date)] capped pilot | agent config: $QWEN_AGENT_CONFIG | summarizer: ${SUMMARY_CONFIG:-agent model}${MSWEA_SUMMARY_MAX_ATTEMPTS:+ (max attempts $MSWEA_SUMMARY_MAX_ATTEMPTS)} | R2_MODEL=$R2_MODEL | retry attempts: $MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT | workers: $MAX_WORKERS | agent timeout: ${AGENT_TIMEOUT}s | tasks: ${TASKS_FILE_EXPLICIT:-$SANDBOX_TASKS (majority sections) / section list (p100_fc_only4)} (n_tasks=$N_TASKS) | sections: $SECTIONS${PATTERNS:+ | patterns: $PATTERNS}"
 for section in $SECTIONS; do
     echo "[$(date)] --- section $section ---"
-    R2_SECTION="$section" R2_MODEL="$R2_MODEL" bash "$LAUNCHER"
+    tasks_file="$(section_tasks_file "$section")"
+    if [[ -n "$tasks_file" ]]; then
+        TASKS_FILE="$tasks_file" R2_SECTION="$section" R2_MODEL="$R2_MODEL" bash "$LAUNCHER"
+    else
+        env -u TASKS_FILE R2_SECTION="$section" R2_MODEL="$R2_MODEL" bash "$LAUNCHER"
+    fi
 done
 echo "[$(date)] capped pilot complete for $R2_MODEL"

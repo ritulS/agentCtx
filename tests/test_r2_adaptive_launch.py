@@ -17,9 +17,22 @@ sys.path.insert(0, str(ROOT / "src"))
 LAUNCHER = ROOT / "scripts/expansions/run_r2_swe_never7_adaptive.sh"
 CHAIN = ROOT / "scripts/expansions/run_r2_swe_majority_uniform.sh"
 CAPPED = ROOT / "scripts/expansions/run_r2_swe_majority_capped_pilot.sh"
+SANDBOX_CHAIN = ROOT / "scripts/expansions/run_r2_swe_sandbox_chain.sh"
+
+
+def _sandbox_pilot_files(tmp: Path) -> Path:
+    """The extra files the capped pilot and the sandbox chain require; returns the 4k summary config."""
+    for name in ["configs/config-qwen-vllm-cap4k.yaml", "configs/config-qwen-vllm-cap4k-nothink.yaml",
+                 "task_lists/swe_verified/sandbox_su_free_compressing4.json"]:
+        (tmp / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp / name).write_text('model:\n  api_base: "http://localhost:8000/v1"\n')
+    for name in ["config-summary-qwen35-35b-nothink.yaml", "config-summary-qwen35-35b-nothink-4k.yaml"]:
+        (tmp / "configs" / name).write_text("model:\n  model_name: hosted_vllm/Qwen/Qwen3.5-35B-A3B\n")
+    return tmp / "configs/config-summary-qwen35-35b-nothink-4k.yaml"
 SCHEDULES = ROOT / "configs/adaptive/never7_prefix3"
 PATTERNS = ["tts", "tst", "tss", "stt", "sts", "sst"]
 UNIFORM = ["ttt", "sss"]   # only in the default chain of p100_fc_only4
+ALL_ORDERS = ["ttt", *PATTERNS, "sss"]   # the p100_fc_only4 section's eight prefix-3 orders
 
 from agentctx.experiments.iclr import validate_adaptive_cell_semantics  # noqa: E402
 
@@ -166,14 +179,8 @@ class Never7LaunchTests(unittest.TestCase):
     def test_capped_pilot_summarizer_nothink_routes_only_summaries_through_the_override(self):
         with tempfile.TemporaryDirectory() as tmp:
             capture, env = _sandbox(Path(tmp))
-            for name in ["configs/config-qwen-vllm-cap4k.yaml", "configs/config-qwen-vllm-cap4k-nothink.yaml",
-                         "task_lists/swe_verified/sandbox_su_free_compressing4.json"]:
-                (Path(tmp) / name).parent.mkdir(parents=True, exist_ok=True)
-                (Path(tmp) / name).write_text('model:\n  api_base: "http://localhost:8000/v1"\n')
+            summary4k = _sandbox_pilot_files(Path(tmp))
             summary = Path(tmp) / "configs/config-summary-qwen35-35b-nothink.yaml"
-            summary.write_text("model:\n  model_name: hosted_vllm/Qwen/Qwen3.5-35B-A3B\n")
-            summary4k = Path(tmp) / "configs/config-summary-qwen35-35b-nothink-4k.yaml"
-            summary4k.write_text("model:\n  model_name: hosted_vllm/Qwen/Qwen3.5-35B-A3B\n")
             env.update(RUN_EVAL="0")
             subprocess.run(["bash", str(CAPPED)], env=env, check=True, stdout=subprocess.DEVNULL)
             calls = [json.loads(line) for line in capture.read_text().splitlines()]
@@ -211,6 +218,69 @@ class Never7LaunchTests(unittest.TestCase):
             result = subprocess.run(["bash", str(CAPPED)], env={**env, "NOTHINK": "1"}, capture_output=True, text=True)
             self.assertEqual(result.returncode, 1)
             self.assertIn("redundant", result.stderr)
+            self.assertEqual(capture.read_text(), "")
+
+    def test_capped_pilot_fc_only4_section_keeps_its_own_list_and_orders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, env = _sandbox(Path(tmp))
+            summary4k = _sandbox_pilot_files(Path(tmp))
+            env.update(RUN_EVAL="0", SUMMARIZER="nothink4k", SECTIONS="p100_fc_only4", N_TASKS="2", RUNS_PER_TASK="15")
+            subprocess.run(["bash", str(CAPPED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual([_opt(c, "--r2-cell").rsplit("-", 1)[1] for c in calls], ALL_ORDERS)
+            for c in calls:
+                self.assertEqual(_opt(c, "--r2-section"), "p100_fc_only4")
+                self.assertEqual(_opt(c, "--r2-model"), "qwen35b-cap4k-sumnothink4k")
+                self.assertEqual(Path(_opt(c, "--tasks-file")).name, "p100_qwen35b_fc_not_tr_su-free.json")
+                self.assertEqual(_opt(c, "--n-tasks"), "2")
+                self.assertEqual(_opt(c, "--runs-per-task"), "15")
+                self.assertEqual(_opt(c, "--step-limit"), "400")        # the section's own limits
+                self.assertEqual(_opt(c, "--agent-timeout"), "7200")
+                self.assertEqual(_opt(c, "--max-workers"), "3")
+                self.assertEqual(Path(_opt(c, "--agent-config")).name, "config-qwen-vllm-cap4k.yaml")
+                self.assertEqual(_opt(c, "--summary-config"), str(summary4k))
+            # The majority sections still get the sandbox 4-task list by default.
+            capture.write_text("")
+            env.update(SECTIONS="p100_su_free_majority", N_TASKS="all")
+            subprocess.run(["bash", str(CAPPED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(Path(_opt(calls[0], "--tasks-file")).name, "sandbox_su_free_compressing4.json")
+            self.assertNotIn("--n-tasks", calls[0])
+            self.assertNotIn("--step-limit", calls[0])
+
+    def test_sandbox_chain_runs_nothink4k_majority_then_fc_only2_eight_orders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, env = _sandbox(Path(tmp))
+            summary4k = _sandbox_pilot_files(Path(tmp))
+            env.update(RUN_EVAL="0", WAIT_FOR_PATTERN="")
+            subprocess.run(["bash", str(SANDBOX_CHAIN)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual(len(calls), 1 + len(ALL_ORDERS))
+            step1, step2 = calls[0], calls[1:]
+            self.assertEqual((_opt(step1, "--r2-section"), _opt(step1, "--r2-cell"), _opt(step1, "--runs-per-task")),
+                             ("p100_su_free_majority", "d05__b15k__adaptive-prefix3-sss", "15"))
+            self.assertEqual(Path(_opt(step1, "--tasks-file")).name, "sandbox_su_free_compressing4.json")
+            self.assertEqual([_opt(c, "--r2-cell").rsplit("-", 1)[1] for c in step2], ALL_ORDERS)
+            for c in step2:
+                self.assertEqual(_opt(c, "--r2-section"), "p100_fc_only4")
+                self.assertEqual(Path(_opt(c, "--tasks-file")).name, "p100_qwen35b_fc_not_tr_su-free.json")
+                self.assertEqual((_opt(c, "--n-tasks"), _opt(c, "--runs-per-task")), ("2", "15"))
+            for c in calls:
+                self.assertEqual(_opt(c, "--r2-model"), "qwen35b-cap4k-sumnothink4k")
+                self.assertEqual(_opt(c, "--summary-config"), str(summary4k))
+                self.assertEqual(Path(_opt(c, "--agent-config")).name, "config-qwen-vllm-cap4k.yaml")
+            # SKIP_STEP1 and the step-2 overrides.
+            capture.write_text("")
+            env.update(SKIP_STEP1="1", PATTERNS_STEP2="tts sst", RUNS_PER_TASK_STEP2="3", N_TASKS_STEP2="1")
+            subprocess.run(["bash", str(SANDBOX_CHAIN)], env=env, check=True, stdout=subprocess.DEVNULL)
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            self.assertEqual([_opt(c, "--r2-cell").rsplit("-", 1)[1] for c in calls], ["tts", "sst"])
+            self.assertEqual([(_opt(c, "--n-tasks"), _opt(c, "--runs-per-task")) for c in calls], [("1", "3")] * 2)
+            # SECTIONS / PATTERNS belong to the chain.
+            capture.write_text("")
+            result = subprocess.run(["bash", str(SANDBOX_CHAIN)], env={**env, "PATTERNS": "sss"}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
             self.assertEqual(capture.read_text(), "")
 
     def test_majority_uniform_chain_runs_su_free_section_then_tr_section(self):

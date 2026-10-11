@@ -65,6 +65,12 @@ need rebuilding for serving/tbench.
   Expect fallback near or below uncapped's 10% if ~2/3 of the 2048-overflows finish at 4096. This cell (and any run
   launched from now on) also writes `<run_dir>/summary_attempts.jsonl`: every summarizer reply verbatim with its
   accept/reject verdict, so the truncated / marker-less summaries can be read afterwards. Launch:
+  **Overnight chain (prepared 2026-10-11 15:xx, not launched):** `scripts/expansions/run_r2_swe_sandbox_chain.sh` runs this
+  nothink4k cell and then `p100_fc_only4` with all eight prefix-3 orders (ttt tts tst tss stt sts sst sss) on django-11433 and
+  sklearn-13124 x 15 runs (240 runs, section limits 400 steps / 7200 s) into `data/r2/swebench/p100_fc_only4/qwen35b-cap4k-sumnothink4k/`;
+  ~12 h + ~35-40 h. It waits for a capped pilot already running, and every step resumes. Launch:
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_chain/qwen35b-cap4k-sumnothink4k -- bash scripts/expansions/run_r2_swe_sandbox_chain.sh`
+  Single-cell launch (step 1 only):
   `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_capped/qwen35b-cap4k-sumnothink4k -- env SUMMARIZER=nothink4k bash scripts/expansions/run_r2_swe_majority_capped_pilot.sh`
 - **Prepared 2026-10-10 (recipe):** summarizer-only thinking OFF. `configs/config-summary-qwen35-35b-nothink.yaml`
   (same model and server, thinking OFF, max_tokens 2048) goes through `--summary-config`; `validate_summarizer` now admits an
