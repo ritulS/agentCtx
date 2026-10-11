@@ -1,0 +1,53 @@
+# Qwen3.5-35B-A3B agent config for the "controlled sandbox" (idea-exploration) runs:
+# configs/config-qwen-vllm.yaml with two guards against runaway generation.
+#
+# Evidence (r2 majority-uniform cells on Albus, 2026-10-08/09, 15,033 agent calls):
+# completion length p50 = 85, p99 = 1,201, p99.5 = 2,178 tokens; only 40 calls
+# exceeded 4,096 and 34 of those also exceeded 8,192, i.e. everything above
+# 4,096 was a thinking loop running to the old max_tokens = 32768. Such a call
+# takes ~800 s at 8 concurrent runs, trips litellm's default 600 s timeout, is
+# retried up to 10 times with the same prompt, and pushed 12/195 runs past the
+# 5,400 s agent timeout. Summaries (same model, same kwargs) are p90 = 6,192
+# chars (~1.7k tokens), so the cap does not touch them either.
+#
+#   max_tokens 32768 -> 4096   stops a loop after a bounded time; the truncated
+#                              reply is a format_error and the agent moves on
+#   timeout    600 (unchanged) the sandbox serves with prefix caching OFF (the
+#                              probe of 2026-10-09, scripts/maintenance/
+#                              probe_prefix_cache_effect.py, showed caching ON
+#                              changes the greedy generations of this hybrid
+#                              model: 29/40 prompts diverge, noise floor 1/40),
+#                              and without the cache every call re-prefills the
+#                              whole context: per-call p50/p90/p99 was 16/54/236 s
+#                              at 6 workers. A 180 s timeout then killed 14/32
+#                              runs on 2026-10-09; 600 s with 3 workers leaves
+#                              room. Only a stuck request should ever hit it.
+# Pair with MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT=3 (default 10) and MAX_WORKERS=3
+# in the launcher (scripts/expansions/run_r2_swe_majority_capped_pilot.sh).
+# Thinking stays ON here; configs/config-qwen-vllm-cap4k-nothink.yaml is the
+# variant with it OFF.
+agent:
+  step_limit: 300
+  cost_limit: 0.0
+  cost_tracking: ignore_errors
+  mode: yolo
+  confirm_exit: false
+
+model:
+  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.2
+    max_tokens: 4096
+    timeout: 600
+  cost_tracking: ignore_errors
+
+environment:
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: "off"
+    TQDM_DISABLE: "1"

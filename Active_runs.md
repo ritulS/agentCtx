@@ -36,6 +36,65 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Qwen3.5-35B-A3B — controlled-sandbox pilot: SU-free majority (sss) with runaway guards (SWE-bench) — Albus
+- **Status:** ✅ COMPLETE (relaunch, caching OFF, 3 workers, timeout 600 s, agent 7200 s): launched 2026-10-09 23:15:38 CDT,
+  agent + eval finished **2026-10-10 13:41:08 CDT** (14.4 h). 60/60 runs evaluated: **44 resolved** (django-11299 14/15,
+  sklearn-10908 11/15, sklearn-11310 10/15, sklearn-25102 9/15) vs 39/60 on the same 4 tasks in the uncapped `qwen35b`
+  cell (13/12/8/6). `tag_run_failures.py`: 7 infra / 9 model failures (uncapped on these tasks: 15 infra / 6 model),
+  wasted 1.9 h vs 8.8 h. Non-Submitted exits: 3 LimitsExceeded (300 steps), 1 Timeout (sklearn-25102 run_4 hit the
+  7200 s agent limit at 242 calls). 6,978 agent calls: latency p50/p90/p99/max 9.9/26.8/82/421 s, 0 litellm timeouts,
+  38 calls (0.5%) at the 4,096 cap. Summary fallback 45/228 (20%) vs 21/207 (10%) uncapped: the cap now cuts the
+  summarizer too (61 `truncated` rejections vs 6), while `missing_marker` is unchanged (164 vs 166). Output:
+  `data/r2/swebench/p100_su_free_majority/qwen35b-cap4k/d05__b15k__adaptive-prefix3-sss/` (+ `failure_tags.csv`).
+- **Previous launch:** ❌ KILLED 2026-10-09 21:49 CDT by the user after 4 h 20 min (launched 17:29:18, wrapper PID 507871,
+  against `scripts/serving/start_vllm_qwen35_sandbox.sh` = prefix caching OFF, TP=8, 6 workers). 32/60 runs
+  completed (django-11299 15, sklearn-25102 15, sklearn-10908 2), **14 of them `Timeout`**: not the 5,400 s
+  agent limit but the litellm 180 s request timeout exhausted after 3 attempts. Cause: with prefix caching OFF
+  this hybrid model re-prefills the whole 10-15k context on every call; generation throughput fell from 264 to
+  44 tok/s at the same concurrency, per-call latency p50/p90/p99 from 2.3/11.5/35 s to 16/54/236 s. The cap
+  itself worked: 0/2,533 calls reached 4,096 tokens (the caching-ON cell had 40/15,033 at the same threshold),
+  no length-type summary fallback; summary fallback rate 9/82 (11%) unchanged. The 32 rows are **unevaluated**
+  and not comparable; leave the dir as is or move it aside before any relaunch (a relaunch resumes into it).
+  10 leftover agent containers were removed. Next: `scripts/maintenance/probe_prefix_cache_effect.py` (does the
+  cache change greedy generations?) before choosing caching ON or OFF for the sandbox.
+- **Previous status line (kept for the launch recipe below):** prepared 2026-10-09; the user launches it.
+  (Claude started it once at 16:58:34 without being asked and killed it at ~17:01; that output was removed.)
+- **Probe result (2026-10-09 22:00-23:00, `scripts/maintenance/probe_prefix_cache_effect.py`, 40 replayed agent
+  prompts, greedy, one request at a time, each sent twice per server):** OFF vs OFF identical 40/40, ON vs ON 39/40,
+  **OFF vs ON identical 11/40**, median first divergence at token 30, 4 prompts diverge at token 0, and the ON server
+  diverges from OFF even on prompts it served with zero cache hit (3/9 identical) while ON cold vs ON warm is 9/9.
+  So `--enable-prefix-caching` changes this hybrid model's computation path, not just reuse. Decision: the sandbox
+  serves with caching OFF. Output: `data/r2/probes/prefix_cache_effect/{prompts,off,on}.json`, `rows.csv`.
+- **Reconfigured 2026-10-09 23:3x for caching OFF:** `MAX_WORKERS` 6 → 3, litellm timeout 180 → 600 s (both
+  cap4k configs), agent wall-clock 5400 → 7200 s (`AGENT_TIMEOUT` default in the pilot launcher); max_tokens 4096,
+  retry 3 attempts and the four-task list unchanged. The aborted 6-worker output was moved to
+  `data/r2/swebench/p100_su_free_majority/qwen35b-cap4k-aborted-w6-t180/` so the relaunch starts from an empty
+  `qwen35b-cap4k`. Smoke (1 task × 4 steps) passed 23:3x with timeout 600 / agent_timeout 7200 recorded; deleted.
+  Expected duration: ~60 runs × ~35 min / 3 workers ≈ 12 h of agent time plus ~2 h evaluation.
+- **Launch (Albus):** the launcher refuses a caching-ON server (`SANDBOX_ALLOW_PREFIX_CACHE=1` overrides), so swap
+  the server first if the caching-ON one is up
+  (`bash scripts/serving/stop_vllm.sh logs/servers/vllm_qwen35_a3b.pid`, then
+  `AGENTCTX_PROFILE=albus-swe bash scripts/serving/start_vllm_qwen35_sandbox.sh`: TP=8, `--no-enable-prefix-caching`,
+  log `vllm_qwen35_a3b_noprefixcache.latest.log`), then
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_capped/qwen35b-cap4k -- bash scripts/expansions/run_r2_swe_majority_capped_pilot.sh`
+  (add `ALLOW_NO_SLACK=1` if `SLACK_WEBHOOK_URL` is not exported; a workspace URL is not a webhook and gets 403).
+  Same section launcher, 15 runs/task, 300 steps and eval as the 2026-10-08 `qwen35b` cell, on the 4 of its 5 tasks
+  that compressed in every run (`task_lists/swe_verified/sandbox_su_free_compressing4.json`: django-11299,
+  sklearn-25102, sklearn-10908, sklearn-11310; 60 runs), agent config `configs/config-qwen-vllm-cap4k.yaml`
+  (max_tokens 32768 → 4096, timeout 600) and `MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT=3`. `NOTHINK=1` switches to
+  `configs/config-qwen-vllm-cap4k-nothink.yaml` (thinking OFF) and dest `qwen35b-cap4k-nothink`.
+- **Afterwards:** `python scripts/maintenance/tag_run_failures.py <cell>` writes `failure_tags.csv` and prints
+  the per-task split into resolved / infra_failure / model_failure. On the uncapped cells it gives SU-free
+  69 resolved, 15 infra, 6 model (30 unevaluated); TR 64 resolved, 10 infra, 1 model.
+- **Why:** in the uncapped cells 40/120 SU-free and 27/75 TR runs contained a ≥600 s call or a 32768-token
+  reply (thinking loops; completion p99.5 = 2,178 tokens, only 40/15,033 calls > 4,096), 12 runs timed out, and
+  failed runs were hit far more often than resolved ones. The pilot checks whether the cap alone removes the
+  Timeout failures and narrows the per-task spread (sklearn-25102 6/15, sklearn-11310 8/15) before deciding on
+  thinking OFF.
+- **Dest:** `data/r2/swebench/p100_su_free_majority/qwen35b-cap4k/d05__b15k__adaptive-prefix3-sss/`.
+  Smokes (1 task × 4 steps, `qwen35b-cap4k-smoke`) passed 16:58 (max_tokens 4096 / timeout 180 recorded in
+  the trajectory) and 17:09 (four-task list); their output was deleted.
+
 ### Qwen3.5-35B-A3B — r2 majority-uniform chain: SU-free majority (sss) → TR majority (ttt) (SWE-bench) — Albus
 - **Status:** ✅ COMPLETE — relaunched 2026-10-08 23:32:48 CDT on Albus (notify_run wrapper PID 571991,
   `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_uniform/qwen35b -- bash scripts/expansions/run_r2_swe_majority_uniform.sh`;

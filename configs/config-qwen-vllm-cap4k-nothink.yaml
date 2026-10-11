@@ -1,0 +1,36 @@
+# configs/config-qwen-vllm-cap4k.yaml (max_tokens 4096, timeout 600) with the model's thinking turned OFF
+# (chat_template_kwargs.enable_thinking=false, passed through litellm's
+# extra_body to vLLM; verified 2026-10-09 against the live server: the reply
+# carries no reasoning_content and completion_tokens drops from 179 to 2 for a
+# one-word answer). Removes the source of the thinking loops instead of only
+# capping them. Changes the model's behaviour, so it is for the idea-exploration
+# sandbox only; run the cap4k config first and use this one only if that still
+# fluctuates too much (sandbox plan, 2026-10-09).
+agent:
+  step_limit: 300
+  cost_limit: 0.0
+  cost_tracking: ignore_errors
+  mode: yolo
+  confirm_exit: false
+
+model:
+  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.2
+    max_tokens: 4096
+    timeout: 600
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: false
+  cost_tracking: ignore_errors
+
+environment:
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: "off"
+    TQDM_DISABLE: "1"

@@ -15,6 +15,7 @@ operational launchers.
 | `expansions/run_r2_swe_p30s.sh` | r2 campaign on the P30S cohort with Qwen3.5-35B-A3B, into `data/r2/swebench/p30s/<model>/<cell>`; the first argument picks a preset (`free` = `di__b15k__{su-free,ss-free}`, default; `su-free`, `ss-free`, `fc`, `otrc`, `baselines`), `CELLS` and `RUNS_PER_TASK` override. `R2_SECTION=p100_minus_p30s` runs the other 70 P100 tasks (`task_lists/swe_verified/p100_minus_p30s.json`) into `data/r2/swebench/p100_minus_p30s/<model>/<cell>` instead. |
 | `expansions/run_r2_swe_never7_adaptive.sh` | r2 adaptive primitive-order cells on the 7 P30S tasks Qwen3.5-35B-A3B never resolved, into `data/r2/swebench/p30s_never7/<model>/d05__b15k__adaptive-prefix3-<pattern>`; one cell per `PATTERNS` entry (default `tts tst tss stt sts sst` = the primitive at compression events 1-3, `t` TR / `s` SU-free, last held), schedules in `configs/adaptive/never7_prefix3/`. `R2_SECTION=p100_minus_p30s_never13` runs the same six cells on the 13 P100-minus-P30S tasks the model never resolved (`task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json`) into `data/r2/swebench/p100_minus_p30s_never13/<model>/...` instead. `R2_SECTION=p100_fc_only4` runs all eight orders (the six plus `ttt` / `sss`) at 10 runs per task on the 4 P100 tasks resolved under full context but never under fixed TR or SU-free (`task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json`) into `data/r2/swebench/p100_fc_only4/<model>/...`. `R2_SECTION=p100_su_free_majority` / `R2_SECTION=p100_tr_majority` run the uniform `sss` / `ttt` order only (SU-free / TR at every compression event) on the first `N_TASKS` (default 5; `N_TASKS=all` for every task) of `task_lists/swe_verified/p100_qwen35b_{su-free,tr}_majority_resolved.json` into `data/r2/swebench/<section>/<model>/...`. |
 | `expansions/run_r2_swe_majority_uniform.sh` | Chains the two majority sections of `run_r2_swe_never7_adaptive.sh`: `p100_su_free_majority` (sss) then `p100_tr_majority` (ttt), first 5 tasks of each list × `RUNS_PER_TASK` (default 15), one log for both; `SECTIONS`, `N_TASKS`, `RUNS_PER_TASK`, `R2_MODEL`, `RUN_EVAL`, `MAX_WORKERS` override. |
+| `expansions/run_r2_swe_majority_capped_pilot.sh` | Controlled-sandbox pilot: `run_r2_swe_never7_adaptive.sh` per section (default `SECTIONS=p100_su_free_majority`) on `task_lists/swe_verified/sandbox_su_free_compressing4.json` (the 4 SU-majority first-5 tasks that compressed in every run; `TASKS_FILE` / `N_TASKS` override) with `configs/config-qwen-vllm-cap4k.yaml` (max_tokens 4096, litellm timeout 600 s; `NOTHINK=1` → `...-cap4k-nothink.yaml`, thinking off), `MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT=3`, `MAX_WORKERS` default 3, `AGENT_TIMEOUT` default 7200, dest model dir `qwen35b-cap4k[-nothink]`; refuses a server whose `/metrics` reports prefix caching ON (`SANDBOX_ALLOW_PREFIX_CACHE=1` overrides; the probe below showed caching ON changes this model's generations). Pair with `serving/start_vllm_qwen35_sandbox.sh`. |
 | `expansions/` | Launch model grids, additional repetitions and the summarizer / prefix-cache ablations. |
 | `serving/` | Start and stop model-specific vLLM servers. |
 | `harbor/` | Prebuild Terminal-Bench images, configure Harbor tasks, check worker cancellation. |
@@ -107,7 +108,9 @@ chained scripts.
 ### Machine profiles: `lib/profiles.sh`
 
 `AGENTCTX_PROFILE=albus-swe` is the only profile: on Albus (8× A6000) it makes
-`serving/start_vllm_qwen35_prefix_cache.sh` serve Qwen3.5-35B-A3B on all 8 GPUs
+`serving/start_vllm_qwen35_prefix_cache.sh` (and its prefix-caching-OFF twin for
+the sandbox runs, `serving/start_vllm_qwen35_sandbox.sh`, log/pid
+`vllm_qwen35_a3b_noprefixcache`) serve Qwen3.5-35B-A3B on all 8 GPUs
 with `--tensor-parallel-size 8`, and the r2 SWE-bench launchers
 (`expansions/run_r2_swe_p30s.sh`, `expansions/run_r2_swe_never7_adaptive.sh`
 and so `expansions/run_r2_swe_majority_uniform.sh`) default `MAX_WORKERS` to 8.
@@ -170,6 +173,20 @@ except the re-verification replays.
 - `build_reevaluation_candidates.py`, `reevaluate_swebench_candidates.py`:
   re-evaluate saved SWE-bench patches with stale or errored verdicts.
 - `repair_token_log_transcription.py`: refresh result rows from their token logs.
+- `tag_run_failures.py <cell>...`: tags every run of a cell from its
+  `token_log.json` / `trajectory.json` with `runaway` (a reply reached the
+  run's `max_tokens`), `summary_runaway`, `hung` (a call took at least the
+  client timeout: lost request, retried), `timeout`, `limits_exceeded`, and a
+  class `resolved` / `infra_failure` / `model_failure` / `unevaluated`; writes
+  `<cell>/failure_tags.csv` and prints a per-task summary (`--no-write` to
+  only print).
+- `probe_prefix_cache_effect.py collect --label <off|on>` / `compare off on`:
+  replays real agent prompts (message prefixes of infra-clean trajectories of
+  the 4 sandbox tasks) one at a time, greedily, twice each, against the live
+  server, and compares generated token streams and logprobs between a
+  prefix-caching-OFF and a prefix-caching-ON server (within-server repeat
+  agreement is the noise floor). Server must be idle while collecting. Output
+  under `data/r2/probes/prefix_cache_effect/` (gitignored).
 - `reconstruct_context.py <run_dir> [--step N] [--event K]`: replay a run's
   `events.jsonl` / `compression_events.jsonl` (written when
   `MSWEA_EVENT_LOG_DIR` is set; SWE-bench runs since 2026-09-23) to recover
