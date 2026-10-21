@@ -13,6 +13,12 @@
 #                  10 runs/task) so this cell is a clean 30 x 3 grid; set
 #                  R2_MODEL=devstral2507-iso to resume into that dir instead
 #                  (the 6 tasks' r1-r3 are then skipped as already recorded).
+#                  Without AGENTCTX_PROFILE (Dobby) the dest is
+#                  devstral2507-iso-p30s-dobby and the server takes GPUs 2-3
+#                  only (DEVSTRAL_CUDA_DEVICES=2,3, DEVSTRAL_TP_SIZE=2), leaving
+#                  GPUs 0-1 to the unrelated energy-measurement job; the Dobby
+#                  rows (TP=2, A100) and the Albus rows (TP=8, A6000) are not
+#                  bit-identical under greedy decoding, hence the separate dir.
 # Everything else is the Devstral wrapper's: SERVER_LIFECYCLE=per-run (fresh
 # server per run), PREFIX_CACHE=on, cell di__b15k__su-free (summarizer = the
 # agent model; CELLS="di__b15k__su-free:summarization-free:0.5 d05__b15k__tr:truncation:0.5"
@@ -21,8 +27,13 @@
 # after every run, DRY_RUN=1 prints the 90-key plan. Resume: rerun with the same
 # settings; recorded keys are skipped.
 #
-# Usage (Albus; the driver starts and stops the server itself, do not start one):
+# Usage (the driver starts and stops the server itself, do not start one):
 #   DRY_RUN=1 bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507_p30s.sh
+#   Dobby (GPUs 2-3; needs the weights in the HF cache and the rootless podman socket up):
+#   bash scripts/notify_run.sh \
+#       --unit r2/swebench/sandbox_isolated/p30s-devstral2507-iso-p30s-dobby \
+#       -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507_p30s.sh
+#   Albus (all 8 GPUs):
 #   AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh \
 #       --unit r2/swebench/sandbox_isolated/p30s-devstral2507-iso-p30s \
 #       -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507_p30s.sh
@@ -35,5 +46,14 @@ WS="${AGENTCTX_WS:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 
 export TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/p30_stratified.json}"
 export RUNS_PER_TASK="${RUNS_PER_TASK:-3}"
-export R2_MODEL="${R2_MODEL:-devstral2507-iso-p30s}"
+if [[ -z "${AGENTCTX_PROFILE:-}" ]]; then
+    # Dobby (no profile): the server on GPUs 2-3 only (TP=2), GPUs 0-1 stay free
+    # for the unrelated energy-measurement job; its own dest dir, because TP=2 on
+    # A100 and TP=8 on A6000 do not produce bit-identical greedy outputs.
+    export DEVSTRAL_CUDA_DEVICES="${DEVSTRAL_CUDA_DEVICES:-2,3}"
+    export DEVSTRAL_TP_SIZE="${DEVSTRAL_TP_SIZE:-2}"
+    export R2_MODEL="${R2_MODEL:-devstral2507-iso-p30s-dobby}"
+else
+    export R2_MODEL="${R2_MODEL:-devstral2507-iso-p30s}"
+fi
 exec bash "$SCRIPT_DIR/run_r2_swe_sandbox_isolated_devstral2507.sh"

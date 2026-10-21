@@ -23,6 +23,7 @@
 #
 # Usage:  AGENTCTX_PROFILE=albus-swe bash scripts/serving/start_vllm_devstral2507_sandbox.sh
 #         AGENTCTX_PROFILE=albus-swe PREFIX_CACHE=on bash scripts/serving/start_vllm_devstral2507_sandbox.sh
+#         DEVSTRAL_CUDA_DEVICES=2,3 DEVSTRAL_TP_SIZE=2 PREFIX_CACHE=on bash scripts/serving/start_vllm_devstral2507_sandbox.sh   (Dobby, GPUs 2-3 only)
 # Tail:   tail -f logs/servers/vllm_devstral2507_noprefixcache.latest.log   (or ..._prefixcache.latest.log)
 # Check:  grep -a -o 'enable_prefix_caching=[A-Za-z]*' logs/servers/vllm_devstral2507_noprefixcache.latest.log | tail -1
 # Stop:   bash scripts/serving/stop_vllm.sh logs/servers/vllm_devstral2507_noprefixcache.pid
@@ -37,8 +38,11 @@ agentctx_profile
 
 MODEL="mistralai/Devstral-Small-2507"
 PORT="${DEVSTRAL_PORT:-8000}"
-CUDA_DEVICES="${PROFILE_CUDA_DEVICES:-0,1,2,3}"
-TP_SIZE="${PROFILE_TP_SIZE:-4}"
+# GPU set: an explicit DEVSTRAL_CUDA_DEVICES / DEVSTRAL_TP_SIZE wins over the
+# profile (e.g. 2,3 / 2 to leave Dobby's GPUs 0-1 to another job: 24B bf16 is
+# ~24 GB of weights per GPU at TP=2, so the 131k context still fits on A100 80 GB).
+CUDA_DEVICES="${DEVSTRAL_CUDA_DEVICES:-${PROFILE_CUDA_DEVICES:-0,1,2,3}}"
+TP_SIZE="${DEVSTRAL_TP_SIZE:-${PROFILE_TP_SIZE:-4}}"
 MAX_MODEL_LEN="${DEVSTRAL_MAX_MODEL_LEN:-131072}"
 MAX_NUM_SEQS="${DEVSTRAL_MAX_NUM_SEQS:-64}"
 PYTHON_BIN="$WS/venv/bin/python3"
