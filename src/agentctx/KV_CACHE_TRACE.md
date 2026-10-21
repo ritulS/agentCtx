@@ -60,6 +60,29 @@ without this join they would look like an unrelated client. Outcomes logged
 before response ids were recorded produce a warning, never an inferred match.
 The file also carries a `notes` list restating the caveats below.
 
+## Pool-wide records (`type: pool`)
+
+Since 2026-10-21 the same trace file also carries server-wide rows without a
+request id, written whenever the value changes:
+
+- `hashed_blocks`: physical blocks carrying a prefix hash, whether held by a
+  live request or sitting in the free queue. This is the warm prefix cache, the
+  blocks a later prompt can hit. vLLM sets the hash when a block fills (at
+  allocation, before the forward pass) and clears it only when the block is
+  evicted for a new allocation or by `reset_prefix_cache`; finishing a request
+  does not clear it. Counted as blocks, not hashes (`hashed_count: blocks`):
+  two requests computing the same prefix concurrently leave two blocks under
+  one hash. `hashed_count: hashes` marks a vLLM whose map could not be walked.
+- `free_blocks`: free-queue length (hashed-but-unowned plus never-written).
+- `total_blocks`: pool size including vLLM's null block, so owned blocks are
+  `total_blocks - 1 - free_blocks`.
+
+Bytes: multiply by `bytes_per_block_per_worker` × `tensor_parallel_size` like
+the per-request rows. These rows are server-wide: on a shared server they
+include every client. `scripts/maintenance/plot_kv_timeline.py --pool-trace`
+draws them; `--warm-cache-estimate` is the token-count estimate for servers
+that predate them. The exporter ignores them (no request id).
+
 ## Read this before using the numbers
 
 - **`shared` is instantaneous co-ownership only.** A block is `shared` when

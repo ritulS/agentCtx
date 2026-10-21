@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Does vLLM prefix caching change what Qwen3.5-35B-A3B generates?
+"""Does vLLM prefix caching change what the served model generates?
 
-Qwen3.5-35B-A3B is a hybrid (mamba + attention) model for which vLLM 0.17.1
-defaults prefix caching OFF; the block-wise mamba-state cache is new code. This
-probe isolates the cache's effect from everything else that differs between
+Written for Qwen3.5-35B-A3B, a hybrid (mamba + attention) model for which vLLM
+0.17.1 defaults prefix caching OFF (the block-wise mamba-state cache is new
+code); it serves any model on the agent port (the model id is read from
+/v1/models, --model overrides). This probe isolates the cache's effect from everything else that differs between
 agent runs: it replays real agent prompts (message prefixes of finished
 trajectories) one at a time, greedily (temperature 0, fixed seed), against a
 server with caching ON and one with caching OFF, and compares the generated
@@ -28,6 +29,21 @@ Usage:
 Defaults: 40 prompts from the infra-clean runs of the 4 sandbox tasks in the
 2026-10-08 uncapped cell, 512 generated tokens, output under
 data/r2/probes/prefix_cache_effect/ (gitignored).
+
+Another model (e.g. Devstral-Small-2507, 2026-10-17): point --out at a new dir
+and reuse the Qwen prompt set with --prompts-from, so both models are probed on
+the same 40 agent prompts:
+  python scripts/maintenance/probe_prefix_cache_effect.py \
+      --out data/r2/probes/prefix_cache_effect_devstral2507 collect --label off \
+      --prompts-from data/r2/probes/prefix_cache_effect/prompts.json
+
+Two controls separate "the cache changes the computation" from "two server
+processes differ numerically" (Devstral-Small-2507, 2026-10-17: a fresh OFF
+server agreed with the first OFF server on only 34/40 prompts, and the ON
+server with the cache reset before every request agreed with that fresh OFF
+server 40/40): collect a second OFF instance (`collect --label off2` after a
+server restart) and, against a caching-ON server started with
+VLLM_SERVER_DEV_MODE=1, `collect --label on_cold --reset-cache`.
 """
 from __future__ import annotations
 
@@ -49,7 +65,7 @@ SANDBOX_TASKS = [
     "django__django-11299", "scikit-learn__scikit-learn-25102",
     "scikit-learn__scikit-learn-10908", "scikit-learn__scikit-learn-11310",
 ]
-MODEL = "Qwen/Qwen3.5-35B-A3B"
+DEFAULT_MODEL = "Qwen/Qwen3.5-35B-A3B"
 
 
 def pick_prompts(cell: Path, n: int, seed: int) -> list[dict]:
@@ -85,11 +101,11 @@ def pick_prompts(cell: Path, n: int, seed: int) -> list[dict]:
     return out
 
 
-def query(api_base: str, messages: list[dict], max_tokens: int, timeout: float) -> dict:
+def query(api_base: str, model: str, messages: list[dict], max_tokens: int, timeout: float) -> dict:
     t0 = time.time()
     resp = requests.post(
         f"{api_base}/chat/completions",
-        json={"model": MODEL, "messages": messages, "temperature": 0, "seed": 0,
+        json={"model": model, "messages": messages, "temperature": 0, "seed": 0,
               "max_tokens": max_tokens, "logprobs": True, "top_logprobs": 1},
         timeout=timeout,
     )
@@ -117,6 +133,10 @@ def cmd_collect(args) -> int:
     if prompts_file.exists():
         prompts = json.loads(prompts_file.read_text())
         print(f"reusing {len(prompts)} prompts from {prompts_file}")
+    elif args.prompts_from:
+        prompts = json.loads(Path(args.prompts_from).read_text())
+        prompts_file.write_text(json.dumps(prompts, indent=1))
+        print(f"copied {len(prompts)} prompts from {args.prompts_from} to {prompts_file}")
     else:
         prompts = pick_prompts(Path(args.cell), args.n, args.seed)
         prompts_file.write_text(json.dumps(prompts, indent=1))
@@ -124,12 +144,27 @@ def cmd_collect(args) -> int:
     info = requests.get(f"{args.api_base}/models", timeout=30).json()
     metrics = requests.get(args.api_base.replace("/v1", "") + "/metrics", timeout=30).text
     cache_flag = next((line for line in metrics.splitlines() if "vllm:cache_config_info" in line and "enable_prefix_caching" in line), "")
-    print(f"server: {info['data'][0]['id']}  {cache_flag[:160]}")
-    results = {"label": args.label, "server_cache_config": cache_flag, "max_tokens": args.max_tokens, "runs": []}
+    served = info["data"][0]["id"]
+    model = args.model or served
+    if model != served:
+        sys.exit(f"--model {model} but the server at {args.api_base} serves {served}")
+    print(f"server: {served}  {cache_flag[:160]}")
+    results = {"label": args.label, "model": served, "api_base": args.api_base,
+               "server_cache_config": cache_flag, "max_tokens": args.max_tokens, "runs": []}
+    reset_url = args.api_base.replace("/v1", "") + "/reset_prefix_cache"
+    if args.reset_cache:
+        if 'enable_prefix_caching="True"' not in cache_flag:
+            sys.exit("--reset-cache only makes sense against a prefix-caching-ON server")
+        requests.post(reset_url, timeout=60).raise_for_status()  # 404 = server not started with VLLM_SERVER_DEV_MODE=1
     for i, p in enumerate(prompts, 1):
         passes = []
         for pass_no in (1, 2):
-            r = query(args.api_base, p["messages"], args.max_tokens, args.timeout)
+            if args.reset_cache:
+                requests.post(reset_url, timeout=60).raise_for_status()
+                time.sleep(0.5)
+            r = query(args.api_base, model, p["messages"], args.max_tokens, args.timeout)
+            if args.reset_cache and r["cached_tokens"]:
+                sys.exit(f"{p['id']} pass{pass_no}: {r['cached_tokens']} cached tokens despite the reset")
             passes.append(r)
             print(f"[{i:3d}/{len(prompts)}] {p['id']:60s} pass{pass_no} prompt={r['prompt_tokens']} cached={r['cached_tokens']} "
                   f"gen={r['completion_tokens']} {r['latency_s']:6.1f}s", flush=True)
@@ -167,8 +202,8 @@ def cmd_compare(args) -> int:
     ra = {r["id"]: r for r in a["runs"]}
     rb = {r["id"]: r for r in b["runs"]}
     ids = [i for i in ra if i in rb]
-    print(f"{a['label']}: {a['server_cache_config'][:120]}")
-    print(f"{b['label']}: {b['server_cache_config'][:120]}")
+    print(f"{a['label']}: {a.get('model', DEFAULT_MODEL)}  {a['server_cache_config'][:120]}")
+    print(f"{b['label']}: {b.get('model', DEFAULT_MODEL)}  {b['server_cache_config'][:120]}")
     print(f"prompts compared: {len(ids)}  (max_tokens {a['max_tokens']} / {b['max_tokens']})\n")
     within_a = [agreement(ra[i]["passes"][0]["tokens"], ra[i]["passes"][1]["tokens"]) for i in ids]
     within_b = [agreement(rb[i]["passes"][0]["tokens"], rb[i]["passes"][1]["tokens"]) for i in ids]
@@ -205,6 +240,11 @@ def main() -> int:
     c.add_argument("--label", required=True, help="e.g. off / on; names <out>/<label>.json")
     c.add_argument("--api-base", default="http://localhost:8000/v1")
     c.add_argument("--cell", default=str(DEFAULT_CELL), help="cell to sample prompts from (first collect only)")
+    c.add_argument("--prompts-from", help="reuse this prompts.json instead of sampling from --cell (first collect only)")
+    c.add_argument("--model", help="expected model id; default: whatever /v1/models reports")
+    c.add_argument("--reset-cache", action="store_true",
+                   help="POST /reset_prefix_cache before every request (caching-ON server started with "
+                        "VLLM_SERVER_DEV_MODE=1): the ON engine with zero cache hits, e.g. --label on_cold")
     c.add_argument("--n", type=int, default=40)
     c.add_argument("--seed", type=int, default=0)
     c.add_argument("--max-tokens", type=int, default=512)

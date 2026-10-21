@@ -1,0 +1,45 @@
+# Devstral-Small-2507 (Devstral Small 1.1, 24B dense, bf16) agent config for the
+# controlled-sandbox runs on the port-8000 server started by
+# scripts/serving/start_vllm_devstral2507_sandbox.sh.
+#
+# configs/config-devstral-vllm.yaml (Devstral-Small-2-24B-2512 on port 8002)
+# with the model name and port changed, plus the sandbox request timeout:
+#   max_tokens 4096   as for Devstral-2; Devstral has no thinking, so this is a
+#                     plain reply cap, not a loop guard
+#   timeout    600 s  litellm per-request timeout, as in the Qwen sandbox
+#                     configs; only a stuck request should ever reach it
+#   temperature 0     the user's choice for this sandbox (2026-10-17); every
+#                     other agent config samples at 0.2, so these cells are not
+#                     temperature-matched to the Qwen P30S reference cells.
+#                     Greedy still is not bit-reproducible across cache hits,
+#                     server restarts or batch composition (probe 2026-10-17:
+#                     Δlogprob ~0.005 flips near-tie tokens), so it removes
+#                     sampling noise but does not make runs identical.
+# step_limit 300, litellm_textbased: unchanged from every other agent config.
+# The agent model is also the summarizer (no summary config), so summaries are
+# greedy too.
+agent:
+  step_limit: 300
+  cost_limit: 0.0
+  cost_tracking: ignore_errors
+  mode: yolo
+  confirm_exit: false
+
+model:
+  model_name: "hosted_vllm/mistralai/Devstral-Small-2507"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.0
+    max_tokens: 4096
+    timeout: 600
+  cost_tracking: ignore_errors
+
+environment:
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: "off"
+    TQDM_DISABLE: "1"

@@ -1,15 +1,19 @@
 """Offline checks for adaptive r2 cells: the never7 shell launcher
-(scripts/expansions/run_r2_swe_never7_adaptive.sh) and the cell validation it
-relies on (agentctx.experiments.iclr.validate_adaptive_cell_semantics).
+(scripts/expansions/run_r2_swe_never7_adaptive.sh), the chains and sandbox
+drivers built on it (majority uniform, capped pilot, sandbox chain, isolated
+serial driver) and the cell validation it relies on
+(agentctx.experiments.iclr.validate_adaptive_cell_semantics).
 
 Run with: uvx --with pyyaml pytest tests/test_r2_adaptive_launch.py
 """
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -18,6 +22,7 @@ LAUNCHER = ROOT / "scripts/expansions/run_r2_swe_never7_adaptive.sh"
 CHAIN = ROOT / "scripts/expansions/run_r2_swe_majority_uniform.sh"
 CAPPED = ROOT / "scripts/expansions/run_r2_swe_majority_capped_pilot.sh"
 SANDBOX_CHAIN = ROOT / "scripts/expansions/run_r2_swe_sandbox_chain.sh"
+ISOLATED = ROOT / "scripts/expansions/run_r2_swe_sandbox_isolated.sh"
 
 
 def _sandbox_pilot_files(tmp: Path) -> Path:
@@ -454,6 +459,301 @@ class AdaptiveCellValidationTests(unittest.TestCase):
         (cell_dir / "experiment_results.json").write_text(json.dumps(
             [{"condition": "adaptive", "budget": 15000}]))
         validate_adaptive_cell_semantics(self.cell, self.args, cell_dir)
+
+
+ISO_TASKS = ["django__django-11299", "scikit-learn__scikit-learn-25102"]
+
+
+def _isolated_sandbox(tmp: Path) -> tuple[Path, Path, dict]:
+    """Fakes for the isolated driver: a runner that records result rows, a server
+    start/stop pair keyed on the pid file, a docker CLI over a state file and a
+    curl that answers only while the pid file exists; all log to EVENTS."""
+    capture, env = _sandbox(tmp)
+    _sandbox_pilot_files(tmp)
+    (tmp / "task_lists/swe_verified/sandbox_su_free_compressing4.json").write_text(json.dumps(
+        [{"instance_id": instance, "repo": instance.split("__")[0]} for instance in ISO_TASKS]))
+    events, state = tmp / "events.log", tmp / "containers.txt"
+    runner = tmp / "fake-runner"
+    runner.write_text(textwrap.dedent("""\
+        #!/usr/bin/env python3
+        import json, os, sys
+        argv = sys.argv[1:]
+        with open(os.environ["CAPTURE"], "a") as f:
+            f.write(json.dumps(argv + ["--fake-summary-attempts", os.environ.get("MSWEA_SUMMARY_MAX_ATTEMPTS", "")]) + "\\n")
+        opt = lambda name: argv[argv.index(name) + 1]
+        tasks = [t["instance_id"] for t in json.load(open(opt("--tasks-file")))]
+        with open(os.environ["EVENTS"], "a") as f:
+            f.write(("eval " if "--eval-only" in argv else "run ") + " ".join(tasks) + " r" + opt("--runs-per-task") + "\\n")
+        if "--eval-only" in argv:
+            sys.exit(0)
+        cell = os.path.join(os.environ["AGENTCTX_WS"], "data/r2/swebench", opt("--r2-section"), opt("--r2-model"), opt("--r2-cell"))
+        os.makedirs(cell, exist_ok=True)
+        path = os.path.join(cell, "experiment_results.json")
+        rows = json.load(open(path)) if os.path.exists(path) else []
+        keys = {r["key"] for r in rows}
+        cond = opt("--conditions")   # adaptive (capped pilot) or the plain condition (run_r2_swe_p30s.sh)
+        for t in tasks:
+            for r in range(1, int(opt("--runs-per-task")) + 1):
+                if f"{t}__{cond}__r{r}" not in keys:
+                    rows.append({"key": f"{t}__{cond}__r{r}", "instance_id": t, "run_num": r})
+        json.dump(rows, open(path, "w"))
+        """))
+    start, stop, docker, curl = tmp / "fake-vllm-start.sh", tmp / "fake-vllm-stop.sh", tmp / "docker", tmp / "curl"
+    start.write_text('#!/bin/sh\nmkdir -p "$(dirname "$VLLM_PID_FILE")"\n'
+                     '[ ! -f "$VLLM_PID_FILE" ] || { echo "server already running" >&2; exit 1; }\n'
+                     'echo $PPID > "$VLLM_PID_FILE"\necho start >> "$EVENTS"\n')
+    stop.write_text('#!/bin/sh\nrm -f "$1"\necho stop >> "$EVENTS"\n')
+    docker.write_text('#!/bin/sh\necho "docker $1 $2" >> "$EVENTS"\n'
+                      'case "$1" in\n  ps) cat "$STATE" 2>/dev/null ;;\n  rm) : > "$STATE" ;;\nesac\n')
+    curl.write_text('#!/bin/sh\nfor a; do last=$a; done\n'
+                    'case " $* " in *" -X POST "*) echo "curl POST $last" >> "$EVENTS" ;; esac\n'
+                    '[ "${CURL_ALWAYS_OK:-0}" = 1 ] && exit 0\n[ -f "$VLLM_PID_FILE" ] && exit 0\nexit 7\n')
+    for p in (runner, start, stop, docker, curl):
+        p.chmod(0o755)
+    state.write_text("abc minisweagent-dead Exited (137) 2 days ago\ndef buildx_buildkit_default Created\n")
+    env.update(PYTHON=str(runner), EVENTS=str(events), STATE=str(state),
+               VLLM_PID_FILE=str(tmp / "logs/servers/vllm_qwen35_a3b_noprefixcache.pid"),
+               VLLM_START_SCRIPT=str(start), VLLM_STOP_SCRIPT=str(stop), BUSY_PATTERN="", SUMMARIZER="nothink4k")
+    return capture, events, env
+
+
+class SandboxIsolatedTests(unittest.TestCase):
+    def test_one_fresh_server_and_container_purge_per_pending_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, events, env = _isolated_sandbox(Path(tmp))
+            model = "qwen35b-cap4k-sumnothink4k-iso"
+            cell = Path(tmp) / "data/r2/swebench/p100_su_free_majority" / model / "d05__b15k__adaptive-prefix3-sss"
+            cell.mkdir(parents=True)
+            (cell / "experiment_results.json").write_text(json.dumps([{"key": f"{ISO_TASKS[0]}__adaptive__r1"}]))
+            env.update(RUNS_PER_TASK="2")
+            # DRY_RUN: the plan only; nothing started, listed or removed.
+            result = subprocess.run(["bash", str(ISOLATED)], env={**env, "DRY_RUN": "1"}, check=True,
+                                    capture_output=True, text=True)
+            self.assertIn(f"recorded  p100_su_free_majority sss {ISO_TASKS[0]} r1", result.stdout)
+            self.assertEqual(result.stdout.count("pending   "), 3)
+            self.assertFalse(events.exists())
+            self.assertFalse(capture.exists())
+
+            subprocess.run(["bash", str(ISOLATED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            lines = events.read_text().splitlines()
+            # Initial clean-up removes the leftovers; afterwards every purge finds nothing.
+            self.assertEqual(lines[:3], ["docker ps -a", "docker rm -f", "docker ps -a"])
+            self.assertEqual(lines.count("docker rm -f"), 1)
+            self.assertEqual(lines.count("docker ps -a"), 2 + 3 + 1)   # initial, one per cycle, final (exit trap)
+            self.assertEqual(Path(env["STATE"]).read_text(), "")
+            expected = []
+            for instance, r in [(ISO_TASKS[0], 2), (ISO_TASKS[1], 1), (ISO_TASKS[1], 2)]:
+                expected += ["start", f"run {instance} r{r}", f"eval {instance} r{r}", "stop", "docker ps -a"]
+            self.assertEqual(lines[3:], expected + ["docker ps -a"])
+            self.assertFalse(Path(env["VLLM_PID_FILE"]).exists())
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            runs = [c for c in calls if "--eval-only" not in c]
+            self.assertEqual(len(calls), 6)
+            self.assertEqual([_opt(c, "--runs-per-task") for c in runs], ["2", "1", "2"])
+            for c in calls:
+                self.assertEqual((_opt(c, "--max-workers"), _opt(c, "--r2-model"), _opt(c, "--r2-section")),
+                                 ("1", model, "p100_su_free_majority"))
+                self.assertEqual(_opt(c, "--r2-cell"), "d05__b15k__adaptive-prefix3-sss")
+                self.assertEqual(Path(_opt(c, "--agent-config")).name, "config-qwen-vllm-cap4k.yaml")
+                self.assertEqual(Path(_opt(c, "--summary-config")).name, "config-summary-qwen35-35b-nothink-4k.yaml")
+                self.assertEqual(len(json.loads(Path(_opt(c, "--tasks-file")).read_text())), 1)
+            rows = json.loads((cell / "experiment_results.json").read_text())
+            self.assertEqual(sorted(r["key"] for r in rows),
+                             sorted(f"{t}__adaptive__r{r}" for t in ISO_TASKS for r in (1, 2)))
+            # A second launch finds everything recorded: clean-up only, no server.
+            events.unlink()
+            subprocess.run(["bash", str(ISOLATED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            self.assertEqual(events.read_text().splitlines(), ["docker ps -a", "docker ps -a"])
+
+    def test_refusals_leave_the_machine_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, events, env = _isolated_sandbox(Path(tmp))
+            for extra in [{"MAX_WORKERS": "3"}, {"PURGE_CONTAINERS": "some"}, {"SECTIONS": "p30s_never7"},
+                          {"CURL_ALWAYS_OK": "1"},   # a server answers but no sandbox pid file: not ours to stop
+                          {"QWEN_AGENT_CONFIG": str(Path(tmp) / "configs/config-qwen-vllm-cap4k.yaml")}]:
+                result = subprocess.run(["bash", str(ISOLATED)], env={**env, **extra}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1, (extra, result.stderr))
+                self.assertFalse(events.exists(), extra)
+                self.assertFalse(capture.exists(), extra)
+            # Explicit R2_MODEL and an empty suffix are kept verbatim / resume the pilot's own dir.
+            env.pop("SUMMARIZER")   # the driver's own default is the 2048-cap nothink recipe
+            for extra, model, summary, attempts in [
+                    ({}, "qwen35b-cap4k-sumnothink-iso", "config-summary-qwen35-35b-nothink.yaml", "5"),
+                    ({"SUMMARY_MAX_ATTEMPTS": "2"}, "qwen35b-cap4k-sumnothink-iso", "config-summary-qwen35-35b-nothink.yaml", "2"),
+                    ({"SUMMARIZER": "nothink4k"}, "qwen35b-cap4k-sumnothink4k-iso", "config-summary-qwen35-35b-nothink-4k.yaml", "5"),
+                    ({"R2_MODEL": "qwen35b-iso-check"}, "qwen35b-iso-check", "config-summary-qwen35-35b-nothink.yaml", "5"),
+                    ({"ISO_SUFFIX": ""}, "qwen35b-cap4k-sumnothink", "config-summary-qwen35-35b-nothink.yaml", "5"),
+                    ({"SUMMARIZER": "agent"}, "qwen35b-cap4k-iso", None, "")]:
+                result = subprocess.run(["bash", str(ISOLATED)], env={**env, **extra, "DRY_RUN": "1"},
+                                        check=True, capture_output=True, text=True)
+                self.assertIn(f"R2_MODEL={model} ", result.stdout, extra)
+                self.assertIn(f"SUMMARIZER={extra.get('SUMMARIZER', 'nothink')} ", result.stdout, extra)
+                # The recipe reaches the runner: one real cycle with the single-run plan (fresh data tree each time).
+                if capture.exists():
+                    capture.unlink()
+                shutil.rmtree(Path(tmp) / "data", ignore_errors=True)
+                subprocess.run(["bash", str(ISOLATED)], env={**env, **extra, "RUNS_PER_TASK": "1", "N_TASKS": "1"},
+                               check=True, stdout=subprocess.DEVNULL)
+                call = json.loads(capture.read_text().splitlines()[0])
+                self.assertEqual(_opt(call, "--r2-model"), model)
+                self.assertEqual(Path(_opt(call, "--summary-config")).name if "--summary-config" in call else None, summary)
+                self.assertEqual(_opt(call, "--fake-summary-attempts"), attempts, extra)
+
+    def test_inner_p30s_runs_plain_cells_one_run_per_server(self):
+        """INNER=p30s: the plan is (section, cell spec, task, run) over run_r2_swe_p30s.sh,
+        keys use the condition name, run-major order, and every pending run gets its
+        own server start/stop and container purge."""
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, events, env = _isolated_sandbox(Path(tmp))
+            env.pop("SUMMARIZER")
+            (Path(tmp) / "configs/config-devstral-check.yaml").write_text('model:\n  api_base: "http://localhost:8000/v1"\n')
+            cells = "di__b15k__su-free:summarization-free:0.5 d05__b15k__tr:truncation:0.5"
+            env.update(INNER="p30s", SECTIONS="p30s", CELLS=cells, R2_MODEL="devstral-iso-check",
+                       TASKS_FILE=str(Path(tmp) / "task_lists/swe_verified/sandbox_su_free_compressing4.json"),
+                       RUNS_PER_TASK="2", CYCLE_ORDER="run-major", QWEN_TAG="devstral-check",
+                       QWEN_AGENT_CONFIG=str(Path(tmp) / "configs/config-devstral-check.yaml"),
+                       VLLM_PID_FILE=str(Path(tmp) / "logs/servers/vllm_devstral_check.pid"))
+            # Capped-pilot settings and malformed cells are refused before anything starts.
+            for extra in [{"SUMMARIZER": "agent"}, {"PATTERNS": "sss"}, {"SECTIONS": "p100_fc_only4"},
+                          {"CELLS": "di__b15k__su-free:summarization-free"}, {"CELLS": "di__bX__su-free:summarization-free:0.5"},
+                          {"R2_MODEL": ""}, {"CYCLE_ORDER": "sideways"}]:
+                result = subprocess.run(["bash", str(ISOLATED)], env={**env, **extra}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1, (extra, result.stderr))
+                self.assertFalse(events.exists(), extra)
+            cell = Path(tmp) / "data/r2/swebench/p30s/devstral-iso-check/di__b15k__su-free"
+            cell.mkdir(parents=True)
+            (cell / "experiment_results.json").write_text(json.dumps([{"key": f"{ISO_TASKS[0]}__summarization-free__r1"}]))
+            result = subprocess.run(["bash", str(ISOLATED)], env={**env, "DRY_RUN": "1"}, check=True,
+                                    capture_output=True, text=True)
+            plan = [line.split() for line in result.stdout.splitlines() if line.startswith(("  recorded", "  pending"))]
+            su, tr = cells.split()
+            self.assertEqual(plan, [
+                ["recorded", "p30s", su, ISO_TASKS[0], "r1"], ["pending", "p30s", su, ISO_TASKS[1], "r1"],
+                ["pending", "p30s", su, ISO_TASKS[0], "r2"], ["pending", "p30s", su, ISO_TASKS[1], "r2"],
+                ["pending", "p30s", tr, ISO_TASKS[0], "r1"], ["pending", "p30s", tr, ISO_TASKS[1], "r1"],
+                ["pending", "p30s", tr, ISO_TASKS[0], "r2"], ["pending", "p30s", tr, ISO_TASKS[1], "r2"]])
+            self.assertIn("inner: p30s | server: per-run | order: run-major", result.stdout)
+            self.assertFalse(events.exists())
+            subprocess.run(["bash", str(ISOLATED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            log = events.read_text().splitlines()
+            self.assertEqual(log.count("start"), 7)
+            self.assertEqual(log.count("stop"), 7)
+            self.assertEqual([l for l in log if l.startswith("run ")],
+                             [f"run {ISO_TASKS[1]} r1", f"run {ISO_TASKS[0]} r2", f"run {ISO_TASKS[1]} r2",
+                              f"run {ISO_TASKS[0]} r1", f"run {ISO_TASKS[1]} r1", f"run {ISO_TASKS[0]} r2", f"run {ISO_TASKS[1]} r2"])
+            self.assertEqual(len([l for l in log if l.startswith("eval ")]), 7)
+            # Every run is a server start followed by the run, its eval, a stop and a purge listing.
+            first = log.index("start")
+            self.assertEqual(log[first:first + 5], ["start", f"run {ISO_TASKS[1]} r1", f"eval {ISO_TASKS[1]} r1", "stop", "docker ps -a"])
+            calls = [json.loads(line) for line in capture.read_text().splitlines()]
+            runs = [c for c in calls if "--eval-only" not in c]
+            self.assertEqual(len(runs), 7)
+            for c in runs:
+                self.assertEqual(_opt(c, "--r2-section"), "p30s")
+                self.assertEqual(_opt(c, "--r2-model"), "devstral-iso-check")
+                self.assertEqual(_opt(c, "--model-tag"), "devstral-check")
+                self.assertEqual(Path(_opt(c, "--agent-config")).name, "config-devstral-check.yaml")
+                self.assertEqual(_opt(c, "--max-workers"), "1")
+                self.assertNotIn("--n-tasks", c)
+                self.assertNotIn("--summary-config", c)
+            self.assertEqual([(_opt(c, "--r2-cell"), _opt(c, "--conditions"), _opt(c, "--runs-per-task")) for c in runs],
+                             [("di__b15k__su-free", "summarization-free", "1"), ("di__b15k__su-free", "summarization-free", "2"),
+                              ("di__b15k__su-free", "summarization-free", "2"), ("d05__b15k__tr", "truncation", "1"),
+                              ("d05__b15k__tr", "truncation", "1"), ("d05__b15k__tr", "truncation", "2"),
+                              ("d05__b15k__tr", "truncation", "2")])
+            for name, cond in [("di__b15k__su-free", "summarization-free"), ("d05__b15k__tr", "truncation")]:
+                rows = json.loads((cell.parent / name / "experiment_results.json").read_text())
+                self.assertEqual(sorted(r["key"] for r in rows), sorted(f"{t}__{cond}__r{r}" for t in ISO_TASKS for r in (1, 2)))
+            # Resume: everything recorded, so clean-up only and no server.
+            events.unlink()
+            subprocess.run(["bash", str(ISOLATED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            self.assertEqual(events.read_text().splitlines(), ["docker ps -a", "docker ps -a"])
+
+    def test_persistent_server_is_started_once_and_runs_stay_serial(self):
+        """SERVER_LIFECYCLE=persistent: one server start before the first cycle and one
+        stop on exit; every cycle still runs one key with MAX_WORKERS=1 and purges the
+        containers; a server that died between cycles stops the driver."""
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, events, env = _isolated_sandbox(Path(tmp))
+            env.update(RUNS_PER_TASK="2", SERVER_LIFECYCLE="persistent")
+            result = subprocess.run(["bash", str(ISOLATED)], env={**env, "SERVER_LIFECYCLE": "forever"},
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertFalse(events.exists())
+            result = subprocess.run(["bash", str(ISOLATED)], env={**env, "DRY_RUN": "1"}, check=True,
+                                    capture_output=True, text=True)
+            self.assertIn("server: persistent", result.stdout)
+            self.assertFalse(events.exists())
+            subprocess.run(["bash", str(ISOLATED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            log = events.read_text().splitlines()
+            self.assertEqual(log.count("start"), 1)
+            self.assertEqual(log.count("stop"), 1)
+            runs = [l for l in log if l.startswith("run ")]
+            self.assertEqual(len(runs), 4)
+            self.assertEqual(len([l for l in log if l.startswith("eval ")]), 4)
+            self.assertLess(log.index("start"), log.index(runs[0]))
+            self.assertGreater(log.index("stop"), log.index(runs[-1]))
+            # Between two runs: eval, then a purge listing, then the next run - no server event.
+            i, j = log.index(runs[0]), log.index(runs[1])
+            self.assertEqual(log[i + 1:j], [runs[0].replace("run ", "eval "), "docker ps -a"])
+            self.assertFalse(Path(env["VLLM_PID_FILE"]).exists())
+            calls = [json.loads(line) for line in capture.read_text().splitlines() if "--eval-only" not in json.loads(line)]
+            self.assertEqual({_opt(c, "--max-workers") for c in calls}, {"1"})
+            self.assertEqual([len(json.load(open(_opt(c, "--tasks-file")))) for c in calls], [1, 1, 1, 1])
+            # A server that disappears between cycles: the driver stops instead of restarting it.
+            shutil.rmtree(Path(tmp) / "data", ignore_errors=True)
+            events.unlink()
+            stop = Path(env["VLLM_STOP_SCRIPT"])
+            stop.write_text('#!/bin/sh\nrm -f "$1"\necho stop >> "$EVENTS"\n')
+            runner = Path(env["PYTHON"])
+            runner.write_text(runner.read_text().replace("import json, os, sys\n",
+                              "import json, os, sys\n"
+                              "if os.path.exists(os.environ['VLLM_PID_FILE']): os.remove(os.environ['VLLM_PID_FILE'])  # the server dies during the run\n"))
+            result = subprocess.run(["bash", str(ISOLATED)], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            # The driver owns its log here (no AGENTCTX_LOG_FILE), so stderr is folded into stdout.
+            self.assertIn("never restarted mid-plan", result.stdout + result.stderr)
+            log = events.read_text().splitlines()
+            self.assertEqual(log.count("start"), 1)
+            self.assertEqual(len([l for l in log if l.startswith("run ")]), 1)
+
+    def test_prefix_cache_flush_after_every_cycle_on_the_persistent_server(self):
+        """KV_FLUSH=prefix-cache: refused without the persistent server; with it, one
+        POST /reset_prefix_cache after every cycle's purge, on the same single server."""
+        with tempfile.TemporaryDirectory() as tmp:
+            capture, events, env = _isolated_sandbox(Path(tmp))
+            env.update(RUNS_PER_TASK="2", N_TASKS="1", KV_FLUSH="prefix-cache")
+            for extra in [{}, {"SERVER_LIFECYCLE": "per-run"}, {"SERVER_LIFECYCLE": "persistent", "KV_FLUSH": "all"}]:
+                result = subprocess.run(["bash", str(ISOLATED)], env={**env, **extra}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1, (extra, result.stderr))
+                self.assertFalse(events.exists(), extra)
+            env.update(SERVER_LIFECYCLE="persistent")
+            result = subprocess.run(["bash", str(ISOLATED)], env={**env, "DRY_RUN": "1"}, check=True,
+                                    capture_output=True, text=True)
+            self.assertIn("server: persistent (flush: prefix-cache)", result.stdout)
+            subprocess.run(["bash", str(ISOLATED)], env=env, check=True, stdout=subprocess.DEVNULL)
+            log = events.read_text().splitlines()
+            self.assertEqual(log.count("start"), 1)
+            self.assertEqual(log.count("stop"), 1)
+            runs = [l for l in log if l.startswith("run ")]
+            self.assertEqual(len(runs), 2)
+            flushes = [l for l in log if l.startswith("curl POST ")]
+            self.assertEqual(flushes, ["curl POST http://localhost:8000/reset_prefix_cache"] * 2)
+            # Each cycle: run, eval, purge listing, flush; the server is not touched.
+            i = log.index(runs[0])
+            self.assertEqual(log[i:i + 5], [runs[0], runs[0].replace("run ", "eval "), "docker ps -a",
+                                            "curl POST http://localhost:8000/reset_prefix_cache", runs[1]])
+            # A failing reset stops the driver before the next run.
+            shutil.rmtree(Path(tmp) / "data", ignore_errors=True)
+            events.unlink()
+            curl = Path(tmp) / "curl"
+            curl.write_text(curl.read_text().replace('echo "curl POST $last" >> "$EVENTS" ;;', 'echo "curl POST $last" >> "$EVENTS"; exit 22 ;;'))
+            result = subprocess.run(["bash", str(ISOLATED)], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("reset_prefix_cache failed", result.stdout + result.stderr)
+            log = events.read_text().splitlines()
+            self.assertEqual(len([l for l in log if l.startswith("run ")]), 1)
+            self.assertEqual(log.count("stop"), 1)
 
 
 if __name__ == "__main__":

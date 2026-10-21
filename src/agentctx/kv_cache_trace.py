@@ -59,6 +59,39 @@ def ownership_snapshot(manager, request_ids, bytes_per_block):
     return result
 
 
+def count_hashed_blocks(mapping) -> tuple[int, str]:
+    """Physical blocks registered in vLLM's prefix-hash map, and how they were counted.
+
+    vLLM does not de-duplicate: two requests that compute the same prefix at the
+    same time leave two blocks under one hash, so ``len(mapping)`` (hashes) can
+    undercount blocks. Count the blocks behind each hash when the map exposes
+    them; fall back to the hash count and say so.
+    """
+    cache = getattr(mapping, "_cache", None)
+    if not isinstance(cache, dict):
+        return len(mapping), "hashes"
+    return sum(len(v) if isinstance(v, dict) else 1 for v in cache.values()), "blocks"
+
+
+def pool_snapshot(manager):
+    """Pool-wide accounting, or None when the manager exposes no block pool.
+
+    hashed_blocks: blocks carrying a prefix hash, whether held by a live request
+    or sitting in the free queue (the warm prefix cache; what a later prompt can
+    hit). A hash is set when a block fills and cleared only when the block is
+    evicted for a new allocation or by reset_prefix_cache.
+    free_blocks: free-queue length (hashed-but-unowned plus never-written blocks).
+    total_blocks: pool size including vLLM's null block.
+    """
+    pool = getattr(manager, "block_pool", None)
+    if pool is None:
+        return None
+    hashed, mode = count_hashed_blocks(pool.cached_block_hash_to_block)
+    return {"hashed_blocks": hashed, "hashed_count": mode,
+            "free_blocks": pool.get_num_free_blocks(),
+            "total_blocks": pool.num_gpu_blocks}
+
+
 def request_matches(response_id: str, request_id: str) -> bool:
     """vLLM V1 single-output chat/completion IDs, with optional internal salt.
 
@@ -85,6 +118,9 @@ MEASUREMENT_NOTES = [
     "samples for a time-resolved view instead of adding the peaks.",
     "Requests are not experiment tasks: a shared block's other owner may be "
     "another task, this task's summarizer request, or an unrelated client.",
+    "Pool records (type pool, no request id) are server-wide: hashed_blocks "
+    "counts every block with a prefix hash, owned or free, written by any "
+    "client of the server.",
 ]
 
 _PEAK_FIELDS = ("exclusive_bytes_per_worker", "shared_bytes_per_worker",

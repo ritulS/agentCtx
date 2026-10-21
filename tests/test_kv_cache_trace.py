@@ -10,7 +10,8 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from agentctx.kv_cache_trace import block_bytes, export_steps, ownership_snapshot, request_matches
+from agentctx.kv_cache_trace import (block_bytes, count_hashed_blocks, export_steps, ownership_snapshot,
+                                     pool_snapshot, request_matches)
 from agentctx.vllm_kv_trace import TraceRecorder, _TracingMixin, TracingScheduler
 
 
@@ -18,9 +19,21 @@ def block(number, null=False):
     return NS(block_id=number, is_null=null)
 
 
+class Pool:
+    """vLLM BlockPool stand-in: hash map with single blocks and duplicate-hash dicts."""
+    def __init__(self, hashed, free, total=100):
+        self.cached_block_hash_to_block = NS(_cache=dict(hashed))
+        self.free, self.num_gpu_blocks = free, total
+
+    def get_num_free_blocks(self):
+        return self.free
+
+
 class Manager:
-    def __init__(self, allocations):
+    def __init__(self, allocations, pool=None):
         self.allocations = allocations
+        if pool is not None:
+            self.block_pool = pool
 
     def get_blocks(self, rid):
         return NS(blocks=self.allocations.get(rid, ()))
@@ -58,18 +71,28 @@ class OwnershipTests(unittest.TestCase):
         self.assertIsNone(rows["A"]["total_bytes_per_worker"])
         self.assertEqual(rows["A"]["total_blocks"], 1)
 
+    def test_pool_snapshot_counts_blocks_not_hashes(self):
+        pool = Pool({"h1": block(1), "h2": {2: block(2), 7: block(7)}}, free=90)
+        self.assertEqual(count_hashed_blocks(pool.cached_block_hash_to_block), (3, "blocks"))
+        self.assertEqual(count_hashed_blocks(["h1", "h2"]), (2, "hashes"))  # opaque map: hashes, flagged
+        self.assertEqual(pool_snapshot(Manager({}, pool)),
+                         {"hashed_blocks": 3, "hashed_count": "blocks", "free_blocks": 90, "total_blocks": 100})
+        self.assertIsNone(pool_snapshot(Manager({})))
+
     def test_lifecycle_and_step_export(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             a, b = "chatcmpl-a-1234abcd", "cmpl-b-0-5678abcd"
             summ = "chatcmpl-sum-9abcdef0"  # summarizer request on the same server
-            mgr = Manager({a: [[block(1), block(2)]], b: [[block(1), block(3)]]})
+            pool = Pool({"h1": block(1), "h2": block(2), "h3": block(3)}, free=96)
+            mgr = Manager({a: [[block(1), block(2)]], b: [[block(1), block(3)]]}, pool)
             s = scheduler(mgr)
             recorder = TraceRecorder(s, root, "test")
             self.addCleanup(recorder.stream.close)
             recorder.capture("after_schedule")
             recorder.capture("after_schedule")  # unchanged, no duplicate rows
             del s.requests[b]
+            pool.free = 97  # b's exclusive block back in the free queue; its hash stays
             recorder.capture("after_finish_requests")
             del s.requests[a]
             recorder.capture("after_output")
@@ -88,7 +111,12 @@ class OwnershipTests(unittest.TestCase):
                     {"step": 2, "primitive": "summarization", "accepted": True,
                      "response_ids": ["chatcmpl-rejected", "chatcmpl-sum"]},
                     {"step": 3, "primitive": "summarization", "accepted": False}]}))
-            result = export_steps(root, root)
+            rows = [json.loads(l) for l in recorder.path.read_text().splitlines()]
+            pools = [r for r in rows if r["type"] == "pool"]
+            # Written once at first capture and once when the free queue changed; never for an unchanged pool.
+            self.assertEqual([(r["hashed_blocks"], r["free_blocks"]) for r in pools], [(3, 96), (3, 97)])
+            self.assertEqual(pools[1]["phase"], "after_finish_requests")
+            result = export_steps(root, root)  # pool rows carry no request id and are ignored by the join
             self.assertEqual(result["schema_version"], 2)
             self.assertTrue(any("shared" in n for n in result["notes"]))
             first, second, missing, absent = result["steps"]
@@ -177,6 +205,15 @@ class RealVllmTests(unittest.TestCase):
         manager.free(b)
         rows = ownership_snapshot(manager, ["A"], spec.page_size_bytes)
         self.assertEqual(rows["A"]["exclusive_blocks"], 2)
+        # Pool view: A's two blocks and B's divergent block keep their hashes after B is freed
+        # (free != evicted); only reset_prefix_cache, once nothing is owned, clears them.
+        pool = pool_snapshot(manager)
+        self.assertEqual((pool["hashed_blocks"], pool["hashed_count"]), (3, "blocks"))
+        self.assertEqual(pool["total_blocks"] - 1 - pool["free_blocks"], 2)  # owned by A (null block excluded)
+        manager.free(a)
+        self.assertEqual(pool_snapshot(manager)["hashed_blocks"], 3)
+        self.assertTrue(manager.reset_prefix_cache())
+        self.assertEqual(pool_snapshot(manager)["hashed_blocks"], 0)
 
     def test_factory_preserves_sync_and_async_scheduler(self):
         from vllm.v1.core.sched.scheduler import Scheduler

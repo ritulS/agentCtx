@@ -12,7 +12,7 @@ from pathlib import Path
 import time
 import uuid
 
-from agentctx.kv_cache_trace import block_bytes, ownership_snapshot
+from agentctx.kv_cache_trace import block_bytes, ownership_snapshot, pool_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class TraceRecorder:
     def __init__(self, scheduler, directory: Path, version: str):
         self.scheduler = scheduler
         self.previous = {}
+        self.previous_pool = None
         self.tick = 0
         self.disabled = False
         self.bytes_per_block, status = block_bytes(
@@ -38,7 +39,10 @@ class TraceRecorder:
                     "cache_group_types": [type(g.kv_cache_spec).__name__
                                           for g in scheduler.kv_cache_config.kv_cache_groups],
                     "measurement": "allocated_pool_slots_including_padding",
-                    "sampling": "allocation_changes_at_scheduler_boundaries"})
+                    "sampling": "allocation_changes_at_scheduler_boundaries",
+                    "pool_records": "type=pool rows: hashed_blocks = blocks carrying a prefix "
+                                    "hash (owned or free), free_blocks = free-queue length, "
+                                    "total_blocks = pool size incl. the null block; written on change"})
 
     def write(self, record):
         self.stream.write(json.dumps({"time": time.time(), **record}) + "\n")
@@ -59,6 +63,10 @@ class TraceRecorder:
                 self.write({"type": "finished", "tick": self.tick,
                             "phase": phase, "request_id": rid})
             self.previous = current
+            pool = pool_snapshot(self.scheduler.kv_cache_manager)
+            if pool is not None and pool != self.previous_pool:
+                self.write({"type": "pool", "tick": self.tick, "phase": phase, **pool})
+                self.previous_pool = pool
         except Exception as exc:
             self.disabled = True
             logger.exception("KV ownership tracing stopped; inference continues")

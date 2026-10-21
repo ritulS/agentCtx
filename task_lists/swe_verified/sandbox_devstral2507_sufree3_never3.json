@@ -1,0 +1,32 @@
+[
+  {
+    "instance_id": "django__django-15368",
+    "repo": "django",
+    "difficulty": "<15 min fix"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-11578",
+    "repo": "scikit-learn",
+    "difficulty": "15 min - 1 hour"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-13135",
+    "repo": "scikit-learn",
+    "difficulty": "<15 min fix"
+  },
+  {
+    "instance_id": "django__django-11734",
+    "repo": "django",
+    "difficulty": "15 min - 1 hour"
+  },
+  {
+    "instance_id": "django__django-15525",
+    "repo": "django",
+    "difficulty": "15 min - 1 hour"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-14087",
+    "repo": "scikit-learn",
+    "difficulty": "15 min - 1 hour"
+  }
+]

@@ -36,6 +36,388 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Devstral-Small-2507 — sklearn-11578 ×5 with a fresh vLLM server per run, pool-wide KV trace (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE 2026-10-21 13:41:31 → 14:44:07 CDT (63 min, 5 cycles, 5 fresh servers; final clean-up ran,
+  no containers left; log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral2507-iso-11578only-pool_20261021_134131.log`; one
+  server log + KV trace dir per run, resolved per run through `serving_info.json`). Launched by Claude at the user's
+  request ("isolatedの方もrun5まではかって欲しいかもです"), `ALLOW_NO_SLACK=1`.
+- **Why:** the isolated counterpart of the pool-traced persistent cell below, so the upper panel of
+  `plots/kv_timeline_11578_pool.png` gets a *measured* warm-cache line too (the 2026-10-17 per-run servers predate
+  the pool records). Expected: the pool line restarts from ~0 at every run (fresh server), climbs to the run's
+  own writes, and jumps by one full context copy at every SU (summarizer prompt shares no prefix).
+- **What:** per-run server (`SERVER_LIFECYCLE=per-run`, default), `R2_MODEL=devstral2507-iso-11578only-pool`,
+  task list `task_lists/swe_verified/sandbox_devstral2507_sklearn11578.json`, 5 runs; otherwise the isolated
+  recipe (TP=8, caching ON, MAX_WORKERS=1, SU-free at 15k, temperature 0, eval after every run, containers purged).
+  ~8.7 min per cycle (measured 2026-10-17) → ~45 min.
+- **Result (`data/r2/swebench/p30s/devstral2507-iso-11578only-pool/di__b15k__su-free/`, 5 rows):** **0/5** (Submitted
+  ×5; r1/r2/r3/r5 52-62 calls / 2 compressions / 5.7-6.4 min; **r4 251 calls / 12 compressions / 23.8 min**, a
+  long wandering run), the per-run picture again. Pool traces (one dir per server, each starting at 128 blocks =
+  the first prefill chunk of step 1): hashed blocks never decrease within a server (0 decreases over 631-3,715
+  rows), owned = total − 1 − free matches the live requests in every row, and the warm cache at the end of each
+  run is 9.94 / 10.78 / 9.90 / **47.27** / 10.42 GiB. **The summarizer writes 43-49 % of each run's pool**: SU
+  events added 4.4-4.8 GiB per ordinary run (2 events ≈ 29-32k tokens, one full context copy each) and 23.4 GiB in
+  r4 (12 events). Figure: `plots/kv_timeline_11578_pool.png` (both panels measured, `--pool-trace`; r4's 47 GiB
+  sets the y-scale).
+- **Launch (used):**
+  `ALLOW_NO_SLACK=1 R2_MODEL=devstral2507-iso-11578only-pool RUNS_PER_TASK=5 TASKS_FILE=$PWD/task_lists/swe_verified/sandbox_devstral2507_sklearn11578.json AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-devstral2507-iso-11578only-pool -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh`
+
+
+### Devstral-Small-2507 — sklearn-11578 ×5 alone on ONE persistent server, with the pool-wide KV trace (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE 2026-10-21 13:04:32 → 13:25:24 CDT (21 min, 5 cycles; one server, ready in 50 s; final
+  clean-up ran, no containers left; log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral2507-serial-11578only-pool_20261021_130432.log`;
+  server log `logs/servers/vllm_devstral2507_prefixcache_20261021_130433.log`, KV trace
+  `logs/kv-cache/vllm_devstral2507_prefixcache_20261021_130433/`). Launched by Claude at the user's request
+  ("では実測して。Persistentの11578 onlyだけでrun 5までやって欲しいです"), without Slack notices (`ALLOW_NO_SLACK=1`;
+  the webhook URL is not in the launch environment).
+- **Why:** replace the *estimated* warm-cache line of the KV figure (`--warm-cache-estimate`: cumulative
+  `prompt − cached + completion`, eviction ignored) with a *measured* one. The tracer now also writes
+  server-wide `type: pool` rows (`hashed_blocks` = blocks carrying a prefix hash, owned or free; `free_blocks`;
+  `total_blocks`; see `src/agentctx/KV_CACHE_TRACE.md`), and `plot_kv_timeline.py --pool-trace` draws them.
+  Same recipe as the 10-run persistent cell above (one server, TP=8, caching ON, one run per cycle, SU-free at
+  15k, temperature 0, eval after every run), 5 runs, new model dir so nothing is skipped as recorded.
+- **Result (`data/r2/swebench/p30s/devstral2507-serial-11578only-pool/di__b15k__su-free/`, 5 rows):** **4/5**
+  (r1 unresolved, 42 calls / 1 compression, 5.0 min; r2 resolved, 25 calls / 1 compression, 1.8 min; r3-r5
+  resolved, 24 calls / 0 compressions, 1.2-1.3 min): the 2026-10-20 cell's shape again. Pool trace
+  (`logs/kv-cache/vllm_devstral2507_prefixcache_20261021_130433/`, 1,452 pool rows, `hashed_count: blocks`,
+  no tracing error): **hashed blocks never decrease** (0 decreases; free ≠ evicted) and reach 5,431 blocks =
+  13.26 GiB of the 120,978-block (295 GiB) pool at the end of r5 (6.60 / 10.59 / 12.30 / 12.80 / 13.26 GiB at
+  the end of r1-r5); **owned = total − 1 − free equals the live requests' block sum in 1,452/1,452 rows**, so the
+  solid per-request line and the pool line describe the same pool. **The summarizer request shares no prefix
+  with the agent context**: during r1's SU the pool gained 14,944 tokens of hashed blocks for a 14,526-token
+  prompt + 434 completion (r2: 12,976 for 13,660 + 315), i.e. every SU event writes a second full copy of the
+  context. The token-count estimate (`--warm-cache-estimate`) had charged the summarizer only its prompt beyond
+  the agent's last prompt and sat ~2.2 GiB per SU below the measurement; fixed on 2026-10-21 to charge the whole
+  uncached prompt. Figure: `plots/kv_timeline_11578_pool.png` (`--warm-cache-estimate --pool-trace`).
+- **Launch (used):**
+  `ALLOW_NO_SLACK=1 SERVER_LIFECYCLE=persistent R2_MODEL=devstral2507-serial-11578only-pool RUNS_PER_TASK=5 TASKS_FILE=$PWD/task_lists/swe_verified/sandbox_devstral2507_sklearn11578.json AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-devstral2507-serial-11578only-pool -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh`
+
+### Devstral-Small-2507 — sklearn-11578 ×10 alone on ONE persistent server, no flush (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE 2026-10-20 00:45:28 → 01:22:33 CDT (37 min, 10 cycles; one server, ready in 60 s; no
+  prefix-cache resets; final clean-up ran, no containers left; launched by the user; log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral2507-serial-11578only_20261020_004528.log`).
+  Requested as "persistentでsklearn11578のタスクだけ10runs/taskしてみたい".
+- **Result (`data/r2/swebench/p30s/devstral2507-serial-11578only/di__b15k__su-free/`, 10 rows):** **9/10** (Submitted
+  ×10; r1 44 calls / 1 compression, unresolved; r2 25 calls / 1 compression, r3-r10 24 calls / 0 compressions, all
+  resolved; e2e 229 s, 130 s, 86 s, then 69-70 s). **r1 is message-for-message identical to the per-run rows through
+  message 37** (cold server = the per-run route, same wrong patch md5 d9f74121); r2 shares only its first 2
+  assistant messages with r1 (step 1 served 3552/3562 tokens from r1's cache), r2/r3 share 3, r3/r4 share 21, and
+  **r4-r10 are identical** (patch md5 f8ee19b9, a different correct patch from the interleaved persistent cell's
+  520618d6, and 0 shared messages with that cell's fixed point). Prefill steps (≥ 1 block missed, from
+  `cached_tokens`): 44/44, 22/25, 20/24, 2/24, then 0/24 ×6: from r5 on the server computes nothing but the
+  partial tail block. Same shape as the interleaved cell (0/10 → convergence to a self-reproducing correct route),
+  reached faster (fixed point at r4 vs r6) because no other task's blocks sit between consecutive runs and r1 starts
+  from a genuinely cold cache (the interleaved r1 had hit 112 system-prompt tokens left by another task and already
+  differed from the per-run route at message 10). Regimes on this task now: per-run servers 0/10, persistent + flush
+  0/10, persistent interleaved 9/10, persistent alone 9/10 (two different correct fixed points).
+- **Why:** a clean persistent contrast for the sklearn-11578 figures (KV occupancy / prefix-cache hits / prefill per
+  step, `scripts/maintenance/plot_kv_timeline.py`): consecutive runs of the same task on one server, with nothing
+  else in the cache, so run k+1's hits come only from run k.
+- **What:** `SERVER_LIFECYCLE=persistent` with `R2_MODEL=devstral2507-serial-11578only` (the default
+  `devstral2507-serial` dir already held 11578 r1-r10 and would have skipped everything), task list
+  `task_lists/swe_verified/sandbox_devstral2507_sklearn11578.json`; otherwise the persistent recipe (one server,
+  TP=8, caching ON, one run per cycle, `MAX_WORKERS=1`, SU-free at 15k, temperature 0, eval after every run).
+- **Launch (used):**
+  `SERVER_LIFECYCLE=persistent R2_MODEL=devstral2507-serial-11578only TASKS_FILE=$PWD/task_lists/swe_verified/sandbox_devstral2507_sklearn11578.json AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-devstral2507-serial-11578only -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh`
+
+### Devstral-Small-2507 — sklearn-11578 ×10 on ONE persistent server with the prefix cache flushed between runs (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE 2026-10-18 20:00:09 → 21:44:50 CDT (1 h 45 min, 10 cycles; one server, ready in 50 s; 10
+  prefix-cache resets, each confirmed by the server log; final clean-up ran, nothing left; launched by the user; log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral2507-serial-flush_20261018_200009.log`). Requested as
+  "reset_prefix_cache を sklearn-11578 に対してだけやりたい。10 runs".
+- **Result (`data/r2/swebench/p30s/devstral2507-serial-flush/di__b15k__su-free/`, 10 rows):** **0/10** (Submitted ×10,
+  42-195 calls, 1-10 compressions). **All 10 runs are message-for-message identical to the per-run rows through
+  message 74 (the first 37 commands, up to `pip install numpy==1.12.0 ...`) and diverge only at message 75, the pip
+  output with random temp-dir names** — exactly the per-run picture. Against the persistent (unflushed) rows they
+  differ at message 2, the first assistant message (0 shared commands). 9 of 10 runs submit the same wrong patch as the
+  per-run rows (md5 d9f74121; r6 another). So the flush restores the cold-cache fixed point completely: **the whole
+  persistent-server effect on this task (0/10 → 9/10, a different route from the first reply) is carried by the
+  prefix cache; nothing else on the live server (allocator / cuBLAS warm state, scheduler) contributes.** This is the
+  agent-level confirmation of the probe's `off2` = `on_cold` result (40/40, Δlogprob 0). Regimes on this task:
+  per-run servers 0/10, persistent + flush 0/10, persistent 9/10, 8 workers 2/3.
+- **Why:** sklearn-11578 is the task whose outcome flipped with the server regime (per-run servers 0/10 on one
+  identical wrong route; persistent server 9/10 on one identical correct route, see the two entries below). If the
+  flipped behaviour is carried by the prefix cache alone, flushing it between runs on a persistent server should
+  reproduce the per-run rows (37 identical leading commands, the `pip install numpy==1.12` route, 0/10); if the
+  flushed rows look like the persistent ones, something else on the live server (cuBLAS / allocator warm state, ...)
+  carries it. The probe (`off2` = `on_cold`, 40/40, Δlogprob 0) predicts the former.
+- **What:** `KV_FLUSH=prefix-cache` in the persistent mode of `run_r2_swe_sandbox_isolated.sh`: after every cycle's
+  container purge, `POST /reset_prefix_cache`; the driver requires HTTP success and a new "Successfully reset prefix
+  cache" line in the server log, else it stops. The wrapper exports `VLLM_SERVER_DEV_MODE=1` for that mode (the
+  endpoint is 404 otherwise). Everything else as the persistent cell: one server (TP=8, caching ON, so the run's own
+  self-hits remain), one run per cycle, `MAX_WORKERS=1`, SU-free at 15k, temperature 0, 10 runs. Task list
+  `task_lists/swe_verified/sandbox_devstral2507_sklearn11578.json` (1 task).
+- **Dest:** `data/r2/swebench/p30s/devstral2507-serial-flush/di__b15k__su-free/` (10 rows when complete).
+- **Launch (no server running; the driver starts it):**
+  `KV_FLUSH=prefix-cache SERVER_LIFECYCLE=persistent TASKS_FILE=$PWD/task_lists/swe_verified/sandbox_devstral2507_sklearn11578.json AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-devstral2507-serial-flush -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh`
+  (from the repo root; `SLACK_WEBHOOK_URL` exported or `ALLOW_NO_SLACK=1`).
+- **Estimate:** ~1 h (persistent 11578 runs took 2-6 min each; per-run ones 4-9 min) plus the 60 s server start.
+- **Check afterwards:** `grep -c "Successfully reset prefix cache" logs/servers/vllm_devstral2507_prefixcache.latest.log`
+  should be 10; compare events.jsonl of the 10 rows with the per-run rows (identical through the pip step?) and with
+  the persistent rows.
+
+### Devstral-Small-2507 — serial 6-task SU-free cell on ONE persistent server, 10 runs/task (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE 2026-10-18 12:09:11 → 19:47:16 CDT (7 h 38 min, 60 cycles, 7.6 min/cycle; agent e2e sum
+  5.9 h, mean 5.9 min, median 2.9, max 28; one server for the whole plan, up 12:10:13, stopped by the final clean-up;
+  no containers left; log `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral2507-serial_20261018_120911.log`).
+- **Results (`data/r2/swebench/p30s/devstral2507-serial/di__b15k__su-free/`, 60 rows, all evaluated; Submitted 52,
+  LimitsExceeded 8):**
+
+  | task | persistent server 10 runs | per-run servers 10 runs | calls (persistent) | compression events | distinct trajectories (events.jsonl) |
+  |---|---|---|---|---|---|
+  | django-15368 | 10/10 | 10/10 | 27-53 | 0 ×9, 1 | 8 (largest identical group 3) |
+  | sklearn-11578 | **9/10** | **0/10** | 26-37 | 0 ×6, 1 ×3 | 6 (r6-r10 identical) |
+  | sklearn-13135 | 8/10 (1 LimitsExceeded) | 10/10 | 20-300 | 1-7 | 10 |
+  | django-11734 | 0/10 (5 LimitsExceeded) | 0/10 | 50-300 | 1-18 | 10 |
+  | django-15525 | 0/10 (1 LimitsExceeded) | 0/10 | 38-300 | 0-11 | 10 |
+  | sklearn-14087 | 0/10 (1 LimitsExceeded) | 0/10 | 30-300 | 1-7 | 10 |
+
+- **Reading:** the resolved/unresolved split is the same 3/3 as per-run, but sklearn-11578 flips from 0/10 (one
+  identical wrong patch, the "pip install numpy==1.12" route) to 9/10 (r2-r10 all submit the same correct patch;
+  r6-r10 are message-for-message identical), and sklearn-13135 loses its determinism (28 calls, no compression ×10
+  per-run → 20-300 calls, 1-7 compressions, 10 distinct trajectories). Pairwise first differing message between
+  persistent runs is an **assistant** message in 4 of 6 tasks (15368: 42 of 45 pairs, 11578: 35, 13135: 45, 11734:
+  45), i.e. model-side; per-run it was a tool observation in every task. 15525 (all 45 pairs) and 14087 (36 of 45)
+  still diverge first at the `ls -la` mtime of step 1. The very first cycle (15368 r1, pristine server) is identical
+  to the per-run trajectory; the second (11578 r1, after one run of another task) already differs from per-run at the
+  first assistant message, so cached system-prompt blocks from any earlier request suffice to move greedy decoding onto
+  a different path. Per-run and persistent are therefore two deterministic regimes (cold vs warm prefix cache) with
+  different fixed points, not a noisy vs quiet one. Command-level agreement for 11578: per-run pairs share 37 leading
+  commands (set Jaccard 0.58), persistent pairs 13 (0.56), per-run vs persistent 0 (0.11). For the three never-resolved
+  tasks the two regimes share only 3-5 leading commands and the same target files (14087: `logistic.py` in all runs;
+  15525: `testbug/models.py`), with 11734 taking a longer route under the persistent server (median 270 vs 184 calls,
+  5 vs 1 LimitsExceeded, `sql/query.py` instead of the tests file / `expressions.py`).
+- **Next (proposed, not built yet):** `KV_FLUSH=prefix-cache` for the persistent mode — `POST /reset_prefix_cache`
+  (server started with `VLLM_SERVER_DEV_MODE=1`) after every cycle's purge, dest `devstral2507-serial-flush`. If those
+  rows reproduce the per-run ones (15368 bit-identical ×10, 11578 back on the 0/10 route), the whole persistent-server
+  effect is the prefix cache; the probe's off2 = on_cold (40/40, Δlogprob 0) predicts that it is.
+  Requested as
+  "isolation のところでサーバーの kill と restart の部分だけを変えて、サーバーは常駐で concurrent な run は 1 つだけ".
+- **What:** the same driver and wrapper as the isolated cell below with `SERVER_LIFECYCLE=persistent`: the
+  Devstral-2507 server (TP=8, caching ON) is started once before cycle 1 and stopped once on exit; every cycle is
+  still exactly one (task, run) with `MAX_WORKERS=1`, eval, then the container purge (+ orphaned conmon reaping). The
+  driver stops, and never restarts the server, if it is gone between cycles. Same 6 tasks, 10 runs/task, SU-free
+  only (60 keys), run-major order, temperature 0, agent config `configs/config-devstral2507-vllm.yaml`. The only
+  difference from the per-run rows is therefore the shared live server: with caching ON, run k of a task hits the
+  prefix blocks run k-1 (and the other tasks' runs) left in the cache, and the scheduler / compiled state carries
+  over; `PREFIX_CACHE=off` removes the cross-run cache hits (dest `devstral2507-serial-nocache`).
+- **Dest:** `data/r2/swebench/p30s/devstral2507-serial/di__b15k__su-free/` (60 rows when complete).
+- **Launch (no server running; the driver starts it):**
+  `SERVER_LIFECYCLE=persistent AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-devstral2507-serial -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh`
+  (`SLACK_WEBHOOK_URL` exported or `ALLOW_NO_SLACK=1`). Plan only: prepend `DRY_RUN=1` (60 pending as of 12:01 CDT).
+- **Estimate:** ~7 h (the per-run cell took 8.7 min/cycle of which ~60 s was the server start; cross-run prefix hits
+  may shave a little more).
+- **Verification:** new unit test `test_persistent_server_is_started_once_and_runs_stay_serial` (one start, one stop,
+  serial runs with 1-task lists, purge between runs, stop when the server dies) plus the existing suite: 24 passed
+  (2026-10-18 12:05 CDT); per-run and pilot dry runs unchanged.
+- **Comparison target:** the per-run rows below (15368 / 13135 bit-identical ×10; 11578 / 11734 / 15525 / 14087
+  diverging only at nondeterministic tool outputs). Question: does a shared live server add model-side divergence
+  (first differing message = assistant) on top of that?
+
+### Devstral-Small-2507 — isolated 6-task cells: SU-free → TR, 10 runs/task, one run per fresh server (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE (SU-free cell) 2026-10-17 20:35:22 → 2026-10-18 05:10:22 CDT: 59 cycles in 8 h 35 min
+  (8.7 min/cycle; agent e2e sum 5.8 h, mean 5.8 min, median 3.5, max 29.4; server ready in 50-60 s per cycle; the rest
+  is eval + purge). Relaunched by the user with `CELLS="di__b15k__su-free:summarization-free:0.5"` after the first
+  launch (20:24:05, both cells) was killed 20:32 at their request to drop TR ("TR はやらなくていい"; cycle 1 django-15368
+  r1 from that launch is row 1 of the cell; the kill left 74 orphaned `conmon` processes of the force-removed
+  container, terminated by hand, and `purge_containers` now reaps them itself via `reap_conmon`). Final clean-up ran
+  (no server, no containers); machine idle. Log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral2507-iso_20261017_203521.log`. TR not run (add
+  `d05__b15k__tr:truncation:0.5` to `CELLS` and rerun the same command if wanted; recorded keys are skipped).
+- **Results (`data/r2/swebench/p30s/devstral2507-iso/di__b15k__su-free/`, 60 rows, all evaluated):**
+
+  | task | isolated 10 runs | 8-worker 3 runs | isolated calls | compression events | note |
+  |---|---|---|---|---|---|
+  | django-15368 | **10/10** | 3/3 | 30 ×10 | 0 ×10 | all 10 runs message-for-message identical, 1 patch |
+  | sklearn-13135 | **10/10** | 3/3 | 28 ×10 | 0 ×10 | all 10 runs identical, 1 patch (8-worker: 21-54 calls, 1-3 compressions) |
+  | sklearn-11578 | **0/10** | 2/3 | 42-86 | 1-3 | identical through step 37; 1 distinct (wrong) patch |
+  | django-11734 | **0/10** | 0/3 | 114-300 | 3-11 | identical through step 95; 1 LimitsExceeded; 4 empty patches |
+  | django-15525 | **0/10** | 0/3 | 30-132 | 0-3 | identical through step 1; 10 distinct patches |
+  | sklearn-14087 | **0/10** | 0/3 | 30-300 | 1-17 | identical through step 1; 2 LimitsExceeded; 2 empty patches |
+
+  Exit statuses: Submitted 57, LimitsExceeded 3. Outcomes are fully bimodal per task (10/10 or 0/10); no task is
+  split. sklearn-11578, 2/3 under 8 workers, is 0/10 in isolation.
+- **Where the run-to-run differences come from (events.jsonl, pre-compression):** in every task the first message
+  that differs between two isolated runs is a **tool observation, never an assistant message**: django-15525 and
+  sklearn-14087 at step 1 (`ls -la` shows the mtime of `..`, i.e. the container's creation time, 10 distinct values
+  in 10 runs); django-11734 at step 96 (an `ls -la` mtime of a test file); sklearn-11578 at step 37 (`pip install
+  numpy==1.12.0 ...` output with random `/tmp/pip-install-xxxx` paths; its run_1 instead restarted the agent
+  conversation at that step — a second system prompt with seq 1 in events.jsonl, 53 api calls in total — cause not
+  dug into). django-15368 and sklearn-13135 never print a timestamp and are bit-identical ×10. So **in isolation,
+  Devstral-2507 at temperature 0 is reproducible token for token; all within-task variance is environment
+  nondeterminism (timestamps, temp-dir names) amplified by greedy decoding afterwards.** The 8-worker rows differ
+  from the isolated path already at the **first assistant message** for sklearn-13135 (all 3 runs), sklearn-14087
+  (all 3) and django-15368 (run 1): concurrent batching changes greedy outputs from step 1, and the 1-3 compression
+  events the 8-worker sklearn-13135 runs needed were themselves a consequence of that divergence (isolated: 28 calls,
+  no compression). Note for the sandbox design: the two SU-free "positives" never trigger compression in isolation,
+  so this cell says nothing about SU-free on them; the 4 negatives compress 1-17 times and never resolve.
+  Follow-up to the
+  20-task cells below: "これを 10 runs/task にして、isolated と同じ、run ごとにコンテナも消すし 1 run のみ".
+- **Tasks:** `task_lists/swe_verified/sandbox_devstral2507_sufree3_never3.json` (6 = the 3 tasks resolved in ≥2 of 3
+  SU-free runs — django-15368, sklearn-11578, sklearn-13135 — plus 3 of the 11 tasks at 0/3 under both SU-free and TR
+  — django-11734, django-15525, sklearn-14087 — chosen so that compression fires in every run, runs stay under ~30 min
+  when Submitted, repos 3/3 and Qwen P30S outcomes mix; selection notes in `task_lists/README.md`). Note that
+  django-15368 was resolved without a single compression event in all 6 of its runs.
+- **What:** `scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh` → `run_r2_swe_sandbox_isolated.sh`
+  with the new `INNER=p30s` mode (inner launcher `run_r2_swe_p30s.sh` instead of the capped pilot): for every pending
+  (cell, task, run) key, start a fresh Devstral-2507 server (`start_vllm_devstral2507_sandbox.sh`, TP=8, **caching ON**
+  by default, `PREFIX_CACHE=off` → `devstral2507-iso-nocache`), wait for `/v1/models`, run the one task with
+  `RUNS_PER_TASK=<run>` and `MAX_WORKERS=1` (recorded keys skipped → exactly that run), eval, stop the server, remove
+  every container; watchdog / traps / busy guards as in the Qwen isolated cells. Cells `di__b15k__su-free` then
+  `d05__b15k__tr`, 10 runs/task, **run-major order** (run 1 of all 6 tasks, then run 2, ...), agent config
+  `configs/config-devstral2507-vllm.yaml` (temperature 0, max_tokens 4096, step limit 300), model tag
+  devstral-small-2507, runner defaults (timeout 5400 s). 120 keys in total.
+- **Dest:** `data/r2/swebench/p30s/devstral2507-iso/{di__b15k__su-free,d05__b15k__tr}/` (section p30s because the 6
+  tasks ⊂ P30S; the model dir keeps them apart from the 8-worker `devstral2507` cells). Per-run one-task lists in
+  `logs/experiments/isolated_tasks/devstral2507-iso/`.
+- **Launch (the driver starts the server itself; the 20-task cells' server was already stopped by hand 19:5x CDT, so
+  the initial clean-up finds nothing):**
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-devstral2507-iso -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh`
+  (`SLACK_WEBHOOK_URL` exported or `ALLOW_NO_SLACK=1`). Plan only: `DRY_RUN=1 bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507.sh`.
+  SU-free only: prepend `CELLS="di__b15k__su-free:summarization-free:0.5"`. Resume = rerun the same command.
+- **Estimate:** server ready ~60 s after start (weights cached); the 8-worker rows of these 6 tasks averaged 14 min
+  e2e (SU-free) and 20 min (TR) and single-worker runs are faster, so ~10-15 min per cycle incl. eval: ~12 h SU-free
+  (+ ~15 h if TR is added later), i.e. 1-1.5 days for both (the 20-task cells ran 1.6x over their estimate; the long tail of LimitsExceeded runs,
+  up to 90 min, is the risk here too).
+- **Verification:** `DRY_RUN=1` on the real tree prints 120 pending keys in run-major order; the refusals (PATTERNS /
+  SUMMARIZER / wrong section / malformed CELLS / CYCLE_ORDER / PREFIX_CACHE) exit 1 before anything starts; the pilot
+  mode (`run_r2_swe_sandbox_isolated_fc_only4.sh` dry run) is unchanged; new unit test
+  `test_inner_p30s_runs_plain_cells_one_run_per_server` in `tests/test_r2_adaptive_launch.py` drives the driver with
+  fakes through 7 cycles; `uvx --with pyyaml pytest tests/test_r2_adaptive_launch.py tests/test_r2_isolated_cleanup.py`: 23 passed (2026-10-17 19:40 CDT).
+
+### Devstral-Small-2507 — P30S first-20 sandbox cells: SU-free → TR, caching ON (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE 2026-10-17 10:20:51-18:33:54 CDT (relaunched by the user at temperature 0 after the
+  0.2 false start below; notify_run wrapper 2969842). Both cells have 60/60 rows, evaluated; no runner processes
+  left. Wall time 8 h 13 min (SU-free 10:20-14:25 = 4 h 05 incl. eval; TR 14:25-18:33 = 4 h 08), **~1.6x the 5 h
+  estimate**: mean e2e 17.3 min/run (SU-free) and 19.5 (TR), medians 9.2 / 6.8, max 83 / 90 min, i.e. a long tail
+  of LimitsExceeded / near-timeout runs dominates. Log `logs/experiments/r2_swebench_p30s_devstral2507_20261017_102051.log`.
+  The caching-ON Devstral server (pid 2900059, up since 09:57) was stopped 2026-10-17 19:5x CDT at the user's request
+  before the isolated cells (entry above); GPUs idle, port 8000 free, no pid files, no containers.
+- **Results (first 20 of P30S, 3 runs each, temperature 0):**
+
+  | cell | resolved runs | ≥2/3 tasks | 1/3 tasks | 0/3 tasks | exit statuses |
+  |---|---|---|---|---|---|
+  | `di__b15k__su-free` | 12/60 (20.0%) | 3 | 4 | 13 | Submitted 53, LimitsExceeded 7 |
+  | `d05__b15k__tr` | 13/60 (21.7%) | 5 | 2 | 13 | Submitted 41, LimitsExceeded 17, Timeout 2 |
+
+  ≥2/3 tasks: SU-free django-15368 (3/3), sklearn-11578 (2/3), sklearn-13135 (3/3); TR django-15368 (3/3),
+  sklearn-11578, -13135, -13439, -13779 (2/3 each). 1/3 tasks: SU-free django-12276, django-15741, sklearn-13439,
+  sklearn-14053; TR sklearn-14053, sklearn-14894. 0/3 in both cells (11 tasks): django-11734, -12304, -15098, -15278,
+  -15525, -15957, -17084, sklearn-12682, -14087, -25232, -26194; additionally 0/3 in SU-free only: sklearn-13779,
+  sklearn-14894; in TR only: django-12276, django-15741. No LimitsExceeded / Timeout run resolved. The two TR
+  timeouts (5400 s): django-15278 run_3, django-15957 run_2. Only 10 of 20 tasks were ever resolved in either cell;
+  django 1/10 tasks (15368) vs scikit-learn 5/10 resolved at least twice. At temperature 0, 6 of 20 tasks (SU-free)
+  and 6 of 20 (TR) are still split across the 3 runs (neither 0/3 nor 3/3), so greedy did not remove run-to-run
+  variance (probe entry below explains why). Compare Qwen3.5-35B-A3B P30S at 15k, TR 16/30 (53%) on the full 30:
+  Devstral-2507 at ~21% on these 20 is far below its published 53.6% SWE-bench Verified (OpenHands scaffold) and
+  below Devstral-2's 56% TR@21k in this project; budget 15k was not re-calibrated for it and mini-swe-agent's bash-only
+  scaffold is a different setting from OpenHands, so the gap is not interpreted yet.
+- **False start (same day):** the user's first launch at 10:11:14 CDT was killed at 10:13:4x at their request; it had
+  used temperature 0.2 (the launch preceded the config change to 0 at 10:12:10). 1 recorded row (django-12276 run_3)
+  and 9 run dirs were moved to `data/r2/swebench/p30s/devstral2507-aborted-t02-20261017/` so the relaunch started
+  from scratch (only `-smoke` dirs are skipped by `analysis/aggregate_benchmark_results.py` /
+  `dashboard/build_coverage.py`, so delete it with `rm -r` if not wanted). Log
+  `logs/experiments/r2_swebench_p30s_devstral2507_20261017_101114.log`.
+- **Originally:** prepared 2026-10-17 for "caching ON で Devstral 1 を 3 runs/task で 20 タスク、SU-free と TR".
+- **What:** `scripts/expansions/run_r2_swe_p30s_devstral2507.sh` (new wrapper over `run_r2_swe_p30s.sh`): section
+  `p30s`, first 20 tasks of `task_lists/swe_verified/p30_stratified.json` (`N_TASKS=20`), 3 runs/task, cells
+  `di__b15k__su-free` (summarization-free, agent model as summarizer) then `d05__b15k__tr` (truncation, depth 0.5),
+  budget 15k (the P30S section budget; Devstral-2's calibrated 21k was not re-calibrated for 2507), 8 workers
+  (`AGENTCTX_PROFILE=albus-swe`), eval after each cell. Agent config `configs/config-devstral2507-vllm.yaml` (new:
+  port 8000, max_tokens 4096, litellm timeout 600, **temperature 0**, step limit 300; no thinking, so no cap/nothink
+  variants). Runner defaults otherwise (agent timeout 5400 s, retry attempts 10).
+- **Server:** `AGENTCTX_PROFILE=albus-swe PREFIX_CACHE=on bash scripts/serving/start_vllm_devstral2507_sandbox.sh`
+  (TP=8, 131072 context, caching ON; log/pid `vllm_devstral2507_prefixcache`). The wrapper refuses to start unless
+  port 8000 serves `mistralai/Devstral-Small-2507` with `enable_prefix_caching="True"` (`REQUIRE_PREFIX_CACHE=off|any`
+  overrides). Caching ON is deliberate for this model: see the probe entry below (ON with no hit is bit-identical to
+  OFF; hits perturb numerics no more than a server restart). The wrapper was syntax-checked only (not executed, not
+  smoke-tested); the cells and the env overrides are the ones `run_r2_swe_p30s.sh` already documents.
+- **Launch (after the server answers `/v1/models`):**
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/p30s/devstral2507 -- bash scripts/expansions/run_r2_swe_p30s_devstral2507.sh`
+  (`SLACK_WEBHOOK_URL` exported, or add `ALLOW_NO_SLACK=1`). TR only: prepend `CELLS="d05__b15k__tr:truncation:0.5"`.
+  **Temperature 0** (the user's choice, 2026-10-17; changed from the 0.2 of every other agent config, so these
+  cells are not temperature-matched to the Qwen P30S reference cells). Greedy is not bit-reproducible under cache
+  hits / restarts / batching (probe below), so runs will still differ.
+- **Dest:** `data/r2/swebench/p30s/devstral2507/{di__b15k__su-free,d05__b15k__tr}/` (60 rows each). Logs:
+  `logs/experiments/r2_swebench_p30s_devstral2507_<ts>.log` (notify_run) and `r2_sb_p30s_devstral2507_<ts>.log`.
+- **Estimate:** ~2.5 h SU-free + ~2 h TR including eval (Devstral-2 on Dobby: TR mean 5.3 min/run, SU-full 6.3;
+  Albus ~1.4x slower for Qwen, plus margin for bf16 prefill at ~500 tok/s per request); roughly 5 h for both.
+- **Reference numbers to compare against:** Qwen3.5-35B-A3B P30S at 15k (`data/r2/swebench/p30s/qwen35b/`): TR 16/30
+  resolved, FC 18/30 (3 runs each, see the top of this file); Devstral-2 P100 FC@∞ 55.7%, TR@21k 56%.
+
+### Devstral-Small-2507 — prefix-cache effect probe before a Devstral sandbox (SWE-bench) — Albus
+
+- **Status:** ✅ COMPLETE 2026-10-17 02:31-09:35 CDT (Claude, at the user's request: "本当に prefix cache の on/off で
+  ブレないか、Qwen3.5-35B の時みたいに検証して欲しい"). Not an experiment run; the GPUs were idle before and are idle
+  again (all servers stopped, no pid files).
+- **Why Devstral-Small-2507:** the user wants a second sandbox model that is dense (no MoE), bf16 as distributed
+  (Devstral-Small-2-24B-2512 is FP8 in the official checkpoint, `quantization_config.quant_method=fp8`, served on
+  Albus as weight-only FP8 Marlin), full attention only (no linear-attention / sliding-window hybrid, so prefix caching
+  is the textbook kind) and close to Qwen3.5-35B-A3B on SWE-bench Verified (this project's FC@∞ P100 ×3: Qwen 53.0%,
+  Devstral-2 55.7%, GLM-4.7-Flash 41.0%; Devstral-Small-2507 reports 53.6% with OpenHands). Qwen3-32B (23% OpenHands,
+  15% mini-SWE-agent on 100 tasks) and Qwen2.5-Coder-32B (6-14%) were rejected as too weak; Seed-OSS-36B (56%) kept
+  as the alternative.
+- **Weights:** `mistralai/Devstral-Small-2507` HF-format shards (10 × ~4.8 GB bf16, `model-*.safetensors` +
+  `config.json`, `params.json`, `tekken.json`; the duplicate 47 GB `consolidated.safetensors` was not fetched),
+  downloaded 2026-10-17 into the HF cache (`logs/downloads/devstral2507_*.log`). Only `tekken.json` ships, so vLLM
+  0.17.1 picks `tokenizer_mode=mistral` by itself (`vllm/tokenizers/registry.py`).
+- **Server:** `scripts/serving/start_vllm_devstral2507_sandbox.sh` (new): port 8000, TP from `AGENTCTX_PROFILE`
+  (albus-swe = 8), dtype auto, max-model-len 131072, 64 seqs, `--enable-prompt-tokens-details`, KV trace;
+  `PREFIX_CACHE=off` (default, `--no-enable-prefix-caching`, log/pid `vllm_devstral2507_noprefixcache`) or
+  `PREFIX_CACHE=on` (`vllm_devstral2507_prefixcache`). No reasoning / tool-call parser.
+- **Probe:** `scripts/maintenance/probe_prefix_cache_effect.py` now takes the model id from `/v1/models` and
+  `--prompts-from`, so Devstral is probed on the **same 40 agent prompts** as the Qwen probe of 2026-10-09
+  (`data/r2/probes/prefix_cache_effect/prompts.json`: message prefixes of infra-clean runs of the 4 sandbox tasks,
+  median 34k chars). Same protocol: greedy (temperature 0, seed 0), 512 tokens, one request at a time, each prompt
+  twice per server, idle server. Output `data/r2/probes/prefix_cache_effect_devstral2507/{prompts,off,on}.json`,
+  `rows.csv`. Commands:
+  `AGENTCTX_PROFILE=albus-swe bash scripts/serving/start_vllm_devstral2507_sandbox.sh` →
+  `venv/bin/python scripts/maintenance/probe_prefix_cache_effect.py --out data/r2/probes/prefix_cache_effect_devstral2507 collect --label off --prompts-from data/r2/probes/prefix_cache_effect/prompts.json` →
+  `bash scripts/serving/stop_vllm.sh logs/servers/vllm_devstral2507_noprefixcache.pid` →
+  `AGENTCTX_PROFILE=albus-swe PREFIX_CACHE=on bash scripts/serving/start_vllm_devstral2507_sandbox.sh` →
+  `... collect --label on` → `... compare off on --csv data/r2/probes/prefix_cache_effect_devstral2507/rows.csv`.
+- **Reference (Qwen3.5-35B-A3B, 2026-10-09):** OFF vs OFF 40/40 identical, ON vs ON 39/40, **OFF vs ON 11/40**,
+  median first divergence token 30. A dense full-attention model should come out at the noise floor.
+- **Result (40 prompts × 2 passes per server, greedy, 512 tokens; `rows.csv`, `rows_on_cold.csv`):**
+
+  | pair | identical | first divergence (median token) | mean abs Δlogprob on common prefix |
+  |---|---|---|---|
+  | off pass1 vs off pass2 (same server) | 40/40 | — | 0.0000 |
+  | off vs on pass1 (partial cache hits) | 32/40 | 30.5 | 0.0048 |
+  | off vs on pass2 (full-prefix hits, 99.9% cached) | 27/40 | 38 | 0.0052 |
+  | on pass1 vs on pass2 | 28/40 | 49.5 | 0.0042 |
+  | **off vs on_cold** (ON engine, `/reset_prefix_cache` before every request, 0 cached) | 34/40 | 54.5 | 0.0046 |
+  | **off vs off2** (a second, freshly started OFF server) | 34/40 (the same 6 prompts) | 54.5 | 0.0046 |
+  | **off2 vs on_cold** | **40/40** | — | **0.0000** |
+
+  Reading: the caching-ON engine with no cache hit is bit-identical to a caching-OFF engine (off2 vs on_cold 40/40,
+  Δlogprob 0); the 6 prompts on which the first OFF server disagreed with both are process-to-process numerical
+  drift (kernel/autotune selection at startup), not the cache. Serving a prefix from the cache instead of
+  recomputing it does change the numerics slightly (Δlogprob ≈ 0.005, max 0.13), which flips greedy argmax at
+  near-tie tokens on 8-13/40 prompts, mostly long generations (median 268 tokens for prompts that ever diverged vs
+  45 for those that never did); no prompt diverges at token 0 (Qwen: 4/40). This is the same magnitude as the
+  OFF-instance-to-OFF-instance drift, and far below the production temperature 0.2 sampling noise. Contrast
+  Qwen3.5-35B-A3B (hybrid): OFF vs ON 11/40 while ON vs ON was 39/40, i.e. the cache changed the computation path.
+  **Decision input:** for Devstral-Small-2507 prefix caching does not change the model's computation; caching ON
+  is a numerics-level perturbation equal to restarting the server. Either setting is defensible for a Devstral
+  sandbox; keep OFF only if the argument "identical engine path to the Qwen sandbox" matters more than the
+  ~2x per-call latency (median pass1 18.5 s OFF vs 8.2 s ON with partial hits at TP=8, 1 request at a time).
+- **Servers used:** OFF pid 2475935 (02:31-03:11, log `vllm_devstral2507_noprefixcache_20261017_023110.log`), ON pid
+  2523931 (03:11-08:44), ON with `VLLM_SERVER_DEV_MODE=1` pid 2822475 (08:44-09:09, for `/reset_prefix_cache`), OFF
+  pid 2852581 (09:09-09:35). KV cache 1,934,992 tokens at TP=8 / 131072 context; weights bf16, `quantization=None`,
+  `MistralForCausalLM`, 40 layers, 8 KV heads, no sliding window; vLLM picked the mistral tokenizer (tekken.json).
+- **Next (not launched):** a Devstral sandbox needs an agent config (`configs/config-devstral-vllm.yaml` points at
+  port 8002 / Devstral-2; a cap4k-style copy on port 8000 for 2507) and a pilot dest model dir; `SUMMARIZER=nothink`
+  does not apply (no thinking). Decide first whether the 2507 FC@∞ rate on P100 is close enough to Qwen's 53%.
+
 ### Qwen3.5-35B-A3B — controlled-sandbox pilot: SU-free majority (sss) with runaway guards (SWE-bench) — Albus
 - **Status:** ✅ COMPLETE (relaunch, caching OFF, 3 workers, timeout 600 s, agent 7200 s): launched 2026-10-09 23:15:38 CDT,
   agent + eval finished **2026-10-10 13:41:08 CDT** (14.4 h). 60/60 runs evaluated: **44 resolved** (django-11299 14/15,
@@ -57,7 +439,11 @@ need rebuilding for serving/tbench.
   2.5 h = 9% of the 27.5 h e2e (cap4k 8.3 h = 22% of 37.8 h). Output `.../qwen35b-cap4k-sumnothink/d05__b15k__adaptive-prefix3-sss/`
   (+ `failure_tags.csv`). Log
   `logs/experiments/r2_swebench_majority_capped_qwen35b-cap4k-sumnothink_20261010_155443.log`.
-- **Next (prepared 2026-10-11, not launched): `SUMMARIZER=nothink4k`** = sumnothink with the summarizer reply cap back at 4096
+- **✅ nothink4k cell COMPLETE (step 1 of the overnight chain; agent + eval finished 2026-10-12 ~02:58 CDT, last run 01:07):** 60/60 evaluated,
+  **39 resolved** (django-11299 14/15, sklearn-10908 10/15, sklearn-11310 6/15, sklearn-25102 9/15); 58 `Submitted`, 2 `LimitsExceeded`.
+  Same 39/60 as uncapped, below cap4k 44/60 and sumnothink 48/60. First-3-run view: 11/12 (uncapped 11/12, cap4k 8/12, sumnothink 10/12).
+  `failure_tags.csv` not yet generated. The chain then started step 2 (`p100_fc_only4`, 8 prefix-3 orders) at 02:58 CDT.
+- **Recipe (prepared 2026-10-11): `SUMMARIZER=nothink4k`** = sumnothink with the summarizer reply cap back at 4096
   (`configs/config-summary-qwen35-35b-nothink-4k.yaml`) and the primitive's default 5 attempts, dest `qwen35b-cap4k-sumnothink4k`.
   Why: of sumnothink's 28 fallbacks, 12 began with a reply cut at 2048 tokens (0/12 recovered on the single retry) and 16 with
   missing_marker (3/19 rescued with one retry; uncapped rescued 36/57 with four). In uncapped / cap4k most >2048-token
@@ -65,13 +451,131 @@ need rebuilding for serving/tbench.
   Expect fallback near or below uncapped's 10% if ~2/3 of the 2048-overflows finish at 4096. This cell (and any run
   launched from now on) also writes `<run_dir>/summary_attempts.jsonl`: every summarizer reply verbatim with its
   accept/reject verdict, so the truncated / marker-less summaries can be read afterwards. Launch:
-  **Overnight chain (prepared 2026-10-11 15:xx, not launched):** `scripts/expansions/run_r2_swe_sandbox_chain.sh` runs this
+  **Overnight chain: RUNNING (user-launched 2026-10-11 15:30:27 CDT, wrapper PID 21392, log
+  `logs/experiments/r2_swebench_sandbox_chain_qwen35b-cap4k-sumnothink4k_20261011_153027.log`).** `scripts/expansions/run_r2_swe_sandbox_chain.sh` runs this
   nothink4k cell and then `p100_fc_only4` with all eight prefix-3 orders (ttt tts tst tss stt sts sst sss) on django-11433 and
   sklearn-13124 x 15 runs (240 runs, section limits 400 steps / 7200 s) into `data/r2/swebench/p100_fc_only4/qwen35b-cap4k-sumnothink4k/`;
   ~12 h + ~35-40 h. It waits for a capped pilot already running, and every step resumes. Launch:
   `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_chain/qwen35b-cap4k-sumnothink4k -- bash scripts/expansions/run_r2_swe_sandbox_chain.sh`
   Single-cell launch (step 1 only):
   `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_capped/qwen35b-cap4k-sumnothink4k -- env SUMMARIZER=nothink4k bash scripts/expansions/run_r2_swe_majority_capped_pilot.sh`
+- **Chain state observed 2026-10-12 15:09 CDT (nothing changed by this note):** no chain / runner process alive (wrapper 21392 gone).
+  `p100_fc_only4/qwen35b-cap4k-sumnothink4k/`: ttt 30/30 rows (1 resolved); tts 3 rows recorded (django-11433 r1, r3, r4; run dirs 1-6
+  exist, r2 / r5 / r6 unrecorded), i.e. the tts cell was interrupted around 15:00 CDT. Three `minisweagent-*` containers (started
+  14:36-14:54) and the caching-OFF server (pid file `logs/servers/vllm_qwen35_a3b_noprefixcache.pid`) are still up.
+- **Prepared 2026-10-12 (not launched): isolated serial driver** `scripts/expansions/run_r2_swe_sandbox_isolated.sh` for the
+  contamination check: one run per fresh caching-OFF server and per container generation (start server -> wait for `/v1/models` ->
+  capped pilot on a one-task list with `RUNS_PER_TASK=<run>`, `MAX_WORKERS=1`, eval -> `stop_vllm.sh` -> `docker rm -f` every
+  container of the user's podman -> check the key is recorded). Its initial clean-up stops the running sandbox server and removes the
+  orphan containers. Recipe: `SUMMARIZER` defaults to `nothink` (summarizer reply cap 2048 as in `qwen35b-cap4k-sumnothink`) but with
+  `SUMMARY_MAX_ATTEMPTS=5` (that cell used 2; `nothink4k` / `agent` selectable), dest `R2_MODEL` = pilot dir + `-iso` (`qwen35b-cap4k-sumnothink-iso`), so the rows never mix
+  with the 3-worker cells; resumable (recorded keys skipped without a restart); refuses to run beside another launcher; a separate watchdog process
+  cleans up (pilot group, server, containers) even if the driver itself is SIGKILLed. Launch:
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/qwen35b-cap4k-sumnothink-iso -- bash scripts/expansions/run_r2_swe_sandbox_isolated.sh`
+  (`DRY_RUN=1 bash scripts/expansions/run_r2_swe_sandbox_isolated.sh` prints the plan first;
+  `SECTIONS=p100_fc_only4 N_TASKS=2 RUNS_PER_TASK=15 PATTERNS="..."` for the step-2 cells). Each run costs one server start extra.
+- **✅ isolated cell COMPLETE (user-launched 2026-10-12 15:38 CDT, finished 2026-10-13 14:16 CDT, 60 cycles, exit 0, server stopped and
+  containers purged):** `p100_su_free_majority/qwen35b-cap4k-sumnothink-iso/d05__b15k__adaptive-prefix3-sss` 60/60 rows, **46 resolved**
+  (django-11299 14/15, sklearn-10908 12/15, sklearn-11310 11/15, sklearn-25102 9/15); 58 `Submitted`, 2 `LimitsExceeded`; mean e2e 18.9 min
+  (3-worker sumnothink 27.5 min). Against the 3-worker cells: cap4k 44/60, sumnothink 48/60 (2 summarizer attempts), nothink4k 39/60; the
+  isolated 46/60 sits inside that spread, so concurrency shows no detectable effect on the outcome (60-run cells resolve differences
+  of ~10 runs at best). Contamination evidence for the 3-worker cells is mechanistic, not this comparison: KV ownership trace of the
+  3-worker server (`logs/kv-cache/vllm_qwen35_a3b_noprefixcache_20261009_231228/`) has 0 shared blocks in 167,552 snapshots over 24,130
+  requests, and none of the 180 cap4k / sumnothink / nothink4k trajectories mentions the other task's repository (django<->sklearn grep,
+  2026-10-12). Log `logs/experiments/r2_swebench_sandbox_isolated_qwen35b-cap4k-sumnothink-iso_20261012_153824.log`. `failure_tags.csv` not yet generated.
+- **Prepared 2026-10-14 (not launched): concurrent twin of the isolated cell.** Same recipe as `-iso` (agent cap4k, summarizer
+  `config-summary-qwen35-35b-nothink.yaml` = thinking OFF / reply cap 2048, **5 summarizer attempts**, same 4 tasks x 15) but the
+  pilot's normal 3-worker operation on one long-lived caching-OFF server, dest `qwen35b-cap4k-sumnothink-conc` (explicit `R2_MODEL`,
+  so it does not resume into the 2-attempt `qwen35b-cap4k-sumnothink`). Only the serving condition differs from `-iso`, so
+  iso vs conc isolates concurrency; conc vs sumnothink isolates the attempt budget. Expect ~11-12 h wall-clock at 3 workers (sumnothink 11.2 h, nothink4k 11.5 h).
+  Albus idle at preparation time (no server, no containers, GPUs empty). Launch (server first, wait for `/v1/models`):
+  `AGENTCTX_PROFILE=albus-swe bash scripts/serving/start_vllm_qwen35_sandbox.sh`
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_capped/qwen35b-cap4k-sumnothink-conc -- env SUMMARIZER=nothink SUMMARY_MAX_ATTEMPTS=5 R2_MODEL=qwen35b-cap4k-sumnothink-conc bash scripts/expansions/run_r2_swe_majority_capped_pilot.sh`
+- **✅ conc cell COMPLETE (user-launched 2026-10-14 00:24 CDT, agent + eval finished 14:46 CDT, 14.4 h):**
+  `qwen35b-cap4k-sumnothink-conc/d05__b15k__adaptive-prefix3-sss` 60/60, **37 resolved** (django-11299 14/15, sklearn-10908 9/15,
+  sklearn-11310 7/15, sklearn-25102 7/15); 57 `Submitted`, 3 `LimitsExceeded`; mean e2e 37.1 min, per-call latency 16.8 s (iso 9.1 s).
+  Reading: iso 46/60 vs conc 37/60 is p=0.11 (Fisher), but conc vs sumnothink 48/60 (same 3-worker serving, only the summarizer
+  retry budget differs, 5 vs 2) is p=0.044 with conc having FEWER summarizer fallbacks (14/222 = 6% vs 18% in iso), so nominally
+  equivalent sandbox cells already differ by ~10 runs: the iso/conc gap cannot be attributed to concurrency, and pooled concurrent
+  nothink-2048 (85/120) vs iso (46/60) is p=0.48. `tag_run_failures.py` (failure_tags.csv written for iso, conc, sumnothink):
+  conc 9 infra (8 runs with runaway agent calls, 2 at the 300-step limit) + 14 model failures; iso 4 infra (2 agent runaway, 3 summary
+  runaway) + 10 model; sumnothink 4 infra (all runaway) + 8 model. The only concurrency-shaped signal is more runaway/limit runs under
+  slower concurrent calls (an infra-failure effect, not contamination); the contamination evidence stays the mechanistic one above.
+  Log `logs/experiments/r2_swebench_majority_capped_qwen35b-cap4k-sumnothink-conc_20261014_002419.log`.
+- **Prepared 2026-10-14 (not launched): neighbour-content probe** `scripts/maintenance/probe_neighbor_content.py`: the direct
+  test of information leakage under concurrency, separating neighbour CONTENT from neighbour COUNT. The 40 prefix-cache-probe prompts
+  (real agent prompts, greedy, seed 0) are each generated under `alone`, `same` (2 co-scheduled prompts from other runs of the same
+  task), `other` (2 prompts from the other repo) and `self` (2 copies of the target), twice each; neighbours are single streaming
+  `ignore_eos` requests confirmed decoding before the target is sent and aborted when it finishes (one neighbour prefill per
+  condition, coverage recorded; `verify-trace` checks co-residency in the server's KV ownership trace). Reading: equal agreement with
+  `alone` across same/other/self (within the repeat noise floor) = content does not enter the generation. Smoke test on 1 prompt
+  (8 generations, 2.3 min, caching-OFF server idle after the conc cell): all identical across conditions, coverage 1.00; an earlier
+  re-send-loop design was dropped because repeated 8k-token neighbour prefills slowed the target 10x and made the load depend on the
+  neighbours' reply length. Cost ~90 min for 40 prompts x 4 conditions x 2 passes (`--conditions alone,same,other` ~70 min); the
+  server must be idle (no agent runs). Output `data/r2/probes/neighbor_content/` (gitignored). Launch (server up and idle):
+  `venv/bin/python scripts/maintenance/probe_neighbor_content.py collect --label nb1`
+  `venv/bin/python scripts/maintenance/probe_neighbor_content.py compare nb1 --csv data/r2/probes/neighbor_content/rows.csv`
+  `venv/bin/python scripts/maintenance/probe_neighbor_content.py verify-trace nb1 --trace-dir logs/kv-cache/<server log name>`
+- **✅ neighbour-content probe nb1 COMPLETE (user-launched 2026-10-14 15:16 CDT, 89 min, 320 target + 480 neighbour generations on
+  the idle caching-OFF server of 00:22):** noise floor 40/40 identical in every condition (alone, same, other, self). **same, other and
+  self are token-identical to each other in 80/80** generations (mean |dlogprob| 0.0000), i.e. the neighbours' content, even two copies
+  of the target prompt itself, has no effect on the generation. Each of them differs from `alone` in 60/80 (identical 20/80, median
+  first divergence token 27.5, min 0, |dlogprob| 0.017): the batch SIZE changes the numerics deterministically, the batch CONTENT does
+  not. McNemar discordant pairs same/other 0/0. `verify-trace`: all 320 targets and 480 neighbours found in the KV trace, both
+  neighbours resident for 100% of every target's residency (min 1.000), alone targets overlapped nothing (0/80). Latency 7.0-7.7 s in
+  every condition. Output `data/r2/probes/neighbor_content/{nb1.json,rows.csv}`, log
+  `logs/experiments/probes_neighbor_content_nb1_20261014_151634.log`. This is the direct leakage test to cite alongside the
+  0-shared-blocks trace and the cross-repo grep; the iso/conc resolve-rate gap is batch-size numerics plus sampling noise.
+- **Prepared 2026-10-14 (not launched): 1-worker shared-server cell** `qwen35b-cap4k-sumnothink-conc1`: the iso recipe (agent cap4k,
+  summarizer thinking OFF / reply cap 2048, 5 attempts, same 4 tasks x 15) with `MAX_WORKERS=1` on the long-lived caching-OFF server,
+  i.e. the third serving point between iso (fresh server per run, 1 worker) and conc (shared server, 3 workers): batch size 1 like iso,
+  server state shared like conc. Explicit `R2_MODEL` so it cannot resume into the other cells. Sequential, so expect ~19 h of agent
+  time (iso mean 18.9 min/run) + ~2 h eval = ~21 h. Server of 00:22 up and idle at preparation time. Launch:
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/majority_capped/qwen35b-cap4k-sumnothink-conc1 -- env MAX_WORKERS=1 SUMMARIZER=nothink SUMMARY_MAX_ATTEMPTS=5 R2_MODEL=qwen35b-cap4k-sumnothink-conc1 bash scripts/expansions/run_r2_swe_majority_capped_pilot.sh`
+- **✅ conc1 cell COMPLETE (user-launched 2026-10-14 17:09 CDT, finished 2026-10-15 11:41 CDT, 18.5 h):** 60/60, **40 resolved**
+  (django-11299 14/15, sklearn-10908 10/15, sklearn-11310 7/15, sklearn-25102 9/15); 60 `Submitted`, 0 `LimitsExceeded`; mean e2e 16.6 min,
+  per-call latency 8.8 s (iso 9.1 s, conc 16.8 s); 5 infra (all sklearn-11310) + 15 model failures; summarizer fallback 23/173 = 13%.
+  Serving-condition series (same recipe): iso 46 (fresh server, 1 worker) / conc1 40 (shared, 1 worker) / conc 37 (shared, 3 workers);
+  all pairwise Fisher p >= 0.31 (conc1 vs iso 0.31, conc1 vs conc 0.70). The four nothink-2048 cells (sumnothink 48, iso 46, conc1 40,
+  conc 37) are compatible with one resolve rate of 71% (chi2 6.4, df 3, p 0.09; between-cell SD 5.0 runs vs binomial 3.5), so no
+  serving condition (server reuse or batch size) is detectably changing the outcome at 60 runs; this matches the neighbour-content
+  probe (content has no effect, batch size only perturbs numerics). Log
+  `logs/experiments/r2_swebench_majority_capped_qwen35b-cap4k-sumnothink-conc1_20261014_170943.log`; `failure_tags.csv` written.
+- **Prepared 2026-10-15 (not launched): isolated cell on the four `p100_fc_only4` tasks** (django-11433, sklearn-13124,
+  sklearn-14983, sympy-17318: resolved under full context, never under fixed TR / SU-free), same recipe as the sandbox iso cell
+  (fresh caching-OFF server per run, 1 worker, cap4k agent, `SUMMARIZER=nothink` 2048 cap, 5 attempts, prefix3-sss, 15k, d0.5) and
+  the section's own 400-call / 7200 s limits; 4 x 15 = 60 cycles. Wrapper `scripts/expansions/run_r2_swe_sandbox_isolated_fc_only4.sh`
+  only fixes `SECTIONS=p100_fc_only4 PATTERNS=sss RUNS_PER_TASK=15` and execs the isolated driver (resume / DRY_RUN / guards as there).
+  Dest `data/r2/swebench/p100_fc_only4/qwen35b-cap4k-sumnothink-iso/d05__b15k__adaptive-prefix3-sss/` (separate section dir from the
+  sandbox iso cell). Existing fc_only4 data for reference: 3-worker `qwen35b-cap4k-sumnothink4k` ttt 1/30 (django-11433 1/15,
+  sklearn-13124 0/15, 5 Timeout), e2e 61 min mean, so expect ~45 min per isolated cycle: **~45 h** (RUNS_PER_TASK=10 -> ~30 h).
+  Dry run 2026-10-15 15:53 CDT: 60 keys, 0 recorded. The driver's initial clean-up will stop the idle caching-OFF server started
+  2026-10-14 00:22 (pid file present) and purge containers. Launch:
+  `AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p100_fc_only4-qwen35b-cap4k-sumnothink-iso -- bash scripts/expansions/run_r2_swe_sandbox_isolated_fc_only4.sh`
+  (`DRY_RUN=1 bash scripts/expansions/run_r2_swe_sandbox_isolated_fc_only4.sh` prints the plan).
+- **Launched 2026-10-15 15:54 CDT by the user with 15 runs/task, KILLED 16:00 CDT (TERM to the driver, clean exit: server stopped,
+  container purged, no row recorded; cycle 1 django-11433 r1 had run 3 min):** the user wants 10 runs/task instead. The wrapper's
+  default is now `RUNS_PER_TASK=10` (4 x 10 = 40 cycles, ~30 h); the launch command above is unchanged. Log of the killed attempt:
+  `logs/experiments/r2_swebench_sandbox_isolated_p100_fc_only4-qwen35b-cap4k-sumnothink-iso_20261015_155430.log`.
+- **✅ fc_only4 isolated cell COMPLETE (user-launched 2026-10-15 16:00:59 CDT with RUNS_PER_TASK=10, finished 2026-10-16 04:58 CDT,
+  13.0 h for 40 cycles, exit 0, server stopped, containers purged):** `p100_fc_only4/qwen35b-cap4k-sumnothink-iso/d05__b15k__adaptive-prefix3-sss`
+  40/40 rows, all `Submitted`, **1 resolved** (sklearn-13124 r3; django-11433 0/10, sklearn-14983 0/10, sympy-17318 0/10). Far faster
+  than the 30 h estimate: e2e mean django-11433 27 min, sklearn-13124 20 min, sklearn-14983 7 min, sympy-17318 9 min (3-worker ttt
+  rows of the first two took 61 min). `failure_tags.csv` written: infra 14 (django-11433 9/10 runaway-call runs, sklearn-13124 5/10;
+  the two easy-looking tasks 0 infra, 20 model failures), no hung / timeout / summary runaway. Reference 3-worker `sumnothink4k` ttt
+  cell: 1/30 (django-11433 1/15, sklearn-13124 0/15; 26 infra). So on these tasks the isolated 1-worker serving changes nothing:
+  the fc-only tasks stay unresolved under prefix3-sss with 1/40.
+- **Prepared 2026-10-16 (not launched): top-up to 15 runs/task** on the same cell: rerun the wrapper with `RUNS_PER_TASK=15`; the
+  driver skips the 40 recorded keys (dry run 10:3x CDT: 60 keys, 40 recorded, 20 pending = r11-r15 of each task), ~6.5 h at the
+  observed 13 h / 40 cycles. Launch:
+  `AGENTCTX_PROFILE=albus-swe RUNS_PER_TASK=15 bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p100_fc_only4-qwen35b-cap4k-sumnothink-iso -- bash scripts/expansions/run_r2_swe_sandbox_isolated_fc_only4.sh`
+- **✅ top-up COMPLETE (user-launched 2026-10-16 10:31 CDT, finished 16:52 CDT, 20 cycles in 6.4 h, exit 0, clean):** the cell is now
+  60/60 rows (15/task), all `Submitted`, **6 resolved**: django-11433 0/15, sklearn-13124 2/15 (r3, r14), sklearn-14983 1/15 (r13),
+  sympy-17318 3/15 (r11, r13, r14). `failure_tags.csv` regenerated (60 rows): infra 22 (django-11433 14 runaway runs, sklearn-13124 8),
+  model 32, no hung / timeout. Note: r1-r10 resolved 1/40 and the top-up r11-r15 5/20 (Fisher p = 0.013); serving config
+  (`serving_info.json` cache_config identical, 12744 blocks, prefix caching OFF), scripts, configs and code were unchanged between the
+  two launches and per-run call counts / compression events / latencies match, so no cause is identifiable beyond chance on 10%-rate tasks.
+  Log `logs/experiments/r2_swebench_sandbox_isolated_p100_fc_only4-qwen35b-cap4k-sumnothink-iso_20261016_103113.log`.
 - **Prepared 2026-10-10 (recipe):** summarizer-only thinking OFF. `configs/config-summary-qwen35-35b-nothink.yaml`
   (same model and server, thinking OFF, max_tokens 2048) goes through `--summary-config`; `validate_summarizer` now admits an
   override of the agent's own model in self-summarized sections and pins the cell to that config file. The pilot launcher takes
