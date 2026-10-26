@@ -1,15 +1,26 @@
-# OTRC delta config: prompt override only.
-# Layer this *before* the model agent-config in the -c chain so the model_name
-# from --agent-config wins. run_experiment.py handles that ordering for any
-# condition that sets "config" in the CONDITIONS list.
+# OTRC delta config: intentionally EMPTY (no prompt override).
 #
-# OTRC primitive clears tool-result stubs from history mid-run. The system
-# prompt is shorter than the swebench_backticks.yaml default because the
-# agent's prior outputs may be cleared, so a verbose "remember the workflow"
-# template doesn't help.
-agent:
-  system_template: |
-    You are a helpful assistant that can interact with a computer.
-
-    Your response must contain exactly ONE bash code block with ONE command (or commands connected with && or ||).
-    Include a THOUGHT section before your command where you briefly explain your reasoning.
+# Until 2026-10-25 this file overrode agent.system_template with a shorter
+# prompt ("You are a helpful assistant that can interact with a computer." +
+# the one-command rule + "briefly explain your reasoning"; no <format_example>,
+# no "rejected" warning) for every OTRC condition (online-trc, otrc-tr,
+# otrc-su-partial, otrc-ss-partial), on the theory that a verbose workflow
+# template does not help once tool results are cleared. That meant the agent
+# in those cells saw a different system prompt from FC / TR / SU / SS / TRC,
+# which use the benchmark default (mini-swe-agent swebench_backticks.yaml).
+# Decision (user, 2026-10-25): the agent's system prompt must be identical in
+# every condition, so this delta no longer touches the agent config
+# (`agent: {}` merges to nothing). Cleared tool results still arrive as the
+# primitive's stub text, which needs no system-prompt notice, like the
+# "[COMPRESSED HISTORY SUMMARY]" / "[CONTEXT EXTRACT]" messages of the
+# summarizing conditions (see configs/config-online-claude-extract.yaml).
+#
+# Provenance: every OTRC row collected before 2026-10-25 (ICLR_experiments/,
+# data/r2/, archives/) used the old short prompt; rows collected after use the
+# default prompt. Do not mix them in one cell. The old text is in git history
+# (this file before commit of 2026-10-25) if a prompt-matched rerun is needed.
+#
+# The file is kept (rather than dropping "config" from the OTRC conditions in
+# src/agentctx/experiments/conditions.py) so the launchers' --otrc-config
+# option, the -c chain and the recorded config_chain keep the same shape.
+agent: {}

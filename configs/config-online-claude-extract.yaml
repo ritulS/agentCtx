@@ -1,0 +1,21 @@
+# online-claude-extract delta config: intentionally EMPTY (no prompt override).
+#
+# Until 2026-10-25 this file overrode agent.system_template with the short
+# config-online-trc.yaml prompt plus one line about the [CONTEXT EXTRACT] block,
+# so the Qwen agent in an online-claude-extract cell saw a different system
+# prompt from the full-context / SU-free cells (556 vs 429 chars), and FC vs
+# OClaude trajectories differed from step 1 for that reason alone (isolated
+# cells of 2026-10-25, data/r2/swebench/p30s/qwen35b-iso-fcmaj4-ssmfp32).
+# Decision (user, 2026-10-25): the agent's system prompt must be identical in
+# every condition, so this delta no longer touches the agent config. The
+# agent gets the benchmark default (swebench_backticks.yaml), exactly as FC,
+# TR and SU-free do; the extract arrives as a tagged user message that starts
+# with "[CONTEXT EXTRACT]", the same way SU summaries arrive as
+# "[COMPRESSED HISTORY SUMMARY]" messages without any system-prompt notice.
+# The extractor's own instructions live in
+# src/agentctx/compression/claude_extract.py and are sent to Claude only.
+#
+# The file is kept (rather than dropping "config" from the condition in
+# src/agentctx/experiments/conditions.py) so the launcher's -c chain and the
+# recorded config_chain stay the same shape; `agent: {}` merges to nothing.
+agent: {}
