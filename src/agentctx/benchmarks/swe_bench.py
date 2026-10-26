@@ -426,6 +426,16 @@ class SweBench:
             "online_trc_clears": token_log.get("online_trc_clears", 0),
             "online_trc_flags": token_log.get("online_trc_flags", []),
         }
+        # online_claude_extract / online_claude_select runs (Claude-written
+        # extracts, or Claude-selected original messages, before every call).
+        for key in (
+            "online_claude_extract_events", "online_claude_extract_total_tokens_saved",
+            "online_claude_extract_accepted", "online_claude_extract_errors", "extract_model",
+            "online_claude_select_events", "online_claude_select_total_tokens_saved",
+            "online_claude_select_accepted", "online_claude_select_errors",
+        ):
+            if key in token_log:
+                result[key] = token_log[key]
         if adaptive is not None:
             result["adaptive"] = selection_metadata(adaptive)
         # New TR/TRC runs carry event measurements; retain legacy row

@@ -37,11 +37,13 @@ CONDITION_TO_PRIMITIVE = {
     "otrc-ss-partial": "otrc-ss-partial",
     "full-context": "fc",
     "online-trc": "otrc",
+    "online-claude-extract": "oce",
+    "online-claude-select": "ocs",
     # Length-free summaries (depth-invariant: no word target, so ``di__`` cells).
     "summarization-free": "su-free",
     "structured-summarize-free": "ss-free",
 }
-INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc"}
+INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc", "online-claude-extract", "online-claude-select"}
 
 
 def canonical_cell(

@@ -21,11 +21,16 @@ PRIMITIVES = frozenset({
     "trc_summarize", "trc_structured_summarize", "online_trc",
     "online_trc_summarize_partial", "online_trc_structured_summarize_partial",
     "staggered_alternate", "staggered_random",
+    "online_claude_extract", "online_claude_select",
 })
 
 
 ONLINE_PRIMITIVES = frozenset({
     "online_trc", "online_trc_summarize_partial", "online_trc_structured_summarize_partial",
+    # online_claude_extract fires before every model call from DefaultAgent.query
+    # and needs no budget; under a policy its cadence is step_interval (else
+    # MSWEA_EXTRACT_EVERY). online_claude_select is its extractive sibling.
+    "online_claude_extract", "online_claude_select",
 })
 
 
@@ -66,7 +71,7 @@ class CompressionConfig:
 class CompressionEvent:
     index: int  # 1-based policy decisions; at most one per query
     step: int  # attempted agent model calls (same convention as compression_events.jsonl)
-    kind: str  # "budget" or "online_trc"
+    kind: str  # "budget", "online_trc", "online_claude_extract" or "online_claude_select"
     config: CompressionConfig
     tokens_before: int
     tokens_after: int

@@ -240,7 +240,13 @@ SS_OPEN_MARKER     = "[CONTEXT SUMMARY]"
 SS_CLOSE_MARKER    = "[END CONTEXT SUMMARY]"
 SU_OPEN_MARKER     = "[COMPRESSED HISTORY SUMMARY]"
 SU_CLOSE_MARKER    = "[END SUMMARY]"
-_SUMMARY_PREFIXES  = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY")
+# online_claude_extract (Claude-written digest, see claude_extract.py / online_claude_extract())
+EX_OPEN_MARKER     = "[CONTEXT EXTRACT]"
+EX_CLOSE_MARKER    = "[END CONTEXT EXTRACT]"
+SEL_OPEN_MARKER    = "[CONTEXT SELECTION]"
+SEL_CLOSE_MARKER   = "[END CONTEXT SELECTION]"
+SEL_OMITTED_FMT    = "[... {n} lines omitted ...]"
+_SUMMARY_PREFIXES  = ("[CONTEXT SUMMARY", "[COMPRESSED HISTORY", "[CONTEXT EXTRACT")
 _THINK_OPEN        = "<think>"
 _THINK_CLOSE       = "</think>"
 # Retries before the truncate() fallback. Each attempt is one summarizer call
@@ -520,8 +526,15 @@ def request_summary(
     open_marker: str,
     close_marker: str,
     max_attempts: int | None = None,
+    validate=None,
 ) -> tuple[str | None, dict, int, int, float]:
     """Query the summarizer until clean_summary_text() accepts a response.
+
+    ``validate(body) -> str | None`` (optional) runs on the marker-cleaned text
+    of an otherwise accepted reply; a returned string is a rejection reason
+    (recorded like the marker rejections, in flags["rejected"] and the attempt
+    log) and the reply is re-queried. online_claude_select() uses it to insist
+    on a parseable selection.
 
     Re-queries with the same prompt up to ``max_attempts`` times (default
     SUMMARY_MAX_ATTEMPTS). Token usage and latency are summed over attempts.
@@ -532,12 +545,13 @@ def request_summary(
 
     The outcome record keeps one provider response id per attempt (rejected
     attempts included, None when unavailable) so a summarizer request served
-    by the traced vLLM can be attributed to this compression event. The record
-    is published to the thread-local slot before the first query and updated
-    after every attempt, so a transport error on a later attempt (which
-    propagates to the caller) leaves the ids obtained so far in place with
-    ``interrupted`` set to the exception type and ``interrupted_attempt`` to
-    the attempt that failed.
+    by the traced vLLM can be attributed to this compression event, and the
+    running prompt/completion tokens and latency of the completed attempts.
+    The record is published to the thread-local slot before the first query
+    and updated after every attempt, so a transport error on a later attempt
+    (which propagates to the caller) leaves the ids and usage obtained so far
+    in place with ``interrupted`` set to the exception type and
+    ``interrupted_attempt`` to the attempt that failed.
 
     Every reply, accepted or rejected, is also appended verbatim to the
     summary attempt log (summary_attempt_log_path(); see the module
@@ -560,6 +574,12 @@ def request_summary(
         "fallback":   None,
         # one per query made, in order; joins to kv-cache-*.jsonl request ids
         "response_ids": response_ids,
+        # running usage/latency over the attempts that completed, so a
+        # transport error on a later attempt does not lose what the earlier
+        # attempts consumed (the agent adds these when it salvages the event)
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "latency_s": 0.0,
         "interrupted": None,
         "interrupted_attempt": None,
     }
@@ -578,11 +598,24 @@ def request_summary(
         response_ids.append(_response_id(response))
         outcome["attempts"] = attempt
         pt, ct = _response_usage(response)
+        # The provider's raw usage object, when the model adapter exposes one
+        # (ClaudeExtractModel: uncached / cache_read / cache_creation input
+        # tokens), so cached-prefix hits can be costed afterwards.
+        _raw_usage = ((response.get("extra") or {}).get("response") or {}).get("usage") \
+            if isinstance(response, dict) else None
         prompt_toks     += pt
         completion_toks += ct
+        outcome["prompt_tokens"]     = prompt_toks
+        outcome["completion_tokens"] = completion_toks
+        outcome["latency_s"]         = latency_s
         raw = response_text(response)
         finish_reason = _response_finish_reason(response)
         text, flags = clean_summary_text(raw, open_marker, close_marker, finish_reason=finish_reason)
+        if text is not None and validate is not None:
+            _why = validate(text)
+            if _why:
+                flags["rejected"] = _why
+                text = None
         flags["attempts"] = attempt
         _log_summary_attempt({
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -597,6 +630,7 @@ def request_summary(
             "response_id": response_ids[-1],
             "prompt_tokens": pt,
             "completion_tokens": ct,
+            "usage": _raw_usage if isinstance(_raw_usage, dict) else None,
             "latency_s": round(attempt_latency, 3),
             "raw_chars": len(raw),
             "had_open_marker": flags.get("had_open_marker"),
@@ -1056,6 +1090,421 @@ def structured_summarize_partial(
     return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
 
 
+def _extract_history_text(window: list[dict]) -> str:
+    """_history_text() for the extractor: tool calls are part of the record.
+
+    With tool-calling models the command lives in ``tool_calls`` (and the
+    observation in a ``tool`` message), so a content-only dump would show the
+    extractor outputs with no commands. Each tool call is rendered as
+    ``[tool_call <id>] <name>(<arguments>)`` after the message text, and tool
+    results are labelled with the id they answer. Text-based histories
+    (no ``tool_calls``) render exactly as _history_text().
+    """
+    text = ""
+    for msg in window:
+        role    = msg.get("role", "unknown")
+        content = msg.get("content") or ""
+        if isinstance(content, list):
+            content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
+        label = f"[{role}]"
+        if role == "tool" and msg.get("tool_call_id"):
+            label = f"[tool result for {msg['tool_call_id']}]"
+        lines = [content] if content else []
+        for call in msg.get("tool_calls") or []:
+            if not isinstance(call, dict):
+                continue
+            fn = call.get("function") or {}
+            lines.append(f"[tool_call {call.get('id', '?')}] {fn.get('name', '?')}({fn.get('arguments', '')})")
+        text += f"{label}:\n" + "\n".join(lines) + "\n\n"
+    return text
+
+
+def _extract_keep_split(compressible: list[dict], keep_recent: int) -> int:
+    """Index k such that compressible[k:] is kept verbatim: the newest
+    ``keep_recent`` messages, extended backwards to the assistant message
+    that opened that turn so a tool call is never separated from its result
+    (or an observation from its command). 0 keeps everything, len() keeps nothing."""
+    k = max(0, len(compressible) - max(0, keep_recent))
+    if k >= len(compressible):
+        return len(compressible)
+    while k > 0 and compressible[k].get("role") != "assistant":
+        k -= 1
+    return k
+
+
+def _extract_prompt(extract_model, task_text: str, history_text: str) -> list[dict]:
+    """Prompt for online_claude_extract(): keep what the agent still needs, drop the rest.
+
+    No length target (length-free). The window handed over may open with the
+    previous extract, so the extractor is told to merge rather than restart.
+    """
+    return [
+        extract_model.format_message(
+            role="system",
+            content=(
+                "You maintain the working memory of an autonomous software-engineering agent "
+                "that fixes a bug in a repository by running one shell command per step. After "
+                "every step you are shown the agent's task statement and its conversation history "
+                "since the task statement (its commands and their outputs). The history may begin "
+                "with the extract you produced after the previous step.\n\n"
+                "Rewrite that history as the information the agent still needs to finish the task. "
+                "Your output REPLACES the history: the agent will see only the task statement and "
+                "your extract, so anything you leave out is gone for good."
+            ),
+        ),
+        extract_model.format_message(
+            role="user",
+            content=(
+                f"Task statement (for reference only, do not repeat it):\n{task_text}\n\n"
+                f"Extract, from the conversation history below, everything the agent still needs "
+                f"to solve the task. Merge the previous extract (if the history starts with one) "
+                f"with what the newer steps revealed; keep facts that are still relevant, update "
+                f"facts that changed, and drop exploration that led nowhere.\n\n"
+                f"Keep, verbatim where it matters:\n"
+                f"- exact file paths, function/class names and line numbers the agent located\n"
+                f"- code snippets the agent read and will edit or depends on\n"
+                f"- the edits already made (file, what changed) and the commands already run\n"
+                f"- error messages, test names and test results, and other command output that "
+                f"still informs the next step\n"
+                f"- what has been tried and ruled out, and what remains to be done\n\n"
+                f"Do not add information that is not in the history, do not propose commands, "
+                f"and do not address the agent. Write in compact prose or bullet lists.\n\n"
+                f"Put the extract between a line containing only {EX_OPEN_MARKER} and a line "
+                f"containing only {EX_CLOSE_MARKER}. Do not add any text outside those two lines.\n\n"
+                f"Conversation history:\n{history_text}"
+            ),
+        ),
+    ]
+
+
+def online_claude_extract(
+    messages: list[dict],
+    model,
+    keep_recent: int = 0,
+) -> tuple[list[dict], int, int, int, float]:
+    """Replace the compressible window with a Claude-written extract of it.
+
+    Fires before every agent model call, once the previous call's observation
+    is in the history (see DefaultAgent.query); there is no token budget and
+    no length target. The protected system prompt and task statement are
+    never sent for compression (the task statement is given to the extractor
+    as reference only). ``keep_recent`` newest compressible messages are kept
+    verbatim after the extract (0 = none); the kept span is widened to the
+    assistant message that opened its first turn so a command (or tool call)
+    is never split from its observation.
+
+    The extractor is ``claude_extract.get_extract_model()``; the request goes
+    through request_summary(), so retries, the marker check, the thread-local
+    outcome record and summary_attempts.jsonl behave as for SU / SS. When no
+    attempt yields a usable extract (every reply rejected, or a refusal), the
+    history is returned unchanged and the outcome is marked
+    ``fallback="unchanged"``; a transport error propagates to the caller.
+
+    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
+    """
+    if len(messages) <= N_PROTECTED:
+        return messages, 0, 0, 0, 0.0
+
+    keep_recent = max(0, int(keep_recent))
+    protected    = messages[:N_PROTECTED]
+    compressible = list(messages[N_PROTECTED:])
+    k            = _extract_keep_split(compressible, keep_recent)
+    window, kept = compressible[:k], compressible[k:]
+    if not window:
+        return messages, 0, 0, 0, 0.0
+    tokens_before = count_tokens(messages)
+
+    from agentctx.compression.claude_extract import get_extract_model
+    extract_model  = get_extract_model()
+    extract_prompt = _extract_prompt(
+        extract_model, _history_text(messages[1:N_PROTECTED]), _extract_history_text(window)
+    )
+    text, flags, prompt_toks, completion_toks, latency_s = request_summary(
+        extract_model, extract_prompt, EX_OPEN_MARKER, EX_CLOSE_MARKER
+    )
+    if text is None:
+        _mark_summary_fallback("unchanged")
+        return messages, 0, prompt_toks, completion_toks, latency_s
+
+    flags["length_free"] = True
+    flags["extract"] = True
+    extract_msg  = make_summary_message(model, text, flags)
+    new_messages = protected + [extract_msg] + kept
+    tokens_after = count_tokens(new_messages)
+    return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
+
+
+
+# ── online_claude_select: keep the original text, drop what the task no longer needs ──
+_SEL_KEEP_RE  = re.compile(r"^keep\s+([A-Za-z]\d+)\s*(?:(?:lines?|L)?\s*((?:L?\d+(?:\s*-\s*L?\d+)?\s*,?\s*)+))?$", re.I)
+_SEL_DROP_RE  = re.compile(r"^drop\s+([A-Za-z]\d+)\s*$", re.I)
+_SEL_RANGE_RE = re.compile(r"L?(\d+)(?:\s*-\s*L?(\d+))?")
+
+
+def _msg_uid(msg: dict) -> str | None:
+    extra = msg.get("extra")
+    return extra.get("uid") if isinstance(extra, dict) else None
+
+
+def _msg_text(msg: dict) -> str:
+    content = msg.get("content") or ""
+    if isinstance(content, list):
+        content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return content
+
+
+def _select_render_message(msg: dict) -> str:
+    """One history message as the selector sees it: a header with the uid and
+    role, then the text. Observations (user/tool messages) get ``n| `` line
+    numbers so the reply can name line ranges; assistant messages are shown
+    whole (they are kept or dropped as a unit; tool calls rendered as in
+    _extract_history_text)."""
+    uid  = _msg_uid(msg) or "?"
+    role = msg.get("role", "unknown")
+    text = _msg_text(msg)
+    if role == "assistant":
+        lines = [text] if text else []
+        for call in msg.get("tool_calls") or []:
+            if not isinstance(call, dict):
+                continue
+            fn = call.get("function") or {}
+            lines.append(f"[tool_call {call.get('id', '?')}] {fn.get('name', '?')}({fn.get('arguments', '')})")
+        return f"[{uid} assistant]\n" + "\n".join(lines)
+    label = "tool result" if role == "tool" else role
+    if role == "tool" and msg.get("tool_call_id"):
+        label = f"tool result for {msg['tool_call_id']}"
+    body_lines = text.split("\n")
+    width = len(str(len(body_lines)))
+    numbered = "\n".join(f"{i:{width}d}| {line}" for i, line in enumerate(body_lines, 1))
+    return f"[{uid} {label}, {len(body_lines)} lines]\n{numbered}"
+
+
+def _select_prompt(extract_model, task_text: str, window: list[dict]) -> list[dict]:
+    """Prompt for online_claude_select(): the selector returns uids and line
+    ranges, never prose. The user message is a list of text blocks (task, one
+    block per history message, the instructions) with a cache breakpoint on
+    the last history block, so the growing history prefix is served from the
+    prompt cache on the next step."""
+    system = (
+        "You curate the context window of an autonomous software-engineering agent that "
+        "fixes a bug in a repository by running one shell command per step. Before every "
+        "step you are shown the agent's task statement and its complete history so far "
+        "(every command it ran and every output it saw), each message tagged with an id and, "
+        "for outputs, numbered lines.\n\n"
+        "Select the parts of that history the agent still needs to finish the task. The "
+        "agent will see exactly the selected text, unchanged, in the original order, with "
+        "a short '[... N lines omitted ...]' marker where you cut; everything else is hidden "
+        "from it for this step only (you select again, from the complete history, before the "
+        "next step).\n\n"
+        "Reply with selection directives only, one per line, between a line containing only "
+        f"{SEL_OPEN_MARKER} and a line containing only {SEL_CLOSE_MARKER}:\n"
+        "  keep <id>                 keep the whole message\n"
+        "  keep <id> L<a>-<b>, L<c>  keep only these lines of an output (assistant messages are kept whole)\n"
+        "  drop <id>                 (optional) explicitly drop a message\n"
+        "  none                      keep nothing (the agent sees only the task and its newest turn)\n"
+        "Messages you do not mention are dropped. Do not write anything else: no notes, no "
+        "summaries, no plans, no commands."
+    )
+    blocks = [{"type": "text", "text": f"Task statement (for reference only):\n{task_text}\n\nHistory:"}]
+    for msg in window:
+        blocks.append({"type": "text", "text": _select_render_message(msg)})
+    blocks[-1]["cache_control"] = {"type": "ephemeral"}
+    blocks.append({"type": "text", "text": (
+        "Select what the agent still needs: the commands and outputs that located the code "
+        "to change, the code it read and will edit or depends on, the edits already made, "
+        "error messages and test results that still inform the next step, and the record of "
+        "what was tried and ruled out. Drop outputs that were superseded, exploration that led "
+        "nowhere, and the bulk of long outputs (installation logs, file listings, repeated "
+        "reads) except the lines that matter. Keep assistant messages whose command the agent "
+        "must remember having run. Reply with directives only, between the markers."
+    )})
+    return [
+        extract_model.format_message(role="system", content=system),
+        {"role": "user", "content": blocks},
+    ]
+
+
+def parse_selection(text: str, window: list[dict]) -> tuple[dict | None, str | None]:
+    """Parse a selection body into {uid: None | [(a, b), ...]} over ``window``.
+
+    Returns (selection, None) or (None, reason). Reasons: ``unparseable_line``
+    (anything that is not a keep/drop/none directive or blank), ``unknown_uid``,
+    ``range_on_assistant`` (line ranges are only valid on outputs),
+    ``range_out_of_bounds``. Keeping nothing is a valid decision, written as the
+    directive ``none`` (the marker check rejects an empty body before this
+    parser sees it). Ranges are clamped to the message, merged and sorted.
+    """
+    by_uid = {}
+    for msg in window:
+        uid = _msg_uid(msg)
+        if uid:
+            by_uid[uid] = msg
+    body = text
+    for marker in (SEL_OPEN_MARKER, SEL_CLOSE_MARKER):
+        body = body.replace(marker, "")
+    selection: dict = {}
+    for raw_line in body.split("\n"):
+        line = raw_line.strip().rstrip(".;")
+        if not line or line.startswith("#"):
+            continue
+        if line.lower() in ("none", "keep none", "nothing", "keep nothing"):
+            continue
+        m = _SEL_DROP_RE.match(line)
+        if m:
+            uid = m.group(1)
+            if uid not in by_uid:
+                return None, "unknown_uid"
+            selection.pop(uid, None)
+            continue
+        m = _SEL_KEEP_RE.match(line)
+        if not m:
+            return None, "unparseable_line"
+        uid, ranges = m.group(1), m.group(2)
+        msg = by_uid.get(uid)
+        if msg is None:
+            return None, "unknown_uid"
+        if not ranges:
+            selection[uid] = None
+            continue
+        if msg.get("role") == "assistant":
+            return None, "range_on_assistant"
+        n_lines = len(_msg_text(msg).split("\n"))
+        spans = []
+        for a, b in _SEL_RANGE_RE.findall(ranges):
+            a = int(a); b = int(b) if b else a
+            if a > b:
+                a, b = b, a
+            if a < 1 or a > n_lines:
+                return None, "range_out_of_bounds"
+            spans.append((a, min(b, n_lines)))
+        if selection.get(uid, ()) is None:
+            continue   # already kept whole
+        spans = sorted(spans + list(selection.get(uid) or []))
+        merged = []
+        for a, b in spans:
+            if merged and a <= merged[-1][1] + 1:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], b))
+            else:
+                merged.append((a, b))
+        selection[uid] = merged
+    return selection, None
+
+
+def apply_selection(window: list[dict], selection: dict) -> list[dict]:
+    """The selected messages, original order; whole keeps are the original
+    message objects, line selections are copies whose content is the kept
+    lines with ``[... N lines omitted ...]`` where lines were cut (same uid, so
+    the event log records them as replaced, not added)."""
+    out = []
+    for msg in window:
+        uid = _msg_uid(msg)
+        if uid not in selection:
+            continue
+        spans = selection[uid]
+        if spans is None:
+            out.append(msg)
+            continue
+        lines = _msg_text(msg).split("\n")
+        parts, cursor = [], 1
+        for a, b in spans:
+            if a > cursor:
+                parts.append(SEL_OMITTED_FMT.format(n=a - cursor))
+            parts.extend(lines[a - 1:b])
+            cursor = b + 1
+        if cursor <= len(lines):
+            parts.append(SEL_OMITTED_FMT.format(n=len(lines) - cursor + 1))
+        extra = dict(msg.get("extra") or {})
+        extra["selection"] = {"kept_lines": [list(s) for s in spans], "total_lines": len(lines)}
+        out.append({**msg, "content": "\n".join(parts), "extra": extra})
+    return out
+
+
+def online_claude_select(
+    full_messages: list[dict],
+    messages: list[dict],
+    model,
+    keep_recent: int = 1,
+) -> tuple[list[dict], int, int, int, float]:
+    """Rebuild the context as a Claude-chosen subset of the COMPLETE history.
+
+    Extractive counterpart of online_claude_extract(): nothing is rewritten.
+    Before every agent model call the selector is shown the task statement and
+    every message the agent ever added (``full_messages``, the agent's
+    uncompressed record, not the current context) with ids and numbered
+    output lines, and replies with keep/drop directives; the new context is
+    the protected head, the selected messages (whole, or the kept lines with
+    omission markers) in original order, then the newest ``keep_recent``
+    messages verbatim (widened to the assistant message that opened the turn).
+    Because the selection is recomputed from the complete history each step,
+    a message dropped earlier can be brought back later.
+
+    The reply goes through request_summary() with parse_selection() as the
+    validator, so an unparseable or out-of-range reply is re-queried like a
+    marker rejection and logged in summary_attempts.jsonl. When no attempt is
+    accepted the current context ``messages`` is returned unchanged
+    (fallback "unchanged"). ``flags["selection"]`` on the outcome records the
+    counts (kept whole / partial / dropped, lines kept / total).
+
+    Returns (new_message_list, tokens_saved, prompt_tokens_used,
+    completion_tokens_used, latency_s); tokens_saved is relative to the
+    complete history (what full context would send), not to ``messages``.
+    """
+    if len(full_messages) <= N_PROTECTED:
+        return messages, 0, 0, 0, 0.0
+    keep_recent  = max(0, int(keep_recent))
+    protected    = full_messages[:N_PROTECTED]
+    compressible = list(full_messages[N_PROTECTED:])
+    k            = _extract_keep_split(compressible, keep_recent)
+    window, kept = compressible[:k], compressible[k:]
+    if not window:
+        return messages, 0, 0, 0, 0.0
+    tokens_full = count_tokens(full_messages)
+
+    from agentctx.compression.claude_extract import get_extract_model
+    extract_model = get_extract_model()
+    prompt = _select_prompt(extract_model, _history_text(full_messages[1:N_PROTECTED]), window)
+    parsed: dict = {}
+
+    def _validate(body: str) -> str | None:
+        sel, why = parse_selection(body, window)
+        if why:
+            return why
+        parsed["selection"] = sel
+        return None
+
+    text, flags, prompt_toks, completion_toks, latency_s = request_summary(
+        extract_model, prompt, SEL_OPEN_MARKER, SEL_CLOSE_MARKER, validate=_validate
+    )
+    if text is None or "selection" not in parsed:
+        _mark_summary_fallback("unchanged")
+        return messages, 0, prompt_toks, completion_toks, latency_s
+
+    selection = parsed["selection"]
+    chosen = apply_selection(window, selection)
+    new_messages = protected + chosen + kept
+    n_whole   = sum(1 for v in selection.values() if v is None)
+    n_partial = sum(1 for v in selection.values() if v is not None)
+    total_lines = sum(len(_msg_text(m).split("\n")) for m in window)
+    kept_lines  = 0
+    for m in window:
+        v = selection.get(_msg_uid(m), "drop")
+        if v == "drop":
+            continue
+        kept_lines += len(_msg_text(m).split("\n")) if v is None else sum(b - a + 1 for a, b in v)
+    record = {
+        "window": len(window), "kept_whole": n_whole, "kept_partial": n_partial,
+        "dropped": len(window) - n_whole - n_partial,
+        "lines_total": total_lines, "lines_kept": kept_lines,
+        "keep": {uid: (None if v is None else [list(s) for s in v]) for uid, v in selection.items()},
+    }
+    flags["selection"] = record
+    last = getattr(_SUMMARY_OUTCOME, "last", None)
+    if isinstance(last, dict):
+        last.setdefault("flags", {})["selection"] = record
+    tokens_after = count_tokens(new_messages)
+    return new_messages, max(0, tokens_full - tokens_after), prompt_toks, completion_toks, latency_s
+
+
 def _trc_result_indices(messages: list[dict]) -> list[int]:
     """Find tool observations, including tagged results and legacy text histories.
 
@@ -1460,7 +1909,35 @@ def token_log_dict(agent) -> dict:
         "online_trc_flags":              agent._mem_online_trc_flags,
         "online_trc_total_tokens_saved": agent._mem_online_trc_tokens_saved,
         "online_trc_clears":             len(agent._mem_online_trc_flags),
+        # ── Online Claude extract ──────────────────────────────────────────────
+        # one entry per extraction attempt after a model call: {"step",
+        # "tokens_before", "tokens_after", "accepted", "prompt_tokens",
+        # "completion_tokens", "latency_s", "error"}
+        "online_claude_extract_events":             getattr(agent, "_mem_online_claude_extract_events", []),
+        "online_claude_extract_total_tokens_saved": getattr(agent, "_mem_online_claude_extract_tokens_saved", 0),
+        "online_claude_extract_accepted":           sum(
+            1 for e in getattr(agent, "_mem_online_claude_extract_events", []) if e.get("accepted")
+        ),
+        "online_claude_extract_errors":             sum(
+            1 for e in getattr(agent, "_mem_online_claude_extract_events", []) if e.get("error")
+        ),
     }
+    data.update({
+        # ── Online Claude select (extractive counterpart; same record shape,
+        #    plus "tokens_full" = the complete history the selector saw) ──
+        "online_claude_select_events":             getattr(agent, "_mem_online_claude_select_events", []),
+        "online_claude_select_total_tokens_saved": getattr(agent, "_mem_online_claude_select_tokens_saved", 0),
+        "online_claude_select_accepted":           sum(
+            1 for e in getattr(agent, "_mem_online_claude_select_events", []) if e.get("accepted")
+        ),
+        "online_claude_select_errors":             sum(
+            1 for e in getattr(agent, "_mem_online_claude_select_events", []) if e.get("error")
+        ),
+    })
+    if (getattr(agent, "_mem_online_claude_extract_events", None)
+            or getattr(agent, "_mem_online_claude_select_events", None)):
+        from agentctx.compression.claude_extract import extract_model_info
+        data["extract_model"] = extract_model_info()
     if getattr(agent, "_memory_config", None) is not None:
         data["adaptive_config"] = agent._memory_config.to_dict()
         data["adaptive_events"] = agent._mem_adaptive_events

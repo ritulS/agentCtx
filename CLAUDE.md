@@ -44,6 +44,35 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
 
 - `src/agentctx/compression/primitives.py` — compression primitive functions (`truncate`, `summarize`,
   `summarize_partial`, `structured_summarize`, `tool_result_clear`, etc.).
+  Two Claude-backed online primitives share `src/agentctx/compression/claude_extract.py`
+  (Anthropic SDK, default `claude-opus-5-5`; `MSWEA_EXTRACT_MODEL` / `_EFFORT` /
+  `_EVERY` / `_KEEP_RECENT`, default keep-recent 1 since 2026-10-25 = the newest
+  turn stays verbatim) and fire before every agent model call once the
+  previous observation is in the history; neither has a budget:
+  `online_claude_extract` (condition `online-claude-extract`, cell tag `oce`)
+  sends the compressible window of the CURRENT context to Claude and replaces it
+  with Claude's rewritten `[CONTEXT EXTRACT]` block (abstractive; Claude's own
+  words, and in practice its plans, reach the agent).
+  `online_claude_select` (condition `online-claude-select`, cell tag `ocs`,
+  added 2026-10-25) is the extractive one for the "does the agent solve the task
+  on the task-relevant information alone?" question: Claude is shown the COMPLETE
+  history (`DefaultAgent._full_messages`, never compressed) with message uids and
+  numbered output lines and replies with directives only (`keep <uid>`,
+  `keep <uid> L<a>-<b>`, `drop <uid>`, `none`); the context is rebuilt from the
+  original messages (whole, or the kept lines with `[... N lines omitted ...]`),
+  so Claude never writes a word the agent reads, and a message dropped earlier can
+  return later. A reply with prose, unknown uids or bad ranges is rejected and
+  re-queried (`request_summary(validate=parse_selection)`), then "unchanged".
+  The selector prompt is a block list with a cache breakpoint on the last history
+  block, so the growing history is served from the prompt cache. Both conditions
+  use the benchmark default agent prompt (the OTRC / OCE prompt deltas are empty
+  since 2026-10-25; the agent system prompt is identical in every condition).
+  Needs `ANTHROPIC_API_KEY` or `~/.config/agentctx/anthropic_api_key`; smoke-test
+  with `scripts/maintenance/probe_claude_extract.py` /
+  `probe_claude_select.py`. Per-step records go to
+  `online_claude_{extract,select}_events` in token_log.json (select events carry
+  `tokens_full` and the `selection` counts) and `kind: online_claude_{extract,select}`
+  in `compression_events.jsonl` (partial keeps appear as `replaced`, same uid).
   The root-level `memory.py` is only an alias to this module: the pinned
   mini-swe-agent commit (b54c485) still does `import memory` from its
   compression hook and event log. Remove the alias once the submodule is

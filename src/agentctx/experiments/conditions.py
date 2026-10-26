@@ -29,13 +29,24 @@ CONDITIONS = [
     {"condition": "summarization-free",        "primitive": "summarization_free",        "budget": 15_000},
     {"condition": "structured-summarize-free", "primitive": "structured_summarize_free", "budget": 15_000},
     # OTRC stacked variants: per-step freeze-window clearing + budget-triggered fallback.
-    # All three reuse configs/config-online-trc.yaml (agent prompts expect cleared tool stubs).
+    # All three reuse configs/config-online-trc.yaml (since 2026-10-25 an empty delta: the agent
+    # prompt is the benchmark default in every condition; the file stays for the -c chain shape).
     {"condition": "otrc-tr",         "primitive": "online_trc",                              "budget": 15_000,
      "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
     {"condition": "otrc-su-partial", "primitive": "online_trc_summarize_partial",            "budget": 15_000,
      "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
     {"condition": "otrc-ss-partial", "primitive": "online_trc_structured_summarize_partial", "budget": 15_000,
      "config": WORKSPACE_ROOT / "configs/config-online-trc.yaml"},
+    # online-claude-extract: after every model call, Claude (claude_extract.py) rewrites the
+    # history after system prompt + task statement into the task-relevant extract; no
+    # budget gate, no length target. Needs ANTHROPIC_API_KEY (or the key file).
+    {"condition": "online-claude-extract", "primitive": "online_claude_extract", "budget": INFINITE_BUDGET,
+     "config": WORKSPACE_ROOT / "configs/config-online-claude-extract.yaml"},
+    # online-claude-select: before every model call, Claude picks which messages / output
+    # lines of the COMPLETE history the agent still needs (ids + line ranges, no prose) and
+    # the context is rebuilt from the original text; no budget, no length target, no prompt
+    # delta (the agent prompt is the benchmark default). Needs the same key as the extract.
+    {"condition": "online-claude-select", "primitive": "online_claude_select", "budget": INFINITE_BUDGET},
     # Staggered: at each compression event, pick one of the oracle-optimal pair (TR + budget-best).
     # Pair is fixed by budget inside default.py: 10k→TR+TRC+SS, 15k→TR+SU-partial, 20k→TR+TRC+SS.
     {"condition": "staggered-alternate", "primitive": "staggered_alternate", "budget": 15_000},
