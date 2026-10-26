@@ -1,0 +1,12 @@
+[
+  {
+    "instance_id": "django__django-12304",
+    "repo": "django",
+    "difficulty": "<15 min fix"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-25232",
+    "repo": "scikit-learn",
+    "difficulty": "<15 min fix"
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "instance_id": "django__django-14999",
+    "repo": "django"
+  },
+  {
+    "instance_id": "sympy__sympy-17318",
+    "repo": "sympy",
+    "difficulty": "15 min - 1 hour"
+  },
+  {
+    "instance_id": "sympy__sympy-20916",
+    "repo": "sympy"
+  },
+  {
+    "instance_id": "sympy__sympy-22456",
+    "repo": "sympy"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-14983",
+    "repo": "scikit-learn"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-26194",
+    "repo": "scikit-learn",
+    "difficulty": "15 min - 1 hour"
+  }
+]

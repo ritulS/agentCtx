@@ -1,0 +1,47 @@
+# Qwen3.5-35B-A3B agent config for the isolated (one request at a time) cells
+# on the 4 "FC majority, SU-free minority" P30S tasks
+# (scripts/expansions/run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh).
+#
+# configs/config-qwen-vllm.yaml (the r2 P30S / P100 reference setting: step
+# limit 300, max_tokens 32768, thinking ON, litellm default 600 s timeout) with
+# ONE change:
+#   temperature 0.2 -> 0.0   the user's choice for this sandbox (2026-10-25), as
+#                            for the Devstral-2507 isolated cells
+#                            (configs/config-devstral2507-vllm.yaml). Greedy is
+#                            not bit-reproducible across cache hits, server
+#                            restarts or batch composition (probe 2026-10-09 /
+#                            10-24: the 35B-A3B is bit-reproducible across
+#                            processes but caching ON changes near-tie tokens),
+#                            so it removes sampling noise, not all variance.
+# max_tokens stays 32768 so the rows differ from the r2 reference cells
+# (data/r2/swebench/p30s/qwen35b/) in temperature and serving only; with
+# MAX_WORKERS=1 a thinking loop costs one run some minutes, not a queue.
+# Set QWEN_AGENT_CONFIG to configs/config-qwen-vllm-cap4k.yaml (temperature
+# 0.2, cap 4096) if the cap matters more than the match.
+# The agent model is also the summarizer (no summary config), so SU-free
+# summaries are greedy too; the online-claude-extract cell's extractor is
+# Claude (src/agentctx/compression/claude_extract.py), not this model.
+agent:
+  step_limit: 300
+  cost_limit: 0.0
+  cost_tracking: ignore_errors
+  mode: yolo
+  confirm_exit: false
+
+model:
+  model_name: "hosted_vllm/Qwen/Qwen3.5-35B-A3B"
+  model_class: "litellm_textbased"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.0
+    max_tokens: 32768
+  cost_tracking: ignore_errors
+
+environment:
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: "off"
+    TQDM_DISABLE: "1"

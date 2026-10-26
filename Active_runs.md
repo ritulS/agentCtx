@@ -36,6 +36,379 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+### Devstral-Small-2-24B — isolated FC ×2 / SU-full(21k) ×2 / OClaudeSelect ×1 on the 4 "FC majority, SU-free minority" P30S tasks (SWE-bench) — Dobby, GPUs 0-3
+
+- **✅ DONE 22:26:23 → 22:46:49 CDT — `online-claude-select` r2 on sympy-14531 and sympy-18211: sympy-14531 ✗ (134 calls,
+  12 min, Claude $1.18), sympy-18211 ✓ (68 calls, 6 min, Claude $0.71); all selections accepted, 0 errors.** OCS is now
+  sympy-14531 1/2 and sympy-18211 2/2 for Devstral. sympy-14531 r2 fixed the bug (both FAIL_TO_PASS pass; str.py edits = r1's)
+  but shipped its Python-3.11 import workarounds (basic.py, containers.py, expr.py, plot.py) in the patch, and in the
+  eval's Python 3.9 those make `collections.Iterable` in function.py raise DeprecationWarning as an error → 4 PASS_TO_PASS
+  failures (test_python_limits, test_Add, test_Matrix_str, test_SparseMatrix). Not a selection effect: at the submit steps
+  the context still held the four compat `sed -i` turns with their THOUGHTs ("in Python 3.11+ ...") and the
+  `git diff --name-only` output; Devstral FC r1 (uncompressed) submitted the same 5-file patch and failed on the same 4
+  tests, SU-full r2 likewise (2 of them); FC r2 / SU-full r1 / OCS r1 dropped the workarounds and submitted str.py only.
+  r1/r2 diverge at step 4 (14531) and step 8 (18211). sympy-18211 r2 = r1's fix (`_eval_as_set` try/except → ConditionSet).
+- (superseded) 🟢 RUNNING — `online-claude-select` **r2 on sympy-14531 and sympy-18211 only**, launched 2026-10-25 22:26:23 CDT
+  (user: "この2タスクに関して、Devstral-2-smallの方でも1 runs/task isolatedで"): `PHASES=B RUNS_B=2
+  TASKS_FILE=task_lists/swe_verified/p30s_qwen35b_fc_majority_su-free_minority_sympy2.json` with the same wrapper (fresh
+  Devstral TP=4 server per run on GPUs 0-3, port 8002, prefix cache ON, temperature 0, MAX_WORKERS=1, default agent prompt);
+  DRY_RUN plan: r1 of both recorded and skipped, r2 of both pending. Wrapper PID 2685990, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral24b-iso-fcmaj4-ocs-sympy2-r2_20261025_222623.log`;
+  stop: `kill 2685990`. Expect ~20-40 min (r1: 95 / 76 calls, Claude $1.4 / $1.2); Dest
+  `data/r2/swebench/p30s/devstral24b-iso-fcmaj4/di__binf__ocs/` (rows keyed `__r2`).
+- **Status: ✅ COMPLETE 2026-10-25 14:12:53 → 15:54:01 CDT** (1 h 41 min for 20 cycles, well under the 3-5 h estimate: server
+  ready in ~90 s, Devstral runs 2-4 min; wrapper PID 984540 exit 0, GPUs free, no containers). Log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral24b-iso-fcmaj4_20261025_141253.log`.
+- **Result (`data/r2/swebench/p30s/devstral24b-iso-fcmaj4/`; ✓/✗ per run, calls):**
+
+  | task | FC r1 / r2 | SU-full 21k r1 / r2 | OClaudeSelect r1 |
+  |---|---|---|---|
+  | django-12304 | ✓ 107c / ✓ 42c | ✓ 110c / ✓ 41c | ✓ 60c |
+  | sklearn-25232 | ✓ 83c / ✓ 83c | ✓ 111c / ✓ 111c | ✓ 117c |
+  | sympy-14531 | ✗ 169c / ✓ 115c | ✗ 224c / ✗ 101c | ✓ 95c |
+  | sympy-18211 | ✗ 76c / ✗ 76c | ✗ 74c / ✗ 73c | ✓ 76c |
+
+  **FC 5/8, SU-full 4/8, OClaudeSelect 4/4** (no step-limit exits anywhere; SU-full compressed 1-2 times per run at 21k).
+  OClaudeSelect solved sympy-18211, which FC (0/2 here, 0/3 in ICLR) and SU-full (0/2) never do, and sympy-14531 on its one
+  run. Context sent to Devstral in the OCS runs: median 3.6-4.9k, max 5.7-10.0k tokens vs complete histories of 29-47k;
+  3-10% of the history lines kept at the end. Selector: 340/341 replies accepted (1 unknown_uid retry), 0 errors.
+  Claude cost (cache-aware, from `summary_attempts.jsonl` usage): $0.77 + $2.02 + $1.05 + $0.95 = **$4.79**.
+  Devstral-24B greedy runs repeat closely (sklearn FC r1 = r2 call counts 83/83, SU-full 111/111, sympy-18211 76/76).
+- **Recipe:** `scripts/expansions/run_r2_swe_sandbox_isolated_devstral24b_fcmaj4.sh` (new; two sequential invocations of the
+  isolated driver, INNER=p30s): phase A `di__binf__fc` + `d05__b21k__su-full` (Devstral's primary ICLR budget, summarizer =
+  agent model) at 2 runs/task, phase B `di__binf__ocs` at 1 run/task = 20 cycles, run-major, fresh server per run
+  (`scripts/serving/start_vllm_devstral.sh`: port 8002, TP=4 on GPUs 0-3, 65536 context, prefix caching ON, pid
+  `logs/servers/vllm_devstral.pid`), `MAX_WORKERS=1`, agent config `configs/config-devstral-vllm-temp0.yaml` (new:
+  config-devstral-vllm.yaml with temperature 0; step limit 300, max_tokens 4096), benchmark default agent prompt in every
+  cell, eval + container purge after every run, tasks `task_lists/swe_verified/p30s_qwen35b_fc_majority_su-free_minority.json`.
+  Dest `data/r2/swebench/p30s/devstral24b-iso-fcmaj4/<cell>/`. DRY_RUN verified: 16 + 4 pending.
+- **Estimate:** phase A ~1.5-3 h (ICLR FC / SU-full on these tasks: 3-10 min per run at 16 workers, sympy-14531 FC r1 25 min;
+  + ~2-3 min server start + ~1-2 min eval/purge per cycle), phase B ~1-2 h (one Claude call per step) → total ~3-5 h,
+  i.e. done around 17:30-19:30 CDT. Claude usage for phase B ~$1.5-5 per run (≤ ~$15 for a 300-step run).
+- **ICLR reference (16 workers, temperature 0.2, cache ON; resolved of 3):** FC django 3, sklearn 3, sympy-14531 2,
+  sympy-18211 0; SU-full 2 / 1 / 1 / 2.
+
+### Qwen3.5-35B-A3B — isolated FC / OClaude / SU-free on the 4 "FC majority, SU-free minority" P30S tasks (SWE-bench) — Dobby, GPUs 0-3
+
+- **✅ DONE 02:17:45 → 03:25:59 CDT — FC and SU r3 on all 4 tasks (Qwen then Devstral), 16 cycles, exit 0, GPUs free.**
+  Qwen r3: FC 4/4 (django 43, sklearn 87, sympy-14531 165, sympy-18211 46 calls), SU-free 4/4 (55 / 69 / 113 / 37) → FC
+  10/12 and SU-free 10/12 over r1-r3 (the only misses are r1/r2 sympy-14531 and sympy-18211). Devstral r3: FC 1/4 (django ✗
+  43 calls, sklearn ✓ 83 = r1/r2 bit-identical, sympy-14531 ✗ 102, sympy-18211 ✗ 76 = r1/r2 bit-identical), SU-full 2/4
+  (django ✓ 41, sklearn ✓ 111 = r1/r2, sympy-14531 ✗ 100, sympy-18211 ✗ 79) → FC 6/12, SU-full 6/12 over r1-r3. Three-run
+  totals incl. OCS (10 runs each): Qwen FC 10/12, SU-free 10/12, OCS 7/10; Devstral FC 6/12, SU-full 6/12, OCS 6/10.
+- (superseded) 🟢 RUNNING — **FC and SU r3 on all 4 tasks, Qwen then Devstral**, launched 2026-10-26 02:17:45 CDT (user: "FCとSU-freeの
+  r3を両モデルでisolatedで"): chain script (scratchpad `chain_fcsu_r3.sh`) = Qwen wrapper
+  (`CELLS="di__binf__fc:full-context:0.5 di__b15k__su-free:summarization-free:0.5" RUNS_PER_TASK=3`, 8 cycles) then the
+  Devstral wrapper (`PHASES=A RUNS_A=3`: `di__binf__fc` + `d05__b21k__su-full`, 8 cycles; SU kept as each model's existing
+  cell so r3 matches r1/r2). Same isolated recipes (fresh server per run, port 8002, temperature 0, prefix cache ON, Qwen
+  with float32 SSM cache). DRY_RUN plans: 24 keys each, 16 recorded, 8 pending. Wrapper PID 3307092, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-fcsu-r3-qwen-then-devstral_20261026_021745.log`; stop:
+  `kill 3307092`. No Claude usage. Expect ~2.5-4 h (16 cycles; r1/r2 runs took 4-33 min each plus ~3 min server/eval).
+- **✅ DONE 00:26:42 → 01:15:29 CDT — `online-claude-select` r2 on django-12304 and sklearn-25232 (Qwen then Devstral);
+  Claude $9.65.** Qwen: django ✓ (89 calls, 6 min, $0.92), sklearn ✓ (213 calls, 25 min, $7.40); Devstral: django ✓ (30
+  calls, 2 min, $0.19), sklearn ✗ (85 calls, 9 min, $1.14: added `fill_value` correctly but declared it in
+  `_parameter_constraints` as `[None, "numeric", "string"]`, an invalid constraint spec, so every IterativeImputer fit
+  fails → FAIL_TO_PASS test_iterative_imputer_constant_fill_value and 4 PASS_TO_PASS test_imputation_shape cases fail; r1
+  used `"no_validation"`). OCS r1+r2 on these two tasks: Qwen 4/4, Devstral 3/4.
+  Correction (2026-10-26 04:30): this sklearn failure IS attributable to OCS, via trajectory perturbation rather than
+  missing information. Devstral FC/SU-full on sklearn are 3/3 and bit-identical across runs and read SimpleImputer's
+  `_parameter_constraints` (`"fill_value": "no_validation"`) at steps 5-6 every time. OCS r1 and r2 saw identical
+  observations at steps 1-2, and their contexts at call 3 differ by ONE line: Claude kept the closing `</output>` line of
+  the step-1 `find` output in r1 but omitted it in r2 (`[... 1 lines omitted ...]`, 2400 vs 2405 prompt tokens). That
+  flipped Devstral's step-3 command (`head -100` vs `cat`), and r2's trajectory never read SimpleImputer's constraints
+  (r1 did at step 12 and had the example in context when it wrote the constraint at step 40); r2 invented
+  `[None, "numeric", "string"]` at step 25 and could not catch it because sklearn's extensions do not build in the
+  container (its "tests" were regex checks on the source). So the selector's non-determinism (which lines to keep) acts
+  as a trajectory perturbation on a model that is otherwise deterministic at temperature 0.
+- (superseded) 🟢 RUNNING — `online-claude-select` **r2 on django-12304 and sklearn-25232, Qwen then Devstral**, launched 2026-10-26
+  00:26:42 CDT (user: "django-12304 / sklearn-25232 に関しても ... Online Claude Select の r2 を埋めて欲しい"): chain script
+  (scratchpad `chain_djsk_r2.sh`) = Qwen wrapper (`CELLS="di__binf__ocs:online-claude-select:0.5" RUNS_PER_TASK=2
+  TASKS_FILE=task_lists/swe_verified/p30s_qwen35b_fc_majority_su-free_minority_djsk2.json`, new 2-task list) then the
+  Devstral wrapper (`PHASES=B RUNS_B=2`, same list); same isolated recipes as r1. DRY_RUN plans: 4 keys each, r1 recorded,
+  r2 of both tasks pending. Wrapper PID 3034234, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-ocs-djsk2-r2-qwen-then-devstral_20261026_002642.log`; stop:
+  `kill 3034234`. Expect ~1-1.5 h (r1: Qwen 83 / 222 calls, Devstral 60 / 117 calls) and ~$15-20 Claude (Qwen sklearn r1
+  alone was $12.7 at 222 calls; a 300-call Qwen run on sklearn's long history could reach ~$20).
+- **✅ DONE 22:53:50 → 2026-10-26 00:03:44 CDT — `online-claude-select` r3 (Qwen then Devstral) on sympy-14531 /
+  sympy-18211; Claude total $21.07.** Qwen: 14531 ✗ (62 calls, right fix but also rewrote `dir='%s'` → `dir=%r` in
+  `_print_Limit` → PASS_TO_PASS test_Limit fails; $0.39), 18211 ✗ LimitsExceeded (300 calls; same read loop as r2 over
+  relational.py 380-410 / inequalities.py 500-550 / solveset.py 2100-2200, one edit at step 253, never verified or
+  submitted; $9.77). Devstral: 14531 ✗ LimitsExceeded (300 calls, $10.52: read str.py in 20-line slices for 25 steps, hit the
+  Python-3.11 import problem at step 134, applied the `_print_Limit` fix at 217 but then chased pytest/unittest invocation
+  failures and more `collections.Iterable` sites in tensor/indexed.py and function.py until the limit), 18211 ✗ (61 calls,
+  $0.39: replaced `solve_univariate_inequality` in `_eval_as_set` with `solveset(self, x, S.Reals)`; its own checks printed
+  the expected ConditionSet but FAIL_TO_PASS test_issue_18188 fails). Running totals over r1-r3 (OCS): Qwen 14531 2/3,
+  18211 1/3; Devstral 14531 1/3, 18211 2/3. No selection errors in any run (all replies accepted).
+- (superseded) 🟢 RUNNING — `online-claude-select` **r3 on sympy-14531 and sympy-18211, Qwen then Devstral**, launched 2026-10-25
+  22:53:50 CDT (user: "r3を回したいかも"): one chain script (scratchpad `chain_r3.sh`) runs the Qwen wrapper
+  (`CELLS="di__binf__ocs:online-claude-select:0.5" RUNS_PER_TASK=3 TASKS_FILE=...sympy2.json`) and then the Devstral wrapper
+  (`PHASES=B RUNS_B=3 TASKS_FILE=...sympy2.json`), same isolated recipes as r1/r2; DRY_RUN plans: 6 keys each, 4 recorded,
+  r3 of both tasks pending. Wrapper PID 2770012, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-ocs-sympy2-r3-qwen-then-devstral_20261025_225350.log`;
+  stop: `kill 2770012` (then the inner driver cleans up). Expect 35-50 min and ~$3-4 Claude (≤ ~1 h / ~$13 if a Qwen run
+  hits the 300-step limit). Dest: the two models' `di__binf__ocs/` cells, rows keyed `__r3`.
+- **✅ DONE 21:39:36 → 22:19:51 CDT — `online-claude-select` r2 on sympy-14531 and sympy-18211: sympy-14531 ✓ (53 calls, 4 min,
+  Claude $0.36), sympy-18211 ✗ LimitsExceeded (300 calls, 33 min, Claude $9.46; 298/298 selections accepted, 0 errors).**
+  OCS is now sympy-14531 2/2, sympy-18211 1/2 (r1 ✓ 93 calls). sympy-18211 r2 never edited a file: from step ~100 on it
+  re-read `_eval_as_set` (relational.py 380-410), the `except (ValueError, NotImplementedError)` block (inequalities.py
+  500-550) and `solvify` (solveset.py 2100-2200) in a loop (182 of 292 reads were exact repeats). The selection itself held
+  the needed facts throughout: PR text, the traceback, the `_eval_as_set` source and the except block were present in the
+  context at 55/55 sampled calls (Claude kept one copy and dropped the duplicate re-reads; ~3.8 assistant + ~7.7
+  observation messages kept per step). Qwen's thinking at steps 150-280 already states the correct fix (catch
+  NotImplementedError in `_eval_as_set`, return ConditionSet) but it kept reading; r1 did the same for 80 steps and then
+  edited at step 81. r1/r2 commands diverge at step 3 (`find ... grep -l solveset` vs `ls -la`).
+- (superseded) 🟢 RUNNING — `online-claude-select` **r2 on sympy-14531 and sympy-18211 only**, launched 2026-10-25 21:39:36 CDT
+  (user: "sympy-14531とsympy-18211だけでいいので1 runs/taskでOnline Claude SelectをQwen3.5-35B-A3Bでisolatedの条件で"):
+  same isolated recipe (fresh TP=4 server per run on GPUs 0-3, port 8002, prefix cache ON + float32 SSM cache,
+  temperature 0, MAX_WORKERS=1, benchmark default agent prompt), `CELLS="di__binf__ocs:online-claude-select:0.5"
+  RUNS_PER_TASK=2 TASKS_FILE=task_lists/swe_verified/p30s_qwen35b_fc_majority_su-free_minority_sympy2.json` (new 2-task
+  list); DRY_RUN plan: 4 keys, r1 of both recorded and skipped, r2 of both pending. Wrapper PID 2534409, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-qwen35b-iso-fcmaj4-ocs-sympy2-r2_20261025_213936.log`;
+  stop: `kill 2534409`. Expect ~0.5-1.5 h (r1 took 69 / 93 calls; a 300-step run would be ~1 h + ~$15 Claude).
+  Dest `data/r2/swebench/p30s/qwen35b-iso-fcmaj4-ssmfp32/di__binf__ocs/` (rows keyed `__r2`).
+- **Status: ✅ COMPLETE 2026-10-25 02:17:49 → 08:42:21 CDT** (6.4 h, 22 cycles after the 2 runs recorded earlier; `CELLS` reordered
+  oce → fc → su-free; wrapper PID 3570371, log `logs/experiments/r2_swebench_sandbox_isolated_p30s-qwen35b-iso-fcmaj4_20261025_021749.log`;
+  exit 0, final server stop + container purge ran, GPUs free). All 24 rows evaluated.
+- **✅ COMPLETE 12:25:11 → 13:10:44 CDT — `online-claude-select` r1 on all 4 tasks: 4/4 resolved** (wrapper 787325 exit 0,
+  GPUs free). Per task (OCS calls / FC r1 calls; context sent to Qwen median, max; complete history at the end; selector
+  accept/reject/error; first command difference vs FC r1; Claude cost at cache-aware rates):
+  django-12304 ✓ 83c / ✓ 33c; 4.2k, 7.5k; 33k; 81/0/0; step 4; ≤ $10.9 (uncached rate, no cache log yet) —
+  sklearn-25232 ✓ 222c / ✓ 118c; 4.6k, 7.4k; 176k; 220/37/0; step 6; $12.7 (51M cache-read tokens) —
+  sympy-14531 ✓ 69c / ✗ 300c LimitsExceeded; 3.6k, 6.2k; 21k; 67/0/0; step 3; $0.7 —
+  sympy-18211 ✓ 93c / ✓ 43c; 3.5k, 5.3k; 43k; 91/1/0; step 3; $1.6. Total ≈ $26 (upper bound).
+  The selector kept 3-15% of the history lines at the end of each run; the context never exceeded 7.5k tokens while the
+  complete history reached 176k on sklearn. Qwen took 1.9-2.2× the FC steps on the three tasks FC solved, and solved
+  sympy-14531 where FC r1 hit the step limit. Cache reads dominate the Claude bill (the full history is re-sent every step).
+- (superseded) 🟢 RUNNING — `online-claude-select` on the remaining 3 tasks, launched 2026-10-25 12:25:11 CDT (user: "残り3タスクもお願い"):
+  same command without N_TASKS (django-12304 r1 recorded and skipped; sklearn-25232, sympy-14531, sympy-18211 r1 pending),
+  wrapper PID 787325, log `logs/experiments/r2_swebench_sandbox_isolated_p30s-qwen35b-iso-fcmaj4-ocs_20261025_122511.log`;
+  stop: `kill 787325`. Expect 1-2.5 h (sympy runs can reach the 300-step limit); attempt log now records cache usage.
+- **✅ DONE 12:11:33 → 12:19:37 CDT — first `online-claude-select` run (django-12304 r1): resolved**, Submitted, 83 agent
+  calls (FC r1: 33), e2e 374 s, 81/81 selections accepted, 0 rejections, 0 errors. Context sent to Qwen stayed at
+  1.8-7.5k tokens while the complete history grew to 33.4k (≈ 12-15% kept at the end: e.g. step 82 kept 10 whole + 2
+  partial of 162 window messages, 276/3561 lines). Commands identical to FC r1 for steps 1-3, diverge at step 4 (the agent
+  re-reads enums.py although Claude had kept the whole file at step 4; it then greps for `do_not_call_in_templates`,
+  writes its own test script and fixes the metaclass). Claude usage 2.69M input / 9.5k output tokens; the attempt log did
+  not yet record cache fields for this run (added right after: `summary_attempts.jsonl` rows now carry `usage` with
+  uncached / cache_read / cache_creation), but a probe repeated twice showed the prefix cache working (2nd call: 2,246 of
+  2,410 input tokens read from cache), so the real cost is ~$1-2, upper bound $10.9 at uncached rates.
+- (superseded) 🟢 RUNNING — first `online-claude-select` run, launched 2026-10-25 12:11:33 CDT (user: "一番初めのタスクだけ一回回してみたい"):
+  `CELLS=di__binf__ocs:... RUNS_PER_TASK=1 N_TASKS=1` → django-12304 r1 only, same isolated recipe (temperature 0, caching ON,
+  float32 SSM cache, port 8002, standard agent prompt), wrapper PID 707517, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-qwen35b-iso-fcmaj4-ocs-smoke_20261025_121133.log`; stop: `kill 707517`.
+  Dest `data/r2/swebench/p30s/qwen35b-iso-fcmaj4-ssmfp32/di__binf__ocs/`.
+- **Implemented 2026-10-25 ~12:10 CDT: `online-claude-select` (cell `di__binf__ocs`)**, the extractive
+  replacement the user asked for ("元のcontextの文言は変えないようにして不要な部分を除かせた方がいい"): Claude sees the complete
+  history with uids + numbered output lines and answers with keep/drop directives only; the context is rebuilt from the
+  original text (whole messages, or kept line ranges with `[... N lines omitted ...]`), re-selected from the full history
+  every step, newest turn kept verbatim (`MSWEA_EXTRACT_KEEP_RECENT` default now 1, for `oce` too). Prose / unknown uid /
+  bad range replies are rejected and re-queried. Code: `primitives.py` (`online_claude_select`, `parse_selection`,
+  `apply_selection`, `request_summary(validate=)`), `claude_extract.py` (block prompts, cache breakpoint),
+  `mini-swe-agent .../default.py` (`_full_messages`, `_online_claude(kind)`), conditions/iclr/adaptive/swe_bench,
+  `tests/test_online_claude_select.py` (7 tests; 17 OK with the extract tests), `scripts/maintenance/probe_claude_select.py`.
+  Real probe 12:08 CDT on a synthetic 12-message history: accepted first try, kept the returncode + error/version lines of a
+  61-line pip output (L1, L61-68) and dropped the unrelated `ls docs` turn; 2,410 prompt / 74 completion tokens, 2.5 s.
+  Launch on the 4 tasks: `CELLS="di__binf__ocs:online-claude-select:0.5" RUNS_PER_TASK=1 ... run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh`
+  (DRY_RUN verified: 4 pending, cell name validated).
+- **⏹ STOPPED 2026-10-25 11:52:27 CDT by Claude at the user's request ("今の実験一旦止めてもらえる?")** after cycle 1/4: django-12304
+  oce r1 is recorded (resolved, 35 calls, 34/34 extracts accepted, 4 min, agent system prompt identical to FC, first command
+  difference at step 2 = right after the first extract); cycle 2 (sklearn-25232, 16 min in, ~48 steps) was killed and is not
+  recorded. Driver trap ran (exit 143): server stopped, container removed, 52 + 6 orphaned conmon reaped; GPUs free, no
+  process left. Reason for the pause: reading the extracts showed (a) the extractor writes plans and literal next commands
+  (e.g. the metaclass insight and a `sed -i` line) despite the "do not propose commands / do not add information" instruction,
+  so the cell measures Opus-guided Qwen rather than compression, and (b) with `keep_recent=0` the agent sees only
+  [system, task, extract] and re-read `enums.py` 10 times with an identical THOUGHT (steps 3-12) until the extract spelled out
+  the command. Candidate fixes before any rerun: `MSWEA_EXTRACT_KEEP_RECENT>=1`, and reject/strip extracts containing plans
+  or commands not present in the history. Resume as-is: the same launch command (recorded key skipped, 3 pending).
+- (superseded) 🟢 RUNNING — OClaude re-collection with the standard agent prompt, launched 2026-10-25 11:28:31 CDT (user: "OClaudeで1
+  runs/taskでいいからFCとかとプロンプト揃えてisolated temperature0でやって欲しい"): `CELLS=di__binf__oce:... RUNS_PER_TASK=1`,
+  same wrapper / dir / recipe (isolated, temperature 0, caching ON, float32 SSM cache, port 8002), 4 runs (r1 of each task),
+  wrapper PID 586580, log `logs/experiments/r2_swebench_sandbox_isolated_p30s-qwen35b-iso-fcmaj4-oce-stdprompt_20261025_112831.log`;
+  stop: `kill 586580`. Expect ~2 h and ≤ ~$25 of Claude usage. The new rows land in the now-empty `di__binf__oce/` of
+  `data/r2/swebench/p30s/qwen35b-iso-fcmaj4-ssmfp32/`.
+- **⚠ OClaude rows retired 2026-10-25 ~11:30 CDT (prompt confound).** The `di__binf__oce` rows below were collected while
+  `configs/config-online-claude-extract.yaml` still overrode `agent.system_template` with the short OTRC-style prompt
+  (429 chars) — so the Qwen agent saw a different system prompt from the FC / SU-free cells (benchmark default, 556 chars)
+  and FC vs OClaude commands differed from step 1 in 7/8 runs for that reason alone (first extract only enters the history
+  after step 1's observation). The user requires an identical agent system prompt in every condition, so the override was
+  removed (the delta is now `agent: {}`; merged agent config verified identical to FC's; unit tests 10 OK) and the 8 rows
+  were moved to `archives/r2_p30s_qwen35b-iso-fcmaj4-ssmfp32_oce_shortprompt_20261025/` (manifest.json). They remain a
+  valid "OClaude with the OTRC prompt" reference; the cell must be re-collected (8 runs, ~4 h, ≤ ~$50 of Claude usage)
+  before the 3-way comparison is clean. **OTRC too (user, 2026-10-25 ~11:40 CDT):** `configs/config-online-trc.yaml` is now
+  the same empty delta (`agent: {}`), so online-trc / otrc-tr / otrc-su-partial / otrc-ss-partial runs launched from now on
+  use the benchmark default prompt like every other condition. Every OTRC row collected before 2026-10-25 (ICLR tree, r2,
+  archives) used the old short prompt — do not mix them with new OTRC rows in one cell; the old text is in git history.
+- **Result (`data/r2/swebench/p30s/qwen35b-iso-fcmaj4-ssmfp32/`, 4 tasks × 3 cells × 2 runs; ✓/✗ per run = r1 r2; OClaude column = the archived short-prompt rows):**
+
+  | task | FC (binf) | OClaude (binf) | SU-free (b15k) |
+  |---|---|---|---|
+  | django-12304 | ✓ ✓ (33c, 34c) | ✓ ✓ (25c, 33c) | ✓ ✓ (33c, 49c) |
+  | sklearn-25232 | ✓ ✓ (118c, 73c) | ✓ ✓ (48c, 101c) | ✓ ✓ (69c, 69c) |
+  | sympy-14531 | ✗ ✓ (300c LimitsExceeded, 160c) | ✗ ✓ (300c LimitsExceeded, 253c) | ✗ ✓ (239c, 214c) |
+  | sympy-18211 | ✓ ✗ (43c, 92c) | ✓ ✗ (145c, 300c LimitsExceeded) | ✓ ✗ (27c, 88c) |
+
+  **6/8 resolved in every cell** (FC 6/8, OClaude 6/8, SU-free 6/8); the two failures are the same (task, run) in all
+  three cells (sympy-14531 r1, sympy-18211 r2), so under temperature 0 + isolated serving the r2 "SU-free minority" deficit
+  (SU-free 1/3 vs FC ≥2/3 on these tasks in the 16-worker, temperature-0.2 reference cells) does not reproduce.
+  Mean e2e: FC 4 min, SU-free 9 min, OClaude 31 min (one Claude call per agent step; sympy runs 39-59 min).
+  Claude usage for the OClaude cell: 1,197 extract calls, 5.34M input / 1.56M output tokens, **≤ $52** at claude-opus-5-5 rates
+  ($4/$20 per MTok; system prompt cached, so the true figure is somewhat lower). OClaude extracts: 0 errors.
+- **Earlier today (launch history):**
+- OClaude smoke 02:11:21 → 02:16:49 CDT: ✅ works end-to-end. django-12304 oce r1 (now the cell's r1): 25 agent calls,
+  24/24 extracts accepted, 0 errors, 12,299 tokens saved, context held at ~1.5-2.1k prompt tokens every step (FC r1 of the
+  same task grew to 33 calls), resolved, e2e 218 s; `compression_events.jsonl` has 24 `online_claude_extract` events,
+  `[CONTEXT EXTRACT]` is in the final history, extractor claude-opus-5-5 / medium / 16k max tokens.
+ The full launch of 02:04:48 (wrapper 3523936, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-qwen35b-iso-fcmaj4_20261025_020448.log`) was stopped by Claude at the
+  user's prompt ("先にOClaudeが動くか確認しなくて良い?") after cycle 1 completed (django-12304 FC r1 recorded, resolved,
+  85 s; cycle 2's server was killed mid-startup, nothing lost). The 62 orphaned conmon monitors of the removed container
+  were terminated by hand. Unit tests `venv/bin/python -m unittest tests/test_online_claude_extract.py`: 10 OK.
+  **Smoke running:** one OClaude run (`CELLS=di__binf__oce:... N_TASKS=1 RUNS_PER_TASK=1`, django-12304 r1, same dest, so it
+  counts as the cell's r1) launched **02:11:21 CDT**, wrapper PID 3549560, log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-qwen35b-iso-fcmaj4-oce-smoke_20261025_021121.log`. Next: inspect its
+  `compression_events.jsonl` / `token_log.json` (kind `online_claude_extract`, accepted extracts), then relaunch the full plan
+  with `CELLS` ordered oce → fc → su-free so the remaining OClaude runs come first (recorded keys skipped).
+  A first launch at 02:01:59 (wrapper 3521161, log `..._20261025_020159.log`) exited at cycle 1/24 with "Port 8000 already in
+  use": another user's FastAPI service (`/health`, `/query`; not vLLM, pid not visible to us) holds 127.0.0.1:8000 on Dobby.
+  The wrapper now serves on **port 8002** (`QWEN_VLLM_PORT`, agent config `configs/config-qwen-vllm-temp0-8002.yaml`, same
+  settings with api_base on 8002) and refuses to start if its port is busy. Any later port-8000 launcher (e.g. the pending
+  Devstral FC resume) will hit the same error until that service is gone.
+  The Anthropic key was placed at `~/.config/agentctx/anthropic_api_key` at 02:00 and `probe_claude_extract.py` accepted
+  (claude-opus-5-5 / medium, 1 attempt). The OClaude implementation is still uncommitted in the working tree (see below).
+- **Recipe (prepared 01:50 CDT):** `scripts/expansions/run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh`
+  (wraps the isolated driver, INNER=p30s): tasks `task_lists/swe_verified/p30s_qwen35b_fc_majority_su-free_minority.json`
+  (django-12304, sklearn-25232, sympy-14531, sympy-18211: qwen35b fc ≥2/3 but su-free 1/3 in the r2 reference cells),
+  cells `di__binf__fc`, `di__binf__oce` (online-claude-extract, Claude `claude-opus-5-5` / medium by default), `di__b15k__su-free`,
+  2 runs/task, run-major, fresh caching-ON TP=4 server **with a float32 SSM cache** per run (`serving/start_vllm_qwen35_ssm_probe.sh`,
+  PREFIX_CACHE=on SSM_DTYPE=float32 on port 8002 / GPUs 0-3, pid `logs/servers/vllm_qwen35_a3b_ssmfloat32_prefixcache.pid`; `SSM_DTYPE=auto` for the bf16 cache), `MAX_WORKERS=1`, agent config `configs/config-qwen-vllm-temp0.yaml` (temperature 0,
+  otherwise the r2 reference config), eval + container purge after every run. `DRY_RUN=1` verified: 24 keys, 0 recorded.
+  Dest `data/r2/swebench/p30s/qwen35b-iso-fcmaj4-ssmfp32/<cell>/` (`qwen35b-iso-fcmaj4` with `SSM_DTYPE=auto`). Expect ~4-5 h.
+- **Open item:** the online-claude-extract implementation
+  (`src/agentctx/compression/claude_extract.py`, `configs/config-online-claude-extract.yaml`, `primitives.py`, `iclr.py`,
+  `tests/test_online_claude_extract.py`, and `mini-swe-agent/src/minisweagent/agents/default.py`) is staged but uncommitted
+  on this machine; commit (submodule first) right after launch so the rows are reproducible. Launch command used:
+  `SLACK_WEBHOOK_URL="$(cat ~/.config/agentctx/slack_webhook)" bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-qwen35b-iso-fcmaj4 -- bash scripts/expansions/run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh`
+
+### Qwen3.5-27B (dense) — prefix-cache effect probe, float32 and bf16 SSM cache (SWE-bench prompts) — Dobby, GPUs 2-3
+
+- **Status:** ✅ COMPLETE 2026-10-24 20:47:53 → 22:12:39 CDT (launched by Claude at the user's request: "一応Qwen3.5-27Bでも同じように
+  実験してもらえたりしますか"; download 7 min, float32 chain 20:54-21:34, bf16 chain 21:34-22:12; every server stopped, GPUs 2-3
+  free). Log `logs/experiments/r2_probes_prefix_cache_effect_qwen35_27b_20261024_204753.log`. Qwen/Qwen3.5-27B (52 GB bf16) is
+  now in the Dobby HF cache. Block size for this model: 784 tokens (fp32 and bf16 SSM cache alike).
+- **Result (40 prompts × 2 passes, greedy, 512 tokens, one request at a time; identical / mean Δlogprob):**
+
+  | pair | float32 SSM cache | bf16 (auto) SSM cache |
+  |---|---|---|
+  | same server, same request twice (every server) | 40/40, 0.0000 | 40/40, 0.0000 |
+  | off vs off2 (two OFF processes) | 21/40, 0.0055 | 29/40, 0.0049 |
+  | on_cold vs on_cold2 (two ON processes, 0 hits) | 26/40, 0.0048 | 27/40, 0.0052 |
+  | **off2 vs on_cold** (OFF vs ON with 0 hits) | **28/40, 0.0052** | **22/40, 0.0057** |
+  | off vs on_cold | 23/40, 0.0056 | 23/40, 0.0055 |
+  | on_cold vs on (same ON process, 0 hits vs ~317k/333k prompt tokens cached) | 36/40, 0.0011 | 38/40, 0.0009 |
+
+  Reading: unlike the 35B-A3B (bit-reproducible across processes), the dense 27B drifts between server processes
+  even with caching OFF (21-29/40, Δlogprob ≈ 0.005, first divergence median 29-39 tokens, never at token 0) — the
+  Devstral-2507 pattern (34/40). The OFF-vs-ON disagreement (22-28/40, Δ ≈ 0.005) lies inside that process-to-process
+  range in both dtypes, so for the 27B prefix caching is a numerics-level perturbation equal to restarting the
+  server, not a different computation; the 35B-A3B's 11/40 / Δ 0.016 / token-0 divergences do not appear, consistent
+  with MoE routing flips amplifying the align-mode prefill split there. A cache hit is nearly lossless in both
+  dtypes (36-38/40, Δ ≈ 0.001; the few divergences come from the smaller prefill token count selecting different
+  GEMM tiles), so the float32 SSM cache buys nothing measurable for this dense model.
+- **Decision input:** serve Qwen3.5-27B with prefix caching ON and the default (bf16) SSM cache; no extra flags. Treat
+  ON/OFF differences and server restarts as the same noise class (Δlogprob ≈ 0.005, greedy flips on ~1/4-1/2 of long
+  agent prompts, sampling at temperature 0.2 dwarfs both). Keep ON/OFF constant within compared cells as before.
+- **Why:** the 35B-A3B probe below found a deterministic OFF-vs-ON difference (11/40, Δlogprob 0.016) that fp32 did not
+  remove; the 27B is dense (same 48 Gated DeltaNet + 16 attention layers, no MoE routing to amplify small numerical
+  differences) and is the candidate dense model for the next cells, so this measures the gap it would actually have.
+- **Output:** `data/r2/probes/prefix_cache_effect_ssmfloat32_qwen35_27b/` and `..._ssmauto_qwen35_27b/` (json per
+  condition, `compare_*.txt`, `rows_*.csv`). Driver `scripts/maintenance/run_prefix_cache_ssm_probe_qwen35_27b.sh`;
+  the serving / probe scripts now take `QWEN_MODEL` (log/pid tag `27b`).
+
+### Qwen3.5-35B-A3B — prefix-cache effect probe with a float32 SSM cache (SWE-bench prompts) — Dobby, GPUs 2-3
+
+- **Status:** ✅ COMPLETE 2026-10-24 20:05-20:35 CDT (launched by Claude at the user's request: "gpu2,3なら使ってもいいよ";
+  main chain 20:05-20:21, two follow-ups 20:23-20:30 and 20:30-20:35; every server stopped, GPUs 2-3 free). Logs
+  `logs/experiments/r2_probes_prefix_cache_effect_ssmfloat32_20261024_200544.log`,
+  `prefix_cache_ssm_probe_float32_mbs1024_20261024_202355.log`, `prefix_cache_ssm_probe_float32_on2_*.log`.
+- **Result (`data/r2/probes/prefix_cache_effect_ssmfloat32/`, 40 prompts × 2 passes, greedy, 512 tokens, one request at a
+  time; with a float32 SSM cache the attention/mamba block is 1056 tokens instead of 528):**
+
+  | pair | identical | mean Δlogprob |
+  |---|---|---|
+  | off vs off2 (two OFF processes) | 40/40 | 0.0000 |
+  | on_cold vs on_cold2 (two ON processes, cache reset before every request) | 40/40 | 0.0000 |
+  | on_cold vs on (same ON process, 0 hits vs 311,520/333,028 prompt tokens cached) | 40/40 | 0.0000 |
+  | **off vs on_cold** | **11/40** (median first divergence 26 tokens, min 0) | 0.0160 |
+  | on_cold vs on_cold_mbs1024 (ON started with `--mamba-block-size 1024`) | 11/40 | 0.0169 |
+  | off vs on_cold_mbs1024 | 14/40 | 0.0173 |
+
+  Reading: every serving condition is bit-reproducible across processes (unlike Devstral-2507 on Albus, 34/40), and
+  with a float32 SSM cache a prefix-cache hit is lossless (cold = warm 40/40; bf16 on 2026-10-09: 9/9). But the
+  caching-ON engine still computes differently from the caching-OFF engine with zero hits: 11/40 identical, exactly
+  as with the bf16 cache on 2026-10-09 (the 11 prompts overlap only 5), so the bf16 round trip was NOT the cause. The
+  remaining mechanism is the align-mode prefill split itself (deterministic, Δlogprob ≈ 0.016, 3× the Devstral
+  kernel-drift level; MoE routing flips plausibly amplify it). `--mamba-block-size` is honoured only in Mamba cache
+  mode `all` (vLLM 0.17.1 `HybridAttentionMambaModelConfig`); in `align` mode the reported block stayed 1056, yet the
+  flag still produced a third deterministic variant (11/40 vs both ON servers), i.e. the split position / state
+  layout changed somewhere — not traced further.
+- **Decision input:** prefix caching ON does not make Qwen3.5 non-reproducible and does not corrupt cache hits; it is a
+  fixed, deterministic alternative computation of the same prompts (greedy argmax flips on ~3/4 of long agent
+  prompts, logprob gaps ~0.016). The user accepts this level ("それくらいの誤差ならいいです"), so Qwen3.5-27B / 35B-A3B may be
+  served with caching ON; keep ON/OFF and the SSM dtype constant within any compared set of cells. A float32 SSM
+  cache is optional (lossless hits) but changes OFF numerics and the block size too, so adopt it for all Qwen servers
+  or none. Scripts: `scripts/serving/start_vllm_qwen35_ssm_probe.sh` (PREFIX_CACHE, SSM_DTYPE, MAMBA_BLOCK_SIZE),
+  `scripts/maintenance/run_prefix_cache_ssm_probe.sh`.
+- **Why:** the 2026-10-09 probe (bf16 SSM cache) found that `--enable-prefix-caching` changes this hybrid model's
+  computation path (OFF vs ON identical 11/40, ON cold vs warm 9/9). Mechanism, from vLLM 0.17.1 source: with
+  caching ON vLLM selects Mamba cache mode `align`, the scheduler splits every prefill at the 528-token block boundary
+  (`_mamba_block_aligned_split`, also with zero cache hits) and the Gated DeltaNet recurrent state, fp32 inside the
+  kernel, is round-tripped through the SSM cache dtype there (`mamba_ssm_cache_dtype=auto` → bf16). A float32 SSM
+  cache makes the round trip lossless; what remains is the chunk re-partition at the split (528 is not a multiple of
+  the 64-token kernel chunk) and a possibly different attention block size, i.e. kernel-numerics-level drift.
+- **What:** `scripts/maintenance/run_prefix_cache_ssm_probe.sh` → `scripts/serving/start_vllm_qwen35_ssm_probe.sh`
+  (same engine config as the sandbox / ablation servers + `--mamba-ssm-cache-dtype float32`, VLLM_SERVER_DEV_MODE=1,
+  TP=2 on GPUs 2-3, port 8012; agent port 8000 untouched) and `scripts/maintenance/probe_prefix_cache_effect.py` on the
+  2026-10-09 40-prompt set (`data/r2/probes/prefix_cache_effect/prompts.json`, copied from Albus, md5
+  5b71ca33…). Conditions in order: `off` → `off2` (fresh OFF server) → `on_cold` (ON, `/reset_prefix_cache` before
+  every request) → `on` (warm). Output `data/r2/probes/prefix_cache_effect_ssmfloat32/{off,off2,on_cold,on}.json`,
+  `compare_*.txt`, `rows_*.csv`.
+- **Verdict rule:** caching ON is acceptable for Qwen3.5 (35B-A3B and the 27B dense, same GDN layers) if `off2 vs
+  on_cold` agrees as well as `off vs off2` (Devstral-2507 reference: 40/40 and 34/40) and `on_cold vs on` is at the
+  within-server floor. If not, next knob: `--mamba-block-size` as a multiple of 64 (e.g. 576 / 1024).
+- **Note:** a float32 SSM cache also changes the caching-OFF numerics (decode reads an fp32 state), so if adopted it
+  must be set on every Qwen server from then on and not mixed with the existing OFF-bf16 cells without a note.
+
+### Devstral-Small-2507 — isolated FULL-CONTEXT cell on ALL 30 P30S tasks, 3 runs/task (SWE-bench) — Dobby, GPUs 2-3
+
+- **Prepared 2026-10-22 10:20 CDT (not launched):** the FC counterpart of the completed SU-free isolated cell below,
+  same recipe (fresh TP=2 server per run on GPUs 2-3, caching ON, MAX_WORKERS=1, temperature 0, 300 steps,
+  eval after every run, containers purged), cell `di__binf__fc:full-context:0.5` (unlimited budget, no compression).
+  Wrapper `scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507_p30s_fc.sh` (sets CELLS only, then execs the
+  P30S isolated wrapper); `DRY_RUN=1` verified: 90 keys, 0 recorded, 90 pending.
+  Dest `data/r2/swebench/p30s/devstral2507-iso-p30s-dobby/di__binf__fc/` (next to the SU-free rows). Expect ~12-15 h
+  (SU-free took 11.2 h; FC prompts are longer). Launch:
+  `SLACK_WEBHOOK_URL="$(cat ~/.config/agentctx/slack_webhook)" bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/p30s-devstral2507-iso-p30s-dobby-fc -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507_p30s_fc.sh`
+
+### Devstral-Small-2507 — isolated cell on ALL 30 P30S tasks, 3 runs/task, SU-free at 15k (SWE-bench) — Dobby, GPUs 2-3
+
+- **Status:** ✅ COMPLETE 2026-10-21 16:55:01 → 2026-10-22 04:07:22 CDT (11.2 h, 90 cycles, a fresh TP=2 server per
+  run on GPUs 2-3, exit 0, final server stop + container purge ran; no FC / TR cell was part of this launch). Log
+  `logs/experiments/r2_swebench_sandbox_isolated_p30s-devstral2507-iso-p30s-dobby_20261021_165501.log`.
+  Wrapper `scripts/expansions/run_r2_swe_sandbox_isolated_devstral2507_p30s.sh` (commit 5c3a62f / 76a506f).
+- **Result (`data/r2/swebench/p30s/devstral2507-iso-p30s-dobby/di__b15k__su-free/`, 90 rows, all evaluated):**
+  **33/90 resolved (36.7%)**; Submitted 65, LimitsExceeded 25 (300 steps; none resolved). Tasks 3/3: 8
+  (django-12276, -15368, -15741, sklearn-11578, -13135, -13439, -14894, sympy-19954); 2/3: sklearn-14053,
+  sympy-14711; 1/3: django-17084, sklearn-13779, sympy-15875, -18211, -24213; 0/3: 15 tasks (django-11734,
+  -12304, -15098, -15278, -15525, -15957, sklearn-12682, -14087, -25232, -26194, sympy-14248, -14531, -15345,
+  -17318, -20438). By repo: django 10/30, scikit-learn 15/30, sympy 8/30. Agent e2e mean 6.1 min, median 3.0,
+  max 19.3 (9.1 h of the 11.2 h); calls mean 120 / median 49; 238 compression events (32 runs with none),
+  0 summary fallbacks.
+- **Comparison:** on the first 20 P30S tasks this isolated cell resolves **25/60 (41.7%)** vs **12/60 (20.0%)** for
+  the 2026-10-17 shared-server cell on Albus (`devstral2507/di__b15k__su-free`, 8 workers, TP=8 A6000, same config
+  and temperature 0). Not a controlled pair (TP=2 A100 vs TP=8 A6000, one request at a time vs 8 concurrent), but
+  the direction matches the sandbox findings: concurrency / a shared warm cache hurt Devstral-2507 here. Qwen3.5-35B-A3B
+  P30S references at 15k: TR 16/30, FC 18/30 (run_1).
+
 ### Devstral-Small-2507 — sklearn-11578 ×5 with a fresh vLLM server per run, pool-wide KV trace (SWE-bench) — Albus
 
 - **Status:** ✅ COMPLETE 2026-10-21 13:41:31 → 14:44:07 CDT (63 min, 5 cycles, 5 fresh servers; final clean-up ran,
@@ -657,6 +1030,27 @@ need rebuilding for serving/tbench.
 - **Logs:** `logs/experiments/r2_swebench_majority_uniform_qwen35b_20261008_233248.log` (this run),
   `..._20261008_185453.log` (first launch), `..._20261008_184954.log` (exited at once: the `--lock` name passed
   to notify_run collided with the chain's own lock).
+### Qwen3.5-35B-A3B — r2 P100 FC-only-4 adaptive primitive-order chain, all eight orders (SWE-bench) — this host
+- **Status:** ✅ COMPLETE — launched 2026-10-05 17:20:55 CDT (notify_run wrapper,
+  `env R2_SECTION=p100_fc_only4 bash scripts/expansions/run_r2_swe_never7_adaptive.sh`, commit 8c666cb);
+  all eight cells (ttt tts tst tss stt sts sst sss) run and evaluated by **2026-10-06 13:04:24 CDT**
+  (320/320 rows, every verdict populated). No experiment process remains; vLLM :8000 (PID 2587684) and
+  the podman service are still up.
+- **What:** the 4 P100 tasks qwen35b resolved under full context but never (0/3) under fixed TR or
+  SU-free (`task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json`: django-11433,
+  sklearn-13124, sklearn-14983, sympy-17318), 10 runs per task through the six mixed prefix-3
+  schedules plus the uniform `ttt` / `sss` ones (`configs/adaptive/never7_prefix3/`), 40 runs per
+  cell, 320 in total. Limits raised to **400 steps / 7200 s** per run (the other r2 sections use
+  300 / 5400), so these rows are not run-for-run comparable with the fixed cells.
+- **Results (resolved of 40):** ttt 3, tts 3, tst 1, tss 5, stt 0, sts 3, sst 3, sss 3 — 21/320 pooled
+  (django-11433 8/80, sklearn-13124 5/80, sklearn-14983 3/80, sympy-17318 5/80). Timeouts at 7200 s per
+  cell: 4, 7, 4, 1, 9, 6, 2, 4 (37 in total: 27 django-11433, 10 sklearn-13124). Only one resolve
+  (tss django-11433 r10, 6426 s) needed more than the 300-step / 5400-s limits of the other r2 sections.
+- **Infra:** vLLM Qwen3.5-35B-A3B :8000 (`QWEN_MAX_MODEL_LEN=native
+  scripts/serving/start_vllm_qwen35_prefix_cache_ablation.sh`, started 2026-10-05 17:19,
+  `logs/servers/vllm_qwen35_20261005_171948.log`), rootless podman service restarted the same day.
+- **Dest:** `data/r2/swebench/p100_fc_only4/qwen35b/d05__b15k__adaptive-prefix3-<pattern>/`.
+- **Log:** `logs/experiments/r2_swebench_p100_fc_only4_qwen35b_20261005_172055.log`.
 
 ### Qwen3.5-35B-A3B — r2 P100-minus-P30S chain: fc → tr → su-free → trc (SWE-bench) — this host
 - **Status:** ✅ COMPLETE — launched 2026-10-01 01:40:31 CDT; all four cells run and evaluated by
