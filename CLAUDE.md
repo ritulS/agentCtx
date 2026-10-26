@@ -48,7 +48,18 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   (Anthropic SDK, default `claude-opus-5-5`; `MSWEA_EXTRACT_MODEL` / `_EFFORT` /
   `_EVERY` / `_KEEP_RECENT`, default keep-recent 1 since 2026-10-25 = the newest
   turn stays verbatim) and fire before every agent model call once the
-  previous observation is in the history; neither has a budget:
+  previous observation is in the history; neither has a budget.
+  `MSWEA_EXTRACT_PROVIDER=openrouter` (added 2026-10-26, for cheaper selector
+  models) sends the identical prompts through OpenRouter's OpenAI-compatible
+  endpoint via the `openai` SDK instead: `MSWEA_EXTRACT_MODEL=<vendor/model>` is
+  then required, the key comes from `OPENROUTER_API_KEY` or
+  `~/.config/agentctx/openrouter_api_key`, effort is sent as OpenRouter's
+  `reasoning.effort` (also accepts `minimal` / `none`), the `cache_control`
+  breakpoints are passed through, and usage gains `cost` (credits) and
+  `reasoning_tokens`. Only the API call differs (client, request body, response
+  mapping); prompts, validation, retries, event logs, condition names and cell
+  tags are unchanged, so tag the model dir to tell OpenRouter runs apart; the
+  token log's `extract_model` records `provider` + `model`:
   `online_claude_extract` (condition `online-claude-extract`, cell tag `oce`)
   sends the compressible window of the CURRENT context to Claude and replaces it
   with Claude's rewritten `[CONTEXT EXTRACT]` block (abstractive; Claude's own

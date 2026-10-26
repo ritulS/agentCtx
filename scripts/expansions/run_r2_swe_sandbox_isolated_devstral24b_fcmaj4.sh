@@ -81,12 +81,26 @@ if ss -ltn 2>/dev/null | grep -q ':8002 '; then
     ss -ltnp 2>/dev/null | grep ':8002 ' >&2; exit 1
 fi
 # Phase B calls Claude from inside every agent run; fail before phase A rather than hours in.
+# MSWEA_EXTRACT_PROVIDER=openrouter (with MSWEA_EXTRACT_MODEL=<vendor/model>) routes the
+# same selector prompts through OpenRouter; only the key lookup differs here.
 if [[ " $PHASES " == *" B "* ]] && [[ " $CELLS_B " == *":online-claude-"* ]]; then
-    key_file="${AGENTCTX_ANTHROPIC_API_KEY_FILE:-$HOME/.config/agentctx/anthropic_api_key}"
-    if [[ -z "${ANTHROPIC_API_KEY:-}" && ! -s "$key_file" ]]; then
-        echo "[ERROR] phase B needs an Anthropic key: export ANTHROPIC_API_KEY or write it to $key_file (chmod 600);" >&2
-        echo "        check with: venv/bin/python scripts/maintenance/probe_claude_select.py" >&2
-        exit 1
+    if [[ "${MSWEA_EXTRACT_PROVIDER:-anthropic}" == "openrouter" ]]; then
+        key_file="${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key}"
+        if [[ -z "${OPENROUTER_API_KEY:-}" && ! -s "$key_file" ]]; then
+            echo "[ERROR] phase B with MSWEA_EXTRACT_PROVIDER=openrouter needs OPENROUTER_API_KEY or $key_file (chmod 600)." >&2
+            exit 1
+        fi
+        if [[ -z "${MSWEA_EXTRACT_MODEL:-}" ]]; then
+            echo "[ERROR] MSWEA_EXTRACT_PROVIDER=openrouter needs MSWEA_EXTRACT_MODEL=<vendor/model> (OpenRouter model id)." >&2
+            exit 1
+        fi
+    else
+        key_file="${AGENTCTX_ANTHROPIC_API_KEY_FILE:-$HOME/.config/agentctx/anthropic_api_key}"
+        if [[ -z "${ANTHROPIC_API_KEY:-}" && ! -s "$key_file" ]]; then
+            echo "[ERROR] phase B needs an Anthropic key: export ANTHROPIC_API_KEY or write it to $key_file (chmod 600);" >&2
+            echo "        check with: venv/bin/python scripts/maintenance/probe_claude_select.py" >&2
+            exit 1
+        fi
     fi
 fi
 

@@ -109,13 +109,27 @@ fi
 
 # The online-claude-extract cell calls Claude from inside every agent run; fail
 # here rather than 24 cycles in. Same lookup as claude_extract.resolve_api_key.
+# MSWEA_EXTRACT_PROVIDER=openrouter (needs MSWEA_EXTRACT_MODEL=<vendor/model>)
+# calls the same prompts through OpenRouter instead; only the key differs here.
 if [[ " $CELLS " == *":online-claude-extract:"* || " $CELLS " == *":online-claude-select:"* ]]; then
-    key_file="${AGENTCTX_ANTHROPIC_API_KEY_FILE:-$HOME/.config/agentctx/anthropic_api_key}"
-    if [[ -z "${ANTHROPIC_API_KEY:-}" && ! -s "$key_file" ]]; then
-        echo "[ERROR] CELLS includes online-claude-extract/-select but ANTHROPIC_API_KEY is unset and $key_file is missing/empty." >&2
-        echo "        Put the key in that file (chmod 600) or export ANTHROPIC_API_KEY; check with:" >&2
-        echo "        venv/bin/python scripts/maintenance/probe_claude_extract.py" >&2
-        exit 1
+    if [[ "${MSWEA_EXTRACT_PROVIDER:-anthropic}" == "openrouter" ]]; then
+        key_file="${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key}"
+        if [[ -z "${OPENROUTER_API_KEY:-}" && ! -s "$key_file" ]]; then
+            echo "[ERROR] MSWEA_EXTRACT_PROVIDER=openrouter but OPENROUTER_API_KEY is unset and $key_file is missing/empty." >&2
+            exit 1
+        fi
+        if [[ -z "${MSWEA_EXTRACT_MODEL:-}" ]]; then
+            echo "[ERROR] MSWEA_EXTRACT_PROVIDER=openrouter needs MSWEA_EXTRACT_MODEL=<vendor/model> (OpenRouter model id)." >&2
+            exit 1
+        fi
+    else
+        key_file="${AGENTCTX_ANTHROPIC_API_KEY_FILE:-$HOME/.config/agentctx/anthropic_api_key}"
+        if [[ -z "${ANTHROPIC_API_KEY:-}" && ! -s "$key_file" ]]; then
+            echo "[ERROR] CELLS includes online-claude-extract/-select but ANTHROPIC_API_KEY is unset and $key_file is missing/empty." >&2
+            echo "        Put the key in that file (chmod 600) or export ANTHROPIC_API_KEY; check with:" >&2
+            echo "        venv/bin/python scripts/maintenance/probe_claude_extract.py" >&2
+            exit 1
+        fi
     fi
 fi
 

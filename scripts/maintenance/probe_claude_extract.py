@@ -9,6 +9,8 @@ compressible window of that run's final trajectory.json is used (the first
 `--max-messages` messages after system + task, default 8). Prints the request
 settings, the accepted/rejected verdict, usage and the extract. Needs
 ANTHROPIC_API_KEY or ~/.config/agentctx/anthropic_api_key, like the primitive.
+With MSWEA_EXTRACT_PROVIDER=openrouter MSWEA_EXTRACT_MODEL=<vendor/model> the same
+call goes through OpenRouter (OPENROUTER_API_KEY or ~/.config/agentctx/openrouter_api_key).
 """
 import argparse
 import json

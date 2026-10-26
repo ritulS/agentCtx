@@ -8,7 +8,9 @@ task of that run's events.jsonl (the complete history; falls back to
 trajectory.json) are used. Prints the request settings, the accepted/rejected
 verdict, usage (cache fields included), the directives Claude returned and the
 rebuilt context. Needs ANTHROPIC_API_KEY or ~/.config/agentctx/anthropic_api_key,
-like the primitive.
+like the primitive. With MSWEA_EXTRACT_PROVIDER=openrouter MSWEA_EXTRACT_MODEL=<vendor/model>
+the same call goes through OpenRouter (OPENROUTER_API_KEY or
+~/.config/agentctx/openrouter_api_key); the printed usage then also has `cost`.
 """
 import argparse
 import json

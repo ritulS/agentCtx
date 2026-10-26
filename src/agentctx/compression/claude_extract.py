@@ -26,18 +26,43 @@ through), so the growing history is served from the prompt cache.
 
 Settings (all environment variables, read once per process):
 
-  ANTHROPIC_API_KEY                 API key. When unset, the file named by
-                                    AGENTCTX_ANTHROPIC_API_KEY_FILE
+  MSWEA_EXTRACT_PROVIDER            anthropic (default) | openrouter. Selects only
+                                    how the model is called (SDK, key, request and
+                                    response shape); prompts, validation, retries
+                                    and logging are identical for both.
+  ANTHROPIC_API_KEY                 API key (provider anthropic). When unset, the
+                                    file named by AGENTCTX_ANTHROPIC_API_KEY_FILE
                                     (default ~/.config/agentctx/anthropic_api_key)
                                     is read instead, so the key need not be
                                     exported in every launcher shell.
-  MSWEA_EXTRACT_MODEL               default claude-opus-5-5
-  MSWEA_EXTRACT_EFFORT              low | medium | high | xhigh | max (default medium)
+  OPENROUTER_API_KEY                API key (provider openrouter); same fallback
+                                    through AGENTCTX_OPENROUTER_API_KEY_FILE
+                                    (default ~/.config/agentctx/openrouter_api_key).
+  OPENROUTER_BASE_URL               default https://openrouter.ai/api/v1
+  MSWEA_EXTRACT_MODEL               default claude-opus-5-5 (anthropic); REQUIRED for
+                                    openrouter, in OpenRouter's "vendor/model" form
+                                    (e.g. qwen/qwen3.5-397b-a17b, anthropic/claude-sonnet-5-5).
+  MSWEA_EXTRACT_EFFORT              low | medium | high | xhigh | max (default medium);
+                                    openrouter also accepts minimal | none (sent as
+                                    `reasoning: {"effort": ...}`).
   MSWEA_EXTRACT_MAX_TOKENS          default 16000
   MSWEA_EXTRACT_TIMEOUT_S           per-request timeout (default 600)
   MSWEA_EXTRACT_FALLBACKS           1 (default) sends the server-side refusal
                                     fallback (`fallbacks: "default"`, beta
                                     server-side-fallback-2026-07-01); 0 disables it.
+                                    Anthropic only; always off for openrouter.
+
+OpenRouter provider notes: the request goes through the ``openai`` SDK against
+OpenRouter's OpenAI-compatible chat-completions endpoint. The text blocks and
+their ``cache_control`` breakpoints are passed through unchanged (OpenRouter
+forwards Anthropic-style breakpoints to Claude and Qwen; other vendors cache
+automatically or ignore them). Usage is mapped to the same keys as the Anthropic
+path (``prompt_tokens`` = total input incl. cached, ``cache_read_input_tokens``
+from ``prompt_tokens_details.cached_tokens``, ``cache_creation_input_tokens``
+from ``cache_write_tokens``) plus OpenRouter's ``cost`` (credits) and
+``reasoning_tokens``. ``finish_reason`` is OpenAI-style already
+(``stop`` / ``length`` / ``content_filter``); a ``content_filter`` reply is
+emptied like an Anthropic refusal.
 
 The adapter does not cost-track: the extractor's usage is reported in the
 reply's ``usage`` (prompt/completion tokens plus the cache fields) and the
@@ -55,17 +80,27 @@ DEFAULT_EFFORT = "medium"
 DEFAULT_MAX_TOKENS = 16000
 DEFAULT_TIMEOUT_S = 600.0
 DEFAULT_KEY_FILE = Path("~/.config/agentctx/anthropic_api_key")
+DEFAULT_PROVIDER = "anthropic"
+DEFAULT_OPENROUTER_KEY_FILE = Path("~/.config/agentctx/openrouter_api_key")
+DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
+_PROVIDERS = ("anthropic", "openrouter")
 _EFFORTS = ("low", "medium", "high", "xhigh", "max")
+_OPENROUTER_EFFORTS = _EFFORTS + ("minimal", "none")
 
 
-def resolve_api_key() -> str | None:
-    """ANTHROPIC_API_KEY, else the contents of the key file, else None."""
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+def resolve_api_key(provider: str = DEFAULT_PROVIDER) -> str | None:
+    """The provider's key env var (ANTHROPIC_API_KEY / OPENROUTER_API_KEY), else
+    the contents of its key file, else None."""
+    if provider == "openrouter":
+        env_name, file_env, default_file = "OPENROUTER_API_KEY", "AGENTCTX_OPENROUTER_API_KEY_FILE", DEFAULT_OPENROUTER_KEY_FILE
+    else:
+        env_name, file_env, default_file = "ANTHROPIC_API_KEY", "AGENTCTX_ANTHROPIC_API_KEY_FILE", DEFAULT_KEY_FILE
+    key = os.environ.get(env_name, "").strip()
     if key:
         return key
-    raw = os.environ.get("AGENTCTX_ANTHROPIC_API_KEY_FILE", "").strip()
-    path = Path(raw).expanduser() if raw else DEFAULT_KEY_FILE.expanduser()
+    raw = os.environ.get(file_env, "").strip()
+    path = Path(raw).expanduser() if raw else default_file.expanduser()
     try:
         key = path.read_text(encoding="utf-8").strip()
     except OSError:
@@ -75,21 +110,40 @@ def resolve_api_key() -> str | None:
 
 def extract_settings() -> dict:
     """The effective extractor settings (also written to the token log)."""
+    provider = os.environ.get("MSWEA_EXTRACT_PROVIDER", DEFAULT_PROVIDER).strip().lower() or DEFAULT_PROVIDER
+    if provider not in _PROVIDERS:
+        raise ValueError(f"MSWEA_EXTRACT_PROVIDER must be one of {_PROVIDERS}, got {provider!r}")
+    efforts = _OPENROUTER_EFFORTS if provider == "openrouter" else _EFFORTS
     effort = os.environ.get("MSWEA_EXTRACT_EFFORT", DEFAULT_EFFORT).strip().lower() or DEFAULT_EFFORT
-    if effort not in _EFFORTS:
-        raise ValueError(f"MSWEA_EXTRACT_EFFORT must be one of {_EFFORTS}, got {effort!r}")
-    fallbacks = os.environ.get("MSWEA_EXTRACT_FALLBACKS", "1").strip().lower() not in ("0", "off", "false", "no")
-    return {
-        "model":      os.environ.get("MSWEA_EXTRACT_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
+    if effort not in efforts:
+        raise ValueError(f"MSWEA_EXTRACT_EFFORT must be one of {efforts}, got {effort!r}")
+    model = os.environ.get("MSWEA_EXTRACT_MODEL", "").strip()
+    if provider == "openrouter":
+        if not model:
+            raise ValueError("MSWEA_EXTRACT_MODEL is required with MSWEA_EXTRACT_PROVIDER=openrouter "
+                             "(OpenRouter model id, e.g. anthropic/claude-sonnet-5-5)")
+        fallbacks = False   # Anthropic beta only
+    else:
+        model = model or DEFAULT_MODEL
+        fallbacks = os.environ.get("MSWEA_EXTRACT_FALLBACKS", "1").strip().lower() not in ("0", "off", "false", "no")
+    settings = {
+        "provider":   provider,
+        "model":      model,
         "effort":     effort,
         "max_tokens": int(os.environ.get("MSWEA_EXTRACT_MAX_TOKENS", str(DEFAULT_MAX_TOKENS)) or DEFAULT_MAX_TOKENS),
         "timeout_s":  float(os.environ.get("MSWEA_EXTRACT_TIMEOUT_S", str(DEFAULT_TIMEOUT_S)) or DEFAULT_TIMEOUT_S),
         "fallbacks":  fallbacks,
     }
+    if provider == "openrouter":
+        settings["base_url"] = os.environ.get("OPENROUTER_BASE_URL", "").strip() or DEFAULT_OPENROUTER_BASE_URL
+    return settings
 
 
 class ClaudeExtractModel:
-    """Minimal model adapter around ``anthropic.Anthropic().beta.messages``.
+    """Minimal model adapter around ``anthropic.Anthropic().beta.messages``
+    (provider ``anthropic``) or ``openai.OpenAI(base_url=OpenRouter).chat.completions``
+    (provider ``openrouter``; see the module docstring). Only the client, the
+    request shape and the response mapping differ between the two.
 
     ``query(messages)`` takes mini-swe-agent style messages (``role`` in
     system/user/assistant, ``content`` str). System messages become the
@@ -118,24 +172,44 @@ class ClaudeExtractModel:
     def serialize(self) -> dict:
         return {"extract_model": dict(self.settings)}
 
-    # ── Anthropic client ────────────────────────────────────────────────────
+    @property
+    def provider(self) -> str:
+        return self.settings.get("provider", DEFAULT_PROVIDER)
+
+    # ── API client (the only provider-specific part) ────────────────────────
     def client(self):
         if self._client is None:
             with self._lock:
                 if self._client is None:
-                    import anthropic
-                    key = resolve_api_key()
-                    if not key:
-                        raise RuntimeError(
-                            "online_claude_extract needs an Anthropic API key: export ANTHROPIC_API_KEY "
-                            f"or write it to {DEFAULT_KEY_FILE} (AGENTCTX_ANTHROPIC_API_KEY_FILE)."
+                    if self.provider == "openrouter":
+                        import openai
+                        key = resolve_api_key("openrouter")
+                        if not key:
+                            raise RuntimeError(
+                                "MSWEA_EXTRACT_PROVIDER=openrouter needs an OpenRouter API key: export "
+                                f"OPENROUTER_API_KEY or write it to {DEFAULT_OPENROUTER_KEY_FILE} "
+                                "(AGENTCTX_OPENROUTER_API_KEY_FILE)."
+                            )
+                        self._client = openai.OpenAI(
+                            api_key=key, base_url=self.settings.get("base_url", DEFAULT_OPENROUTER_BASE_URL),
+                            timeout=self.settings["timeout_s"], max_retries=3,
                         )
-                    self._client = anthropic.Anthropic(
-                        api_key=key, timeout=self.settings["timeout_s"], max_retries=3,
-                    )
+                    else:
+                        import anthropic
+                        key = resolve_api_key()
+                        if not key:
+                            raise RuntimeError(
+                                "online_claude_extract needs an Anthropic API key: export ANTHROPIC_API_KEY "
+                                f"or write it to {DEFAULT_KEY_FILE} (AGENTCTX_ANTHROPIC_API_KEY_FILE)."
+                            )
+                        self._client = anthropic.Anthropic(
+                            api_key=key, timeout=self.settings["timeout_s"], max_retries=3,
+                        )
         return self._client
 
-    def _request(self, messages: list[dict]) -> dict:
+    def _split_messages(self, messages: list[dict]) -> tuple[list[dict], list[dict]]:
+        """(system text blocks, chat messages) from mini-swe-agent style messages;
+        the last system block gets the cache breakpoint. Shared by both providers."""
         system_blocks = []
         chat = []
         for msg in messages:
@@ -160,6 +234,16 @@ class ClaudeExtractModel:
         if system_blocks:
             # Stable prefix: cache the instructions across the run's calls.
             system_blocks[-1]["cache_control"] = {"type": "ephemeral"}
+        return system_blocks, chat
+
+    def _request(self, messages: list[dict]) -> dict:
+        """The provider request body (kwargs of the SDK's create call)."""
+        if self.provider == "openrouter":
+            return self._request_openrouter(messages)
+        return self._request_anthropic(messages)
+
+    def _request_anthropic(self, messages: list[dict]) -> dict:
+        system_blocks, chat = self._split_messages(messages)
         request = {
             "model":         self.settings["model"],
             "max_tokens":    self.settings["max_tokens"],
@@ -177,8 +261,81 @@ class ClaudeExtractModel:
             request["extra_body"] = {"fallbacks": "default"}
         return request
 
+    def _request_openrouter(self, messages: list[dict]) -> dict:
+        system_blocks, chat = self._split_messages(messages)
+        # Same blocks, OpenAI-compatible envelope: the system blocks become one
+        # system message with multipart text content so their cache_control
+        # breakpoints survive (OpenRouter forwards them to Claude / Qwen).
+        request = {
+            "model":      self.settings["model"],
+            "max_tokens": self.settings["max_tokens"],
+            "messages":   ([{"role": "system", "content": system_blocks}] if system_blocks else []) + chat,
+            # OpenRouter's normalized reasoning control (`effort`: max|xhigh|high|
+            # medium|low|minimal|none); not an OpenAI SDK parameter, so extra_body.
+            "extra_body": {"reasoning": {"effort": self.settings["effort"]}},
+        }
+        return request
+
     def query(self, messages: list[dict], **kwargs) -> dict:
         request = self._request(messages)
+        if self.provider == "openrouter":
+            return self._query_openrouter(request)
+        return self._query_anthropic(request)
+
+    def _query_openrouter(self, request: dict) -> dict:
+        response = self.client().chat.completions.create(**request)
+        data = response.model_dump() if hasattr(response, "model_dump") else dict(response)
+        choices = data.get("choices") or []
+        choice  = choices[0] if choices else {}
+        message = choice.get("message") or {}
+        text = message.get("content") or ""
+        if isinstance(text, list):   # multipart reply: join the text parts
+            text = "".join(p.get("text", "") for p in text if isinstance(p, dict))
+        finish_reason = choice.get("finish_reason")
+        if finish_reason == "content_filter" or (not text and message.get("refusal")):
+            text = ""   # never let a refusal explanation into the agent's history
+            finish_reason = "refusal"
+        usage = data.get("usage") or {}
+        p_det = usage.get("prompt_tokens_details") or {}
+        c_det = usage.get("completion_tokens_details") or {}
+        prompt_total = usage.get("prompt_tokens") or 0
+        cache_rd = p_det.get("cached_tokens")
+        cache_wr = p_det.get("cache_write_tokens")
+        usage_dict = {
+            # OpenAI-style accounting: prompt_tokens is the whole input, the
+            # cache figures are details of it (the Anthropic path sums them).
+            "prompt_tokens":     prompt_total,
+            "completion_tokens": usage.get("completion_tokens") or 0,
+            "uncached_input_tokens":       max(prompt_total - (cache_rd or 0) - (cache_wr or 0), 0),
+            "cache_read_input_tokens":     cache_rd,
+            "cache_creation_input_tokens": cache_wr,
+            "reasoning_tokens":            c_det.get("reasoning_tokens"),
+            "cost":                        usage.get("cost"),
+        }
+        out_message = {"role": "assistant", "content": text}
+        reasoning = message.get("reasoning") or message.get("reasoning_content")
+        if isinstance(reasoning, str) and reasoning:
+            out_message["reasoning"] = reasoning   # read by primitives._response_reasoning
+        return {
+            "role": "assistant",
+            "content": text,
+            "extra": {
+                "response": {
+                    "id":       data.get("id"),
+                    "model":    data.get("model"),
+                    "provider": data.get("provider"),   # the upstream vendor OpenRouter routed to
+                    "usage":    usage_dict,
+                    "stop_reason":  choice.get("native_finish_reason") or finish_reason,
+                    "stop_details": None,
+                    "choices": [{
+                        "finish_reason": finish_reason,
+                        "message": out_message,
+                    }],
+                },
+            },
+        }
+
+    def _query_anthropic(self, request: dict) -> dict:
         response = self.client().beta.messages.create(**request)
         text = "".join(
             block.text for block in response.content
@@ -241,4 +398,4 @@ def extract_model_info() -> dict:
         settings = extract_settings()
     except ValueError as exc:
         return {"error": str(exc)}
-    return {"provider": "anthropic", **settings}
+    return {"provider": settings.get("provider", DEFAULT_PROVIDER), **settings}
