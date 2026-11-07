@@ -54,7 +54,9 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   endpoint via the `openai` SDK instead: `MSWEA_EXTRACT_MODEL=<vendor/model>` is
   then required, the key comes from `OPENROUTER_API_KEY` or
   `~/.config/agentctx/openrouter_api_key`, effort is sent as OpenRouter's
-  `reasoning.effort` (also accepts `minimal` / `none`), the `cache_control`
+  `reasoning.effort` (also accepts `minimal` / `none`), `temperature` 0 is sent
+  by default (`MSWEA_EXTRACT_TEMPERATURE`, since 2026-10-26; `none` omits it,
+  which stays the anthropic default because thinking forbids it), the `cache_control`
   breakpoints are passed through, and usage gains `cost` (credits) and
   `reasoning_tokens`. Only the API call differs (client, request body, response
   mapping); prompts, validation, retries, event logs, condition names and cell
@@ -72,8 +74,28 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `keep <uid> L<a>-<b>`, `drop <uid>`, `none`); the context is rebuilt from the
   original messages (whole, or the kept lines with `[... N lines omitted ...]`),
   so Claude never writes a word the agent reads, and a message dropped earlier can
-  return later. A reply with prose, unknown uids or bad ranges is rejected and
-  re-queried (`request_summary(validate=parse_selection)`), then "unchanged".
+  return later. A reply with prose, a `keep` of an unknown uid or an out-of-range
+  line range is rejected and re-queried (`request_summary(validate=parse_selection)`),
+  then "unchanged"; a `drop` of an unknown uid, a `keep` of a protected uid or
+  of a gap inside the window's uid range (uids are not contiguous), and a range
+  on an assistant message (kept whole) are tolerated (added 2026-10-26 for
+  non-Claude selectors). `MSWEA_EXTRACT_PREFILL=1` (openrouter only) ends the prompt with an
+  assistant message holding the open-marker line, so the reply cannot start as
+  anything but a selection (the free Nemotron 3 Ultra otherwise answered as the
+  agent from the second call on).
+  `online-claude-select-anchored` (cell tag `ocsa`, added 2026-10-27) is the same
+  primitive with two additions set through the condition's `env`
+  (`MSWEA_SELECT_ANCHOR=1`, `MSWEA_SELECT_CAP=30000`; `conditions.py`): every
+  history message is tagged with its token count and whether it was in the
+  agent's context at the previous step, the selector is told to start from that
+  selection and change as little as possible, and the selected history must fit
+  the cap (an over-budget reply is rejected as `over_budget`, a correction
+  message is appended and it is re-queried; `request_summary(on_reject=...)`).
+  Selection records then carry `anchor`, `cap`, `budget_window`,
+  `selected_tokens` and the stability counts `carried` / `added` / `removed`.
+  Motivation: on the free Nemotron selector the plain cell's consecutive
+  selections overlapped only ~50% (Jaccard) and twice exceeded Devstral's 65k
+  context.
   The selector prompt is a block list with a cache breakpoint on the last history
   block, so the growing history is served from the prompt cache. Both conditions
   use the benchmark default agent prompt (the OTRC / OCE prompt deltas are empty
@@ -133,6 +155,12 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   and the ablation launcher. `uvx --with pyyaml pytest`; see
   `tests/README.md`. Run it after touching `src/agentctx/experiments/` or
   `src/agentctx/benchmarks/`.
+- Agent timeouts above 2 h need a longer task container: mini-swe-agent's
+  `DockerEnvironment` keeps the container alive with `sleep <container_timeout>`
+  (default `2h`), after which every command fails with "no container with name
+  or ID" until the step limit. Set `environment.container_timeout` in the agent
+  config above `AGENT_TIMEOUT` (`configs/config-devstral-vllm-temp0.yaml` has
+  `"5h"` since 2026-10-31; the 90-min default of the other launchers is safe).
 - Event log (failure analysis): the SWE-bench adapter
   (`src/agentctx/benchmarks/swe_bench.py`) sets `MSWEA_EVENT_LOG_DIR` so each
   run dir also gets `events.jsonl` (every message as added, before

@@ -15,8 +15,8 @@ for entry in (ROOT, ROOT / 'src'):
 from agentctx.compression import claude_extract                       # noqa: E402
 from agentctx.compression import primitives as mem                    # noqa: E402
 
-OR_SETTINGS = {'provider': 'openrouter', 'model': 'vendor/model', 'effort': 'low', 'max_tokens': 10,
-               'timeout_s': 1.0, 'fallbacks': False, 'base_url': 'https://openrouter.ai/api/v1'}
+OR_SETTINGS = {'provider': 'openrouter', 'model': 'vendor/model', 'effort': 'low', 'temperature': 0.0,
+               'max_tokens': 10, 'timeout_s': 1.0, 'fallbacks': False, 'base_url': 'https://openrouter.ai/api/v1'}
 
 
 class FakeCompletion:
@@ -64,6 +64,34 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(s['effort'], 'none')            # openrouter-only value accepted
         self.assertFalse(s['fallbacks'])                 # Anthropic beta: forced off
         self.assertEqual(s['base_url'], claude_extract.DEFAULT_OPENROUTER_BASE_URL)
+        self.assertEqual(s['temperature'], 0.0)          # greedy selector by default
+
+    def test_temperature_setting(self):
+        base = {'MSWEA_EXTRACT_PROVIDER': 'openrouter', 'MSWEA_EXTRACT_MODEL': 'vendor/model'}
+        with patch.dict(os.environ, {**base, 'MSWEA_EXTRACT_TEMPERATURE': '0.1'}):
+            self.assertEqual(claude_extract.extract_settings()['temperature'], 0.1)
+        with patch.dict(os.environ, {**base, 'MSWEA_EXTRACT_TEMPERATURE': 'none'}):
+            self.assertIsNone(claude_extract.extract_settings()['temperature'])
+        for bad in ('hot', '-1', '2.5'):
+            with patch.dict(os.environ, {**base, 'MSWEA_EXTRACT_TEMPERATURE': bad}):
+                with self.assertRaises(ValueError):
+                    claude_extract.extract_settings()
+        with patch.dict(os.environ, {'MSWEA_EXTRACT_PROVIDER': 'anthropic'}, clear=False):
+            os.environ.pop('MSWEA_EXTRACT_TEMPERATURE', None)
+            self.assertIsNone(claude_extract.extract_settings()['temperature'])   # thinking: no temperature
+
+    def test_temperature_in_requests(self):
+        msgs = [{'role': 'system', 'content': 'S'}, {'role': 'user', 'content': 'U'}]
+        request = claude_extract.ClaudeExtractModel(settings=OR_SETTINGS, client=object())._request(msgs)
+        self.assertEqual(request['temperature'], 0.0)
+        request = claude_extract.ClaudeExtractModel(settings={**OR_SETTINGS, 'temperature': None}, client=object())._request(msgs)
+        self.assertNotIn('temperature', request)
+        an = {'provider': 'anthropic', 'model': 'claude-x', 'effort': 'low', 'temperature': None,
+              'max_tokens': 10, 'timeout_s': 1.0, 'fallbacks': False}
+        request = claude_extract.ClaudeExtractModel(settings=an, client=object())._request(msgs)
+        self.assertNotIn('temperature', request)
+        request = claude_extract.ClaudeExtractModel(settings={**an, 'temperature': 0.0}, client=object())._request(msgs)
+        self.assertEqual(request['temperature'], 0.0)
 
     def test_anthropic_rejects_openrouter_only_effort(self):
         with patch.dict(os.environ, {'MSWEA_EXTRACT_PROVIDER': 'anthropic', 'MSWEA_EXTRACT_EFFORT': 'none'}):
@@ -89,6 +117,7 @@ class RequestTest(unittest.TestCase):
         self.assertEqual(request['messages'][1], {'role': 'user', 'content': blocks})
         self.assertIsNot(request['messages'][1]['content'][1], blocks[1])   # copied, not aliased
         self.assertEqual(request['extra_body'], {'reasoning': {'effort': 'low'}})
+        self.assertEqual(request['temperature'], 0.0)
         for key in ('system', 'thinking', 'output_config', 'betas'):       # Anthropic-only fields absent
             self.assertNotIn(key, request)
 

@@ -527,8 +527,15 @@ def request_summary(
     close_marker: str,
     max_attempts: int | None = None,
     validate=None,
+    on_reject=None,
 ) -> tuple[str | None, dict, int, int, float]:
     """Query the summarizer until clean_summary_text() accepts a response.
+
+    ``on_reject(reason, raw_reply) -> list[dict] | None`` (optional) runs after
+    a rejected attempt; the messages it returns are appended to the prompt
+    for the next attempt (before a trailing assistant prefill), so a
+    rejection can carry a correction instead of re-asking the identical
+    prompt. None / empty leaves the prompt as it was.
 
     ``validate(body) -> str | None`` (optional) runs on the marker-cleaned text
     of an otherwise accepted reply; a returned string is a rejection reason
@@ -584,6 +591,12 @@ def request_summary(
         "interrupted_attempt": None,
     }
     _set_summary_outcome(outcome)
+    # A prompt whose last message is an assistant turn is a prefill: the model
+    # continues it, so its text is restored in front of every reply before the
+    # marker check (online_claude_select with MSWEA_EXTRACT_PREFILL=1).
+    _last = summary_prompt[-1] if summary_prompt else None
+    prefill = response_text(_last) if isinstance(_last, dict) and _last.get("role") == "assistant" else ""
+    summary_prompt = list(summary_prompt)
     for attempt in range(1, attempts + 1):
         _t0       = time.time()
         try:
@@ -608,7 +621,8 @@ def request_summary(
         outcome["prompt_tokens"]     = prompt_toks
         outcome["completion_tokens"] = completion_toks
         outcome["latency_s"]         = latency_s
-        raw = response_text(response)
+        model_text = response_text(response)
+        raw = prefill + model_text if prefill else model_text
         finish_reason = _response_finish_reason(response)
         text, flags = clean_summary_text(raw, open_marker, close_marker, finish_reason=finish_reason)
         if text is not None and validate is not None:
@@ -635,13 +649,19 @@ def request_summary(
             "raw_chars": len(raw),
             "had_open_marker": flags.get("had_open_marker"),
             "had_close_marker": flags.get("had_close_marker"),
-            "content": raw,
+            "prefill": prefill or None,     # restored in front of `content` before validation
+            "content": model_text,
             "reasoning": _response_reasoning(response),
             "summary": text,
         })
         if text is not None:
             break
         rejections.append(flags.get("rejected") or "unknown")
+        if on_reject is not None and attempt < attempts:
+            _extra = on_reject(flags.get("rejected"), raw)
+            if _extra:
+                _at = len(summary_prompt) - 1 if prefill else len(summary_prompt)
+                summary_prompt[_at:_at] = list(_extra)
     outcome["attempts"] = len(rejections) + (1 if text is not None else 0)
     outcome["accepted"] = text is not None
     outcome["flags"]    = dict(flags)
@@ -1253,15 +1273,17 @@ def _msg_text(msg: dict) -> str:
     return content
 
 
-def _select_render_message(msg: dict) -> str:
+def _select_render_message(msg: dict, tag: str | None = None) -> str:
     """One history message as the selector sees it: a header with the uid and
     role, then the text. Observations (user/tool messages) get ``n| `` line
     numbers so the reply can name line ranges; assistant messages are shown
     whole (they are kept or dropped as a unit; tool calls rendered as in
-    _extract_history_text)."""
+    _extract_history_text). ``tag`` (anchored selection) is appended to the
+    header after a semicolon; None leaves the header as it always was."""
     uid  = _msg_uid(msg) or "?"
     role = msg.get("role", "unknown")
     text = _msg_text(msg)
+    suffix = f"; {tag}" if tag else ""
     if role == "assistant":
         lines = [text] if text else []
         for call in msg.get("tool_calls") or []:
@@ -1269,22 +1291,42 @@ def _select_render_message(msg: dict) -> str:
                 continue
             fn = call.get("function") or {}
             lines.append(f"[tool_call {call.get('id', '?')}] {fn.get('name', '?')}({fn.get('arguments', '')})")
-        return f"[{uid} assistant]\n" + "\n".join(lines)
+        return f"[{uid} assistant{suffix}]\n" + "\n".join(lines)
     label = "tool result" if role == "tool" else role
     if role == "tool" and msg.get("tool_call_id"):
         label = f"tool result for {msg['tool_call_id']}"
     body_lines = text.split("\n")
     width = len(str(len(body_lines)))
     numbered = "\n".join(f"{i:{width}d}| {line}" for i, line in enumerate(body_lines, 1))
-    return f"[{uid} {label}, {len(body_lines)} lines]\n{numbered}"
+    return f"[{uid} {label}, {len(body_lines)} lines{suffix}]\n{numbered}"
 
 
-def _select_prompt(extract_model, task_text: str, window: list[dict]) -> list[dict]:
+def _select_prompt(extract_model, task_text: str, window: list[dict],
+                   tags: dict | None = None, budget_tokens: int | None = None) -> list[dict]:
     """Prompt for online_claude_select(): the selector returns uids and line
     ranges, never prose. The user message is a list of text blocks (task, one
     block per history message, the instructions) with a cache breakpoint on
     the last history block, so the growing history prefix is served from the
-    prompt cache on the next step."""
+    prompt cache on the next step.
+
+    ``tags`` (anchored selection, MSWEA_SELECT_ANCHOR) maps uid -> header tag
+    (token count and whether the message was in the agent's context at the
+    previous step) and adds the "start from the previous selection"
+    paragraph; ``budget_tokens`` (MSWEA_SELECT_CAP) states the cap on the
+    selected history. Both None = the plain online_claude_select prompt,
+    byte for byte."""
+    anchor_text = "" if tags is None else (
+        "\n\nEach message's tag also says how many tokens it holds and whether it was in the "
+        "agent's context at the previous step (\"in context last step\" / \"not in context last "
+        "step\"). Start from the previous step's selection: keep what was in context unless "
+        "it is no longer needed, add what the newest turn makes needed, and change as little "
+        "as possible from step to step so the agent's context stays stable."
+    )
+    budget_text = "" if budget_tokens is None else (
+        f"\n\nYour selection must total at most {budget_tokens} tokens (the task statement and "
+        "the newest messages are kept separately and do not count). A selection over the "
+        "budget is rejected and you are asked again."
+    )
     system = (
         "You curate the context window of an autonomous software-engineering agent that "
         "fixes a bug in a repository by running one shell command per step. Before every "
@@ -1304,10 +1346,12 @@ def _select_prompt(extract_model, task_text: str, window: list[dict]) -> list[di
         "  none                      keep nothing (the agent sees only the task and its newest turn)\n"
         "Messages you do not mention are dropped. Do not write anything else: no notes, no "
         "summaries, no plans, no commands."
+        + anchor_text + budget_text
     )
     blocks = [{"type": "text", "text": f"Task statement (for reference only):\n{task_text}\n\nHistory:"}]
     for msg in window:
-        blocks.append({"type": "text", "text": _select_render_message(msg)})
+        blocks.append({"type": "text", "text": _select_render_message(
+            msg, None if tags is None else tags.get(_msg_uid(msg)))})
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
     blocks.append({"type": "text", "text": (
         "Select what the agent still needs: the commands and outputs that located the code "
@@ -1317,6 +1361,7 @@ def _select_prompt(extract_model, task_text: str, window: list[dict]) -> list[di
         "nowhere, and the bulk of long outputs (installation logs, file listings, repeated "
         "reads) except the lines that matter. Keep assistant messages whose command the agent "
         "must remember having run. Reply with directives only, between the markers."
+        + ("" if budget_tokens is None else f"\nSelection budget: {budget_tokens} tokens.")
     )})
     return [
         extract_model.format_message(role="system", content=system),
@@ -1324,21 +1369,39 @@ def _select_prompt(extract_model, task_text: str, window: list[dict]) -> list[di
     ]
 
 
-def parse_selection(text: str, window: list[dict]) -> tuple[dict | None, str | None]:
+def parse_selection(text: str, window: list[dict], known_uids=None) -> tuple[dict | None, str | None]:
     """Parse a selection body into {uid: None | [(a, b), ...]} over ``window``.
 
     Returns (selection, None) or (None, reason). Reasons: ``unparseable_line``
-    (anything that is not a keep/drop/none directive or blank), ``unknown_uid``,
-    ``range_on_assistant`` (line ranges are only valid on outputs),
-    ``range_out_of_bounds``. Keeping nothing is a valid decision, written as the
-    directive ``none`` (the marker check rejects an empty body before this
-    parser sees it). Ranges are clamped to the message, merged and sorted.
+    (anything that is not a keep/drop/none directive or blank), ``unknown_uid``
+    (a ``keep`` of an id that is not in the window), ``range_out_of_bounds``.
+    Some directives are tolerated rather than rejected (since 2026-10-26, for
+    selectors that are not Claude): a ``drop`` of an unknown id is ignored
+    (nothing is there to drop); a ``keep`` of an id that is absent from the
+    window but either lies numerically inside the window's id range (a gap:
+    uids are not contiguous, and selectors that enumerate a range hit them) or
+    is in ``known_uids`` (the protected prefix / kept tail of the complete
+    history, kept regardless) is ignored too, while a ``keep`` of an id outside
+    both is still ``unknown_uid``; and a line range on an assistant message
+    keeps that message whole (what the prompt says happens to assistant
+    messages anyway). Keeping nothing is a valid decision,
+    written as the directive ``none`` (the marker check rejects an empty body
+    before this parser sees it). Ranges are clamped to the message, merged and
+    sorted.
     """
     by_uid = {}
     for msg in window:
         uid = _msg_uid(msg)
         if uid:
             by_uid[uid] = msg
+    known = set(known_uids or ())
+    nums = [int(u[1:]) for u in by_uid if u[1:].isdigit()]
+    lo, hi = (min(nums), max(nums)) if nums else (0, -1)
+
+    def tolerated_keep(uid: str) -> bool:   # absent from the window, but nothing the selector could mean
+        if uid in known:
+            return True
+        return uid[1:].isdigit() and lo <= int(uid[1:]) <= hi
     body = text
     for marker in (SEL_OPEN_MARKER, SEL_CLOSE_MARKER):
         body = body.replace(marker, "")
@@ -1351,10 +1414,7 @@ def parse_selection(text: str, window: list[dict]) -> tuple[dict | None, str | N
             continue
         m = _SEL_DROP_RE.match(line)
         if m:
-            uid = m.group(1)
-            if uid not in by_uid:
-                return None, "unknown_uid"
-            selection.pop(uid, None)
+            selection.pop(m.group(1), None)   # unknown id: nothing to drop, ignored
             continue
         m = _SEL_KEEP_RE.match(line)
         if not m:
@@ -1362,12 +1422,15 @@ def parse_selection(text: str, window: list[dict]) -> tuple[dict | None, str | N
         uid, ranges = m.group(1), m.group(2)
         msg = by_uid.get(uid)
         if msg is None:
+            if tolerated_keep(uid):
+                continue
             return None, "unknown_uid"
         if not ranges:
             selection[uid] = None
             continue
         if msg.get("role") == "assistant":
-            return None, "range_on_assistant"
+            selection[uid] = None      # assistant messages are kept whole; the range is ignored
+            continue
         n_lines = len(_msg_text(msg).split("\n"))
         spans = []
         for a, b in _SEL_RANGE_RE.findall(ranges):
@@ -1419,6 +1482,45 @@ def apply_selection(window: list[dict], selection: dict) -> list[dict]:
     return out
 
 
+def _select_settings() -> tuple[bool, int]:
+    """(anchor, cap) of online_claude_select from the environment: the condition
+    online-claude-select-anchored sets MSWEA_SELECT_ANCHOR=1 (each history
+    message is tagged with whether it was in the agent's context at the
+    previous step, and the selector is told to start from that selection) and
+    MSWEA_SELECT_CAP=<tokens> (the selected history must fit; an over-budget
+    reply is rejected with a correction message and re-queried). Unset / 0 =
+    the plain selection (2026-10-25 behaviour)."""
+    raw = os.environ.get("MSWEA_SELECT_ANCHOR", "0").strip().lower()
+    if raw not in ("", "0", "off", "false", "no", "1", "on", "true", "yes"):
+        raise ValueError(f"MSWEA_SELECT_ANCHOR must be 0 | 1, got {raw!r}")
+    anchor = raw in ("1", "on", "true", "yes")
+    cap_raw = os.environ.get("MSWEA_SELECT_CAP", "").strip()
+    cap = int(cap_raw) if cap_raw else 0
+    if cap < 0:
+        raise ValueError(f"MSWEA_SELECT_CAP must be a non-negative token count, got {cap_raw!r}")
+    return anchor, cap
+
+
+def _select_prefill(extract_model) -> str:
+    """The assistant prefill for the selector reply (MSWEA_EXTRACT_PREFILL=1):
+    the prompt then ends with an assistant message holding the open marker line,
+    which the model continues, so a reply cannot start as anything but a
+    selection (a selector that otherwise continues the transcript as the agent
+    is held to the directive grammar). OpenRouter only: Claude with thinking
+    takes no prefill, so the setting is an error for provider anthropic.
+    Empty when off (default)."""
+    raw = os.environ.get("MSWEA_EXTRACT_PREFILL", "0").strip().lower()
+    if raw in ("", "0", "off", "false", "no"):
+        return ""
+    if raw not in ("1", "on", "true", "yes"):
+        raise ValueError(f"MSWEA_EXTRACT_PREFILL must be 0 | 1, got {raw!r}")
+    provider = (getattr(extract_model, "settings", None) or {}).get("provider")
+    if provider != "openrouter":
+        raise ValueError("MSWEA_EXTRACT_PREFILL=1 needs MSWEA_EXTRACT_PROVIDER=openrouter "
+                         f"(provider {provider!r}: Claude with thinking takes no assistant prefill)")
+    return SEL_OPEN_MARKER + "\n"
+
+
 def online_claude_select(
     full_messages: list[dict],
     messages: list[dict],
@@ -1459,21 +1561,55 @@ def online_claude_select(
     if not window:
         return messages, 0, 0, 0, 0.0
     tokens_full = count_tokens(full_messages)
+    anchor, cap = _select_settings()
+    prev_uids = {u for u in (_msg_uid(m) for m in messages) if u}   # the agent's context at the previous step
+    tags = None
+    if anchor:
+        tags = {}
+        for m in window:
+            uid = _msg_uid(m)
+            if uid:
+                tags[uid] = (f"{count_tokens([m])} tokens, "
+                             + ("in context last step" if uid in prev_uids else "not in context last step"))
+    budget_window = None
+    if cap:
+        budget_window = max(0, cap - count_tokens(protected) - count_tokens(kept))
 
     from agentctx.compression.claude_extract import get_extract_model
     extract_model = get_extract_model()
-    prompt = _select_prompt(extract_model, _history_text(full_messages[1:N_PROTECTED]), window)
+    prompt = _select_prompt(extract_model, _history_text(full_messages[1:N_PROTECTED]), window,
+                            tags=tags, budget_tokens=budget_window)
+    prefill = _select_prefill(extract_model)
+    if prefill:
+        prompt.append({"role": "assistant", "content": prefill})
     parsed: dict = {}
+    known_uids = {u for u in (_msg_uid(m) for m in full_messages) if u}
+    over: dict = {}
 
     def _validate(body: str) -> str | None:
-        sel, why = parse_selection(body, window)
+        sel, why = parse_selection(body, window, known_uids)
         if why:
             return why
+        if budget_window is not None:
+            selected_tokens = count_tokens(apply_selection(window, sel))
+            if selected_tokens > budget_window:
+                over["tokens"] = selected_tokens
+                return "over_budget"
         parsed["selection"] = sel
         return None
 
+    def _on_reject(reason, raw):
+        if reason != "over_budget":
+            return None
+        return [extract_model.format_message(role="user", content=(
+            f"Your selection totals {over.get('tokens')} tokens; the budget is {budget_window} tokens. "
+            "Reply again, between the markers, with a selection within the budget: drop the least "
+            "needed messages or keep only the lines that matter of long outputs."
+        ))]
+
     text, flags, prompt_toks, completion_toks, latency_s = request_summary(
-        extract_model, prompt, SEL_OPEN_MARKER, SEL_CLOSE_MARKER, validate=_validate
+        extract_model, prompt, SEL_OPEN_MARKER, SEL_CLOSE_MARKER, validate=_validate,
+        on_reject=_on_reject if budget_window is not None else None,
     )
     if text is None or "selection" not in parsed:
         _mark_summary_fallback("unchanged")
@@ -1497,6 +1633,16 @@ def online_claude_select(
         "lines_total": total_lines, "lines_kept": kept_lines,
         "keep": {uid: (None if v is None else [list(s) for s in v]) for uid, v in selection.items()},
     }
+    if anchor or cap:
+        # Stability against the previous context and the cap actually applied.
+        in_prev = {u for u in (_msg_uid(m) for m in window) if u and u in prev_uids}
+        record.update({
+            "anchor": anchor, "cap": cap or None, "budget_window": budget_window,
+            "selected_tokens": count_tokens(chosen),
+            "carried": len(set(selection) & in_prev),          # kept, and in context last step
+            "added":   len(set(selection) - in_prev),          # kept, not in context last step
+            "removed": len(in_prev - set(selection)),          # in context last step, now dropped
+        })
     flags["selection"] = record
     last = getattr(_SUMMARY_OUTCOME, "last", None)
     if isinstance(last, dict):

@@ -47,6 +47,16 @@ CONDITIONS = [
     # the context is rebuilt from the original text; no budget, no length target, no prompt
     # delta (the agent prompt is the benchmark default). Needs the same key as the extract.
     {"condition": "online-claude-select", "primitive": "online_claude_select", "budget": INFINITE_BUDGET},
+    # online-claude-select-anchored (2026-10-27): the same primitive and prompt with two
+    # additions through the run environment ("env" is applied on top of the run's
+    # variables): every history message is tagged with whether it was in the agent's
+    # context at the previous step and the selector is told to start from that selection
+    # (MSWEA_SELECT_ANCHOR), and the selected history must fit MSWEA_SELECT_CAP tokens
+    # (an over-budget reply is rejected with a correction and re-queried). Answer to the
+    # plain cell's step-to-step volatility (Jaccard ~0.5 between consecutive selections)
+    # and its context overflows (selections of 60k+ tokens on a 65k server).
+    {"condition": "online-claude-select-anchored", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "30000"}},
     # Staggered: at each compression event, pick one of the oracle-optimal pair (TR + budget-best).
     # Pair is fixed by budget inside default.py: 10k→TR+TRC+SS, 15k→TR+SU-partial, 20k→TR+TRC+SS.
     {"condition": "staggered-alternate", "primitive": "staggered_alternate", "budget": 15_000},

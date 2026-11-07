@@ -103,7 +103,11 @@ class ParseAndApplyTests(unittest.TestCase):
         for body, why in [
             ('keep m00003\nNote: the agent should run tests next', 'unparseable_line'),
             ('keep m00099', 'unknown_uid'),
-            ('keep m00003 L1-2', 'range_on_assistant'),
+            ('drop m00099', None),                   # nothing to drop: ignored
+            ('keep m00003\ndrop m00099\ndrop m00004', None),
+            ('keep m00001', 'unknown_uid'),          # outside the window's id range, not declared known
+            ('keep m00003\nkeep m00001\nkeep m00004', 'unknown_uid'),
+            ('keep m00003 L1-2', None),              # assistant message: range ignored, kept whole
             ('keep m00004 L9-12', None),            # end clamped to the message
             ('keep m00004 L11', 'range_out_of_bounds'),
             ('keep m00004 L0-3', 'range_out_of_bounds'),
@@ -113,6 +117,106 @@ class ParseAndApplyTests(unittest.TestCase):
             self.assertEqual(got, why, body)
         sel, _ = memory.parse_selection('keep m00004 L9-12', self.window)
         self.assertEqual(sel, {'m00004': [(9, 10)]})
+        sel, _ = memory.parse_selection('keep m00003\ndrop m00099\ndrop m00004', self.window)
+        self.assertEqual(sel, {'m00003': None})
+        sel, _ = memory.parse_selection('keep m00003 L1-2', self.window)
+        self.assertEqual(sel, {'m00003': None})
+        # keep of a protected id (declared via known_uids) or of a gap inside the window's id range is ignored
+        sel, why = memory.parse_selection('keep m00001\nkeep m00003', self.window, known_uids={'m00001', 'm00002'})
+        self.assertEqual((why, sel), (None, {'m00003': None}))
+        ids = sorted(m['extra']['uid'] for m in self.window)
+        gap_window = [m for m in self.window if m['extra']['uid'] != ids[1]] if len(ids) > 2 else None
+        if gap_window:
+            sel, why = memory.parse_selection(f'keep {ids[0]}\nkeep {ids[1]}', gap_window)
+            self.assertEqual((why, sel), (None, {ids[0]: None}))
+
+    def test_anchored_capped_selection(self):
+        # Two window messages; the cap admits only part of them. Reply 1 keeps both
+        # (over budget) -> rejected with a correction appended; reply 2 fits.
+        full = [msg('system', 'system', 'm00001'), msg('user', 'fix the bug', 'm00002')] + self.window \
+             + [msg('assistant', 'THOUGHT\n```bash\nls\n```', 'm00007'), msg('user', 'x\ny', 'm00008')]
+        context = full[:2] + [self.window[0], self.window[1]] + full[-2:]   # previous step kept m00003 + m00004 only
+        selector = FakeSelector([selection('keep m00003\nkeep m00004\nkeep m00005\nkeep m00006'),
+                                 selection('keep m00004 L1-2')])
+        selector.settings['provider'] = 'openrouter'
+        cap = memory.count_tokens(full[:2]) + memory.count_tokens(full[-2:]) + 30
+        env = {'MSWEA_SELECT_ANCHOR': '1', 'MSWEA_SELECT_CAP': str(cap), 'MSWEA_EXTRACT_PREFILL': '1'}
+        with patch.object(claude_extract, 'get_extract_model', return_value=selector), \
+             patch.dict(os.environ, env), tempfile.TemporaryDirectory() as d, \
+             patch.dict(os.environ, {'MSWEA_SUMMARY_ATTEMPT_LOG': str(Path(d) / 'a.jsonl')}):
+            new, saved, pt, ct, lat = memory.online_claude_select(full, context, selector, keep_recent=1)
+            attempts = [json.loads(l) for l in (Path(d) / 'a.jsonl').read_text().splitlines()]
+        # prompt 1: tags on every history block, anchor paragraph, budget line, prefill last
+        p1 = selector.prompts[0]
+        self.assertIn('in context last step', p1[0]['content'])
+        self.assertIn('Your selection must total at most 30 tokens', p1[0]['content'])
+        heads = [b['text'].split('\n')[0] for b in p1[1]['content'][1:-1]]
+        self.assertTrue(heads[0].startswith('[m00003 assistant; ') and heads[0].endswith('tokens, in context last step]'), heads[0])
+        self.assertTrue(heads[2].startswith('[m00005 assistant; ') and heads[2].endswith('tokens, not in context last step]'), heads[2])
+        self.assertIn('Selection budget: 30 tokens.', p1[1]['content'][-1]['text'])
+        self.assertEqual(p1[-1]['role'], 'assistant')
+        # attempt 1 rejected over budget; prompt 2 carries the correction before the prefill
+        self.assertEqual([a['rejected'] for a in attempts], ['over_budget', None])
+        p2 = selector.prompts[1]
+        self.assertEqual(p2[-1]['role'], 'assistant')
+        self.assertIn('the budget is 30 tokens', p2[-2]['content'])
+        self.assertEqual(p2[-2]['role'], 'user')
+        # result: protected + the partial keep + the kept tail; record carries the stability counts
+        self.assertEqual([m['extra']['uid'] for m in new], ['m00001', 'm00002', 'm00004', 'm00007', 'm00008'])
+        rec = memory.pop_summary_outcome()['flags']['selection']
+        self.assertEqual((rec['anchor'], rec['cap'], rec['budget_window']), (True, cap, 30))
+        self.assertLessEqual(rec['selected_tokens'], 30)
+        self.assertEqual((rec['carried'], rec['added'], rec['removed']), (1, 0, 1))   # m00004 kept, m00003 dropped
+
+    def test_plain_selection_prompt_has_no_anchor_or_budget(self):
+        selector = FakeSelector([selection('keep m00003')])
+        full = [msg('system', 'system', 'm00001'), msg('user', 'fix', 'm00002')] + self.window
+        with patch.object(claude_extract, 'get_extract_model', return_value=selector), \
+             patch.dict(os.environ, {'MSWEA_SELECT_ANCHOR': '', 'MSWEA_SELECT_CAP': '', 'MSWEA_EXTRACT_PREFILL': ''}):
+            memory.online_claude_select(full, list(full), selector, keep_recent=1)
+        p = selector.prompts[0]
+        self.assertNotIn('in context last step', p[0]['content'])
+        self.assertNotIn('budget', p[0]['content'].lower())
+        self.assertTrue(all('; ' not in b['text'].split('\n')[0] for b in p[1]['content'][1:-1]))
+        rec = memory.pop_summary_outcome()['flags']['selection']
+        self.assertNotIn('anchor', rec)
+        for bad in ({'MSWEA_SELECT_ANCHOR': 'maybe'}, {'MSWEA_SELECT_CAP': '-5'}):
+            with patch.dict(os.environ, bad):
+                with self.assertRaises(ValueError):
+                    memory._select_settings()
+
+    def test_prefill_setting(self):
+        anthropic = FakeSelector([]); anthropic.settings['provider'] = 'anthropic'
+        openrouter = FakeSelector([]); openrouter.settings['provider'] = 'openrouter'
+        with patch.dict(os.environ, {'MSWEA_EXTRACT_PREFILL': ''}):
+            self.assertEqual(memory._select_prefill(openrouter), '')
+        with patch.dict(os.environ, {'MSWEA_EXTRACT_PREFILL': '1'}):
+            self.assertEqual(memory._select_prefill(openrouter), memory.SEL_OPEN_MARKER + '\n')
+            with self.assertRaises(ValueError):
+                memory._select_prefill(anthropic)
+        with patch.dict(os.environ, {'MSWEA_EXTRACT_PREFILL': 'maybe'}):
+            with self.assertRaises(ValueError):
+                memory._select_prefill(openrouter)
+
+    def test_prefill_is_restored_in_front_of_the_reply(self):
+        # The model continues the prefilled open-marker line; the reply alone has no open marker.
+        model = FakeSelector([('keep m00003\n' + memory.SEL_CLOSE_MARKER, 'stop')])
+        prompt = [{'role': 'system', 'content': 's'}, {'role': 'user', 'content': 'u'},
+                  {'role': 'assistant', 'content': memory.SEL_OPEN_MARKER + '\n'}]
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / 'attempts.jsonl'
+            with patch.dict(os.environ, {'MSWEA_SUMMARY_ATTEMPT_LOG': str(log)}):
+                text, flags, *_ = memory.request_summary(model, prompt, memory.SEL_OPEN_MARKER, memory.SEL_CLOSE_MARKER)
+            rec = json.loads(log.read_text().splitlines()[-1])
+        self.assertEqual(text, f'{memory.SEL_OPEN_MARKER}\nkeep m00003\n{memory.SEL_CLOSE_MARKER}')   # accepted, markers restored
+        self.assertTrue(flags.get('had_open_marker'))
+        self.assertEqual(rec['prefill'], memory.SEL_OPEN_MARKER + '\n')
+        self.assertEqual(rec['content'], 'keep m00003\n' + memory.SEL_CLOSE_MARKER)   # the model's own text
+        self.assertEqual(model.prompts[0][-1]['role'], 'assistant')                    # prefill was sent
+        # Without a prefilled prompt a reply lacking the open marker is still rejected.
+        model = FakeSelector([('keep m00003\n' + memory.SEL_CLOSE_MARKER, 'stop')])
+        text, flags, *_ = memory.request_summary(model, prompt[:2], memory.SEL_OPEN_MARKER, memory.SEL_CLOSE_MARKER, max_attempts=1)
+        self.assertIsNone(text)
 
 
 class OnlineClaudeSelectTests(unittest.TestCase):
@@ -223,14 +327,14 @@ class OnlineClaudeSelectTests(unittest.TestCase):
         selector = FakeSelector([
             selection('keep m00003\nThe agent should now edit foo.py'),   # prose -> unparseable_line
             selection('keep m00099'),                                      # unknown uid
-            selection('keep m00003 L1'),                                   # range on an assistant message
+            selection('keep m00004 L0'),                                   # range out of bounds
             selection('keep m00004 L1'),                                   # accepted
         ])
         agent = self.agent()
         self.run_steps(agent, selector, 4)
         attempts = [json.loads(l) for l in (self.directory / 'summary_attempts.jsonl').read_text().splitlines()]
         self.assertEqual([a['rejected'] for a in attempts],
-                         ['unparseable_line', 'unknown_uid', 'range_on_assistant', None])
+                         ['unparseable_line', 'unknown_uid', 'range_out_of_bounds', None])
         self.assertEqual([a['outcome'] for a in attempts], ['retry', 'fallback', 'retry', 'accepted'])
         recs = self.log()['online_claude_select_events']
         self.assertEqual([r['accepted'] for r in recs], [False, True])

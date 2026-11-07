@@ -258,6 +258,7 @@ class SweBench:
                 agent_timeout=agent_timeout,
                 config=condition.get("config"),
                 compression_ratio=condition.get("depth", compression_ratio),
+                env_overrides=condition.get("env"),
                 **({"adaptive": condition["adaptive"]} if condition.get("adaptive") else {}),
             )
 
@@ -292,8 +293,13 @@ class SweBench:
         config: Path | None = None,
         compression_ratio: float = 0.5,
         adaptive: dict | None = None,
+        env_overrides: dict | None = None,
     ) -> dict:
-        """Run mini-swe-agent for one task, condition, and repetition."""
+        """Run mini-swe-agent for one task, condition, and repetition.
+
+        ``env_overrides`` (a condition's ``env``) is applied last, on top of the
+        launcher's environment, so a condition's defining settings cannot be
+        changed from the shell by accident."""
         key = run_key(instance_id, condition, run_num)
         output_dir = self.results_dir / instance_id / condition / f"run_{run_num}"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -314,6 +320,7 @@ class SweBench:
         })
         env.update(self.agent_environment())
         env = condition_environment(env, {"condition": condition, "adaptive": adaptive}, self.results_dir)
+        env.update({k: str(v) for k, v in (env_overrides or {}).items()})
 
         local_bin = str(Path.home() / ".local" / "bin")
         if local_bin not in env.get("PATH", ""):

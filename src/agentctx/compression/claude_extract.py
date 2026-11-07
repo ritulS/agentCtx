@@ -45,6 +45,17 @@ Settings (all environment variables, read once per process):
   MSWEA_EXTRACT_EFFORT              low | medium | high | xhigh | max (default medium);
                                     openrouter also accepts minimal | none (sent as
                                     `reasoning: {"effort": ...}`).
+  MSWEA_EXTRACT_TEMPERATURE         sampling temperature sent with the request, or
+                                    `none` to omit it. Default 0 for openrouter (greedy
+                                    selector, added 2026-10-26) and none for anthropic
+                                    (Claude with thinking/effort takes no temperature
+                                    other than 1; set it only without thinking).
+  MSWEA_EXTRACT_PREFILL             1 ends the online_claude_select prompt with an
+                                    assistant message holding the "[CONTEXT SELECTION]"
+                                    line, which the model continues (OpenRouter's
+                                    assistant prefill; read by primitives, openrouter
+                                    only, default 0). Keeps a selector from answering
+                                    as the agent instead of with directives.
   MSWEA_EXTRACT_MAX_TOKENS          default 16000
   MSWEA_EXTRACT_TIMEOUT_S           per-request timeout (default 600)
   MSWEA_EXTRACT_FALLBACKS           1 (default) sends the server-side refusal
@@ -126,10 +137,23 @@ def extract_settings() -> dict:
     else:
         model = model or DEFAULT_MODEL
         fallbacks = os.environ.get("MSWEA_EXTRACT_FALLBACKS", "1").strip().lower() not in ("0", "off", "false", "no")
+    raw_temp = os.environ.get("MSWEA_EXTRACT_TEMPERATURE", "").strip().lower()
+    if not raw_temp:
+        raw_temp = "0" if provider == "openrouter" else "none"
+    if raw_temp == "none":
+        temperature = None
+    else:
+        try:
+            temperature = float(raw_temp)
+        except ValueError:
+            raise ValueError(f"MSWEA_EXTRACT_TEMPERATURE must be a number or none, got {raw_temp!r}") from None
+        if not 0.0 <= temperature <= 2.0:
+            raise ValueError(f"MSWEA_EXTRACT_TEMPERATURE must be within 0..2 or none, got {raw_temp!r}")
     settings = {
-        "provider":   provider,
-        "model":      model,
-        "effort":     effort,
+        "provider":    provider,
+        "model":       model,
+        "effort":      effort,
+        "temperature": temperature,
         "max_tokens": int(os.environ.get("MSWEA_EXTRACT_MAX_TOKENS", str(DEFAULT_MAX_TOKENS)) or DEFAULT_MAX_TOKENS),
         "timeout_s":  float(os.environ.get("MSWEA_EXTRACT_TIMEOUT_S", str(DEFAULT_TIMEOUT_S)) or DEFAULT_TIMEOUT_S),
         "fallbacks":  fallbacks,
@@ -253,6 +277,8 @@ class ClaudeExtractModel:
         }
         if system_blocks:
             request["system"] = system_blocks
+        if self.settings.get("temperature") is not None:   # opt-in: MSWEA_EXTRACT_TEMPERATURE
+            request["temperature"] = self.settings["temperature"]
         if self.settings["fallbacks"]:
             # Server-side refusal fallback: a safety decline is re-run on the
             # routed fallback model inside the same call. Passed through
@@ -274,6 +300,8 @@ class ClaudeExtractModel:
             # medium|low|minimal|none); not an OpenAI SDK parameter, so extra_body.
             "extra_body": {"reasoning": {"effort": self.settings["effort"]}},
         }
+        if self.settings.get("temperature") is not None:
+            request["temperature"] = self.settings["temperature"]
         return request
 
     def query(self, messages: list[dict], **kwargs) -> dict:
