@@ -25,6 +25,11 @@ model:
   cost_tracking: ignore_errors
 
 environment:
+  # Container lifetime (mini-swe-agent keeps it alive with `sleep <container_timeout>`,
+  # default 2h): must exceed the agent timeout (AGENT_TIMEOUT, up to 4h in the
+  # isolated fc20 wrapper), otherwise every command after 2h fails with
+  # "no container with name or ID" until the step limit (seen 2026-10-30).
+  container_timeout: "5h"
   env:
     PAGER: cat
     MANPAGER: cat

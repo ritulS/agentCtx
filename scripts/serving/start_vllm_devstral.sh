@@ -1,7 +1,8 @@
 #!/bin/bash
 # Start vLLM serving for Devstral-Small-2-24B-Instruct-2512 on Dobby.
 # 24B dense Mistral 3 architecture (full attention, sliding_window=null).
-# TP=4 on GPUs 4-7 by default. Port 8002 (separate from Qwen / GLM).
+# TP=4 on GPUs 4-7 by default (DEVSTRAL_CUDA_VISIBLE_DEVICES / DEVSTRAL_TENSOR_PARALLEL_SIZE;
+# e.g. 0-7 with TP=8 to occupy the whole machine). Port 8002 (separate from Qwen / GLM).
 #
 # NOTE: no --reasoning-parser: Devstral does not emit thinking (its chat
 # template has no think tags), see scripts/lib/vllm_reasoning.sh.
@@ -18,7 +19,7 @@ set -euo pipefail
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: bash scripts/serving/start_vllm_devstral.sh"
     echo "DEVSTRAL_MAX_MODEL_LEN=native omits --max-model-len (default: 65536)."
-    echo "DEVSTRAL_CUDA_VISIBLE_DEVICES defaults to 4,5,6,7; TP=4."
+    echo "DEVSTRAL_CUDA_VISIBLE_DEVICES defaults to 4,5,6,7; DEVSTRAL_TENSOR_PARALLEL_SIZE to 4."
     exit 0
 fi
 if (( $# != 0 )); then
@@ -30,6 +31,11 @@ WS="${AGENTCTX_WS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 PYTHON_BIN="${DEVSTRAL_VLLM_PYTHON:-$WS/venv/bin/python3}"
 MAX_MODEL_LEN="${DEVSTRAL_MAX_MODEL_LEN:-65536}"
 MAX_NUM_SEQS="${DEVSTRAL_MAX_NUM_SEQS:-64}"
+TP_SIZE="${DEVSTRAL_TENSOR_PARALLEL_SIZE:-4}"
+if ! [[ "$TP_SIZE" =~ ^[1-9][0-9]*$ ]]; then
+    echo "[ERROR] DEVSTRAL_TENSOR_PARALLEL_SIZE must be a positive integer (got '$TP_SIZE')." >&2
+    exit 2
+fi
 CONTEXT_ARGS=()
 if [[ "$MAX_MODEL_LEN" != "native" ]]; then
     CONTEXT_ARGS+=(--max-model-len "$MAX_MODEL_LEN")
@@ -66,7 +72,7 @@ CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
     --model mistralai/Devstral-Small-2-24B-Instruct-2512 \
     --port 8002 \
     --dtype auto \
-    --tensor-parallel-size 4 \
+    --tensor-parallel-size "$TP_SIZE" \
     "${CONTEXT_ARGS[@]}" \
     --max-num-seqs "$MAX_NUM_SEQS" \
     --enable-prefix-caching \
@@ -75,7 +81,7 @@ CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
 VLLM_PID=$!
 echo "$VLLM_PID" > "$PID_FILE"
 disown || true
-echo "[$(date)] vLLM Devstral-Small-2-24B-2512 launched as PID $VLLM_PID"
+echo "[$(date)] vLLM Devstral-Small-2-24B-2512 launched as PID $VLLM_PID (GPUs ${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}, TP=$TP_SIZE)"
 echo "[$(date)] Log: $LOG_FILE"
 echo "[$(date)] $(kv_trace_status)"
 echo "[$(date)] PID file: $PID_FILE"

@@ -95,6 +95,33 @@
 #   VLLM_START_SCRIPT, VLLM_STOP_SCRIPT, VLLM_PID_FILE, VLLM_READY_TIMEOUT_S,
 #   QWEN_HEALTH_URL, DOCKER_HOST, DOCKER_BIN, PURGE_CONTAINERS, BUSY_PATTERN,
 #   ISOLATED_TASKS_DIR (one-task JSON lists; default logs/experiments/isolated_tasks/<R2_MODEL>/)
+#   OPENROUTER_CREDIT_GATE=1 : (INNER=p30s) start a key whose condition is online-claude-*
+#                   only while the OpenRouter key can still spend >= OPENROUTER_MIN_CREDITS
+#                   USD (default 10): the smaller of the account's credits left
+#                   (GET OPENROUTER_CREDITS_URL: total_credits - total_usage) and the
+#                   key's own remaining limit (GET OPENROUTER_QUOTA_URL: limit_remaining,
+#                   when the key has a limit). A paid selector run that hits either
+#                   limit dies mid-run after 3 consecutive 402 / 403 errors (seen
+#                   2026-10-30 and 2026-10-31). Credits do not reset, so once short the
+#                   gated keys are deferred for the rest of the launch and the driver
+#                   stops when nothing else is left (top up or raise the key limit at
+#                   https://openrouter.ai/settings/keys, then rerun: recorded keys are skipped).
+#   OPENROUTER_QUOTA_GATE=1 : (INNER=p30s) start a key whose condition is online-claude-*
+#                   only while the OpenRouter account has >= OPENROUTER_MIN_REMAINING
+#                   (default 320 = the 300-step limit + retry slack) free-model requests
+#                   left in the current UTC day (GET OPENROUTER_QUOTA_URL with
+#                   OPENROUTER_API_KEY or ~/.config/agentctx/openrouter_api_key). Before
+#                   every cycle the first key in plan order that may start runs: a gated
+#                   key when the quota allows, else the next ungated key (su-free, fc,
+#                   ...), so deferred gated keys are retried before every cycle and run
+#                   first after the daily reset; when nothing may start the driver sleeps
+#                   until 00:00 UTC + OPENROUTER_RESET_SLACK_S (300 s). A shortfall is
+#                   remembered until the UTC day changes (one lookup per shortfall day). A failed lookup is
+#                   retried OPENROUTER_QUOTA_TRIES (6) times every OPENROUTER_QUOTA_RETRY_S
+#                   (600 s), then the driver stops. For MSWEA_EXTRACT_PROVIDER=openrouter
+#                   with a :free selector model (1000 requests per UTC day per account,
+#                   one per agent step): a run that hits the cap dies after 3 consecutive
+#                   selector errors, so the gate keeps such runs from starting. Default 0.
 #
 # Usage (Albus; the server is started and stopped by this script, do not start one):
 #   AGENTCTX_PROFILE=albus-swe bash scripts/notify_run.sh --unit r2/swebench/sandbox_isolated/qwen35b-cap4k-sumnothink-iso \
@@ -131,9 +158,22 @@ BUSY_PATTERN="${BUSY_PATTERN-run_r2_swe_(majority_capped_pilot|never7_adaptive|s
 PY3="${PYTHON3:-python3}"
 RUN_EVAL="${RUN_EVAL:-1}"
 SCHEDULE_DIR="${SCHEDULE_DIR:-$WS/configs/adaptive/never7_prefix3}"
+OPENROUTER_QUOTA_GATE="${OPENROUTER_QUOTA_GATE:-0}"
+OPENROUTER_MIN_REMAINING="${OPENROUTER_MIN_REMAINING:-320}"
+OPENROUTER_QUOTA_URL="${OPENROUTER_QUOTA_URL:-https://openrouter.ai/api/v1/key}"
+OPENROUTER_RESET_SLACK_S="${OPENROUTER_RESET_SLACK_S:-300}"
+OPENROUTER_QUOTA_TRIES="${OPENROUTER_QUOTA_TRIES:-6}"
+OPENROUTER_QUOTA_RETRY_S="${OPENROUTER_QUOTA_RETRY_S:-600}"
+OPENROUTER_CREDIT_GATE="${OPENROUTER_CREDIT_GATE:-0}"
+OPENROUTER_MIN_CREDITS="${OPENROUTER_MIN_CREDITS:-10}"
+OPENROUTER_CREDITS_URL="${OPENROUTER_CREDITS_URL:-https://openrouter.ai/api/v1/credits}"
 die() { echo "[ERROR] $*" >&2; exit 1; }
 require_file() { [[ -f "$1" ]] || die "Required file not found: $1"; }
 log() { echo "[$(date)] isolated: $*"; }
+case "$OPENROUTER_QUOTA_GATE" in 0|1) ;; *) die "OPENROUTER_QUOTA_GATE must be 0 | 1 (got '$OPENROUTER_QUOTA_GATE')" ;; esac
+for v in OPENROUTER_MIN_REMAINING OPENROUTER_RESET_SLACK_S OPENROUTER_QUOTA_TRIES OPENROUTER_QUOTA_RETRY_S; do
+    [[ "${!v}" =~ ^[0-9]+$ ]] || die "$v must be a non-negative integer (got '${!v}')"
+done
 
 case "$INNER" in
     pilot)
@@ -294,7 +334,7 @@ for entry in "${PLAN[@]}"; do
 done
 if [[ "$INNER" == pilot ]]; then recipe="SUMMARIZER=$SUMMARIZER (max attempts $SUMMARY_MAX_ATTEMPTS)"
 else recipe="cells: $CELLS | agent config: ${QWEN_AGENT_CONFIG:-configs/config-qwen-vllm.yaml (launcher default)}"; fi
-log "plan: ${#PLAN[@]} keys, $(( ${#PLAN[@]} - ${#PENDING[@]} )) recorded, ${#PENDING[@]} pending | inner: $INNER | server: $SERVER_LIFECYCLE$([[ "$KV_FLUSH" == none ]] || echo " (flush: $KV_FLUSH)") | order: $CYCLE_ORDER | sections: $SECTIONS${PATTERNS:+ | patterns: $PATTERNS} | R2_MODEL=$R2_MODEL | $recipe | eval=$RUN_EVAL | purge=$PURGE_CONTAINERS | profile: ${AGENTCTX_PROFILE:-unset} | server: $VLLM_START_SCRIPT"
+log "plan: ${#PLAN[@]} keys, $(( ${#PLAN[@]} - ${#PENDING[@]} )) recorded, ${#PENDING[@]} pending | inner: $INNER | server: $SERVER_LIFECYCLE$([[ "$KV_FLUSH" == none ]] || echo " (flush: $KV_FLUSH)") | order: $CYCLE_ORDER | sections: $SECTIONS${PATTERNS:+ | patterns: $PATTERNS} | R2_MODEL=$R2_MODEL | $recipe | eval=$RUN_EVAL | purge=$PURGE_CONTAINERS | profile: ${AGENTCTX_PROFILE:-unset} | server: $VLLM_START_SCRIPT | quota gate: $([[ "$OPENROUTER_QUOTA_GATE" == 1 ]] && echo "on (online-claude-* keys need >= $OPENROUTER_MIN_REMAINING free-model requests left)" || echo off)"
 if [[ "${DRY_RUN:-0}" == 1 ]]; then
     log "DRY_RUN=1: nothing started"
     exit 0
@@ -559,6 +599,148 @@ run_cycle() {   # <section> <pattern> <instance> <run> <tasks_file>
     log "<<< $key done"
 }
 
+# ── OpenRouter free-model quota gate (OPENROUTER_QUOTA_GATE=1; see the header) ──
+# Keys whose condition is online-claude-* call the selector once per agent step.
+# On a :free OpenRouter model the account has a fixed number of requests per UTC
+# day, and a run that reaches the cap dies after 3 consecutive selector errors;
+# the gate therefore starts such a key only while enough requests are left for
+# a whole run, defers it otherwise, and waits for the daily reset when nothing
+# else is left to run. Ungated keys (su-free, fc, ...) are never held back.
+QUOTA_REMAINING=; QUOTA_LIMIT=; QUOTA_USED=
+quota_gated() {   # <pattern|cell spec> -> 0 when the key's selector calls are quota-limited
+    [[ "$OPENROUTER_QUOTA_GATE" == 1 && "$INNER" == p30s ]] || return 1
+    local condition="${1#*:}"; condition="${condition%%:*}"
+    [[ "$condition" == online-claude-* ]]
+}
+openrouter_key_value() {
+    if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then echo "$OPENROUTER_API_KEY"; return 0; fi
+    local f="${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key}"
+    [[ -s "$f" ]] || return 1
+    tr -d '[:space:]' < "$f"
+}
+# ── OpenRouter paid-credit gate (OPENROUTER_CREDIT_GATE=1; see the header) ──
+CREDITS_LEFT=; CREDITS_DETAIL=; CREDIT_SHORT=0
+credit_gated() {   # <pattern|cell spec> -> 0 when the key's selector calls spend OpenRouter credits
+    [[ "$OPENROUTER_CREDIT_GATE" == 1 && "$INNER" == p30s ]] || return 1
+    local condition="${1#*:}"; condition="${condition%%:*}"
+    [[ "$condition" == online-claude-* ]]
+}
+openrouter_credits() {   # -> "<usd left> <detail>": min(account credits left, key limit left); nonzero on failure
+    local key acct keyb
+    key="$(openrouter_key_value)" || return 1
+    acct="$(curl -sS --max-time 20 -H "Authorization: Bearer $key" "$OPENROUTER_CREDITS_URL" 2>/dev/null)" || return 1
+    keyb="$(curl -sS --max-time 20 -H "Authorization: Bearer $key" "$OPENROUTER_QUOTA_URL" 2>/dev/null)" || return 1
+    "$PY3" - "$acct" "$keyb" 2>/dev/null <<'PYEOF'
+import json, sys
+a = json.loads(sys.argv[1]).get("data") or {}
+k = json.loads(sys.argv[2]).get("data") or {}
+try:
+    account = float(a["total_credits"]) - float(a["total_usage"])
+except (KeyError, TypeError, ValueError):
+    sys.exit(1)
+left, detail = account, f"account={account:.2f}"
+limit = k.get("limit")
+if isinstance(limit, (int, float)):
+    key_left = k.get("limit_remaining")
+    if not isinstance(key_left, (int, float)):
+        key_left = limit - float(k.get("usage") or 0)
+    left = min(left, float(key_left)); detail += f",key_limit={limit:g},key_left={key_left:.2f}"
+else:
+    detail += ",key_limit=none"
+print(f"{left:.2f} {detail}")
+PYEOF
+}
+credits_ok() {   # <key> -> 0 when the gated key may start (lookup failures do not block)
+    local c
+    if ! c="$(openrouter_credits)"; then log "credit lookup failed ($OPENROUTER_CREDITS_URL / $OPENROUTER_QUOTA_URL); letting $1 start"; return 0; fi
+    read -r CREDITS_LEFT CREDITS_DETAIL <<<"$c"
+    if awk -v l="$CREDITS_LEFT" -v m="$OPENROUTER_MIN_CREDITS" 'BEGIN { exit !(l + 0 >= m + 0) }'; then
+        log "credits: \$$CREDITS_LEFT left ($CREDITS_DETAIL) >= OPENROUTER_MIN_CREDITS=$OPENROUTER_MIN_CREDITS: $1 may start"
+        return 0
+    fi
+    log "credits: \$$CREDITS_LEFT left ($CREDITS_DETAIL) < OPENROUTER_MIN_CREDITS=$OPENROUTER_MIN_CREDITS: $1 deferred"
+    return 1
+}
+credits_allow() {   # <key> -> 0 when a credit-gated key may start now (a shortfall is final: credits do not reset)
+    (( CREDIT_SHORT == 0 )) || return 1
+    credits_ok "$1" && return 0
+    CREDIT_SHORT=1; return 1
+}
+openrouter_quota() {   # -> "<remaining> <limit> <used>" free-model requests for the current UTC day; nonzero on failure
+    local key body
+    key="$(openrouter_key_value)" || return 1
+    body="$(curl -sS --max-time 20 -H "Authorization: Bearer $key" "$OPENROUTER_QUOTA_URL" 2>/dev/null)" || return 1
+    printf '%s' "$body" | "$PY3" -c "
+import json, sys
+d = json.load(sys.stdin).get(\"data\") or {}
+q = d.get(\"free_model_daily_requests\") or {}
+r, l, u = q.get(\"remaining\"), q.get(\"limit\"), q.get(\"used\")
+if not all(isinstance(x, int) for x in (r, l, u)):
+    sys.exit(1)
+print(r, l, u)
+"
+}
+read_quota() {   # fills QUOTA_*; retries a failed lookup, then stops the driver
+    local q tries=0
+    until q="$(openrouter_quota)"; do
+        tries=$(( tries + 1 ))
+        (( tries < OPENROUTER_QUOTA_TRIES )) || die "OpenRouter quota lookup ($OPENROUTER_QUOTA_URL) failed $tries times; stopping (check the key / network, then rerun: recorded keys are skipped)"
+        log "quota lookup failed (attempt $tries/$OPENROUTER_QUOTA_TRIES); retrying in ${OPENROUTER_QUOTA_RETRY_S}s"
+        sleep "$OPENROUTER_QUOTA_RETRY_S" & wait $! || true
+    done
+    read -r QUOTA_REMAINING QUOTA_LIMIT QUOTA_USED <<<"$q"
+}
+quota_ok() {   # <key> -> 0 when enough free-model requests remain for one whole run
+    read_quota
+    if (( QUOTA_REMAINING >= OPENROUTER_MIN_REMAINING )); then
+        log "quota: $QUOTA_REMAINING of $QUOTA_LIMIT free-model requests left today (>= $OPENROUTER_MIN_REMAINING): $1 may start"
+        return 0
+    fi
+    log "quota: $QUOTA_REMAINING of $QUOTA_LIMIT free-model requests left today (< $OPENROUTER_MIN_REMAINING): $1 deferred"
+    return 1
+}
+wait_for_quota_reset() {   # <n deferred> ; sleeps until 00:00 UTC + OPENROUTER_RESET_SLACK_S
+    local now next
+    now="$(date -u +%s)"; next=$(( (now / 86400 + 1) * 86400 + OPENROUTER_RESET_SLACK_S ))
+    log "quota: $1 deferred key(s) and nothing else to run; sleeping $(( next - now )) s until $(date -u -d "@$next" '+%Y-%m-%d %H:%M UTC') ($(date -d "@$next" '+%H:%M %Z') local)"
+    # An asynchronous sleep lets bash handle TERM/INT (the traps) immediately.
+    sleep $(( next - now )) & wait $! || true
+}
+if [[ "$OPENROUTER_QUOTA_GATE" == 1 ]]; then
+    gated=0
+    for entry in "${PENDING[@]}"; do
+        read -r _ pat _ <<<"$entry"
+        if quota_gated "$pat"; then gated=1; break; fi
+    done
+    if (( gated )); then
+        openrouter_key_value >/dev/null \
+            || die "OPENROUTER_QUOTA_GATE=1 needs OPENROUTER_API_KEY or ${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key} (chmod 600)"
+        openrouter_quota >/dev/null || die "OpenRouter quota lookup failed at start ($OPENROUTER_QUOTA_URL); check the key and the network"
+        read_quota
+        (( QUOTA_LIMIT >= OPENROUTER_MIN_REMAINING )) \
+            || die "the account's free-model daily limit ($QUOTA_LIMIT) is below OPENROUTER_MIN_REMAINING=$OPENROUTER_MIN_REMAINING, so no online-claude-* key could ever start (buy 10 credits for the 1000/day tier, or lower the margin)"
+        log "quota gate: $QUOTA_REMAINING of $QUOTA_LIMIT free-model requests left today (used $QUOTA_USED); online-claude-* keys start only with >= $OPENROUTER_MIN_REMAINING left, the other keys run meanwhile, waits end at 00:00 UTC + ${OPENROUTER_RESET_SLACK_S}s"
+    else
+        log "quota gate: on, but no pending key has an online-claude-* condition; nothing is gated"
+    fi
+fi
+if [[ "$OPENROUTER_CREDIT_GATE" == 1 ]]; then
+    cgated=0
+    for entry in "${PENDING[@]}"; do
+        read -r _ pat _ <<<"$entry"
+        if credit_gated "$pat"; then cgated=1; break; fi
+    done
+    if (( cgated )); then
+        openrouter_key_value >/dev/null \
+            || die "OPENROUTER_CREDIT_GATE=1 needs OPENROUTER_API_KEY or ${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key} (chmod 600)"
+        c="$(openrouter_credits)" || die "OpenRouter credit lookup failed at start ($OPENROUTER_CREDITS_URL / $OPENROUTER_QUOTA_URL); check the key and the network"
+        read -r CREDITS_LEFT CREDITS_DETAIL <<<"$c"
+        log "credit gate: \$$CREDITS_LEFT spendable ($CREDITS_DETAIL); online-claude-* keys start only with >= \$$OPENROUTER_MIN_CREDITS left, the other keys run regardless; a shortfall stops the driver once nothing else is left"
+    else
+        log "credit gate: on, but no pending key has an online-claude-* condition; nothing is gated"
+    fi
+fi
+
 OWNS_MACHINE=1
 mkdir -p "$TASKS_DIR"
 start_watchdog
@@ -569,11 +751,46 @@ if [[ "$SERVER_LIFECYCLE" == persistent && ${#PENDING[@]} -gt 0 ]]; then
     start_vllm
     wait_ready
 fi
+# Scheduling with the gate: before every cycle the queue is scanned in plan
+# order and the first key that may start runs: a gated key when the quota
+# allows it, else the next ungated key. Deferred gated keys are therefore
+# retried before every cycle, so the first run after the daily reset is an
+# online-claude-* one even in the middle of a long su-free / fc stretch. A
+# shortfall is remembered for the rest of the UTC day (the remaining count
+# only falls until the reset), so the quota endpoint is asked once per day
+# per shortfall plus once per gated key that starts.
 n=0
-for entry in "${PENDING[@]}"; do
-    n=$(( n + 1 ))
-    log "=== cycle $n/${#PENDING[@]} ==="
+waited=0; ran_since_wait=1
+QUOTA_SHORT=0; QUOTA_SHORT_DAY=""
+quota_allows() {   # <key> -> 0 when a gated key may start now
+    local today; today="$(date -u +%Y-%m-%d)"
+    if (( QUOTA_SHORT )) && [[ "$QUOTA_SHORT_DAY" == "$today" ]]; then return 1; fi
+    if quota_ok "$1"; then QUOTA_SHORT=0; return 0; fi
+    QUOTA_SHORT=1; QUOTA_SHORT_DAY="$today"; return 1
+}
+QUEUE=("${PENDING[@]}")
+while (( ${#QUEUE[@]} > 0 )); do
+    picked=-1
+    for i in "${!QUEUE[@]}"; do
+        read -r section pat instance r tasks_file <<<"${QUEUE[$i]}"
+        if quota_gated "$pat" && ! quota_allows "$(plan_key "$pat" "$instance" "$r")"; then continue; fi
+        if credit_gated "$pat" && ! credits_allow "$(plan_key "$pat" "$instance" "$r")"; then continue; fi
+        picked=$i; break
+    done
+    if (( picked < 0 )); then
+        (( CREDIT_SHORT == 0 )) \
+            || die "${#QUEUE[@]} key(s) left but the OpenRouter credits (\$${CREDITS_LEFT:-?} spendable: ${CREDITS_DETAIL:-?}) are below OPENROUTER_MIN_CREDITS=$OPENROUTER_MIN_CREDITS; stopping (top up or raise the key limit at https://openrouter.ai/settings/keys, then rerun: recorded keys are skipped)"
+        (( waited == 0 || ran_since_wait == 1 )) \
+            || die "no key could start even right after the quota reset (remaining ${QUOTA_REMAINING:-?} < OPENROUTER_MIN_REMAINING=$OPENROUTER_MIN_REMAINING); stopping"
+        wait_for_quota_reset "${#QUEUE[@]}"
+        waited=1; ran_since_wait=0; QUOTA_SHORT=0
+        continue
+    fi
+    entry="${QUEUE[$picked]}"
+    unset 'QUEUE[picked]'; QUEUE=("${QUEUE[@]}")
     read -r section pat instance r tasks_file <<<"$entry"
+    n=$(( n + 1 )); ran_since_wait=1
+    log "=== cycle $n/${#PENDING[@]} ==="
     run_cycle "$section" "$pat" "$instance" "$r" "$tasks_file"
 done
 log "complete: ${#PENDING[@]} run(s) executed into data/r2/swebench/<section>/$R2_MODEL/"

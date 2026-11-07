@@ -29,7 +29,9 @@
 # should pass --foreground.
 #
 # Environment:
-#   SLACK_WEBHOOK_URL   incoming-webhook URL (required unless ALLOW_NO_SLACK=1;
+#   SLACK_WEBHOOK_URL   incoming-webhook URL; when unset, read from
+#                       ~/.config/agentctx/slack_webhook (SLACK_WEBHOOK_FILE)
+#                       if that file exists (required unless ALLOW_NO_SLACK=1;
 #                       with ALLOW_NO_SLACK=1 and no URL, notices are skipped)
 #   NOTIFY_PYTHON       interpreter for dashboard/notify_slack.py (default: python3)
 #   AGENTCTX_WS         repository root (default: derived from this file)
@@ -102,8 +104,13 @@ if [[ -n "$LOCK_NAME" && "$DETACHED" != "1" ]]; then
     flock -n 9 || { echo "notify_run.sh: '$LOCK_NAME' is already running ($EXPERIMENT_LOG_DIR/${LOCK_NAME}.lock)." >&2; exit 1; }
 fi
 
+SLACK_WEBHOOK_FILE="${SLACK_WEBHOOK_FILE:-$HOME/.config/agentctx/slack_webhook}"
+if [[ -z "${SLACK_WEBHOOK_URL:-}" && -s "$SLACK_WEBHOOK_FILE" ]]; then
+    SLACK_WEBHOOK_URL="$(tr -d '[:space:]' < "$SLACK_WEBHOOK_FILE")"
+    export SLACK_WEBHOOK_URL
+fi
 if [[ -z "${SLACK_WEBHOOK_URL:-}" && "${ALLOW_NO_SLACK:-0}" != "1" ]]; then
-    echo "notify_run.sh: export SLACK_WEBHOOK_URL before launching (or ALLOW_NO_SLACK=1 to run silently)." >&2
+    echo "notify_run.sh: export SLACK_WEBHOOK_URL or put the URL in $SLACK_WEBHOOK_FILE before launching (or ALLOW_NO_SLACK=1 to run silently)." >&2
     exit 2
 fi
 

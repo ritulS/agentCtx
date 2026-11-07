@@ -42,7 +42,8 @@
 # Overrides: R2_SECTION (p30s | p100_minus_p30s; also picks the default TASKS_FILE),
 #   R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
 #   TASKS_FILE), TASKS_FILE, QWEN_AGENT_CONFIG, QWEN_OTRC_CONFIG, QWEN_TAG,
-#   RUN_EVAL, QWEN_HEALTH_URL, CELLS.
+#   RUN_EVAL, QWEN_HEALTH_URL, CELLS, AGENT_TIMEOUT / STEP_LIMIT (runner defaults
+#   5400 s / 300 when unset).
 # Completed task/condition/run keys are skipped on rerun.
 set -euo pipefail
 
@@ -94,6 +95,16 @@ if [[ -n "$N_TASKS" ]]; then
     [[ "$N_TASKS" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] N_TASKS must be a positive integer: $N_TASKS" >&2; exit 1; }
     EXTRA_ARGS+=(--n-tasks "$N_TASKS")
 fi
+# AGENT_TIMEOUT / STEP_LIMIT (seconds / steps per run) override the runner's
+# defaults (5400 s / 300) and are recorded in run_info.json; unset = defaults.
+if [[ -n "${AGENT_TIMEOUT:-}" ]]; then
+    [[ "$AGENT_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] AGENT_TIMEOUT must be a positive integer (seconds): $AGENT_TIMEOUT" >&2; exit 1; }
+    EXTRA_ARGS+=(--agent-timeout "$AGENT_TIMEOUT")
+fi
+if [[ -n "${STEP_LIMIT:-}" ]]; then
+    [[ "$STEP_LIMIT" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] STEP_LIMIT must be a positive integer: $STEP_LIMIT" >&2; exit 1; }
+    EXTRA_ARGS+=(--step-limit "$STEP_LIMIT")
+fi
 
 # budget_of <cell>: the token budget encoded in the cell name.
 budget_of() {
@@ -129,7 +140,7 @@ agent_api_base="$(sed -n 's/^[[:space:]]*api_base:[[:space:]]*"\{0,1\}\([^"]*\)"
 
 log() { echo "[$(date)] $*" | emit; }
 log "=== r2 SWE-Bench $R2_SECTION | dest: data/r2/swebench/$R2_SECTION/$R2_MODEL | preset: $PRESET | agent: $AGENT_CONFIG | summarizer: agent model ==="
-log "=== runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL ==="
+log "=== runs/task=$RUNS_PER_TASK tasks=$(basename "$TASKS_FILE")${N_TASKS:+ (first $N_TASKS)} workers=$MAX_WORKERS eval=$RUN_EVAL${AGENT_TIMEOUT:+ agent_timeout=${AGENT_TIMEOUT}s}${STEP_LIMIT:+ step_limit=$STEP_LIMIT} ==="
 
 # run_runner <cell> <condition> <depth> <budget> [extra runner args]
 run_runner() {
