@@ -9,6 +9,11 @@
 # NOTE: NOT using --tool-call-parser since mini-swe-agent talks to vLLM via
 # litellm_textbased (raw completions), not OpenAI function-calling. Adding
 # the parser flag changes generation behavior even in textbased mode.
+# NOTE: --enable-prompt-tokens-details (since 2026-11-12) makes vLLM report
+# usage.prompt_tokens_details.cached_tokens, which the agent records per call
+# (cached_tokens / uncached_prompt_tokens / cache_hit_rate in token_log.json's
+# model_call_records; cache_usage_status "unavailable" when a server lacks it).
+# Servers before this date (the fc25 FC / OCSA campaigns) reported nothing.
 #
 # Usage:  bash scripts/serving/start_vllm_devstral.sh
 # Native context: DEVSTRAL_MAX_MODEL_LEN=native bash scripts/serving/start_vllm_devstral.sh
@@ -76,6 +81,7 @@ CUDA_VISIBLE_DEVICES="${DEVSTRAL_CUDA_VISIBLE_DEVICES:-4,5,6,7}" \
     "${CONTEXT_ARGS[@]}" \
     --max-num-seqs "$MAX_NUM_SEQS" \
     --enable-prefix-caching \
+    --enable-prompt-tokens-details \
     < /dev/null > "$LOG_FILE" 2>&1 &
 
 VLLM_PID=$!

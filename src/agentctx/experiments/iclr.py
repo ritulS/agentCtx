@@ -40,12 +40,21 @@ CONDITION_TO_PRIMITIVE = {
     "online-claude-extract": "oce",
     "online-claude-select": "ocs",
     "online-claude-select-anchored": "ocsa",
+    "online-claude-select-incremental": "ocsi",
+    "online-claude-select-threshold": "ocst",
+    "online-claude-select-threshold-output-extract": "ocstx",
+    "online-claude-select-threshold-output-extract-15k": "ocstx15",
+    "online-claude-select-threshold-output-extract-15k-phase": "ocstx15p",
+    "clm": "clm",
     # Length-free summaries (depth-invariant: no word target, so ``di__`` cells).
     "summarization-free": "su-free",
     "structured-summarize-free": "ss-free",
 }
 INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc", "online-claude-extract", "online-claude-select",
-                              "online-claude-select-anchored"}
+                              "online-claude-select-anchored", "online-claude-select-incremental",
+                              "online-claude-select-threshold", "online-claude-select-threshold-output-extract",
+                              "online-claude-select-threshold-output-extract-15k",
+                              "online-claude-select-threshold-output-extract-15k-phase"}
 
 
 def canonical_cell(
