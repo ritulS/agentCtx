@@ -1568,6 +1568,21 @@ def select_source() -> str:
     return raw
 
 
+def select_backend() -> str:
+    """Which selector answers online_claude_select(), MSWEA_SELECT_BACKEND:
+    ``model`` (default) is the generative selector of claude_extract.py (one
+    call over the complete history, keep/drop directives, line ranges);
+    ``jev`` (added 2026-11-17; the online-jev-select conditions) asks TypeSafe's
+    Jev decision model one noul question PER HISTORY MESSAGE, in parallel, and
+    keeps the messages whose probability clears MSWEA_JEV_KEEP_THRESHOLD, ranked
+    by probability under MSWEA_SELECT_CAP (agentctx.compression.jev_select).
+    Whole messages only: Jev returns no text, so there are no line ranges."""
+    raw = os.environ.get("MSWEA_SELECT_BACKEND", "model").strip().lower() or "model"
+    if raw not in ("model", "jev"):
+        raise ValueError(f"MSWEA_SELECT_BACKEND must be model | jev, got {raw!r}")
+    return raw
+
+
 def _select_prefill(extract_model, open_marker: str = SEL_OPEN_MARKER) -> str:
     """The assistant prefill for the selector reply (MSWEA_EXTRACT_PREFILL=1):
     the prompt then ends with an assistant message holding the open marker line,
@@ -1673,6 +1688,24 @@ def online_claude_select(
     says so, and what is dropped cannot return. The selection record then
     carries ``source``.
 
+    ``MSWEA_SELECT_BACKEND=jev`` (select_backend(); added 2026-11-17) replaces
+    the single generative selector call by one Jev decision-model question per
+    window message, in parallel (agentctx.compression.jev_select): a message is
+    kept whole when its "still needed" probability clears the threshold (plus
+    the anchor bonus for messages in the previous context when anchoring is
+    on), and under a cap the kept messages are ranked by probability and taken
+    while they fit, so no reply is ever rejected or re-queried. With
+    ``MSWEA_JEV_SELECT_LINES=<tokens>`` (added 2026-11-18) a kept observation
+    above that size is judged line by line as well (jev_select.trim_observations,
+    the line judge of the per-output pre-extraction) and kept as line ranges,
+    rendered by apply_selection() like a generative ``keep <uid> L<a>-<b>``;
+    the cap admits it by its trimmed size. The window, kept tail, rebuild,
+    selection record and logs are those of the default backend; the record
+    additionally carries ``backend`` and ``jev`` (the per-uid probabilities,
+    threshold, request counts, usage, and the per-uid ``lines`` records when
+    line selection is on). The outcome published for the agent counts one
+    attempt per Jev request, line requests included.
+
     Returns (new_message_list, tokens_saved, prompt_tokens_used,
     completion_tokens_used, latency_s); tokens_saved is relative to
     ``full_messages`` (the complete history, i.e. what full context would
@@ -1711,11 +1744,40 @@ def online_claude_select(
     if cap:
         budget_window = max(0, cap - count_tokens(protected) - count_tokens(kept))
 
-    selection, flags, prompt_toks, completion_toks, latency_s = _select_with_model(
-        full_messages, window, tags, budget_window, source, anchor_style, prev_in_window)
-    if selection is None:
-        _mark_summary_fallback("unchanged")
-        return messages, 0, prompt_toks, completion_toks, latency_s
+    backend = select_backend()
+    jev_record: dict | None = None
+    if backend == "jev":
+        from agentctx.compression.jev_select import jev_select_window
+        # The outcome slot is published before the requests so an exception
+        # leaves the usage of the completed judgements salvageable (the agent
+        # reads it like an interrupted request_summary()).
+        outcome = {
+            "attempts": 0, "accepted": False, "rejections": [], "flags": {}, "fallback": None,
+            "response_ids": [], "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0,
+            "interrupted": None, "interrupted_attempt": None, "backend": "jev",
+        }
+        _set_summary_outcome(outcome)
+        try:
+            selection, jev_record, prompt_toks, completion_toks, latency_s, _ids = jev_select_window(
+                _history_text(full_messages[1:N_PROTECTED]), window, kept, prev_uids,
+                budget_tokens=budget_window, render=_select_render_message, anchor=anchor,
+                token_of=lambda m: count_tokens([m]), progress=outcome,
+            )
+        except BaseException as exc:
+            outcome["interrupted"] = type(exc).__name__
+            outcome["interrupted_attempt"] = outcome.get("attempts") or None
+            raise
+        outcome.update({"accepted": True, "latency_s": latency_s,
+                        "attempts": jev_record["requests"] + jev_record.get("line_requests", 0),
+                        "prompt_tokens": prompt_toks, "completion_tokens": completion_toks,
+                        "response_ids": list(_ids)})
+        flags = outcome["flags"]
+    else:
+        selection, flags, prompt_toks, completion_toks, latency_s = _select_with_model(
+            full_messages, window, tags, budget_window, source, anchor_style, prev_in_window)
+        if selection is None:
+            _mark_summary_fallback("unchanged")
+            return messages, 0, prompt_toks, completion_toks, latency_s
 
     chosen = apply_selection(window, selection)
     new_messages = protected + chosen + kept
@@ -1736,6 +1798,9 @@ def online_claude_select(
     }
     if source != "full":
         record["source"] = source
+    if jev_record is not None:
+        record["backend"] = "jev"
+        record["jev"] = jev_record
     if anchor or cap:
         # Stability against the previous context and the cap actually applied.
         in_prev = {u for u in (_msg_uid(m) for m in window) if u and u in prev_uids}
@@ -1777,6 +1842,56 @@ def output_extract_threshold() -> int:
     if above < 0:
         raise ValueError(f"MSWEA_OUTPUT_EXTRACT_ABOVE must be a non-negative token count, got {raw!r}")
     return above
+
+
+def output_extract_backend() -> str:
+    """Which extractor answers extract_tool_output(), MSWEA_OUTPUT_EXTRACT_BACKEND:
+    ``model`` (default) is the generative extractor of claude_extract.py (one call
+    per output, keep/drop directives with line ranges); ``jev`` (added
+    2026-11-17) asks TypeSafe's Jev one noul question PER LINE (or per block of
+    MSWEA_JEV_LINE_BLOCK lines) of the output in one request, and keeps the lines
+    whose probability clears MSWEA_JEV_LINE_THRESHOLD
+    (agentctx.compression.jev_select.jev_extract_output). Independent of
+    MSWEA_SELECT_BACKEND: a Jev selector may run with the generative line
+    extractor (ojstx) and the other way round."""
+    raw = os.environ.get("MSWEA_OUTPUT_EXTRACT_BACKEND", "model").strip().lower() or "model"
+    if raw not in ("model", "jev"):
+        raise ValueError(f"MSWEA_OUTPUT_EXTRACT_BACKEND must be model | jev, got {raw!r}")
+    return raw
+
+
+def _output_extract_with_jev(observation: dict, command_msg: dict | None, task_text: str,
+                             uid: str) -> tuple[dict, dict, dict, int, int, float]:
+    """The Jev branch of extract_tool_output(): returns (selection, flags,
+    jev_record, prompt_tokens, completion_tokens, latency_s) with ``selection``
+    in parse_selection()'s shape ({uid: None} whole, {uid: ranges} trimmed, {}
+    every line omitted). The summary outcome is published before the requests
+    like the Jev selector's, so an exception leaves the usage salvageable."""
+    from agentctx.compression.jev_select import jev_extract_output
+    outcome = {
+        "attempts": 0, "accepted": False, "rejections": [], "flags": {}, "fallback": None,
+        "response_ids": [], "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0,
+        "interrupted": None, "interrupted_attempt": None, "backend": "jev",
+    }
+    _set_summary_outcome(outcome)
+    command_text = _select_render_message(command_msg) if command_msg else ""
+    try:
+        ranges, jev_record, prompt_toks, completion_toks, latency_s, ids = jev_extract_output(
+            task_text, command_text, _msg_text(observation), uid, progress=outcome)
+    except BaseException as exc:
+        outcome["interrupted"] = type(exc).__name__
+        outcome["interrupted_attempt"] = outcome.get("attempts") or None
+        raise
+    outcome.update({"accepted": True, "attempts": jev_record["requests"], "latency_s": latency_s,
+                    "prompt_tokens": prompt_toks, "completion_tokens": completion_toks,
+                    "response_ids": list(ids)})
+    if ranges is None:
+        selection: dict = {uid: None}
+    elif not ranges:
+        selection = {}
+    else:
+        selection = {uid: [tuple(r) for r in ranges]}
+    return selection, outcome["flags"], jev_record, prompt_toks, completion_toks, latency_s
 
 
 def _output_extract_prompt(extract_model, task_text: str, command_msg: dict | None,
@@ -1863,35 +1978,42 @@ def extract_tool_output(
     uid = _msg_uid(observation)
     if not uid:
         raise ValueError("extract_tool_output needs an observation with extra.uid")
-    from agentctx.compression.claude_extract import get_extract_model
-    extract_model = get_extract_model()
-    prompt  = _output_extract_prompt(extract_model, task_text, command_msg, observation)
-    prefill = _select_prefill(extract_model)
-    if prefill:
-        prompt.append({"role": "assistant", "content": prefill})
-    parsed: dict = {}
-
-    def _validate(body: str) -> str | None:
-        body = "\n".join(f"keep {uid}" if _OE_KEEP_ALL_RE.match(line.strip()) else line
-                         for line in body.split("\n"))
-        sel, why = parse_selection(body, [observation], {uid})
-        if why:
-            return why
-        parsed["selection"] = sel
-        return None
-
-    text, flags, prompt_toks, completion_toks, latency_s = request_summary(
-        extract_model, prompt, SEL_OPEN_MARKER, SEL_CLOSE_MARKER, validate=_validate,
-    )
     total_lines   = len(_msg_text(observation).split("\n"))
     tokens_before = count_tokens([observation])
     record = {"uid": uid, "lines_total": total_lines, "tokens_before": tokens_before}
-    if text is None or "selection" not in parsed:
-        _mark_summary_fallback("unchanged")
-        record.update({"outcome": "unchanged", "lines_kept": total_lines,
-                       "tokens_after": tokens_before, "keep": None})
-        return None, record, prompt_toks, completion_toks, latency_s
-    selection = parsed["selection"]
+    jev_record: dict | None = None
+    if output_extract_backend() == "jev":
+        selection, flags, jev_record, prompt_toks, completion_toks, latency_s = _output_extract_with_jev(
+            observation, command_msg, task_text, uid)
+        record["backend"] = "jev"
+        record["jev"] = jev_record
+    else:
+        from agentctx.compression.claude_extract import get_extract_model
+        extract_model = get_extract_model()
+        prompt  = _output_extract_prompt(extract_model, task_text, command_msg, observation)
+        prefill = _select_prefill(extract_model)
+        if prefill:
+            prompt.append({"role": "assistant", "content": prefill})
+        parsed: dict = {}
+
+        def _validate(body: str) -> str | None:
+            body = "\n".join(f"keep {uid}" if _OE_KEEP_ALL_RE.match(line.strip()) else line
+                             for line in body.split("\n"))
+            sel, why = parse_selection(body, [observation], {uid})
+            if why:
+                return why
+            parsed["selection"] = sel
+            return None
+
+        text, flags, prompt_toks, completion_toks, latency_s = request_summary(
+            extract_model, prompt, SEL_OPEN_MARKER, SEL_CLOSE_MARKER, validate=_validate,
+        )
+        if text is None or "selection" not in parsed:
+            _mark_summary_fallback("unchanged")
+            record.update({"outcome": "unchanged", "lines_kept": total_lines,
+                           "tokens_after": tokens_before, "keep": None})
+            return None, record, prompt_toks, completion_toks, latency_s
+        selection = parsed["selection"]
     spans = selection.get(uid, "drop")
     new_content = None
     if spans is None:
@@ -2585,6 +2707,11 @@ def token_log_dict(agent) -> dict:
             or getattr(agent, "_mem_phase_judge_events", None)):
         from agentctx.compression.claude_extract import extract_model_info
         data["extract_model"] = extract_model_info()
+    if getattr(agent, "_mem_online_claude_select_events", None):
+        data["select_backend"] = select_backend()
+        if data["select_backend"] == "jev":
+            from agentctx.compression.jev_select import jev_model_info
+            data["jev_model"] = jev_model_info()
     if getattr(agent, "_clm", None) is not None:
         # ── CLM self-editing (agentctx.compression.clm): the agent's own edits of
         #    the context mirror, nudges and rollbacks. These are not budget

@@ -71,6 +71,37 @@
 #                                           "continue"), and fires without asking above
 #                                           30000 tokens (MSWEA_PHASE_GATE_FORCE_ABOVE). Not
 #                                           part of `all`.
+#   ojs                 di__binf__ojs       online-jev-select (added 2026-11-17): the selector
+#                                           backend switched to TypeSafe's Jev decision model
+#                                           (MSWEA_SELECT_BACKEND=jev): every history message is
+#                                           judged ON ITS OWN, in parallel, with a noul question
+#                                           ("the agent still needs this message") and kept whole
+#                                           when its probability clears 0.5 (+0.15 for messages in
+#                                           the previous context); under the 30000-token cap the
+#                                           kept messages are ranked by probability. No line
+#                                           ranges, no re-queries. Needs TYPESAFE_API_KEY (or
+#                                           ~/.config/agentctx/typesafe_api_key); the OpenRouter
+#                                           selector settings below are unused. Not part of `all`.
+#   ojst                di__binf__ojst      online-jev-select-threshold (added 2026-11-17): the
+#                                           Jev backend fired like ocst (above 30000 tokens,
+#                                           cap 20000). Not part of `all`.
+#   ojstx               di__binf__ojstx     online-jev-select-threshold-output-extract (added
+#                                           2026-11-17): ojst plus the ocstx per-output
+#                                           pre-extraction, which still uses the OpenRouter
+#                                           extractor model (both keys needed). Not part of `all`.
+#   ojstl               di__binf__ojstl     online-jev-select-threshold-lines (added 2026-11-18):
+#                                           ojst plus line-level selection by Jev at firing time
+#                                           (MSWEA_JEV_SELECT_LINES=1000: a kept observation above
+#                                           1000 tokens is judged line by line and kept as line
+#                                           ranges; top 15% of lines + 1 line pad). Jev key only.
+#                                           Not part of `all`.
+#   ojstl15             di__binf__ojstl15   online-jev-select-threshold-15k-lines (added
+#                                           2026-11-18): ojstl at the ojst15 threshold / cap
+#                                           (15000 / 10000). Not part of `all`.
+#   ojstxj              di__binf__ojstxj    online-jev-select-threshold-jev-output-extract (added
+#                                           2026-11-18): ojstx with the per-output pre-extraction
+#                                           answered by Jev (MSWEA_OUTPUT_EXTRACT_BACKEND=jev), so
+#                                           the Jev key alone suffices. Not part of `all`.
 #   su-free             di__b21k__su-free   length-free summarization at Devstral's
 #                                           primary ICLR budget 21k, summarizer = the
 #                                           agent model
@@ -183,6 +214,13 @@ CELL_OCST="di__binf__ocst:online-claude-select-threshold:0.5"
 CELL_OCSTX="di__binf__ocstx:online-claude-select-threshold-output-extract:0.5"
 CELL_OCSTX15="di__binf__ocstx15:online-claude-select-threshold-output-extract-15k:0.5"
 CELL_OCSTX15P="di__binf__ocstx15p:online-claude-select-threshold-output-extract-15k-phase:0.5"
+CELL_OJS="di__binf__ojs:online-jev-select:0.5"
+CELL_OJST="di__binf__ojst:online-jev-select-threshold:0.5"
+CELL_OJST15="di__binf__ojst15:online-jev-select-threshold-15k:0.5"
+CELL_OJSTX="di__binf__ojstx:online-jev-select-threshold-output-extract:0.5"
+CELL_OJSTL="di__binf__ojstl:online-jev-select-threshold-lines:0.5"
+CELL_OJSTL15="di__binf__ojstl15:online-jev-select-threshold-15k-lines:0.5"
+CELL_OJSTXJ="di__binf__ojstxj:online-jev-select-threshold-jev-output-extract:0.5"
 CELL_SUFREE="di__b21k__su-free:summarization-free:0.5"
 CELL_FC="di__binf__fc:full-context:0.5"
 case "$PRESET" in
@@ -193,10 +231,17 @@ case "$PRESET" in
     ocstx)   default_cells="$CELL_OCSTX" ;;
     ocstx15) default_cells="$CELL_OCSTX15" ;;
     ocstx15p) default_cells="$CELL_OCSTX15P" ;;
+    ojs)     default_cells="$CELL_OJS" ;;
+    ojst)    default_cells="$CELL_OJST" ;;
+    ojst15)  default_cells="$CELL_OJST15" ;;
+    ojstx)   default_cells="$CELL_OJSTX" ;;
+    ojstl)   default_cells="$CELL_OJSTL" ;;
+    ojstl15) default_cells="$CELL_OJSTL15" ;;
+    ojstxj)  default_cells="$CELL_OJSTXJ" ;;
     su-free) default_cells="$CELL_SUFREE" ;;
     fc)      default_cells="$CELL_FC" ;;
     all)     default_cells="$CELL_OCS $CELL_SUFREE $CELL_FC" ;;
-    *) echo "[ERROR] preset must be ocs | ocsa | ocsi | ocst | ocstx | ocstx15 | ocstx15p | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
+    *) echo "[ERROR] preset must be ocs | ocsa | ocsi | ocst | ocstx | ocstx15 | ocstx15p | ojs | ojst | ojst15 | ojstx | ojstl | ojstl15 | ojstxj | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
 esac
 export CELLS="${CELLS:-$default_cells}"
 export N_TASKS="${N_TASKS:-1}"
@@ -292,7 +337,25 @@ fi
 # The OCS cell calls the selector from inside every agent run: check the key
 # before the first server start rather than minutes in. Skipped for DRY_RUN=1
 # (the plan can be printed on a machine without the key).
-if [[ ( " $CELLS " == *":online-claude-"* || " $CELLS " == *"-output-extract"* ) && "${DRY_RUN:-0}" != 1 ]]; then
+if [[ " $CELLS " == *":online-jev-"* && "${DRY_RUN:-0}" != 1 ]]; then
+    key_file="${AGENTCTX_TYPESAFE_API_KEY_FILE:-$HOME/.config/agentctx/typesafe_api_key}"
+    if [[ -z "${TYPESAFE_API_KEY:-}" && ! -s "$key_file" ]]; then
+        echo "[ERROR] the Jev cells need a TypeSafe key: export TYPESAFE_API_KEY or write it to $key_file (chmod 600);" >&2
+        echo "        check with: venv/bin/python scripts/maintenance/probe_jev_select.py <run_dir> --steps 10" >&2
+        exit 1
+    fi
+fi
+# The extractor model's key is needed by every online-claude cell and by the output
+# pre-extraction, except where Jev answers it (the -jev-output-extract cells, ojstxj).
+needs_extractor=0
+for cell in $CELLS; do
+    case "$cell" in
+        *:online-claude-*)      needs_extractor=1 ;;
+        *-jev-output-extract*)  ;;
+        *-output-extract*)      needs_extractor=1 ;;
+    esac
+done
+if [[ "$needs_extractor" == 1 && "${DRY_RUN:-0}" != 1 ]]; then
     if [[ "$MSWEA_EXTRACT_PROVIDER" == openrouter ]]; then
         key_file="${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key}"
         if [[ -z "${OPENROUTER_API_KEY:-}" && ! -s "$key_file" ]]; then

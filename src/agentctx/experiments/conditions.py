@@ -125,6 +125,80 @@ CONDITIONS = [
      "env": {"MSWEA_SELECT_ANCHOR": "trailing", "MSWEA_SELECT_CAP": "10000", "MSWEA_EXTRACT_FIRE_ABOVE": "15000",
              "MSWEA_OUTPUT_EXTRACT_ABOVE": "1000",
              "MSWEA_PHASE_GATE": "1", "MSWEA_PHASE_GATE_FORCE_ABOVE": "30000"}},
+    # online-jev-select (2026-11-17, cell tag ojs): the online_claude_select primitive with the
+    # selector backend switched to TypeSafe's Jev decision model (MSWEA_SELECT_BACKEND=jev;
+    # agentctx.compression.jev_select). Instead of one generative call over the complete
+    # history, every history message is judged ON ITS OWN, in parallel, with a noul question
+    # ("the agent still needs this message to finish the task", shown the task statement, the
+    # agent's newest turn and the candidate) and kept whole when its probability clears
+    # MSWEA_JEV_KEEP_THRESHOLD (0.5), plus the MSWEA_JEV_ANCHOR_BONUS (0.15) for a message that
+    # was in the agent's context at the previous step (the anchoring, MSWEA_SELECT_ANCHOR=1, is
+    # a hysteresis here: no tags, no prompt). Under the 30000-token cap (as ocsa) the kept
+    # messages are ranked by probability and taken while they fit: no reply is ever rejected
+    # or re-queried. Jev returns typed values only, so there are no line ranges and it never
+    # writes a word the agent reads; each judgement is local (Jev cannot see that a message
+    # is redundant with or superseded by another), which is the comparison the cell makes.
+    # Needs TYPESAFE_API_KEY (or ~/.config/agentctx/typesafe_api_key); the OpenRouter /
+    # Anthropic extractor settings are unused.
+    {"condition": "online-jev-select", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_BACKEND": "jev", "MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "30000"}},
+    # online-jev-select-threshold (2026-11-17, cell tag ojst): the Jev backend fired like ocst,
+    # only while the context exceeds 30000 tokens, rebuilding it under a 20000-token cap, so
+    # the context is append-only between firings (prefix cache) and the per-message
+    # judgements run a few times per run instead of before every step.
+    {"condition": "online-jev-select-threshold", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_BACKEND": "jev", "MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "20000",
+             "MSWEA_EXTRACT_FIRE_ABOVE": "30000"}},
+    # online-jev-select-threshold-15k (2026-11-18, cell tag ojst15): ojst with the firing
+    # threshold halved and the cap lowered in the same 2:3 proportion, as ocstx15 is to ocstx.
+    {"condition": "online-jev-select-threshold-15k", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_BACKEND": "jev", "MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "10000",
+             "MSWEA_EXTRACT_FIRE_ABOVE": "15000"}},
+    # online-jev-select-threshold-output-extract (2026-11-17, cell tag ojstx): ojst plus the
+    # ocstx per-output pre-extraction (MSWEA_OUTPUT_EXTRACT_ABOVE=1000), which still goes to
+    # the generative extractor model (claude_extract.py: both keys are needed). Jev decides
+    # which messages stay; the extractor trims long outputs to their useful lines, so the
+    # whole-message-only backend is not left keeping or dropping 5000-line outputs as a unit.
+    {"condition": "online-jev-select-threshold-output-extract", "primitive": "online_claude_select",
+     "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_BACKEND": "jev", "MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "20000",
+             "MSWEA_EXTRACT_FIRE_ABOVE": "30000", "MSWEA_OUTPUT_EXTRACT_ABOVE": "1000"}},
+    # online-jev-select-threshold-lines (2026-11-18, cell tag ojstl): ojst with LINE-LEVEL
+    # selection by Jev itself (MSWEA_JEV_SELECT_LINES=1000; jev_select.trim_observations): at
+    # a firing, every observation that passes the keep threshold and exceeds 1000 tokens is
+    # also judged line by line (the line judge of the per-output pre-extraction, with the
+    # task statement and the command that produced the output) and kept as line ranges,
+    # rendered like a generative `keep <uid> L<a>-<b>`; the cap admits it by its trimmed
+    # size. Line rule: no probability threshold (Jev's absolute line probabilities are low:
+    # p >= 0.5 kept 1-3% of the lines where DeepSeek kept 4-14%), the top 15% of the lines
+    # by probability (MSWEA_JEV_LINE_MAX_FRACTION), widened by one line each side
+    # (MSWEA_JEV_LINE_PAD). Omitted lines leave the context, not the history (source=full):
+    # a later firing can bring them back. Jev only, one key; nothing is deleted.
+    {"condition": "online-jev-select-threshold-lines", "primitive": "online_claude_select",
+     "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_BACKEND": "jev", "MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "20000",
+             "MSWEA_EXTRACT_FIRE_ABOVE": "30000", "MSWEA_JEV_SELECT_LINES": "1000",
+             "MSWEA_JEV_LINE_THRESHOLD": "0", "MSWEA_JEV_LINE_MAX_FRACTION": "0.15", "MSWEA_JEV_LINE_PAD": "1"}},
+    # online-jev-select-threshold-15k-lines (2026-11-18, cell tag ojstl15): ojstl at the
+    # ojst15 firing threshold and cap (15000 / 10000). The 15k firing keeps the history Jev
+    # reads under its 32k per-question default context.
+    {"condition": "online-jev-select-threshold-15k-lines", "primitive": "online_claude_select",
+     "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_BACKEND": "jev", "MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "10000",
+             "MSWEA_EXTRACT_FIRE_ABOVE": "15000", "MSWEA_JEV_SELECT_LINES": "1000",
+             "MSWEA_JEV_LINE_THRESHOLD": "0", "MSWEA_JEV_LINE_MAX_FRACTION": "0.15", "MSWEA_JEV_LINE_PAD": "1"}},
+    # online-jev-select-threshold-jev-output-extract (2026-11-18, cell tag ojstxj): ojstx with
+    # the per-output pre-extraction answered by Jev too (MSWEA_OUTPUT_EXTRACT_BACKEND=jev,
+    # jev_select.jev_extract_output: one request per new output above 1000 tokens, one noul
+    # per line, same line rule as ojstl), so the whole cell runs on the one Jev key and the
+    # extractor model is unused. Unlike ojstl the omitted lines are deleted from the history
+    # (the ocstx semantics); the threshold selection itself stays whole-message.
+    {"condition": "online-jev-select-threshold-jev-output-extract", "primitive": "online_claude_select",
+     "budget": INFINITE_BUDGET,
+     "env": {"MSWEA_SELECT_BACKEND": "jev", "MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "20000",
+             "MSWEA_EXTRACT_FIRE_ABOVE": "30000", "MSWEA_OUTPUT_EXTRACT_ABOVE": "1000",
+             "MSWEA_OUTPUT_EXTRACT_BACKEND": "jev",
+             "MSWEA_JEV_LINE_THRESHOLD": "0", "MSWEA_JEV_LINE_MAX_FRACTION": "0.15", "MSWEA_JEV_LINE_PAD": "1"}},
     # clm (2026-11-10): CLM self-editing, ported from context-language-models. The agent's
     # history is mirrored to /tmp/.live_ctx/LIVE_CTX_MAIN.txt in the task container before
     # every command and the agent compacts it by editing that file; nothing fires on its

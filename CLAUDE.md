@@ -201,6 +201,124 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   Smoke-test with `scripts/maintenance/probe_phase_judge.py <run_dir>
   [--steps a,b]`, which judges the uncompressed history of an existing run
   after the given steps.
+  `online-jev-select` (cell tag `ojs`, preset `ojs`, added 2026-11-17) is the
+  same primitive with the selector backend switched to TypeSafe's Jev decision
+  model (`MSWEA_SELECT_BACKEND=jev` through the condition's `env`;
+  `select_backend()` in `primitives.py`, the backend in
+  `src/agentctx/compression/jev_select.py`, `POST api.typesafe.ai/v1/systemone`
+  over httpx, key `TYPESAFE_API_KEY` or `~/.config/agentctx/typesafe_api_key`).
+  Instead of one generative call over the complete history, every window
+  message is judged ON ITS OWN, in parallel (`MSWEA_JEV_WORKERS`, 8): Jev is
+  shown the task statement, the agent's newest turn (`MSWEA_JEV_CONTEXT_TURNS`,
+  1) and the candidate rendered as the selector renders it, and answers a
+  `noul` question ("the agent still needs this message") with a probability.
+  A message is kept WHOLE when probability + anchor bonus clears
+  `MSWEA_JEV_KEEP_THRESHOLD` (0.5; the bonus `MSWEA_JEV_ANCHOR_BONUS`, 0.15,
+  applies to messages in the previous context when `MSWEA_SELECT_ANCHOR` is on:
+  the anchoring is a hysteresis here, no tags, no prompt), and under
+  `MSWEA_SELECT_CAP` (30000) the kept messages are ranked by score (ties:
+  newer first) and taken while they fit, so no reply is ever rejected or
+  re-queried. Jev returns typed values only: no line ranges, and it never
+  writes a word the agent reads. Each judgement is LOCAL (Jev cannot see that a
+  message is redundant with or superseded by another), which is the question
+  the cell asks. Requests above ~30000 bytes get TypeSafe's long-context
+  header (`MSWEA_JEV_LONG_CONTEXT=header`; `truncate` cuts the candidate to
+  fit instead). A judgement that fails after `MSWEA_JEV_MAX_RETRIES` keeps its
+  message and is recorded with `error`; a 401/403 or a selection where every
+  judgement failed raises, counted by `MSWEA_EXTRACT_MAX_CONSECUTIVE_ERRORS`.
+  Window, kept tail, rebuild, record and event-log kind are those of
+  `online_claude_select`; the selection record adds `backend: jev` and `jev`
+  (per-uid `probs` / `scores`, threshold, `requests`, `errors`,
+  `long_context`, `capped_out`, usage), the summary outcome counts one attempt
+  per Jev request with its request ids, every judgement goes to
+  `jev_judgements.jsonl` beside `summary_attempts.jsonl`
+  (`MSWEA_JEV_JUDGEMENT_LOG`), and token_log.json / the result rows carry
+  `select_backend` and `jev_model`. `online-jev-select-threshold` (`ojst`) is
+  the backend fired like ocst (above 30000, cap 20000);
+  `online-jev-select-threshold-output-extract` (`ojstx`) adds the ocstx
+  per-output pre-extraction, which still uses the generative extractor model
+  (both keys needed). Smoke-test and compare with a run's own selections with
+  `scripts/maintenance/probe_jev_select.py <run_dir> --steps a,b [--cap N]
+  [--dry-run]`. Tests: `tests/test_jev_select.py` (no API).
+  Jev selector settings added 2026-11-17 after the sympy-14531 probes
+  (`scripts/maintenance/probe_jev_select.py`, all read per selection, recorded
+  in the selection record): `MSWEA_JEV_HISTORY=full` puts the COMPLETE history
+  into every per-message request (the judgement is then no longer local; DeepSeek
+  agreement AUC 0.62 → 0.85 / 0.76 on the two ocst firings, cost ~20× the local
+  form and growing with the square of the history, every request long-context);
+  `MSWEA_JEV_QUESTION=needed|budget|score|aligned` is the wording (`needed`
+  "still needs it to finish the task from here": every p fell ~0.1 once the
+  newest turn was a passing verification, so a fixed threshold measured task
+  progress; `budget` asks for the kept side of a budget trim relative to the
+  rest of the history and holds its level across the run; `score` is the
+  five-level score primitive, p = score / 4, each judgement records `score` /
+  `level_probs` / `confidence`; `aligned` is `needed` with DeepSeek's kept-side
+  definition and a "dropping is costly" preamble, which changed nothing);
+  `MSWEA_JEV_UNIT=turn` judges each assistant message together with its
+  observations (half the requests, same accuracy; a bare command judged alone
+  gets the same p whether DeepSeek kept or dropped it). Under every local
+  wording the DeepSeek-kept messages are spread through Jev's ranking, so a
+  Jev selection that covers 80% of them needs ~85% of the history tokens.
+  `MSWEA_OUTPUT_EXTRACT_BACKEND=jev` (added 2026-11-17) is the Jev form of the
+  ocstx per-output pre-extraction: ONE request per long output whose state is
+  the task statement, the command and the output with `L0042| ` line tags and
+  one noul question per line (`MSWEA_JEV_LINE_BLOCK` lines per question;
+  split across requests when the questions would exceed the long-context size,
+  the state re-sent each time), `jev_extract_output()` in `jev_select.py`;
+  kept lines = p ≥ `MSWEA_JEV_LINE_THRESHOLD` (0.5) widened by
+  `MSWEA_JEV_LINE_PAD` lines, cut to the top `MSWEA_JEV_LINE_MAX_FRACTION` of
+  the lines when set (threshold 0 + a fraction = pure ranking), merged into
+  ranges and rendered exactly like a generative `keep <uid> L<a>-<b>` reply
+  (same note line, markers, records, compression event; the record adds
+  `backend: jev` and `jev`); `extract_tool_output()` branches on
+  `output_extract_backend()`, independent of `MSWEA_SELECT_BACKEND`. On the
+  four outputs DeepSeek trimmed in the sympy-14531 ocst run the per-line AUC
+  against its kept lines was 0.67–0.96 at $0.001 and 0.2–0.3 s per output,
+  but p ≥ 0.5 keeps only 1–3% of the lines (DeepSeek kept 4–14%), so a
+  fraction + pad rule is the usable operating point. Smoke-test and compare
+  with `scripts/maintenance/probe_jev_line_extract.py <run_dir> [--uids ...]
+  [--dry-run]`.
+  `online-jev-select-threshold-15k` (cell tag `ojst15`, preset `ojst15`,
+  added 2026-11-18) is ojst with the firing threshold halved
+  (`MSWEA_EXTRACT_FIRE_ABOVE=15000`) and the cap lowered in the same 2:3
+  proportion (`MSWEA_SELECT_CAP=10000`), as ocstx15 is to ocstx.
+  (The non-Jev decision-model backends tried on 2026-11-17/18, Bespoke Nimble
+  and a local vLLM-SR d3, with their serving scripts and pilots, live on the
+  branch `tmp-decision-models-d3-nimble`.)
+  `online-jev-select-threshold-lines` (cell tag `ojstl`, preset `ojstl`, added
+  2026-11-18) is ojst with LINE-LEVEL selection by the decision model itself
+  (`MSWEA_JEV_SELECT_LINES=1000` through the condition's `env`;
+  `trim_observations()` in `jev_select.py`, called from `jev_select_window()`):
+  at a firing, every observation that passes the keep threshold and exceeds
+  1000 tokens is also handed, in parallel across outputs, to the line judge of
+  the ocstx pre-extraction (`jev_extract_output()` with the selection wording
+  `LINE_PREAMBLE_SELECT`: task statement, the assistant message before it in
+  the window as the command, the output with `L0042|` tags, one noul per line)
+  and kept as line ranges, rendered by `apply_selection()` exactly like a
+  generative `keep <uid> L<a>-<b>` (same uid, `replaced` in the event log);
+  the cap ranks and admits a message by its TRIMMED size. The line rule of the
+  cells is `MSWEA_JEV_LINE_THRESHOLD=0` + `MSWEA_JEV_LINE_MAX_FRACTION=0.15` +
+  `MSWEA_JEV_LINE_PAD=1` (ranking, since Jev's absolute line probabilities are
+  low). Under `MSWEA_SELECT_SOURCE=full` an omitted line only leaves the
+  context and can return at a later firing; nothing is deleted. A failed line
+  judge keeps its output whole (`error` in the record); 401/403 raises like a
+  selector error. The selection record (`jev`) carries `select_lines`, `lines`
+  (per uid: `ranges`, `lines`, `kept_lines`, `tokens_before` / `_after`,
+  `requests`, `errors`, `error`), `line_requests`, `line_input_tokens`,
+  `line_trimmed`, `line_errors`; the judgement log gets a `kind: select_lines`
+  record per judged output; the summary outcome counts message and line
+  requests as attempts. `online-jev-select-threshold-15k-lines` (`ojstl15`,
+  preset `ojstl15`) is the same at the ojst15 threshold / cap (15000 / 10000).
+  `online-jev-select-threshold-jev-output-extract` (`ojstxj`, preset `ojstxj`)
+  is ojstx with the per-output pre-extraction answered by Jev
+  (`MSWEA_OUTPUT_EXTRACT_BACKEND=jev`, same line rule), so the cell needs the
+  Jev key alone; there the omitted lines are deleted from the history (ocstx
+  semantics) and the threshold selection stays whole-message. On Jev's billing
+  (the state is charged once per request, questions share it) a line judgement
+  of a 300-line output is 1-2 requests, about $0.001; `probe_jev_select.py`
+  honours `MSWEA_JEV_SELECT_LINES` through the environment. Tests:
+  `tests/test_jev_select.py` (`SelectLinesTests`, agent-level
+  `test_select_lines_rebuilds_a_kept_output_as_ranges_in_the_agent`).
   The selector prompt is a block list with a cache breakpoint on the last history
   block, so the growing history is served from the prompt cache. Both conditions
   use the benchmark default agent prompt (the OTRC / OCE prompt deltas are empty

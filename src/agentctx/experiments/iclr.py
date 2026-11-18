@@ -45,6 +45,13 @@ CONDITION_TO_PRIMITIVE = {
     "online-claude-select-threshold-output-extract": "ocstx",
     "online-claude-select-threshold-output-extract-15k": "ocstx15",
     "online-claude-select-threshold-output-extract-15k-phase": "ocstx15p",
+    "online-jev-select": "ojs",
+    "online-jev-select-threshold": "ojst",
+    "online-jev-select-threshold-15k": "ojst15",
+    "online-jev-select-threshold-output-extract": "ojstx",
+    "online-jev-select-threshold-lines": "ojstl",
+    "online-jev-select-threshold-15k-lines": "ojstl15",
+    "online-jev-select-threshold-jev-output-extract": "ojstxj",
     "clm": "clm",
     # Length-free summaries (depth-invariant: no word target, so ``di__`` cells).
     "summarization-free": "su-free",
@@ -54,7 +61,12 @@ INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc", "online-claude-extra
                               "online-claude-select-anchored", "online-claude-select-incremental",
                               "online-claude-select-threshold", "online-claude-select-threshold-output-extract",
                               "online-claude-select-threshold-output-extract-15k",
-                              "online-claude-select-threshold-output-extract-15k-phase"}
+                              "online-claude-select-threshold-output-extract-15k-phase",
+                              "online-jev-select", "online-jev-select-threshold",
+                              "online-jev-select-threshold-15k",
+                              "online-jev-select-threshold-output-extract",
+                              "online-jev-select-threshold-lines", "online-jev-select-threshold-15k-lines",
+                              "online-jev-select-threshold-jev-output-extract"}
 
 
 def canonical_cell(

@@ -36,6 +36,11 @@ need rebuilding for serving/tbench.
 
 ## Currently Running
 
+> The local d3 (vLLM Semantic Router Decision 3.0) and Bespoke Nimble selector work of 2026-11-17/18
+> (providers, serving scripts, the ojst/ojst15 x ocst4 d3 pilots and their status notes) lives on the
+> branch `tmp-decision-models-d3-nimble`, not here; its run data stays under
+> `data/r2/swebench/p30s/devstral24b-iso-fc20-d3/`.
+
 ### ✅ COMPLETED 2026-11-13 00:19 CST — Devstral-Small-2-24B — `ocstx15p` × ocst4 pilot (online-claude-select-threshold-output-extract-15k-phase, 4 tasks × 2 runs) — Dobby, GPUs 0-3 (TP=4), Slack-notified
 
 - **Final, 8 rows, 1 h 55 min wall (22:24 → 00:19), exit 0:** **ocstx15p 6/8** (django-15278 2/2, sympy-14531 2/2, sklearn-10297 1/2: r1 × `LimitsExceeded` at 300 steps, sympy-12419 1/2: r2 × `LimitsExceeded`) vs ocstx15 7/8, ocstx 7/8, ocst 7/8, OCSA 8/8, FC 10/12 on the same 4 tasks. Judge verdicts all accepted on the first attempt (0 fallbacks / errors). Firings per run 2-7 (ocstx15: 1-30), of which forced at the 30k ceiling: 10297 r1 ×1, 12419 r1 ×4, r2 ×3. On the short, resolved runs the judge deferred 0-17 steps per firing and the context peaked at 17-19k (ocstx15: 15.4-16.3k); on the long runs the judge answered `continue` for 25-59 consecutive steps (the agent kept rewriting / re-running scripts, which the judge reads as mid-operation), the context climbed to the ceiling and the forced firing did the compaction (peaks 29.7-31.8k, means 13-17.5k vs 10-12k under ocstx15). Judge calls 5-35 per run on resolved runs, 117-172 on the long ones; judge input 0.1-0.8M tokens on short runs, 3.1-4.5M on the long ones (per call ~20-30k, history blocks cached), on top of agent prompt tokens 0.75-5.1M (ocstx15 0.6-3.4M). Steps: 15278 70/231 (ocstx15 68/167), 10297 300/85 (83/60), 12419 278/300 (196/300), 14531 107/89 (146/111).
