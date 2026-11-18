@@ -1,0 +1,92 @@
+[
+  {
+    "instance_id": "scikit-learn__scikit-learn-10297",
+    "repo": "scikit-learn",
+    "difficulty": "15 min - 1 hour",
+    "fc_resolved_of_3": 2,
+    "tier": "stable_high_cost",
+    "fc25_fc_resolved_of_3": "3/3",
+    "fc25_ocsa_resolved_of_2": "2/2"
+  },
+  {
+    "instance_id": "django__django-12276",
+    "repo": "django",
+    "difficulty": "<15 min fix",
+    "fc_resolved_of_3": 1,
+    "tier": "ocsa_degraded",
+    "fc25_fc_resolved_of_3": "3/3",
+    "fc25_ocsa_resolved_of_2": "1/2"
+  },
+  {
+    "instance_id": "django__django-12325",
+    "repo": "django",
+    "difficulty": "1-4 hours",
+    "fc_resolved_of_3": 2,
+    "tier": "hard_tier",
+    "fc25_fc_resolved_of_3": "1/3",
+    "fc25_ocsa_resolved_of_2": "0/2"
+  },
+  {
+    "instance_id": "django__django-13810",
+    "repo": "django",
+    "difficulty": "15 min - 1 hour",
+    "fc_resolved_of_3": 2,
+    "tier": "ocsa_degraded",
+    "fc25_fc_resolved_of_3": "3/3",
+    "fc25_ocsa_resolved_of_2": "0/2"
+  },
+  {
+    "instance_id": "sympy__sympy-12419",
+    "repo": "sympy",
+    "difficulty": "15 min - 1 hour",
+    "fc_resolved_of_3": 1,
+    "tier": "ocsa_improved",
+    "fc25_fc_resolved_of_3": "1/3",
+    "fc25_ocsa_resolved_of_2": "2/2"
+  },
+  {
+    "instance_id": "sympy__sympy-14531",
+    "repo": "sympy",
+    "difficulty": "15 min - 1 hour",
+    "fc_resolved_of_3": 2,
+    "tier": "stable_high_cost",
+    "fc25_fc_resolved_of_3": "3/3",
+    "fc25_ocsa_resolved_of_2": "2/2"
+  },
+  {
+    "instance_id": "sympy__sympy-14711",
+    "repo": "sympy",
+    "difficulty": "<15 min fix",
+    "fc_resolved_of_3": 3,
+    "tier": "ocsa_degraded",
+    "fc25_fc_resolved_of_3": "3/3",
+    "fc25_ocsa_resolved_of_2": "1/2"
+  },
+  {
+    "instance_id": "sympy__sympy-15875",
+    "repo": "sympy",
+    "difficulty": "<15 min fix",
+    "fc_resolved_of_3": 2,
+    "tier": "ocsa_improved",
+    "fc25_fc_resolved_of_3": "1/3",
+    "fc25_ocsa_resolved_of_2": "2/2"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-13135",
+    "repo": "scikit-learn",
+    "difficulty": "<15 min fix",
+    "fc_resolved_of_3": 2,
+    "tier": "ocsa_improved",
+    "fc25_fc_resolved_of_3": "1/3",
+    "fc25_ocsa_resolved_of_2": "2/2"
+  },
+  {
+    "instance_id": "scikit-learn__scikit-learn-14053",
+    "repo": "scikit-learn",
+    "difficulty": "15 min - 1 hour",
+    "fc_resolved_of_3": 3,
+    "tier": "ocsa_degraded",
+    "fc25_fc_resolved_of_3": "3/3",
+    "fc25_ocsa_resolved_of_2": "1/2"
+  }
+]

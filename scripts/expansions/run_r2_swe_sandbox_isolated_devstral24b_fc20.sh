@@ -22,6 +22,73 @@
 #                                           Answer to the plain cell's step-to-step volatility
 #                                           and its 65k-context overflows. Not part of `all`;
 #                                           run it with the preset or add it to CELLS.
+#   ocsi                di__binf__ocsi      online-claude-select-incremental (added 2026-11-07):
+#                                           the same selector, but shown the agent's CURRENT
+#                                           context (the previous selection, trimmed outputs
+#                                           included, plus the newest turn) instead of the
+#                                           complete history (MSWEA_SELECT_SOURCE=context):
+#                                           the context only shrinks, dropped text never
+#                                           returns, no anchor tags and no cap. Not part of
+#                                           `all`; run it with the preset or add it to CELLS.
+#   ocst                di__binf__ocst      online-claude-select-threshold (added 2026-11-12):
+#                                           the ocsa selector (anchor tags, cap), but it fires
+#                                           only while the context exceeds 30000 tokens
+#                                           (MSWEA_EXTRACT_FIRE_ABOVE) and then rebuilds it
+#                                           under a 20000-token cap: between firings the
+#                                           context is append-only, so Devstral's prefix cache
+#                                           serves every step (ocsa re-prefilled ~57%). A few
+#                                           selector calls per run instead of one per step.
+#                                           Anchoring in the cache-friendly `trailing` form
+#                                           (MSWEA_SELECT_ANCHOR=trailing: previous-context
+#                                           uids and budget in the trailing block, so the
+#                                           selector's prompt cache hits like plain ocs).
+#                                           Not part of `all`; run it with the preset or add
+#                                           it to CELLS.
+#   ocstx               di__binf__ocstx     online-claude-select-threshold-output-extract
+#                                           (added 2026-11-12): ocst plus a per-output
+#                                           pre-extraction: every new tool output above
+#                                           1000 tokens (MSWEA_OUTPUT_EXTRACT_ABOVE) is handed
+#                                           to the same extractor model right after it is
+#                                           added to the history, and the lines it keeps
+#                                           replace the output in place, in the context, the
+#                                           complete history and the trajectory at once, so
+#                                           omitted output text can never return (not even
+#                                           through the threshold selector, which otherwise
+#                                           works as under ocst). Not part of `all`.
+#   ocstx15             di__binf__ocstx15   online-claude-select-threshold-output-extract-15k
+#                                           (added 2026-11-12): ocstx with the selector
+#                                           firing threshold halved to 15000 tokens and the
+#                                           cap lowered to 10000 (same 2:3 proportion); the
+#                                           per-output pre-extraction is unchanged. Not part
+#                                           of `all`.
+#   ocstx15p            di__binf__ocstx15p  online-claude-select-threshold-output-extract-15k-phase
+#                                           (added 2026-11-12): ocstx15 with a phase-boundary
+#                                           gate on the firing (MSWEA_PHASE_GATE=1): above
+#                                           15000 tokens the extractor model is first asked
+#                                           whether the newest turn is a natural break in the
+#                                           agent's work; the selector fires only on
+#                                           "boundary" (asked again before the next step on
+#                                           "continue"), and fires without asking above
+#                                           30000 tokens (MSWEA_PHASE_GATE_FORCE_ABOVE). Not
+#                                           part of `all`.
+#   ojs                 di__binf__ojs       online-jev-select (added 2026-11-17): the selector
+#                                           backend switched to TypeSafe's Jev decision model
+#                                           (MSWEA_SELECT_BACKEND=jev): every history message is
+#                                           judged ON ITS OWN, in parallel, with a noul question
+#                                           ("the agent still needs this message") and kept whole
+#                                           when its probability clears 0.5 (+0.15 for messages in
+#                                           the previous context); under the 30000-token cap the
+#                                           kept messages are ranked by probability. No line
+#                                           ranges, no re-queries. Needs TYPESAFE_API_KEY (or
+#                                           ~/.config/agentctx/typesafe_api_key); the OpenRouter
+#                                           selector settings below are unused. Not part of `all`.
+#   ojst                di__binf__ojst      online-jev-select-threshold (added 2026-11-17): the
+#                                           Jev backend fired like ocst (above 30000 tokens,
+#                                           cap 20000). Not part of `all`.
+#   ojstx               di__binf__ojstx     online-jev-select-threshold-output-extract (added
+#                                           2026-11-17): ojst plus the ocstx per-output
+#                                           pre-extraction, which still uses the OpenRouter
+#                                           extractor model (both keys needed). Not part of `all`.
 #   su-free             di__b21k__su-free   length-free summarization at Devstral's
 #                                           primary ICLR budget 21k, summarizer = the
 #                                           agent model
@@ -32,6 +99,29 @@
 # campaign is the same script with N_TASKS=all RUNS_PER_TASK=3 (and a preset).
 # Keys are <task>__<condition>__r<n>; recorded keys are skipped, so rerunning
 # resumes, and the smoke run is reused by the full campaign (same cell dir).
+#
+# Task set (TASK_SET, added 2026-11-07): `fc20` (default) = the 25-task list
+# above; `ocsi10` = task_lists/swe_verified/p100_devstral24b_fc20_ocsi10.json,
+# the 10-task subset chosen for the ocsi-vs-fc comparison from the fc25
+# campaign's FC x3 / OCSA x2 results (4 tasks OCSA lost against FC 3/3, 3 it
+# won against FC 1/3, 2 stable but FC-expensive, the list's only `1-4 hours`
+# task; difficulty 4 / 5 / 1 and django 3 / sklearn 3 / sympy 4, P100 order;
+# each entry carries `tier`). The dest dir and keys are unchanged, so the
+# existing FC runs of those 10 tasks are reused and only the missing keys run:
+#   N_TASKS=all RUNS_PER_TASK=3 TASK_SET=ocsi10 bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral24b_fc20.sh ocsi
+# `ocst4` = task_lists/swe_verified/p100_devstral24b_fc20_ocst4.json (added
+# 2026-11-12): the 4-task pilot set for the ocst cell, chosen from the fc25
+# campaign for two properties at once: OCSA resolved 2/2 (so a drop under ocst
+# would be ocst's) AND the uncompressed FC context exceeds the 30000-token firing
+# threshold in all 3 FC runs (cl100k count of the FC trajectories; in 12 of the
+# 25 tasks FC never reaches 30k, so ocst would never fire and equal FC there):
+# sklearn-10297, django-15278, sympy-14531 (FC 3/3, SU-free 3/3; max context
+# 34-40k, 1-2 firings expected) and sympy-12419 (FC 1/3, OCSA 2/2; max context
+# 45-55k, 2-3 firings: the multi-firing case). Same dest dir and keys as above:
+#   N_TASKS=all RUNS_PER_TASK=2 TASK_SET=ocst4 bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral24b_fc20.sh ocst
+# The ocstx, ocstx15 and ocstx15p cells run on the same 4 tasks (presets ocstx / ocstx15 /
+# ocstx15p, same TASK_SET).
+# TASKS_FILE still overrides any set.
 #
 # Selector (ocs): MSWEA_EXTRACT_PROVIDER=openrouter with the free Nemotron 3 Ultra
 # (MSWEA_EXTRACT_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free; effort medium,
@@ -78,7 +168,7 @@
 # tasks are outside P30S. The R2_MODEL dir keeps these rows apart from every
 # real P30S cell.
 #
-# Overrides: CELLS, N_TASKS, RUNS_PER_TASK, TASKS_FILE, R2_MODEL, QWEN_AGENT_CONFIG,
+# Overrides: CELLS, N_TASKS, RUNS_PER_TASK, TASK_SET, TASKS_FILE, R2_MODEL, QWEN_AGENT_CONFIG,
 # CYCLE_ORDER (run-major default: within each cell run 1 of every task, then run 2, then
 # run 3, so every task has one run early; task-major = all runs of task 1 first), RUN_EVAL,
 # AGENT_TIMEOUT (14400 s default, see below) / STEP_LIMIT, DEVSTRAL_CUDA_VISIBLE_DEVICES /
@@ -106,15 +196,31 @@ source "$SCRIPT_DIR/../lib/logpaths.sh"
 PRESET="${1:-ocs}"
 CELL_OCS="di__binf__ocs:online-claude-select:0.5"
 CELL_OCSA="di__binf__ocsa:online-claude-select-anchored:0.5"
+CELL_OCSI="di__binf__ocsi:online-claude-select-incremental:0.5"
+CELL_OCST="di__binf__ocst:online-claude-select-threshold:0.5"
+CELL_OCSTX="di__binf__ocstx:online-claude-select-threshold-output-extract:0.5"
+CELL_OCSTX15="di__binf__ocstx15:online-claude-select-threshold-output-extract-15k:0.5"
+CELL_OCSTX15P="di__binf__ocstx15p:online-claude-select-threshold-output-extract-15k-phase:0.5"
+CELL_OJS="di__binf__ojs:online-jev-select:0.5"
+CELL_OJST="di__binf__ojst:online-jev-select-threshold:0.5"
+CELL_OJSTX="di__binf__ojstx:online-jev-select-threshold-output-extract:0.5"
 CELL_SUFREE="di__b21k__su-free:summarization-free:0.5"
 CELL_FC="di__binf__fc:full-context:0.5"
 case "$PRESET" in
     ocs)     default_cells="$CELL_OCS" ;;
     ocsa)    default_cells="$CELL_OCSA" ;;
+    ocsi)    default_cells="$CELL_OCSI" ;;
+    ocst)    default_cells="$CELL_OCST" ;;
+    ocstx)   default_cells="$CELL_OCSTX" ;;
+    ocstx15) default_cells="$CELL_OCSTX15" ;;
+    ocstx15p) default_cells="$CELL_OCSTX15P" ;;
+    ojs)     default_cells="$CELL_OJS" ;;
+    ojst)    default_cells="$CELL_OJST" ;;
+    ojstx)   default_cells="$CELL_OJSTX" ;;
     su-free) default_cells="$CELL_SUFREE" ;;
     fc)      default_cells="$CELL_FC" ;;
     all)     default_cells="$CELL_OCS $CELL_SUFREE $CELL_FC" ;;
-    *) echo "[ERROR] preset must be ocs | ocsa | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
+    *) echo "[ERROR] preset must be ocs | ocsa | ocsi | ocst | ocstx | ocstx15 | ocstx15p | ojs | ojst | ojstx | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
 esac
 export CELLS="${CELLS:-$default_cells}"
 export N_TASKS="${N_TASKS:-1}"
@@ -124,7 +230,14 @@ export INNER=p30s
 export SECTIONS=p30s
 export SERVER_LIFECYCLE="${SERVER_LIFECYCLE:-per-run}"
 export CYCLE_ORDER="${CYCLE_ORDER:-run-major}"      # run 1 of every task, then run 2, ... (per cell)
-export TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/p100_devstral24b_fc_3of3_10_2of3_10.json}"
+TASK_SET="${TASK_SET:-fc20}"
+case "$TASK_SET" in
+    fc20)   default_tasks="$WS/task_lists/swe_verified/p100_devstral24b_fc_3of3_10_2of3_10.json" ;;
+    ocsi10) default_tasks="$WS/task_lists/swe_verified/p100_devstral24b_fc20_ocsi10.json" ;;
+    ocst4)  default_tasks="$WS/task_lists/swe_verified/p100_devstral24b_fc20_ocst4.json" ;;
+    *) echo "[ERROR] TASK_SET must be fc20 | ocsi10 | ocst4 (got '$TASK_SET'); or set TASKS_FILE" >&2; exit 1 ;;
+esac
+export TASKS_FILE="${TASKS_FILE:-$default_tasks}"
 export R2_MODEL="${R2_MODEL:-devstral24b-iso-fc20}"
 export QWEN_AGENT_CONFIG="${QWEN_AGENT_CONFIG:-$WS/configs/config-devstral-vllm-temp0.yaml}"
 export QWEN_TAG="${QWEN_TAG:-devstral-2}"             # the ICLR Devstral-24B model tag
@@ -203,7 +316,15 @@ fi
 # The OCS cell calls the selector from inside every agent run: check the key
 # before the first server start rather than minutes in. Skipped for DRY_RUN=1
 # (the plan can be printed on a machine without the key).
-if [[ " $CELLS " == *":online-claude-"* && "${DRY_RUN:-0}" != 1 ]]; then
+if [[ " $CELLS " == *":online-jev-"* && "${DRY_RUN:-0}" != 1 ]]; then
+    key_file="${AGENTCTX_TYPESAFE_API_KEY_FILE:-$HOME/.config/agentctx/typesafe_api_key}"
+    if [[ -z "${TYPESAFE_API_KEY:-}" && ! -s "$key_file" ]]; then
+        echo "[ERROR] the Jev cells need a TypeSafe key: export TYPESAFE_API_KEY or write it to $key_file (chmod 600);" >&2
+        echo "        check with: venv/bin/python scripts/maintenance/probe_jev_select.py <run_dir> --steps 10" >&2
+        exit 1
+    fi
+fi
+if [[ ( " $CELLS " == *":online-claude-"* || " $CELLS " == *"-output-extract"* ) && "${DRY_RUN:-0}" != 1 ]]; then
     if [[ "$MSWEA_EXTRACT_PROVIDER" == openrouter ]]; then
         key_file="${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key}"
         if [[ -z "${OPENROUTER_API_KEY:-}" && ! -s "$key_file" ]]; then
@@ -230,6 +351,6 @@ if [[ -z "${AGENTCTX_LOG_FILE:-}" ]]; then
     echo "[$(date)] devstral24b-fc20: log: $LOG_FILE"
 fi
 
-echo "[$(date)] devstral24b-fc20: preset=$PRESET CELLS=\"$CELLS\" N_TASKS=$N_TASKS RUNS_PER_TASK=$RUNS_PER_TASK | selector: provider=$MSWEA_EXTRACT_PROVIDER model=${MSWEA_EXTRACT_MODEL:-<provider default>} effort=$MSWEA_EXTRACT_EFFORT${MSWEA_EXTRACT_EVERY:+ every=$MSWEA_EXTRACT_EVERY}${MSWEA_EXTRACT_KEEP_RECENT:+ keep_recent=$MSWEA_EXTRACT_KEEP_RECENT} max_tokens=$MSWEA_EXTRACT_MAX_TOKENS prefill=${MSWEA_EXTRACT_PREFILL:-0} | agent_timeout=${AGENT_TIMEOUT}s | quota gate=$OPENROUTER_QUOTA_GATE | credit gate=$OPENROUTER_CREDIT_GATE${OPENROUTER_CREDIT_GATE:+ (min \$$OPENROUTER_MIN_CREDITS)} | GPUs $DEVSTRAL_CUDA_VISIBLE_DEVICES TP=$DEVSTRAL_TENSOR_PARALLEL_SIZE"
+echo "[$(date)] devstral24b-fc20: preset=$PRESET CELLS=\"$CELLS\" task_set=$TASK_SET tasks=$TASKS_FILE N_TASKS=$N_TASKS RUNS_PER_TASK=$RUNS_PER_TASK | selector: provider=$MSWEA_EXTRACT_PROVIDER model=${MSWEA_EXTRACT_MODEL:-<provider default>} effort=$MSWEA_EXTRACT_EFFORT${MSWEA_EXTRACT_EVERY:+ every=$MSWEA_EXTRACT_EVERY}${MSWEA_EXTRACT_KEEP_RECENT:+ keep_recent=$MSWEA_EXTRACT_KEEP_RECENT} max_tokens=$MSWEA_EXTRACT_MAX_TOKENS prefill=${MSWEA_EXTRACT_PREFILL:-0} | agent_timeout=${AGENT_TIMEOUT}s | quota gate=$OPENROUTER_QUOTA_GATE | credit gate=$OPENROUTER_CREDIT_GATE${OPENROUTER_CREDIT_GATE:+ (min \$${OPENROUTER_MIN_CREDITS:-})} | GPUs $DEVSTRAL_CUDA_VISIBLE_DEVICES TP=$DEVSTRAL_TENSOR_PARALLEL_SIZE"
 bash "$SCRIPT_DIR/run_r2_swe_sandbox_isolated.sh"
 echo "[$(date)] devstral24b-fc20: done"

@@ -440,6 +440,19 @@ class SweBench:
             "online_claude_extract_accepted", "online_claude_extract_errors", "extract_model",
             "online_claude_select_events", "online_claude_select_total_tokens_saved",
             "online_claude_select_accepted", "online_claude_select_errors",
+            # selector backend (MSWEA_SELECT_BACKEND; jev settings for the online-jev-select cells)
+            "select_backend", "jev_model",
+            # per-output pre-extraction (MSWEA_OUTPUT_EXTRACT_ABOVE; the ocstx condition)
+            "output_extract_events", "output_extract_threshold", "output_extract_total_tokens_saved",
+            "output_extract_accepted", "output_extract_trimmed", "output_extract_removed",
+            "output_extract_errors",
+            # phase-boundary gate on the threshold firing (MSWEA_PHASE_GATE; the ocstx15p condition)
+            "phase_judge_config", "phase_judge_events", "phase_judge_calls", "phase_judge_boundary",
+            "phase_judge_continue", "phase_judge_forced", "phase_judge_errors",
+            # clm runs (the agent's own edits of its context mirror)
+            "clm_config", "clm_events", "clm_edits", "clm_edits_real", "clm_edits_grew",
+            "clm_edits_rejected", "clm_net_tokens_saved", "clm_nudges", "clm_rollbacks",
+            "clm_turns_rolled_back", "clm_budget_finalized", "clm_tok_ratio",
         ):
             if key in token_log:
                 result[key] = token_log[key]
