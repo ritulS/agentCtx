@@ -19,7 +19,7 @@
 # Results go to ICLR_experiments/swebench/prefix_cache_ablation/qwen35b-prefixcache/<cell>.
 # The section keeps these runs out of main/ and ablation/, so the caching-off
 # cells are neither skipped-as-complete nor mixed with them; the model dir also
-# differs from qwen35b because analysis/aggregate_benchmark_results.py exposes
+# differs from qwen35b because ICLR_experiments/analysis/aggregate_benchmark_results.py exposes
 # it as model_key, which downstream scripts group by without the section.
 #
 # The launcher refuses to start unless the process listening on the agent port

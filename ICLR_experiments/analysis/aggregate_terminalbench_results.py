@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE_ROOT = ROOT / "ICLR_experiments" / "terminalbench"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "outcomes" / "terminalbench_outcomes.csv"
 DEFAULT_P40_TASKS = ROOT / "task_lists" / "tbench1.0" / "p40.json"

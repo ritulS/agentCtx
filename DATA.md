@@ -70,7 +70,7 @@ python Review1/build_review1.py        # walks results/ablations/* → Review1/R
 ```
 
 That pipeline covers the older data only. ICLR per-run outcomes come from
-`analysis/aggregate_benchmark_results.py`; see [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md).
+`ICLR_experiments/analysis/aggregate_benchmark_results.py`; see [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md).
 
 ## Archiving for reproducibility (optional)
 

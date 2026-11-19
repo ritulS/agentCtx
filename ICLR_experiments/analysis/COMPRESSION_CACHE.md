@@ -46,7 +46,7 @@ effects cannot be measured without intervening model calls.
 Export one run or a whole results directory:
 
 ```bash
-python3 analysis/compare_compression_cache.py /path/to/results --output /tmp/compression_cache.csv
+python3 ICLR_experiments/analysis/compare_compression_cache.py /path/to/results --output /tmp/compression_cache.csv
 ```
 
 ### Reuse relative to the previous call

@@ -1,7 +1,7 @@
 # Outcome analysis
 
 Run audits and harness investigations for the r2 campaign live in
-[`experiments/r2/audits/`](../experiments/r2/audits/), alongside its experiment log.
+[`experiments/r2/audits/`](../../experiments/r2/audits/), alongside its experiment log.
 
 `aggregate_benchmark_results.py` aggregates canonical experiment records into
 one CSV per benchmark:
@@ -49,7 +49,7 @@ recorded per row:
 Run both aggregations:
 
 ```bash
-python3 analysis/aggregate_benchmark_results.py
+python3 ICLR_experiments/analysis/aggregate_benchmark_results.py
 ```
 
 Terminal-Bench results made elsewhere should be copied under
@@ -58,7 +58,7 @@ same command rebuilds `terminalbench_outcomes.csv`.  To aggregate a copied tree
 without first placing it there:
 
 ```bash
-python3 analysis/aggregate_benchmark_results.py \
+python3 ICLR_experiments/analysis/aggregate_benchmark_results.py \
   --benchmark terminalbench \
   --source-root /path/to/terminalbench-results
 ```

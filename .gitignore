@@ -76,7 +76,7 @@ ICLR_experiments/terminalbench
 venv-glm/
 venv-glm-cu129-clean
 ICLR_experiments/terminalbench2
-analysis/reports
+ICLR_experiments/analysis/reports
 
 # archives/ holds retired run data moved out of ICLR_experiments by the archive
 # scripts (never in git). The notes, task lists and tooling that describe those

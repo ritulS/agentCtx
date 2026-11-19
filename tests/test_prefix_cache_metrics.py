@@ -134,7 +134,7 @@ def test_cli_exports_old_unknowns_skips_truncated_and_deduplicates_paths(tmp_pat
     (old / "token_log.json").write_text(json.dumps({"compression_event_steps": [1],
         "model_call_records": [{"step": 1}, {"step": 2}]}))
     (broken / "token_log.json").write_text('{"compression_event_steps": [1], "model_call_')  # killed mid-write
-    result = subprocess.run([sys.executable, str(ROOT / "analysis/compare_compression_cache.py"),
+    result = subprocess.run([sys.executable, str(ROOT / "ICLR_experiments/analysis/compare_compression_cache.py"),
         str(tmp_path), str(known)], capture_output=True, text=True, check=True)
     rows = list(csv.DictReader(io.StringIO(result.stdout)))
     assert len(rows) == 2

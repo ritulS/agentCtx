@@ -73,7 +73,7 @@ Per-model serving configs live in [configs/](configs/).
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
-| `ICLR_experiments/`, `analysis/` | Canonical ICLR run data, the experiment plan/grid and logs (`FOLLOWUP_EXPERIMENTS.md`, `EXPERIMENT_LOG*.md`), and per-run outcome aggregation. |
+| `ICLR_experiments/` | Canonical ICLR run data, the experiment plan/grid and logs (`FOLLOWUP_EXPERIMENTS.md`, `EXPERIMENT_LOG*.md`), per-run outcome aggregation (`analysis/`) and figure code (`plotting/`). |
 
 The current TRC contract (K=3, clear all older results, then truncate complete
 turns only to the budget) and its measurements are documented in
@@ -96,7 +96,7 @@ this one. It never travels through git. See [ICLR_experiments/SOURCE_OF_TRUTH.md
 source-of-truth table, and `ICLR_experiments/README.md` for the cell naming.
 
 Data flow: `ICLR_experiments/<bench>/<track>/<model>/<cell>/`
-→ `analysis/aggregate_benchmark_results.py` → `analysis/outcomes/<bench>_outcomes.csv`
+→ `ICLR_experiments/analysis/aggregate_benchmark_results.py` → `ICLR_experiments/analysis/outcomes/<bench>_outcomes.csv`
 → analysis against the grid in `ICLR_experiments/FOLLOWUP_EXPERIMENTS.md`.
 
 Terminal-Bench runs on Albus; its results are not here. See the Terminal-Bench

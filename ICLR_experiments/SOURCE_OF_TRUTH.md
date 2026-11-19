@@ -41,7 +41,7 @@ in `ICLR_experiments/`; it was `ICLR.md` at the root until 2026-09-26).
 | Run history | `ICLR_experiments/EXPERIMENT_LOG_SWE.md`, `EXPERIMENT_LOG_TB.md` (dated entries; bugs and audits are sections of the SWE log), plus the command-level timelines `EXPERIMENT_TIMELINE_DETAIL_SWE.md`, `EXPERIMENT_TIMELINE_DETAIL_TB.md` |
 | Budget calibration | `ICLR_experiments/BUDGET_CALIBRATION.md` (Part A SWE-Bench, Part B Terminal-Bench) |
 | Known data problems | `ICLR_experiments/open_issues/` |
-| What runs exist (SWE-bench) | `analysis/outcomes/swebench_outcomes.csv`, built by `analysis/aggregate_benchmark_results.py` (see `analysis/README.md`) |
+| What runs exist (SWE-bench) | `ICLR_experiments/analysis/outcomes/swebench_outcomes.csv`, built by `ICLR_experiments/analysis/aggregate_benchmark_results.py` (see its `README.md`; the directory was `analysis/` at the repo root until 2026-11-19) |
 | Cell coverage | `COVERAGE.csv` via `dashboard/build_coverage.py`. **The committed copy is stale** — it dates from 2026-08-28 and has no Devstral or GLM rows. Regenerate before trusting it, or use the outcomes CSV. |
 | Live run status | `Active_runs.md`, where Akiho's clone holds the live copy |
 | Terminal-Bench data | Produced on Albus, see "Terminal-Bench runs on Albus" below |
@@ -84,7 +84,7 @@ in `ICLR_experiments/`; it was `ICLR.md` at the root until 2026-09-26).
   `.gitignore` already excludes, so they stay local and regenerable.
 - Paper prose goes in `paper_sections_ICLR/`, and only after the draft has
   been shown in chat.
-- Read run data through `analysis/outcomes/*.csv` rather than walking
+- Read run data through `ICLR_experiments/analysis/outcomes/*.csv` rather than walking
   `ICLR_experiments/` by hand, unless you need the raw trajectories.
 
 ## Terminal-Bench runs on Albus

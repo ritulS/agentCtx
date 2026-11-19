@@ -22,7 +22,7 @@
 # Results go to ICLR_experiments/terminalbench/prefix_cache_ablation/qwen35b-noprefixcache/<cell>.
 # The section keeps these runs out of main/ and ablation/, so the caching-on
 # cells are neither skipped-as-complete nor mixed with them; the model dir also
-# differs from qwen35b because analysis/aggregate_terminalbench_results.py
+# differs from qwen35b because ICLR_experiments/analysis/aggregate_terminalbench_results.py
 # exposes it as model_key, and it doubles as the model tag so the Harbor job
 # directories (logs/harbor_jobs/terminalbench/<tag>) stay apart as well.
 #

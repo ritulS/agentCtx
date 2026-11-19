@@ -172,8 +172,8 @@ The saved CSV has the following classifications. These are the aggregation scrip
 
 - [Normalized 89-row JSON](terminalbench2/main/qwen35b/di__binf__fc/experiment_results.json)
 - Per-task directory `terminalbench2/main/qwen35b/di__binf__fc/terminal-bench/<task>/full-context/run_1/`: `harbor_result.json`, `trajectory.json`, `token_log.json`, `exit_info.json`, and other files available in the source trial
-- [TB2 outcome CSV](../analysis/outcomes/terminalbench2_outcomes.csv): committed in `aee5728`
-- [TB2 aggregation script](../analysis/aggregate_terminalbench2_results.py)
+- [TB2 outcome CSV](analysis/outcomes/terminalbench2_outcomes.csv): committed in `aee5728`
+- [TB2 aggregation script](analysis/aggregate_terminalbench2_results.py)
 
 The command to generate the CSV is shown below. The existing CSV and corresponding script were verified, but a historical execution log for this aggregation command was not.
 

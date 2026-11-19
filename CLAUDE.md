@@ -692,7 +692,10 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   (bugs and audits are sections of the SWE log), `BUDGET_CALIBRATION.md`,
   `open_issues/` (still-open data audits with their scripts), `reeval_evidence/`
   (re-evaluation manifests and verdicts), `archive_provenance/` (notes, task
-  lists and tooling for run data retired to the gitignored `archives/`) and
+  lists and tooling for run data retired to the gitignored `archives/`),
+  `analysis/` (moved from the repo root 2026-11-19: `aggregate_benchmark_results.py`
+  builds the per-run `outcomes/<bench>_outcomes.csv` that `plot_bank.py` reads;
+  `compare_compression_cache.py`, `COMPRESSION_CACHE.md`) and
   `plotting/` (figure code, see above).
 - `Review1/` — analysis suite. `Review1.csv` is the central data file. Scripts:
   `sanity.py`, `paired_analysis.py`, `routing_evidence.py`,

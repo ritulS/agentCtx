@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = Path(__file__).resolve().parent / "outcomes"
 BENCHMARKS = ("swebench", "terminalbench")
 INFINITE_BUDGET = 999_999_999

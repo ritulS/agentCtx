@@ -3,7 +3,7 @@
 Run `python3 ICLR_experiments/plotting/plot_bank.py` from the repository root to
 generate the nine maintained figures (Figures 2-5 and the appendix
 companions). Every data figure is computed from the tracked outcomes tables
-(analysis/outcomes/, which carry the 2026-09-24 Qwen verdict re-evaluation)
+(ICLR_experiments/analysis/outcomes/, which carry the 2026-09-24 Qwen verdict re-evaluation)
 and the audited Q3 exports in ICLR_experiments/plotting/; the computed inputs are written
 as CSVs next to each figure. Use --list or --help for selection and
 input/output options. Data definitions and usage are documented in the
@@ -385,9 +385,9 @@ Metrics follow q1_frontier.py and token_cost_ledger.py
     the cleared message). Output tokens are excluded, as in Figure 1.
   * resolve-rate intervals: task bootstrap of per-task success means.
 
-Inputs: analysis/outcomes/swebench_outcomes.csv and
-analysis/outcomes/terminalbench_outcomes.csv (schema of
-analysis/aggregate_benchmark_results.py), plus the raw
+Inputs: ICLR_experiments/analysis/outcomes/swebench_outcomes.csv and
+.../terminalbench_outcomes.csv (schema of
+ICLR_experiments/analysis/aggregate_benchmark_results.py), plus the raw
 experiment_results.json named in their source_file column for the online
 TRC clear flags, and the pinned task lists in task_lists/.
 
@@ -883,9 +883,9 @@ def knob_overview_main(argv=None):
     parser = argparse.ArgumentParser(prog="plot_bank.py knob-overview", description=KNOB_OVERVIEW_DOC,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="qwen35b", choices=list(MODEL_NAMES))
-    parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
+    parser.add_argument("--outcomes", type=Path, default=ROOT / "ICLR_experiments/analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--tb-outcomes", type=Path,
-                        default=ROOT / "analysis/outcomes/terminalbench_outcomes.csv")
+                        default=ROOT / "ICLR_experiments/analysis/outcomes/terminalbench_outcomes.csv")
     parser.add_argument("--settings", nargs="+", default=[f"{d}:{l}" for d in DEPTHS for l in LEVELS],
                         help="depth:level pairs, depth = fraction removed")
     parser.add_argument("--primary-cohort", choices=["ablation", "full"], default="ablation",
@@ -1287,10 +1287,10 @@ following existing analysis exports locally, or via the CLI paths:
   dres_hi, bill, bill_lo, bill_hi. FC plus all 12 policies are required.
 * --data-dir: q1_step_factor.csv. Required columns: benchmark, model,
   policy, leg, steps, per_step, per_step_lo, per_step_hi. Uses SWE e2e rows.
-* --outcomes: analysis/outcomes/swebench_outcomes.csv, exported by
-  analysis/aggregate_benchmark_results.py. --tasks: the pinned P100 JSON,
+* --outcomes: ICLR_experiments/analysis/outcomes/swebench_outcomes.csv, exported by
+  ICLR_experiments/analysis/aggregate_benchmark_results.py. --tasks: the pinned P100 JSON,
   a list of objects with instance_id. See load_q2_runs for the CSV schema.
-* --tb-outcomes: analysis/outcomes/terminalbench_outcomes.csv; --tb-tasks:
+* --tb-outcomes: ICLR_experiments/analysis/outcomes/terminalbench_outcomes.csv; --tb-tasks:
   task_lists/tbench1.0/p40.json. Terminal-Bench censoring reads Harbor results
   beneath --run-root, falling back to CancelledError/empty exit status.
 The Q1 exports come from q1_frontier.py and q1_step_factor.py; neither is
@@ -1766,9 +1766,9 @@ def paper_figures_main(argv=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--figure", choices=["all", "q1-o1", "q1-o2", "q1-qwen-overview", "q2"], default="all")
     parser.add_argument("--data-dir", type=Path, default=ROOT / "ICLR_experiments/plotting")
-    parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
+    parser.add_argument("--outcomes", type=Path, default=ROOT / "ICLR_experiments/analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--tasks", type=Path, default=ROOT / "task_lists/swe_verified/p100_all_100_tasks.json")
-    parser.add_argument("--tb-outcomes", type=Path, default=ROOT / "analysis/outcomes/terminalbench_outcomes.csv")
+    parser.add_argument("--tb-outcomes", type=Path, default=ROOT / "ICLR_experiments/analysis/outcomes/terminalbench_outcomes.csv")
     parser.add_argument("--tb-tasks", type=Path, default=ROOT / "task_lists/tbench1.0/p40.json")
     parser.add_argument("--run-root", type=Path, default=ROOT, help="Root for outcome source_file paths and Harbor records")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots")
@@ -1852,8 +1852,8 @@ FIGURES = [          # all written flat into --output-dir, PNG plus their input 
 # precision (2026-09-24). Only the audited Q3 exports in ICLR_experiments/plotting/ are read:
 # their Devstral, GLM and Terminal-Bench rows are reused; the Qwen SWE-bench
 # rows are recomputed.
-SWE_OUTCOMES = ROOT / "analysis/outcomes/swebench_outcomes.csv"
-TB_OUTCOMES = ROOT / "analysis/outcomes/terminalbench_outcomes.csv"
+SWE_OUTCOMES = ROOT / "ICLR_experiments/analysis/outcomes/swebench_outcomes.csv"
+TB_OUTCOMES = ROOT / "ICLR_experiments/analysis/outcomes/terminalbench_outcomes.csv"
 Q3_DATA_DIR = ROOT / "ICLR_experiments/plotting"
 # q1_frontier.py iterates policies in this order with one bootstrap stream.
 Q1_ORDER = ["FC", "OTRC", "TR", "SU", "SU-p", "SS", "SS-p", "TRC", "TRC+SU", "TRC+SS",
@@ -2929,7 +2929,7 @@ def appendix_task_map_main(argv=None):
     parser = argparse.ArgumentParser(prog="plot_bank.py task-map", description=TASK_MAP_DOC,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="qwen35b", choices=list(MODEL_NAMES))
-    parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
+    parser.add_argument("--outcomes", type=Path, default=ROOT / "ICLR_experiments/analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--settings", nargs="+", default=[f"{d}:{l}" for l in LEVELS for d in DEPTHS],
                         help="depth:level pairs, depth = fraction removed")
     parser.add_argument("--primary-cohort", choices=["ablation", "full"], default="ablation",
@@ -3202,7 +3202,7 @@ Defaults to ICLR_experiments/plotting/plots/; accepts --outcomes and --output-di
 """
 def budget_vs_total_main(argv=None):
     parser = argparse.ArgumentParser(prog="plot_bank.py budget-vs-total", description=BUDGET_VS_TOTAL_DOC)
-    parser.add_argument("--outcomes", type=Path, default=ROOT / "analysis/outcomes/swebench_outcomes.csv")
+    parser.add_argument("--outcomes", type=Path, default=ROOT / "ICLR_experiments/analysis/outcomes/swebench_outcomes.csv")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "ICLR_experiments/plotting/plots")
     args = parser.parse_args(argv)
     series = budget_vs_total_inputs(args.outcomes)

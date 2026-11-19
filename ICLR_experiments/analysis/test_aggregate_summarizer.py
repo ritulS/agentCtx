@@ -1,6 +1,6 @@
 """Summarizer-provenance columns in aggregate_benchmark_results.py.
 
-Run with: venv/bin/python -m unittest discover -s analysis -p "test_*.py" -v
+Run with: venv/bin/python -m unittest discover -s ICLR_experiments/analysis -p "test_*.py" -v
 """
 
 import contextlib
