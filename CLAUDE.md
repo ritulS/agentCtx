@@ -605,14 +605,15 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   adaptive cells via `scripts/expansions/run_r2_swe_majority_uniform.sh`),
   and r2 alone accepts `adaptive-<tag>` cells
   (schedule-driven primitive order; see `src/agentctx/compression/ADAPTIVE.md`). Launchers are grouped under
-  `scripts/{calibration,expansions,serving,harbor,maintenance}/`; see
-  `scripts/README.md`.
-- `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py`,
-  `scripts/run_experiment_iclr.py` and the calibration launchers from the
+  `scripts/{expansions,serving,maintenance}/` (the ICLR-only calibration, Harbor and
+  Terminal-Bench / summarizer-ablation launchers were deleted 2026-11-19; git history
+  before that commit has them); see `scripts/README.md`.
+- `tests/` — runner-equivalence suite: runs `scripts/run_experiment.py` and
+  `scripts/run_experiment_iclr.py` from the
   working tree and from the reference branch (`origin/akiho-clean-20260921-preorg`,
   the pre-reorganization tree) against deterministic fakes and diffs
   everything they write, plus unit tests for verdicts, the summarizer guard
-  and the ablation launcher. `uvx --with pyyaml pytest`; see
+  and selective evaluation. `uvx --with pyyaml pytest`; see
   `tests/README.md`. Run it after touching `src/agentctx/experiments/` or
   `src/agentctx/benchmarks/`.
 - Agent timeouts above 2 h need a longer task container: mini-swe-agent's

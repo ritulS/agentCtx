@@ -11,7 +11,6 @@ operational launchers.
 | `run_experiment_r2.py` | Same, for the r2 extension campaign: writes to `data/r2/<benchmark>/<section>/<model>/<cell>/` (`agentctx.experiments.r2`). |
 | `swebench_eval_wrapper.py` | SWE-bench harness wrapper the SWE-bench adapter launches for evaluation (thread cap inside eval containers). |
 | `notify_run.sh` | Run any launcher with Slack start / completion / failure notices (see below). |
-| `calibration/` | Collect full-context trajectories and calibrate token budgets. |
 | `expansions/run_r2_swe_p30s.sh` | r2 campaign on the P30S cohort with Qwen3.5-35B-A3B, into `data/r2/swebench/p30s/<model>/<cell>`; the first argument picks a preset (`free` = `di__b15k__{su-free,ss-free}`, default; `su-free`, `ss-free`, `fc`, `otrc`, `baselines`), `CELLS` and `RUNS_PER_TASK` override. `R2_SECTION=p100_minus_p30s` runs the other 70 P100 tasks (`task_lists/swe_verified/p100_minus_p30s.json`) into `data/r2/swebench/p100_minus_p30s/<model>/<cell>` instead. |
 | `expansions/run_r2_swe_p30s_devstral2507.sh` | Devstral-Small-2507 sandbox cells: `run_r2_swe_p30s.sh` with `R2_MODEL=devstral2507`, `configs/config-devstral2507-vllm.yaml` (port 8000, max_tokens 4096, timeout 600, temperature 0), tag `devstral-small-2507`, first 20 P30S tasks (`N_TASKS=20`), 3 runs/task, `CELLS` = `di__b15k__su-free` then `d05__b15k__tr`; refuses to start unless port 8000 serves `mistralai/Devstral-Small-2507` with prefix caching in the `REQUIRE_PREFIX_CACHE` state (default `on`, the deliberate choice for this dense model after the 2026-10-17 probe; `off` / `any`). Pair with `serving/start_vllm_devstral2507_sandbox.sh` (`PREFIX_CACHE=on`). |
 | `expansions/run_r2_swe_never7_adaptive.sh` | r2 adaptive primitive-order cells on the 7 P30S tasks Qwen3.5-35B-A3B never resolved, into `data/r2/swebench/p30s_never7/<model>/d05__b15k__adaptive-prefix3-<pattern>`; one cell per `PATTERNS` entry (default `tts tst tss stt sts sst` = the primitive at compression events 1-3, `t` TR / `s` SU-free, last held), schedules in `configs/adaptive/never7_prefix3/`. `R2_SECTION=p100_minus_p30s_never13` runs the same six cells on the 13 P100-minus-P30S tasks the model never resolved (`task_lists/swe_verified/p100_minus_p30s_qwen35b_never_resolved.json`) into `data/r2/swebench/p100_minus_p30s_never13/<model>/...` instead. `R2_SECTION=p100_fc_only4` runs all eight orders (the six plus `ttt` / `sss`) at 10 runs per task on the 4 P100 tasks resolved under full context but never under fixed TR or SU-free (`task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json`) into `data/r2/swebench/p100_fc_only4/<model>/...`. `R2_SECTION=p100_su_free_majority` / `R2_SECTION=p100_tr_majority` run the uniform `sss` / `ttt` order only (SU-free / TR at every compression event) on the first `N_TASKS` (default 5; `N_TASKS=all` for every task) of `task_lists/swe_verified/p100_qwen35b_{su-free,tr}_majority_resolved.json` into `data/r2/swebench/<section>/<model>/...`. |
@@ -25,10 +24,9 @@ operational launchers.
 | `expansions/run_r2_swe_sandbox_isolated_devstral2507_p30s.sh` | The Devstral-Small-2507 isolated wrapper on all 30 P30S tasks (`task_lists/swe_verified/p30_stratified.json`), `RUNS_PER_TASK=3`, dest `data/r2/swebench/p30s/devstral2507-iso-p30s/` (a clean 30 × 3 grid, apart from the 6-task `devstral2507-iso` dir; without `AGENTCTX_PROFILE`, i.e. on Dobby, `devstral2507-iso-p30s-dobby` with the server on GPUs 2-3 only, `DEVSTRAL_CUDA_DEVICES=2,3 DEVSTRAL_TP_SIZE=2`); every other default (fresh server per run, `MAX_WORKERS=1`, caching ON, cell `di__b15k__su-free`, run-major, temperature 0, eval + purge after every run) is the Devstral wrapper's. `DRY_RUN=1` prints the 90-key plan; ~13 h at 8.7 min/cycle. |
 | `expansions/run_r2_swe_sandbox_isolated_fc_only4.sh` | The isolated driver on the four `p100_fc_only4` tasks (django-11433, sklearn-13124, sklearn-14983, sympy-17318) with the sandbox iso recipe: fixes `SECTIONS=p100_fc_only4 PATTERNS=sss RUNS_PER_TASK=10` (override by env) and execs `run_r2_swe_sandbox_isolated.sh`; dest `data/r2/swebench/p100_fc_only4/qwen35b-cap4k-sumnothink-iso/`. |
 | `expansions/run_r2_swe_majority_capped_pilot.sh` | Controlled-sandbox pilot: `run_r2_swe_never7_adaptive.sh` per section (default `SECTIONS=p100_su_free_majority`) on `task_lists/swe_verified/sandbox_su_free_compressing4.json` (the 4 SU-majority first-5 tasks that compressed in every run; `TASKS_FILE` / `N_TASKS` override) with `configs/config-qwen-vllm-cap4k.yaml` (max_tokens 4096, litellm timeout 600 s; `NOTHINK=1` → `...-cap4k-nothink.yaml`, thinking off), `MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT=3`, `MAX_WORKERS` default 3, `AGENT_TIMEOUT` default 7200, dest model dir `qwen35b-cap4k[-nothink]`; `SUMMARIZER=nothink` keeps the agent config but routes summary requests through `configs/config-summary-qwen35-35b-nothink.yaml` (same model/server, thinking OFF, max_tokens 2048; `SUMMARY_CONFIG` overrides the file) with `MSWEA_SUMMARY_MAX_ATTEMPTS=2` (`SUMMARY_MAX_ATTEMPTS`), dest `qwen35b-cap4k-sumnothink`; `SUMMARIZER=nothink4k` is the same with `configs/config-summary-qwen35-35b-nothink-4k.yaml` (reply cap 4096) and the default 5 attempts, dest `qwen35b-cap4k-sumnothink4k`; measure first with `maintenance/probe_summarizer_thinking.py`; `SECTIONS=p100_fc_only4` runs that section's eight prefix-3 orders on its own task list (`N_TASKS=2` = django-11433, sklearn-13124; 400 steps / 7200 s) under the same sandbox settings; refuses a server whose `/metrics` reports prefix caching ON (`SANDBOX_ALLOW_PREFIX_CACHE=1` overrides; the probe below showed caching ON changes this model's generations). Pair with `serving/start_vllm_qwen35_sandbox.sh`. |
-| `expansions/` | Launch model grids, additional repetitions and the summarizer / prefix-cache ablations. |
+| `expansions/` | The r2 launchers above (the ICLR model grids and summarizer / prefix-cache ablation launchers were deleted 2026-11-19; git history has them). |
 | `serving/` | Start and stop model-specific vLLM servers. |
-| `harbor/` | Prebuild Terminal-Bench images, configure Harbor tasks, check worker cancellation. |
-| `maintenance/` | Audit, re-evaluate, repair and archive existing results. |
+| `maintenance/` | Probes, replays and analysis tools over existing result trees. |
 | `maintenance/never_resolved_tasks.py` | Lists the tasks with no resolved run across a set of cells of one model dir (e.g. `data/r2/swebench/p100_minus_p30s/qwen35b`) in the `task_lists/swe_verified/` schema, with difficulty from the cached SWE-bench Verified dataset; produced `p30s_qwen35b_never_resolved.json` (7) and `p100_minus_p30s_qwen35b_never_resolved.json` (13). |
 | `maintenance/majority_resolved_tasks.py` | The complement: lists the tasks resolved in at least `--min-resolved` (default 2) of `--min-runs` (default 3) evaluated runs of one `--cell` across one or more model dirs (e.g. the r2 `p30s` and `p100_minus_p30s` sections together), in P100 order with difficulty (`--interleave` instead alternates the not-always-resolved tasks with the always-resolved ones, cycling through the difficulty levels); produced, with `--interleave`, `p100_qwen35b_tr_majority_resolved.json` (53) and `p100_qwen35b_su-free_majority_resolved.json` (55). |
 
@@ -46,46 +44,16 @@ model/dataset/compilation caches and images remain on disk. The default agent
 configs have no host bind mounts or named volumes; custom mounts or a separate
 summary server require their own isolation.
 
-## Calibration
-
-- `run_budget_calibration_sb.py` / `.sh`: canonical SWE-Bench P100 FC run_1.
-- `run_budget_calibration_tb.py` / `.sh`: canonical Terminal-Bench 1.0 FC runs,
-  including rootless and subuid subsets, and isolated native-context
-  collections (`--calibration-dir`; see `DEVSTRAL_TB_NATIVE_CALIBRATION.md`,
-  `GLM_TB_NATIVE_CALIBRATION.md`).
-- `run_budget_calibration_tb2.sh`: Terminal-Bench 2.0 FC runs through the same
-  Python launcher; `prepare_tb2_fc_resume.py` lists the tasks left for a resume.
-- `run_model_budget_calibration.sh`: earlier 60-trajectory calibration using
-  ABL-30 and reference trigger rates; distinct from the canonical P100 workflow.
-- `log_vllm_prefix_cache.py`: vLLM `/metrics` prefix-cache recorder used by the
-  isolated calibration mode.
-
-```bash
-bash scripts/calibration/run_budget_calibration_sb.sh devstral
-bash scripts/calibration/run_budget_calibration_tb.sh qwen-rootless
-```
-
 ## Expansions
 
-- `run_agent_models_expansion.sh`: SWE-Bench Qwen / Devstral / GLM grids.
-- `run_agent_models_expansion_tb.sh`: Terminal-Bench Qwen / Devstral / GLM grids.
-- `run_glm_tb_ablation_split.sh {gpu0-3|gpu4-7}`: the GLM Terminal-Bench
-  ablation split across two vLLM servers (sets `ABLATION_PARTS`, config and
-  health URL per half, then launches through `notify_run.sh`).
-- `run_terminalbench_rootless_fc_expansion.sh`: FC run_2 through run_5 on the
-  Terminal-Bench rootless subset.
-- `run_qwen_{swe,tb}_summarizer_ablation.sh`: summarizer-model ablation
-  (`--summary-config`, `model_ablation` section).
-- `run_qwen_{swe,tb}_prefix_cache_ablation.sh`: vLLM prefix-caching ablation
-  (`prefix_cache_ablation` section).
-- `run_qwen_tb_prefix_cache_ablation_split.sh {gpu0-3|gpu4-7}`: the
-  Terminal-Bench prefix-cache ablation split across two caching-off servers
-  (port 8000 on GPUs 0-3, port 8002 on GPUs 4-7; sets `CELLS`, config and
-  health URL per half, then launches through `notify_run.sh`).
+The r2 launchers are described in the table above: `run_r2_swe_p30s.sh` and
+`run_r2_swe_never7_adaptive.sh` drive `run_experiment_r2.py`; the sandbox
+wrappers (`run_r2_swe_sandbox_isolated*.sh`, `run_r2_swe_majority_capped_pilot.sh`,
+`run_r2_swe_sandbox_chain.sh`, `run_r2_swe_majority_uniform.sh`) stack on them.
 
 ```bash
-bash scripts/expansions/run_agent_models_expansion.sh devstral
-bash scripts/expansions/run_agent_models_expansion_tb.sh qwen both
+bash scripts/expansions/run_r2_swe_p30s.sh fc
+DRY_RUN=1 bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral24b_fc20.sh ocsa
 ```
 
 ### Slack notices: `notify_run.sh`
@@ -105,23 +73,14 @@ tests, sequential chains).
 ```bash
 export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'   # or ALLOW_NO_SLACK=1
 
-# Terminal-Bench main grid (previously run_qwen_tb_main_with_slack.sh)
-bash scripts/notify_run.sh --unit qwen-terminal-bench-main --lock qwen_tb_main \
-    -- bash scripts/expansions/run_agent_models_expansion_tb.sh qwen main
-
-# SWE-Bench model grid (previously run_agent_models_expansion_notified.sh)
-MAX_WORKERS=16 RUN_EVAL=1 bash scripts/notify_run.sh --unit agent-model-expansion/glm \
-    -- bash scripts/expansions/run_agent_models_expansion.sh glm
-
-# Summarizer / prefix-cache ablations (previously *_notified.sh / *_with_slack.sh)
-SUMMARY_CONFIG=configs/config-summary-gemma4-12b.yaml ICLR_MODEL=qwen35b-sum-gemma4-12b \
-    bash scripts/notify_run.sh --unit summarizer-ablation/swebench/qwen35b-sum-gemma4-12b \
-    -- bash scripts/expansions/run_qwen_swe_summarizer_ablation.sh
-bash scripts/notify_run.sh --unit qwen-terminal-bench-prefix-cache-ablation --lock qwen_tb_noprefixcache \
-    -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh
+# A Devstral fc20 cell on Albus (see Active_runs.md for the full environment)
+DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock N_TASKS=all RUNS_PER_TASK=1 TASK_SET=ocst4 \
+    bash scripts/notify_run.sh --unit devstral24b_fc20_ojfstblg_4 --lock devstral_fc20_albus \
+    --pid-file devstral24b_fc20_ojfstblg_4 \
+    -- bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral24b_fc20.sh ojfstblg
 
 # Attached, e.g. a one-task smoke test
-bash scripts/notify_run.sh --foreground --unit smoke -- bash scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh
+bash scripts/notify_run.sh --foreground --unit smoke -- bash scripts/expansions/run_r2_swe_p30s.sh fc
 ```
 
 `--on-success '<command>'` runs a follow-up (for example a results summary)
@@ -169,36 +128,25 @@ directories under `logs/` (`harbor_jobs/`, `replay_reverify/`, `reeval/`,
 scripts/lib/notify_slack.py test` checks the webhook. `tests/test_notify_run.py`
 covers the wrapper.
 
-## Serving and Harbor setup
+## Serving
 
-`serving/start_vllm_{qwen35_prefix_cache_ablation,qwen35_prefix_cache,qwen35_no_prefix_cache,qwen35_no_prefix_cache_gpu4-7,qwen35_9b,qwen35_swe_summarizer_ablation,devstral,glm47flash,summarizer,gemma4_12b}.sh`
+`serving/start_vllm_{qwen35_prefix_cache,qwen35_sandbox,qwen35_ssm_probe,devstral,devstral2507_sandbox}.sh`
 start the selected model, logging to `logs/servers/vllm_<name>_<timestamp>.log`
 (`vllm_<name>.latest.log` follows the newest start) with the process-group id
 in `logs/servers/vllm_<name>.pid`; `serving/stop_vllm.sh <pid file>` stops a
 server with its process group. Check each script's environment overrides and
 GPU requirements before use.
 
-`harbor/tb_harbor_prebuild_images.sh` builds Terminal-Bench 1.0 task images and
-calls `harbor/configure_tb_harbor_prebuilt.py` to update task and Compose
-configuration; `harbor/tb2_harbor_prebuild_images.sh` does the same for
-Terminal-Bench 2.0. `harbor/check_vllm_cancellation.py` exercises the Harbor
-worker cancellation path against an idle vLLM server (`HARBOR_CANCELLATION.md`).
-
 ```bash
 bash scripts/serving/start_vllm_devstral.sh
-bash scripts/harbor/tb_harbor_prebuild_images.sh hello-world
 ```
 
 ## Maintenance
 
 Post-hoc tools for existing result trees; none of them launches new agent runs
-except the re-verification replays.
+except the replay / continuation probes. (The ICLR-era audit, re-evaluation,
+repair and archive tools were deleted 2026-11-19; git history has them.)
 
-- `audit_tb_verdicts.py`, `replay_reverify_tb.py`: Terminal-Bench verdict audit
-  and command-replay re-verification (`agentctx.benchmarks.replay_agent`).
-- `build_reevaluation_candidates.py`, `reevaluate_swebench_candidates.py`:
-  re-evaluate saved SWE-bench patches with stale or errored verdicts.
-- `repair_token_log_transcription.py`: refresh result rows from their token logs.
 - `tag_run_failures.py <cell>...`: tags every run of a cell from its
   `token_log.json` / `trajectory.json` with `runaway` (a reply reached the
   run's `max_tokens`), `summary_runaway`, `hung` (a call took at least the
@@ -283,8 +231,6 @@ except the re-verification replays.
   also holds reasoning and directives verbatim), plus `index.html` /
   `index.csv`. Reads the run's event logs; added 2026-11-11 for the DeepSeek
   OCSA cell (`data/r2/probes/ocsa_dsflash_selection/`, gitignored).
-- `archive_devstral_fc_r23.py`, `archive_qwen_ablation_seeded.sh`,
-  `reuse_qwen_main_for_ablation.py`: archive or seed result cells.
 
 The grouped scripts previously lived directly under `scripts/`; the Python
 modules they import moved from `scripts/bench_adapters/`, `memory.py`,

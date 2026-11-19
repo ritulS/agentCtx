@@ -80,10 +80,6 @@ class Tree:
         iclr = ("run_experiment_iclr.py", "agentctx/experiments/iclr.py")
         if self._mentions("prefix_cache_ablation", *iclr):
             features.add("iclr-sections")
-        if self._has("run_budget_calibration_tb.py", "calibration/run_budget_calibration_tb.py"):
-            features.add("tb-calibration")
-        if self._has("run_budget_calibration_sb.py", "calibration/run_budget_calibration_sb.py"):
-            features.add("sb-calibration")
         return frozenset(features)
 
 

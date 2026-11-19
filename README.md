@@ -68,7 +68,7 @@ Per-model serving configs live in [configs/](configs/).
 | `scripts/run_experiment_r2.py` | Same wrapper for the r2 extension campaign; writes into `data/r2/` with the ICLR `<benchmark>/<section>/<model>/<cell>` layout (`src/agentctx/experiments/r2.py`). |
 | `src/agentctx/benchmarks/` | Per-benchmark adapters (SWE-bench, Terminal-Bench through Harbor), verdict handling and shared result conversion. |
 | `src/agentctx/__init__.py` | `WORKSPACE_ROOT` and the shared `INFINITE_BUDGET` sentinel used by uncompressed baselines. |
-| `scripts/{calibration,expansions,serving,harbor,maintenance}/` | Launchers and operational tools; see [scripts/README.md](scripts/README.md). |
+| `scripts/{expansions,serving,maintenance}/` | Launchers and operational tools; see [scripts/README.md](scripts/README.md). |
 | `tests/` | Runner-equivalence suite against the pre-reorganization branch plus unit tests; `uvx --with pyyaml pytest` (see [tests/README.md](tests/README.md)). |
 | `configs/` | Per-model vLLM/agent configs (`config-qwen-vllm.yaml` is the main model). |
 | `Review1/` | Analysis suite. `build_review1.py` distills raw trajectories into `Review1.csv`; the other scripts produce stats, tables, figures. |

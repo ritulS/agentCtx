@@ -50,7 +50,7 @@
 # Examples:
 #   SLACK_WEBHOOK_URL=... bash scripts/notify_run.sh \
 #       --unit qwen-terminal-bench-main --lock qwen_tb_main \
-#       -- bash scripts/expansions/run_agent_models_expansion_tb.sh qwen main
+#       -- bash scripts/expansions/run_r2_swe_p30s.sh fc
 #   bash scripts/notify_run.sh --foreground --unit smoke -- bash scripts/... 
 set -uo pipefail
 

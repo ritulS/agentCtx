@@ -1,6 +1,6 @@
 # Identical to config-qwen-vllm.yaml except api_base -> port 8002 (second
 # Qwen3.5-35B-A3B vLLM on GPUs 4-7). Used by the gpu4-7 half of the split TB
-# prefix-cache ablation (scripts/serving/start_vllm_qwen35_no_prefix_cache_gpu4-7.sh).
+# prefix-cache ablation (the ICLR start_vllm_qwen35_no_prefix_cache_gpu4-7.sh launcher, deleted 2026-11-19).
 agent:
   step_limit: 300
   cost_limit: 0.0

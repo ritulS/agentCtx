@@ -2,8 +2,8 @@
 # Only the `model:` section is read (summary_config.summary_model_config), via
 # `run_experiment.py --summary-config` -> MSWEA_SUMMARY_MODEL_CONFIG.
 # Server (either one, port 8001):
-#   bash scripts/serving/start_vllm_summarizer.sh gemma4-12b   (GPUs 0-3, shared with the agent)
-#   bash scripts/serving/start_vllm_gemma4_12b.sh              (GPUs 4-5, dedicated)
+#   the ICLR start_vllm_summarizer.sh gemma4-12b / start_vllm_gemma4_12b.sh launchers
+#   (deleted 2026-11-19, in git history)
 # google/gemma-4-12B-it is gated on Hugging Face (accept the licence, set HF_TOKEN)
 # and needs vLLM >= 0.27 (the default venv has 0.17; the start scripts use venv-glm-cu129-clean).
 # Sampling settings mirror the agent config (configs/config-qwen-vllm.yaml).

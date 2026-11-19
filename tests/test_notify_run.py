@@ -313,29 +313,6 @@ def test_notify_slack_rejects_the_old_six_argument_stop() -> None:
         _notify_slack().format_message(["start"])
 
 
-def test_glm_split_script_dispatches_to_notify_run(ws: Path) -> None:
-    """run_glm_tb_ablation_split.sh keeps the GPU-group logic and delegates the rest."""
-    scripts = ws / "scripts"
-    (scripts / "expansions").mkdir(parents=True)
-    (scripts / "lib").mkdir(exist_ok=True)
-    shutil.copy(NOTIFY_RUN, scripts / "notify_run.sh")
-    shutil.copy(LOGPATHS, scripts / "lib" / "logpaths.sh")
-    shutil.copy(REPO_ROOT / "scripts" / "expansions" / "run_glm_tb_ablation_split.sh", scripts / "expansions")
-    fake = scripts / "expansions" / "run_agent_models_expansion_tb.sh"
-    fake.write_text('#!/usr/bin/env bash\necho "args=$* parts=$ABLATION_PARTS health=$GLM_HEALTH_URL suffix=$TB_LOG_SUFFIX"\n')
-    proc = subprocess.run(["bash", str(scripts / "expansions" / "run_glm_tb_ablation_split.sh"), "gpu4-7"],
-                          cwd=ws, env=env_for(ws, FOREGROUND="1"), capture_output=True, text=True, timeout=60)
-    assert proc.returncode == 0, proc.stderr
-    assert "args=glm ablation parts=di d05 health=http://localhost:8004/v1/models suffix=ablation_gpu4-7" in proc.stdout
-    assert notices(ws) == [["start", "glm-terminal-bench-ablation-gpu4-7"],
-                           ["stop", "glm-terminal-bench-ablation-gpu4-7", "success", "0",
-                            str(latest_log(ws, "glm-terminal-bench-ablation-gpu4-7"))]]
-    assert (ws / "logs" / "experiments" / "glm_tb_ablation_gpu4-7.lock").exists()
-    proc = subprocess.run(["bash", str(scripts / "expansions" / "run_glm_tb_ablation_split.sh"), "gpu9"],
-                          cwd=ws, env=env_for(ws), capture_output=True, text=True, timeout=60)
-    assert proc.returncode == 2
-
-
 # ── log ownership: scripts/lib/logpaths.sh ─────────────────────────────────────
 
 def bash(ws: Path, script: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:

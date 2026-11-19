@@ -1,7 +1,7 @@
 """The reorganized runners must behave exactly like the reference branch.
 
 ``scripts/run_experiment.py``, ``scripts/run_experiment_iclr.py`` and the FC
-calibration launchers from the working tree are run side by side with the same
+launchers from the working tree are run side by side with the same
 scripts taken from each reference branch (see ``conftest.REFERENCE_BRANCHES``),
 inside sandboxes that differ only in the code under test. Every command line in
 a scenario must exit with the same status, print the same lines, and leave the
@@ -9,7 +9,7 @@ same files under ``results/``, ``ICLR_experiments/`` and ``logs/``, including th
 exact agent/Harbor invocation captured by the fakes.
 
 Scenarios that need a capability a reference branch predates (Terminal-Bench,
-``--summary-config``, verdict handling, the calibration launchers) are skipped
+``--summary-config``, verdict handling) are skipped
 for that branch.
 """
 
@@ -32,14 +32,10 @@ from harness import (
 
 RUN = "run_experiment.py"
 ICLR = "run_experiment_iclr.py"
-CAL_TB = "run_budget_calibration_tb.py"
-CAL_SB = "run_budget_calibration_sb.py"
 TB = frozenset({"terminal-bench"})
 TB_VERDICTS = TB | {"tb-verdicts"}
 SUMMARY = frozenset({"summary-config"})
 SECTIONS = frozenset({"iclr-sections"})
-TB_CALIBRATION = TB_VERDICTS | {"tb-calibration"}
-SB_CALIBRATION = frozenset({"sb-calibration"})
 INF = "999999999"
 
 
@@ -316,27 +312,6 @@ SCENARIOS = [
                  "--budget", "15000", "--depth", "0.5"]),
         requires=TB,
     ),
-    # ── FC calibration launchers ──────────────────────────────────────────────
-    scenario(
-        "calibration-tb-fc-run1-then-subset-run2",
-        [CAL_TB, "--model-key", "qwen35b", "--agent-config", "configs/config-qwen-vllm.yaml",
-         "--expected-tasks", "6", "--n-concurrent", "1", "--skip-postprocess"],
-        [CAL_TB, "--model-key", "qwen35b", "--agent-config", "configs/config-qwen-vllm.yaml",
-         "--expected-tasks", "6", "--n-concurrent", "1", "--skip-postprocess",
-         "--run-num", "2", "--tasks-file", "task_lists/tb_tasks.json",
-         "--verifier-timeout-multiplier", "2.0", "--result-scope", "p80_rootless"],
-        failing([CAL_TB, "--model-key", "qwen35b", "--agent-config", "configs/config-qwen-vllm.yaml",
-                 "--expected-tasks", "6", "--n-concurrent", "1", "--skip-postprocess",
-                 "--task-name", "no-such-task"]),
-        requires=TB_CALIBRATION,
-    ),
-    scenario(
-        "calibration-sb-fc-run1",
-        [CAL_SB, "--model-key", "qwen35b", "--agent-config", "configs/config-qwen-vllm.yaml",
-         "--tasks-file", "task_lists/custom_tasks.json", "--max-workers", "1",
-         "--skip-postprocess"],
-        requires=SB_CALIBRATION,
-    ),
 ]
 SCENARIO_IDS = [s.name for s in SCENARIOS]
 
@@ -477,29 +452,6 @@ def test_tb_scenario_exercises_harbor_outcomes(working_tree: Tree, tmp_path):
     assert sum(name.endswith("-a2") for name in jobs) == 3 and sum(name.endswith("-a3") for name in jobs) == 3
 
 
-def test_tb_calibration_writes_canonical_cell(working_tree: Tree, tmp_path):
-    if not TB_CALIBRATION <= working_tree.features:
-        pytest.skip("working tree has no Terminal-Bench calibration launcher")
-    sandbox = build_sandbox(tmp_path, working_tree)
-    execute(sandbox, _scenario("calibration-tb-fc-run1-then-subset-run2"))
-    cell = sandbox.root / "ICLR_experiments/terminalbench/main/qwen35b/di__binf__fc"
-    rows = _rows(sandbox.root, "ICLR_experiments/terminalbench/main/qwen35b/di__binf__fc/experiment_results.json")
-
-    assert len(rows) == 6 and {row["run_num"] for row in rows} == {1}
-    assert all(row["condition"] == "full-context" and row["is_baseline"] for row in rows)
-    assert all(row["key"] == f"{row['instance_id']}__full-context__r1" for row in rows)
-    assert {row["resolved"] for row in rows} == {True, False, None}
-    assert all(row["verifier_timeout_multiplier"] == 1.0 for row in rows)
-    manifest = json.loads((cell / "ICLR_CELL_MANIFEST.json").read_text())
-    assert manifest["complete"] and manifest["completed_tasks"] == 6
-    subset = _rows(sandbox.root, "ICLR_experiments/terminalbench/main/p80_rootless/qwen35b/di__binf__fc/experiment_results.json")
-    assert sorted(row["instance_id"] for row in subset) == sorted(TB_TASK_LIST_TASKS)
-    assert all(row["run_num"] == 2 and row["verifier_timeout_multiplier"] == 2.0 for row in subset)
-
-
-TB_TASK_LIST_TASKS = ["alpha-task", "beta-task-fail", "zeta-task-vtimeout"]
-
-
 # ── The intentional differences, asserted rather than ignored ──────────────────
 
 
@@ -602,21 +554,6 @@ def test_current_harbor_invocation_targets_agentctx_package(working_tree: Tree, 
         pytest.skip("working tree has no Terminal-Bench adapter")
     sandbox = build_sandbox(tmp_path, working_tree)
     execute(sandbox, _scenario("tb-n-tasks-with-config-overrides"))
-    invocations = sorted((sandbox.root / "logs").rglob("invocation.json"))
-    assert invocations, "no Harbor invocation was recorded"
-    for path in invocations:
-        invocation = json.loads(path.read_text())
-        argv = invocation["argv"]
-        assert argv[argv.index("--agent") + 1] == "agentctx.benchmarks.harbor_adapter:CompressionAgent"
-        entries = invocation["env"]["PYTHONPATH"].split(":")
-        assert entries[0] == str(sandbox.root / "src")
-
-
-def test_current_calibration_invocation_targets_agentctx_package(working_tree: Tree, tmp_path):
-    if not TB_CALIBRATION <= working_tree.features:
-        pytest.skip("working tree has no Terminal-Bench calibration launcher")
-    sandbox = build_sandbox(tmp_path, working_tree)
-    execute(sandbox, _scenario("calibration-tb-fc-run1-then-subset-run2"))
     invocations = sorted((sandbox.root / "logs").rglob("invocation.json"))
     assert invocations, "no Harbor invocation was recorded"
     for path in invocations:

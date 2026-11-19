@@ -6,8 +6,6 @@
 
 - `scripts/run_experiment.py` (→ `src/agentctx/experiments/runner.py`)
 - `scripts/run_experiment_iclr.py` (→ `src/agentctx/experiments/iclr.py`)
-- `scripts/calibration/run_budget_calibration_{tb,sb}.py`
-  (→ `src/agentctx/benchmarks/harbor_results.py`)
 
 behave exactly like the versions on the reference branch
 `origin/akiho-clean-20260921-preorg` (the tree just before the `src/agentctx`
@@ -26,7 +24,7 @@ uvx --with pyyaml pytest --reference-branch akiho-clean-20260903-2   # any branc
 
 `--reference-branch` is repeatable and replaces the default list. Scenarios
 that need a capability the reference predates (Terminal-Bench, verdict
-handling, `--summary-config`, the ICLR sections, the calibration launchers)
+handling, `--summary-config`, the ICLR sections)
 are skipped for that branch, so older branches compare only the shared core.
 
 Any interpreter with `pytest` and `pyyaml` works (`python -m pytest`). The
@@ -62,7 +60,7 @@ test asserts:
 2. identical stdout/stderr lines after normalization;
 3. identical files under `results/`, `ICLR_experiments/` and `logs/`, including
    `experiment_results.json`, `run_info.{json,md}`, copied Harbor artifacts,
-   superseded attempts, calibration manifests and the recorded agent/Harbor
+   superseded attempts and the recorded agent/Harbor
    invocations.
 
 Reference code is obtained with `git fetch origin <branch>` followed by
@@ -92,7 +90,7 @@ but asserted explicitly in their own tests:
 | What | reference | working tree |
 |---|---|---|
 | `PYTHONPATH` handed to the agent / Harbor | `<WS>[:…]` | `<WS>/src:<WS>[:…]` |
-| `harbor run --agent` | `scripts.bench_adapters.harbor_adapter:CompressionAgent` (runner) / `tbench.harbor_adapter:CompressionAgent` (calibration) | `agentctx.benchmarks.harbor_adapter:CompressionAgent` |
+| `harbor run --agent` | `scripts.bench_adapters.harbor_adapter:CompressionAgent` | `agentctx.benchmarks.harbor_adapter:CompressionAgent` |
 | canonical ICLR result tree | `ICLR_results/` | `ICLR_experiments/` |
 | SWE-bench rows without a patch in `experiment_results.json` | `resolved: null` (set to False in memory only after the last save) | `resolved: false` (saved) |
 
@@ -113,7 +111,7 @@ fakes: SWE-bench ids ending in `-crash` / `-nopatch` / `-applyfail` /
 | `test_tb_verdict.py` | pyyaml | Terminal-Bench verdict handling, re-run loop, superseded attempts |
 | `test_iclr_summarizer_guard.py` | – | `agentctx.experiments.iclr.validate_summarizer` |
 | `test_resource_monitor.py` | – | `agentctx.resource_monitor` (per-run RSS/container/GPU/vLLM sampler; parsing, process-tree sampling, summary). The equivalence sandbox runs with `AGENTCTX_RESOURCE_MONITOR=0`; `test_current_runner_records_resource_usage` switches it on. |
-| `test_ablation_launch.py` | bash | ABL-25 selection in `run_agent_models_expansion.sh`, selective evaluation |
+| `test_ablation_launch.py` | – | selective evaluation preserving excluded result rows |
 | `test_vllm_kv_trace_launch.py` | bash | KV ownership tracing on by default in `scripts/lib/vllm_kv_trace.sh` (default dir next to the server log, `AGENTCTX_KV_TRACE_DIR` override, `AGENTCTX_KV_TRACE=0` opt-out) and wired into every `scripts/serving/start_vllm_*.sh` |
 | `test_notify_run.py` | bash, flock | `scripts/notify_run.sh` (notices, lock, PID file, signal forwarding, `--on-success`, background/foreground), `scripts/lib/logpaths.sh` (timestamped logs, log ownership) and `scripts/lib/notify_slack.py` |
 | `test_summary_query.py` | litellm, mini-swe-agent (`venv`) | prose summaries through mini-swe-agent v2 models |

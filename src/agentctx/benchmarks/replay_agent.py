@@ -16,8 +16,9 @@ This agent does exactly that:
   or timeout, as the original agent did;
 * it records, per command, whether the output and return code matched the
   observation stored in the trajectory (``replay_log.json``) and a summary
-  (``replay_summary.json``) that ``scripts/maintenance/replay_reverify_tb.py`` uses as
-  evidence.
+  (``replay_summary.json``) that the Terminal-Bench re-verification tool
+  (``scripts/maintenance/replay_reverify_tb.py``, deleted 2026-11-19, in git history)
+  used as evidence.
 
 Only trajectories whose assistant turns are all present can be replayed; the
 runner checks that before launching Harbor (see ``analyze_trajectory`` there).

@@ -1,9 +1,9 @@
-"""Harbor trial artifacts, normalized metrics, and FC calibration aggregation.
+"""Harbor trial artifacts, normalized metrics, and result-row aggregation.
 
-Shared by the Terminal-Bench experiment adapter (``terminal_bench.py``) and the
-FC calibration launcher (``scripts/calibration/run_budget_calibration_tb.py``)
-so both write result rows with the same fields and verdict semantics
-(see ``tb_verdict.py``).
+Used by the Terminal-Bench experiment adapter (``terminal_bench.py``); the FC
+calibration launcher that shared it (``scripts/calibration/run_budget_calibration_tb.py``)
+was deleted 2026-11-19 and lives in git history. Result rows keep the same
+fields and verdict semantics (see ``tb_verdict.py``).
 """
 
 from __future__ import annotations

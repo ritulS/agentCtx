@@ -43,8 +43,7 @@ def parse_adapter_args() -> tuple[argparse.Namespace, list[str]]:
              "runs whose summarizer differs from the agent (FOLLOWUP_EXPERIMENTS.md §4); "
              "prefix_cache_ablation holds self-summarized runs served with vLLM prefix "
              "caching flipped relative to the benchmark's production runs: on for "
-             "SWE-Bench (scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh), off for "
-             "Terminal-Bench (scripts/expansions/run_qwen_tb_prefix_cache_ablation.sh)",
+             "SWE-Bench, off for Terminal-Bench",
     )
     parser.add_argument("--iclr-model", required=True)
     parser.add_argument("--iclr-cell", required=True)

@@ -16,7 +16,6 @@
 # AGENTCTX_PROFILE=albus-swe serves on all 8 GPUs of Albus with
 # --tensor-parallel-size 8 (everything else unchanged); unset, this is the
 # Dobby production server on GPUs 0-3 with TP=4.
-# scripts/serving/start_vllm_qwen35_swe_summarizer_ablation.sh instead when sharing the GPUs with a summarizer.
 #
 # Usage:  bash scripts/serving/start_vllm_qwen35_prefix_cache.sh
 # Albus:  AGENTCTX_PROFILE=albus-swe bash scripts/serving/start_vllm_qwen35_prefix_cache.sh

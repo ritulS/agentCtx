@@ -2,7 +2,7 @@
 # r2 extension campaign on SWE-Bench: the Qwen3.5-35B-A3B compression grid on
 # the 30-task stratified cohort (P30S, task_lists/swe_verified/p30_stratified.json).
 #
-# Mirrors scripts/expansions/run_qwen_swe_prefix_cache_ablation.sh, minus the
+# Mirrors the ICLR prefix-cache-ablation launcher (run_qwen_swe_prefix_cache_ablation.sh, deleted 2026-11-19), minus the
 # prefix-cache checks, and drives scripts/run_experiment_r2.py instead of the
 # ICLR launcher:
 #   Agent      : Qwen3.5-35B-A3B, configs/config-qwen-vllm.yaml, :8000
