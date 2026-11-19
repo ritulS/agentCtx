@@ -23,8 +23,8 @@ in `ICLR_experiments/`; it was `ICLR.md` at the root until 2026-09-26).
 - `paper_sections_ICLR/abstract.md` and `paper_sections_ICLR/Paper_spine.md`
   were deleted 2026-09-11. The cost-lever and audit-first framing they carried
   is retired. Do not reinstate it, and do not re-create those files. (A
-  different, older `abstract.md` still sits at the repo root. See the sunset
-  section.)
+  different, older `abstract.md` sat at the repo root until 2026-11-19. See
+  the sunset section.)
 - Paper drafts live only in `/home/rs67788/projects/agentCtx` and are
   gitignored, so Akiho's clone does not have them.
 - Show draft prose in chat before writing to any file in
@@ -147,9 +147,9 @@ reference, and never as current framing.
 - `Review1/` holds the analysis pipeline over the older Qwen data in `data/`.
 - `Review1/Emnlp_reviews/` holds the submission, the reviews and the rebuttal
   checklist.
-- `abstract.md` at the repo root is an April 2026 draft from a still older
-  framing ("No Free Compression"). It is not the ICLR abstract, and there is
-  no current abstract file.
+- `abstract.md` at the repo root was an April 2026 draft from a still older
+  framing ("No Free Compression"); deleted 2026-11-19 (in git history). It was
+  not the ICLR abstract, and there is no current abstract file.
 
 Worth carrying over. The axis taxonomy, now cut to three axes. The finding
 that different policies solve different tasks. The latency trade behind the

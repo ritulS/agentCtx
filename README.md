@@ -9,14 +9,11 @@ transfer checks.
 
 **Start here, in order:**
 
-1. **Coverage dashboard** (`DASHBOARD.html`, gitignored) — every run we
-   already have, per model × primitive × budget × depth, with gaps
-   highlighted. Regenerable (see [Coverage tracking](#coverage-tracking)).
-2. [CLAUDE.md](CLAUDE.md) — project context, vocabulary (primitive families,
+1. [CLAUDE.md](CLAUDE.md) — project context, vocabulary (primitive families,
    depths, cohorts), scope rules, critical conventions.
-3. [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md) — the current target (ICLR 2027), the framing of
+2. [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md) — the current target (ICLR 2027), the framing of
    record, and the source of truth for every topic.
-4. [ICLR_experiments/FOLLOWUP_EXPERIMENTS.md](ICLR_experiments/FOLLOWUP_EXPERIMENTS.md) — the experiment
+3. [ICLR_experiments/FOLLOWUP_EXPERIMENTS.md](ICLR_experiments/FOLLOWUP_EXPERIMENTS.md) — the experiment
    plan, grid and its status; [Active_runs.md](Active_runs.md) — live experiment
    status.
 
@@ -67,8 +64,6 @@ Per-model serving configs live in [configs/](configs/).
 | `src/agentctx/compression/primitives.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. `memory.py` at the repo root is an alias kept for the pinned mini-swe-agent commit, which still does `import memory`. |
 | `mini-swe-agent/` | Submodule — agent loop; primitives dispatched in `src/minisweagent/agents/default.py` via the `MSWEA_PRIMITIVE` env var. |
 | `scripts/run_experiment.py` | CLI entry point for `src/agentctx/experiments/runner.py`. Conditions in `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--summary-config`, `--max-workers`. |
-| `dashboard/build_coverage.py` | Regenerates the coverage CSVs from experiment results. |
-| `dashboard/build_dashboard.py` | Renders `DASHBOARD.html` from the coverage CSVs. |
 | `scripts/run_experiment_iclr.py` | Wraps the runner to write into the canonical `ICLR_experiments/` tree (`src/agentctx/experiments/iclr.py`). |
 | `scripts/run_experiment_r2.py` | Same wrapper for the r2 extension campaign; writes into `data/r2/` with the ICLR `<benchmark>/<section>/<model>/<cell>` layout (`src/agentctx/experiments/r2.py`). |
 | `src/agentctx/benchmarks/` | Per-benchmark adapters (SWE-bench, Terminal-Bench through Harbor), verdict handling and shared result conversion. |
@@ -119,33 +114,6 @@ retired legacy runs. It backs the `Review1/` suite, not the ICLR analysis.
   grid. Do not mix `data/swebench/legacy/` or `early_2026-03/` into new
   analysis.
 - Data moves between machines with rsync, never git — see [DATA.md](DATA.md).
-
-## Coverage tracking
-
-Two generated artifacts keep "what runs exist" honest — they are derived from
-disk, never hand-edited:
-
-- **`COVERAGE.csv`** (git-tracked) — one row per (benchmark, model, primitive,
-  budget, depth) cell that has actual data: scope, status, tasks/runs on disk,
-  and CSV ingest state. Dirty/archived experiment data is intentionally
-  excluded. **The committed copy is stale** (2026-08-28, no Devstral or GLM
-  rows), so regenerate before relying on it. `COVERAGE_TB.csv` is header-only
-  here because Terminal-Bench runs on another machine — see
-  [ICLR_experiments/SOURCE_OF_TRUTH.md](ICLR_experiments/SOURCE_OF_TRUTH.md).
-- **`DASHBOARD.html`** (gitignored, regenerable) — the human-friendly view.
-  The live copy is published by GitHub Actions on a cron; see
-  `dashboard/README.md` for the URL and the publishing pipeline.
-  Solid chips = full 100-task cohort; outlined = ablation cohort only; one
-  section per benchmark. The chip labels and CSV columns still say `abl30`,
-  which predates the move to ABL-25.
-
-After any run completes:
-
-```bash
-python dashboard/build_coverage.py && python dashboard/build_dashboard.py
-```
-
-then republish the dashboard to keep the link current.
 
 ## Running experiments
 

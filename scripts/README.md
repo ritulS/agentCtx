@@ -164,9 +164,9 @@ the launcher owns the file. So `bash scripts/expansions/...` on its own
 writes `logs/experiments/followup_..._<ts>.log`, and the same launcher under
 `notify_run.sh` writes only into the wrapper's log, never twice. Data
 directories under `logs/` (`harbor_jobs/`, `replay_reverify/`, `reeval/`,
-`tb_verdict_audit/`) are unaffected. `dashboard/notify_slack.py` is the notifier it calls
+`tb_verdict_audit/`) are unaffected. `scripts/lib/notify_slack.py` is the notifier it calls
 (`start <unit>` / `stop <unit> <result> <status> <log>`); `python3
-dashboard/notify_slack.py test` checks the webhook. `tests/test_notify_run.py`
+scripts/lib/notify_slack.py test` checks the webhook. `tests/test_notify_run.py`
 covers the wrapper.
 
 ## Serving and Harbor setup

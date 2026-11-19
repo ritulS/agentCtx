@@ -1,7 +1,7 @@
-"""Unit tests for scripts/notify_run.sh and dashboard/notify_slack.py.
+"""Unit tests for scripts/notify_run.sh and scripts/lib/notify_slack.py.
 
 notify_run.sh is executed for real against a throwaway workspace whose
-``dashboard/notify_slack.py`` is a fake that records its argv instead of
+``scripts/lib/notify_slack.py`` is a fake that records its argv instead of
 posting to Slack, so the start/stop notices, exit statuses, log tee, lock,
 PID file, signal forwarding and the --on-success hook are all checked without
 a webhook.
@@ -39,8 +39,8 @@ if os.environ.get("FAKE_NOTIFY_FAIL") == "1":
 @pytest.fixture
 def ws(tmp_path: Path) -> Path:
     """A workspace root with a fake notifier; notify_run.sh cds into it."""
-    (tmp_path / "dashboard").mkdir()
-    (tmp_path / "dashboard" / "notify_slack.py").write_text(FAKE_NOTIFIER)
+    (tmp_path / "scripts" / "lib").mkdir(parents=True)
+    (tmp_path / "scripts" / "lib" / "notify_slack.py").write_text(FAKE_NOTIFIER)
     return tmp_path
 
 
@@ -284,10 +284,10 @@ def test_detached_missing_webhook_is_reported_to_the_caller(ws: Path) -> None:
     assert proc.returncode == 2 and "SLACK_WEBHOOK_URL" in proc.stderr
 
 
-# ── dashboard/notify_slack.py ──────────────────────────────────────────────────
+# ── scripts/lib/notify_slack.py ──────────────────────────────────────────────────
 
 def _notify_slack():
-    sys.path.insert(0, str(REPO_ROOT / "dashboard"))
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "lib"))
     import notify_slack
     return notify_slack
 
@@ -317,7 +317,7 @@ def test_glm_split_script_dispatches_to_notify_run(ws: Path) -> None:
     """run_glm_tb_ablation_split.sh keeps the GPU-group logic and delegates the rest."""
     scripts = ws / "scripts"
     (scripts / "expansions").mkdir(parents=True)
-    (scripts / "lib").mkdir()
+    (scripts / "lib").mkdir(exist_ok=True)
     shutil.copy(NOTIFY_RUN, scripts / "notify_run.sh")
     shutil.copy(LOGPATHS, scripts / "lib" / "logpaths.sh")
     shutil.copy(REPO_ROOT / "scripts" / "expansions" / "run_glm_tb_ablation_split.sh", scripts / "expansions")
@@ -386,7 +386,7 @@ echo "payload" 2>&1 | emit
 
 
 def test_wrapper_owns_the_log_and_inner_launcher_logs_once(ws: Path) -> None:
-    (ws / "scripts" / "lib").mkdir(parents=True)
+    (ws / "scripts" / "lib").mkdir(parents=True, exist_ok=True)
     shutil.copy(LOGPATHS, ws / "scripts" / "lib" / "logpaths.sh")
     inner = ws / "inner.sh"
     inner.write_text(INNER_LAUNCHER)

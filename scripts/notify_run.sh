@@ -33,7 +33,7 @@
 #                       ~/.config/agentctx/slack_webhook (SLACK_WEBHOOK_FILE)
 #                       if that file exists (required unless ALLOW_NO_SLACK=1;
 #                       with ALLOW_NO_SLACK=1 and no URL, notices are skipped)
-#   NOTIFY_PYTHON       interpreter for dashboard/notify_slack.py (default: python3)
+#   NOTIFY_PYTHON       interpreter for scripts/lib/notify_slack.py (default: python3)
 #   AGENTCTX_WS         repository root (default: derived from this file)
 #
 # The command runs in its own session (setsid), so HUP / INT / TERM sent to the
@@ -131,7 +131,7 @@ fi
 export AGENTCTX_LOG_FILE="$LOG_FILE"
 
 PY="${NOTIFY_PYTHON:-python3}"
-NOTIFIER="$WS/dashboard/notify_slack.py"
+NOTIFIER="$WS/scripts/lib/notify_slack.py"
 notify() {
     [[ -n "${SLACK_WEBHOOK_URL:-}" ]] || return 0
     "$PY" "$NOTIFIER" "$@" || echo "[$(stamp)] Slack notification failed; experiment status is unchanged." >&2

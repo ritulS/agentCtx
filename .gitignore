@@ -65,7 +65,6 @@ Review1/figures_n100/
 
 # ── Local CSV backups (timestamped snapshots, not history) ────────────────────
 *.csv.bak.*
-DASHBOARD.html
 Review1/archived_experiment_data/
 ICLR_experiments/swebench
 quarantined_results/
@@ -94,13 +93,6 @@ ICLR_experiments/open_issues/*/evaluation_classification.csv
 ICLR_experiments/open_issues/*/evaluation_checks.csv
 ICLR_experiments/open_issues/*/review_candidates.csv
 ICLR_experiments/open_issues/*/reevaluation_candidates_combined.csv
-
-# Keep the canonical analysis snapshot; ignore filtered result copies.
-/adaptive_context_management_analysis/results/*
-!/adaptive_context_management_analysis/results/all/
-!/adaptive_context_management_analysis/results/all/**
-!/adaptive_context_management_analysis/results/model=qwen35b__primitive=fc/
-!/adaptive_context_management_analysis/results/model=qwen35b__primitive=fc/**
 
 # re-evaluation evidence (harness logs); keep manifest/results/summary only
 ICLR_experiments/reeval_evidence/*/jobs/

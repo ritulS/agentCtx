@@ -6,7 +6,7 @@ the canonical FC cell and count as run_1 of FOLLOWUP_EXPERIMENTS 2.a/2.b:
 
   ICLR_experiments/swebench/main/<model-key>/di__binf__fc/
 
-After a successful run, COVERAGE.csv and DASHBOARD.html are rebuilt.  The
+The
 per-step ``step_prompt_tokens`` arrays, raw artifacts, and a machine-readable
 context-length distribution are retained in that cell.
 """
@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-key", required=True,
                         help="canonical directory key, e.g. devstral24b or glm47flash")
     parser.add_argument("--model-label", default=None,
-                        help="COVERAGE/dashboard model label (known model keys are automatic)")
+                        help="model label written into the results (known model keys are automatic)")
     parser.add_argument("--agent-config", type=Path, required=True,
                         help="agent/model YAML, including model_name and api_base")
     parser.add_argument("--tasks-file", type=Path, default=None)
@@ -90,7 +90,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-eval", action="store_true",
                         help="skip SWE-Bench patch evaluation (the FC runs remain reusable, but unresolved)")
     parser.add_argument("--skip-postprocess", action="store_true",
-                        help="do not rebuild COVERAGE.csv and DASHBOARD.html")
+                        help="accepted for compatibility; the coverage dashboard was removed 2026-11-19")
     return parser.parse_args()
 
 
@@ -141,10 +141,6 @@ def main() -> None:
     annotate_swebench_model(destination, label)
 
     write_calibration_report(args.model_key, destination)
-
-    if not args.skip_postprocess:
-        run([sys.executable, str(ROOT / "dashboard" / "build_coverage.py")])
-        run([sys.executable, str(ROOT / "dashboard" / "build_dashboard.py")])
 
     print(f"Raw distribution: {destination / 'experiment_results.json'}")
     print(f"Context summary: {destination / 'fc_context_distribution.json'}")

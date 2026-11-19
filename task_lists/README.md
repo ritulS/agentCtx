@@ -38,8 +38,7 @@ ABL-30 was reduced to ABL-25 for time. Most ablation runs on disk were launched
 against ABL-30, so `ICLR_experiments/swebench/ablation/` contains 30 tasks per cell.
 
 **Analysis filters to `swe_verified/ablation_25tasks.json`.** ABL-25 is a strict subset, so
-this is a filter and not a data problem. `dashboard/build_coverage.py` already
-treats ABL-25 as the cohort of record and reports extras as `ABL-25 (+N)`. The
+this is a filter and not a data problem. The
 5 tasks dropped in the reduction are `django__django-17087`,
 `scikit-learn__scikit-learn-25747`, `scikit-learn__scikit-learn-26323`,
 `sympy__sympy-24066` and `sympy__sympy-24443`.

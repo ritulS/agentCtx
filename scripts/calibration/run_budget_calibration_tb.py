@@ -17,7 +17,7 @@ the SWE-Bench runner, including ``step_prompt_tokens``. Conversion and result
 merging live in ``agentctx.benchmarks.harbor_results``.
 
 Use --calibration-dir for an isolated collection outside ICLR_experiments. Both
-normalized results and raw Harbor state stay there; dashboard updates are disabled.
+normalized results and raw Harbor state stay there.
 """
 
 from __future__ import annotations
@@ -422,10 +422,6 @@ def main() -> None:
         f"dataset run_{args.run_num}: {len(aggregate_names & dataset_names)}/{len(dataset_names)}; "
         f"all runs aggregate: {len(aggregate_rows)}"
     )
-
-    if not args.skip_postprocess:
-        run([sys.executable, str(ROOT / "dashboard/build_coverage.py")])
-        run([sys.executable, str(ROOT / "dashboard/build_dashboard.py")])
 
     print(f"Aggregate: {destination / 'experiment_results.json'}")
     print(f"Raw Harbor job: {job_dir}")
