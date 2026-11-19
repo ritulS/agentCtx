@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-"""Real Jev judgements (MSWEA_SELECT_BACKEND=jev, the online-jev-select cells) on the
-history of an existing run, to check the key, the request shape and how Jev's per-message
+"""Real Jev judgements (MSWEA_SELECT_BACKEND=jev, the online-jev-full-select cells) on the
+history of an existing run, to check the key, the request shape and how Jev's per-uid
 relevance compares with the generative selector's choices.
 Usage:
     venv/bin/python scripts/maintenance/probe_jev_select.py <run_dir> [--steps 10,20] [--min-tokens 15000]
@@ -16,7 +16,7 @@ selector's decision for the same uid (K whole, P partial, D dropped) and the agr
 Without --steps it judges every step whose history exceeds --min-tokens cl100k tokens.
 Settings: TYPESAFE_API_KEY (or ~/.config/agentctx/typesafe_api_key), MSWEA_JEV_* as in
 src/agentctx/compression/jev_select.py; MSWEA_JEV_JUDGEMENT_LOG=0 to skip the log.
-MSWEA_JEV_SELECT_LINES=<tokens> (the ojstl cells) adds the line-level selection of the
+MSWEA_JEV_SELECT_LINES=<tokens> (the ojfstl cells) adds the line-level selection of the
 kept long observations; a partial keep counts as "keep" below and the kept token count
 is that of the trimmed context.
 """
@@ -82,10 +82,9 @@ def main() -> int:
     client = None
     if args.dry_run:
         def transport(body, headers):
-            q = body["questions"][jev_select.QUESTION_NAME]
-            answer = ({"type": "score", "score": (len(q["criteria"]) - 1) / 2, "confidence": 0.5,
-                       "probabilities": {}} if q["type"] == "score" else {"type": "noul", "noul": 0.5})
-            return 200, {"model": "dry-run", "answers": {jev_select.QUESTION_NAME: answer},
+            # one noul per question (selection: keyed by uid; line judge: keyed by line id)
+            answers = {k: {"type": "noul", "noul": 0.5} for k in body["questions"]}
+            return 200, {"model": "dry-run", "answers": answers,
                          "usage": {"input_tokens": len(body["state"]) // 4, "output_tokens": 0}}, None
         client = jev_select.JevClient(settings, transport=transport)
     for s, e in picks:
@@ -97,6 +96,14 @@ def main() -> int:
             print(f"step {s}: empty window"); continue
         prev_sel = _selection_at(token_log, s - 1) if token_log else None
         prev_uids = set(prev_sel) if (prev_sel and not args.no_anchor) else set()
+        if prev_uids:
+            # the agent's context at the previous step = that selection + the tail it kept
+            # verbatim then (the anchor in the primitive is the whole context)
+            e_prev = next((e2 for s2, e2 in ends if s2 == s - 1), None)
+            if e_prev is not None:
+                comp_prev = msgs[mem.N_PROTECTED:e_prev]
+                k_prev = mem._extract_keep_split(comp_prev, keep_recent)
+                prev_uids |= {u for u in (mem._msg_uid(m) for m in comp_prev[k_prev:]) if u}
         budget = max(0, cap - mem.count_tokens(full[:mem.N_PROTECTED]) - mem.count_tokens(kept)) if cap else None
         selection, rec, pt, ct, lat, _ids = jev_select.jev_select_window(
             task_text, window, kept, prev_uids, budget_tokens=budget, render=mem._select_render_message,

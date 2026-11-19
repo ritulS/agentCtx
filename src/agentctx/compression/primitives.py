@@ -1572,7 +1572,7 @@ def select_backend() -> str:
     """Which selector answers online_claude_select(), MSWEA_SELECT_BACKEND:
     ``model`` (default) is the generative selector of claude_extract.py (one
     call over the complete history, keep/drop directives, line ranges);
-    ``jev`` (added 2026-11-17; the online-jev-select conditions) asks TypeSafe's
+    ``jev`` (added 2026-11-17; the online-jev-full-select conditions) asks TypeSafe's
     Jev decision model one noul question PER HISTORY MESSAGE, in parallel, and
     keeps the messages whose probability clears MSWEA_JEV_KEEP_THRESHOLD, ranked
     by probability under MSWEA_SELECT_CAP (agentctx.compression.jev_select).
@@ -1853,7 +1853,7 @@ def output_extract_backend() -> str:
     whose probability clears MSWEA_JEV_LINE_THRESHOLD
     (agentctx.compression.jev_select.jev_extract_output). Independent of
     MSWEA_SELECT_BACKEND: a Jev selector may run with the generative line
-    extractor (ojstx) and the other way round."""
+    extractor (ojfstx) and the other way round."""
     raw = os.environ.get("MSWEA_OUTPUT_EXTRACT_BACKEND", "model").strip().lower() or "model"
     if raw not in ("model", "jev"):
         raise ValueError(f"MSWEA_OUTPUT_EXTRACT_BACKEND must be model | jev, got {raw!r}")

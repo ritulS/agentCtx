@@ -29,12 +29,15 @@ def msg(role, content, uid):
 
 
 class FakeTransport:
-    """Scripted (status, payload) per request; records bodies and headers. ``probs``
-    maps a substring of the candidate text to the noul returned (default 0.5);
-    ``script`` is a list of (status, payload) consumed first, one per request."""
-    def __init__(self, probs=None, script=None):
+    """Scripted (status, payload) per request; records bodies and headers. Answers every
+    question of a selection request (keyed by uid) with the noul of the last ``probs`` key
+    found in the message's header ``[<uid> `` (default 0.5); ``omit`` lists uids whose
+    answer is left out of the reply; ``script`` is a list of (status, payload) consumed
+    first, one per request."""
+    def __init__(self, probs=None, script=None, omit=()):
         self.probs = probs or {}
         self.script = list(script or [])
+        self.omit = set(omit)
         self.bodies = []
         self.headers = []
 
@@ -43,19 +46,27 @@ class FakeTransport:
         self.headers.append(headers)
         if self.script:
             return self.script.pop(0)
-        candidate = body['state'].split('Candidate history message to judge:\n', 1)[-1]
-        p = 0.5
-        for key, value in self.probs.items():
-            if key in candidate:
-                p = value
-        return 200, {'model': 'jev-1.14.0', 'request_id': f'req_{len(self.bodies)}',
-                     'answers': {'needed': {'type': 'noul', 'noul': p}},
+        answers = {}
+        for uid in body['questions']:
+            if uid in self.omit:
+                continue
+            header = f"[{uid.split('#')[0]} "      # '<uid>#next' answers like its uid
+            p = 0.5
+            for key, value in self.probs.items():
+                if key in header:
+                    p = value
+            answers[uid] = {'type': 'noul', 'noul': p}
+        return 200, {'model': 'jev-1.14.0', 'request_id': f'req_{len(self.bodies)}', 'answers': answers,
                      'usage': {'input_tokens': 100, 'output_tokens': 1}}, None
+
+
+Q = {'needed': {'type': 'noul', 'instructions': 'x'}}
 
 
 SETTINGS = {'provider': 'typesafe', 'model': 'jev-latest', 'base_url': 'x', 'threshold': 0.5,
             'anchor_bonus': 0.15, 'context_turns': 1, 'workers': 4, 'timeout_s': 5.0,
-            'max_retries': 2, 'long_context': 'header'}
+            'max_retries': 2, 'select_questions': 0, 'question_lines': 12, 'question_criteria': True,
+            'anchor_tags': False, 'stuck_gate': 0, 'stuck_threshold': 0.5, 'activity_question': False}
 
 
 class DecideTests(unittest.TestCase):
@@ -98,7 +109,7 @@ class ClientTests(unittest.TestCase):
         transport = FakeTransport(script=[(429, {'detail': 'slow down'}, None), (503, {}, None), ok])
         client = jev_select.JevClient(SETTINGS, transport=transport)
         with patch.object(jev_select.time, 'sleep') as sleep:
-            reply = client.system_one('S', jev_select.needed_question())
+            reply = client.system_one('S', Q)
         self.assertEqual(reply['answers']['needed']['noul'], 0.7)
         self.assertEqual(reply['attempts'], 3)
         self.assertEqual(reply['request_id'], 'r1')
@@ -107,7 +118,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(transport.bodies[0]['questions']['needed']['type'], 'noul')
         client = jev_select.JevClient(SETTINGS, transport=FakeTransport(script=[(401, {'detail': 'bad key'}, None)]))
         with self.assertRaises(jev_select.JevAPIError) as ctx:
-            client.system_one('S', jev_select.needed_question())
+            client.system_one('S', Q)
         self.assertEqual(ctx.exception.status, 401)
 
     def test_transport_errors_are_exhausted(self):
@@ -116,23 +127,29 @@ class ClientTests(unittest.TestCase):
         client = jev_select.JevClient(SETTINGS, transport=boom)
         with patch.object(jev_select.time, 'sleep'):
             with self.assertRaises(jev_select.JevAPIError) as ctx:
-                client.system_one('S', jev_select.needed_question())
+                client.system_one('S', Q)
         self.assertIn('3 attempts', str(ctx.exception))
 
-    def test_settings_validation_and_truncation(self):
+    def test_settings_validation(self):
         with patch.dict(os.environ, {'MSWEA_JEV_KEEP_THRESHOLD': '1.5'}):
             with self.assertRaises(ValueError):
                 jev_select.jev_settings()
-        with patch.dict(os.environ, {'MSWEA_JEV_LONG_CONTEXT': 'maybe'}):
+        with patch.dict(os.environ, {'MSWEA_JEV_UNIT': 'maybe'}):
             self.assertIn('error', jev_select.jev_model_info())
+        with patch.dict(os.environ, {'MSWEA_JEV_QUESTION': 'score'}):    # score / aligned are retired
+            self.assertIn('error', jev_select.jev_model_info())
+        with patch.dict(os.environ, {'MSWEA_JEV_QUESTION': 'budget'}):   # budget revived 2026-11-18
+            self.assertEqual(jev_select.jev_settings()['question'], 'budget')
+            qs = jev_select.message_questions(self.window if hasattr(self, 'window') else
+                                              [{'role': 'user', 'content': 'x', 'extra': {'uid': 'u9'}}], lines=0)
+            q = qs[list(qs)[-1]]
+            self.assertIn('belongs on the kept side', q['instructions'])
+            self.assertEqual(q['criteria'], jev_select.BUDGET_CRITERIA)
+            self.assertTrue(jev_select.judge_state('t', '', 'h').startswith(jev_select.BUDGET_PREAMBLE))
         with patch.dict(os.environ, {}, clear=True):
             s = jev_select.jev_settings()
         self.assertEqual((s['model'], s['threshold'], s['anchor_bonus'], s['workers']), ('jev-latest', 0.5, 0.15, 8))
-        text, removed = jev_select._truncate_to('x' * 1000, 300)
-        self.assertLessEqual(len(text.encode()), 300)
-        self.assertIn('characters of this message are not shown', text)
-        self.assertEqual(removed, 1000 - (len(text) - len(jev_select.TRUNCATED_NOTE.format(n=removed)) - 2))
-        self.assertEqual(jev_select._truncate_to('short', 300), ('short', 0))
+        self.assertNotIn('history', s)                                        # the full-history form is the only one
 
 
 class WindowTests(unittest.TestCase):
@@ -152,26 +169,199 @@ class WindowTests(unittest.TestCase):
             render=memory._select_render_message, anchor=anchor, token_of=lambda m: memory.count_tokens([m]),
             client=client)
 
-    def test_state_has_task_activity_and_one_candidate_each(self):
+    def test_one_request_with_the_history_once_and_one_question_per_message(self):
         transport = FakeTransport(probs={'[u1 ': 0.9, '[u2 ': 0.8, '[u3 ': 0.2, '[u4 ': 0.3})
         selection, rec, pt, ct, lat, ids = self.run_window(transport)
         self.assertEqual(list(selection), ['u1', 'u2'])
-        self.assertEqual(len(transport.bodies), 4)
-        states = sorted(b['state'] for b in transport.bodies)
-        for state in states:
-            self.assertIn('Task statement:\nfix f()', state)
-            self.assertIn("The agent's newest turn", state)
-            self.assertIn('[u5 assistant]\npytest tests/', state)          # the kept turn is the activity
-            self.assertIn('[u6 user, 1 lines]', state)
-            self.assertEqual(state.count('Candidate history message to judge:'), 1)
-        self.assertTrue(any('[u4 user, 101 lines]' in s for s in states))
-        self.assertTrue(all(h == {} for h in transport.headers))              # small: no long-context header
-        self.assertEqual((pt, ct), (400, 4))
-        self.assertEqual(rec['requests'], 4)
+        self.assertEqual(len(transport.bodies), 1)                            # one request for the whole window
+        body = transport.bodies[0]
+        state = body['state']
+        self.assertTrue(state.startswith(jev_select.JUDGE_PREAMBLE))
+        self.assertIn('IN VIEW OF THE COMPLETE HISTORY', state)
+        self.assertIn('A message the agent still needs:', state)              # the criteria live in the preamble
+        self.assertIn('Task statement:\nfix f()', state)
+        self.assertIn('Complete history of the agent so far', state)
+        for uid in ('u1', 'u2', 'u3', 'u4', 'u5', 'u6'):                     # every message, window and kept tail
+            self.assertEqual(state.count(f'[{uid} '), 1 if uid in ('u1', 'u2', 'u3', 'u4') else 2)   # the kept turn is also the activity
+        self.assertIn("The agent's newest turn", state)
+        self.assertIn('[u5 assistant]\npytest tests/', state)
+        self.assertIn('[u6 user, 1 lines]', state)
+        self.assertIn('[u4 user, 101 lines]', state)
+        self.assertNotIn('Candidate', state)                                  # nothing is repeated
+        self.assertEqual(list(body['questions']), ['u1', 'u2', 'u3', 'u4'])  # one noul per window message, keyed by uid
+        for uid, q in body['questions'].items():
+            self.assertEqual(q['type'], 'noul')
+            self.assertTrue(q['instructions'].startswith(jev_select.NEEDED_INSTRUCTIONS.format(uid=uid)))
+            self.assertIn(f'The message as it stands in the history', q['instructions'])
+            self.assertIn(f'\n[{uid} ', q['instructions'])                   # the question quotes the message
+            self.assertEqual(q['criteria'], jev_select.NEEDED_CRITERIA)        # the structured criteria, on every noul
+        self.assertIn('[u1 assistant]\ncat foo.py', body['questions']['u1']['instructions'])
+        # MSWEA_JEV_QUESTION_LINES=0 / _CRITERIA=0: the bare proposition, nothing quoted
+        bare = jev_select.message_questions(self.window, 'needed', render=memory._select_render_message, lines=0, criteria=False)
+        self.assertEqual(bare['u1'], {'type': 'noul', 'instructions': jev_select.NEEDED_INSTRUCTIONS.format(uid='u1')})
+        # a turn unit quotes every member, each cut on its own
+        turn = [{'role': 'turn', 'extra': {'uid': 'u3'}, 'members': [self.window[2], self.window[3]]}]
+        tq = jev_select.message_questions(turn, 'needed', render=memory._select_render_message, lines=2)['u3']['instructions']
+        self.assertTrue(tq.startswith(jev_select.TURN_INSTRUCTIONS.format(uid='u3', members='u3, u4')))
+        self.assertIn('\n[u3 ', tq)
+        self.assertIn('(its first 2 of 101 lines; the rest is in the history):\n[u4 user, 101 lines]\n', tq)
+        q4 = body['questions']['u4']['instructions']                          # 101 lines: cut to the first 12
+        self.assertIn('(its first 12 of 101 lines; the rest is in the history):\n[u4 user, 101 lines]\n', q4)
+        self.assertIn('\n 12| ', q4)
+        self.assertNotIn('\n 13| ', q4)
+        self.assertNotIn('the rest is in the history', body['questions']['u1']['instructions'])
+        self.assertEqual(transport.headers, [{}])                             # small: no long-context header
+        self.assertEqual((pt, ct), (100, 1))
+        self.assertEqual((rec['requests'], rec['questions'], rec['request_errors']), (1, 4, 0))
         self.assertEqual(rec['probs'], {'u1': 0.9, 'u2': 0.8, 'u3': 0.2, 'u4': 0.3})
         self.assertEqual(rec['resolved_model'], 'jev-1.14.0')
-        self.assertEqual(sorted(ids), ['req_1', 'req_2', 'req_3', 'req_4'])
+        self.assertEqual(ids, ['req_1'])
         self.assertEqual(rec['anchor_bonus'], 0.15)
+        self.assertEqual(rec['history'], 'full')
+        self.assertEqual(rec['state_bytes'], len(state.encode()))
+
+    def test_anchor_tags_pass_the_previous_selection_to_jev(self):
+        # MSWEA_JEV_ANCHOR_TAGS=1: headers tagged with the previous context, asymmetric
+        # stay / return questions and criteria, the preamble note; the +0.15 bonus still applies.
+        transport = FakeTransport(probs={'[u1 ': 0.4, '[u2 ': 0.3, '[u3 ': 0.6, '[u4 ': 0.2})
+        with patch.dict(os.environ, {'MSWEA_JEV_ANCHOR_TAGS': '1'}):
+            selection, rec, *_ = self.run_window(transport, prev={'u1', 'u2'})
+        self.assertEqual(list(selection), ['u1', 'u3'])                      # u1 0.4+0.15, u3 0.6 (out, no bonus)
+        self.assertTrue(rec['anchor_tags'])
+        body = transport.bodies[0]
+        state = body['state']
+        self.assertTrue(state.startswith(jev_select.BUDGET_PREAMBLE if False else jev_select.JUDGE_PREAMBLE))
+        self.assertIn(jev_select.ANCHOR_PREAMBLE_NOTE, state)
+        self.assertIn("[u1 assistant; in the agent's context at the previous step]\ncat foo.py", state)
+        self.assertIn("[u2 user, 2 lines; in the agent's context at the previous step]", state)
+        self.assertIn("[u3 assistant; not in the agent's context at the previous step]\nls", state)
+        self.assertIn("[u4 user, 101 lines; not in the agent's context at the previous step]", state)
+        self.assertIn("[u5 assistant; new this step; kept regardless]\npytest tests/", state)     # the kept tail
+        self.assertIn("[u6 user, 1 lines; new this step; kept regardless]", state)
+        qs = body['questions']
+        self.assertTrue(qs['u1']['instructions'].startswith(jev_select.ANCHOR_STAY_INSTRUCTIONS.format(uid='u1')))
+        self.assertTrue(qs['u2']['instructions'].startswith(jev_select.ANCHOR_STAY_INSTRUCTIONS.format(uid='u2')))
+        self.assertTrue(qs['u3']['instructions'].startswith(jev_select.ANCHOR_RETURN_INSTRUCTIONS.format(uid='u3')))
+        self.assertTrue(qs['u4']['instructions'].startswith(jev_select.ANCHOR_RETURN_INSTRUCTIONS.format(uid='u4')))
+        self.assertEqual(qs['u1']['criteria'], jev_select.ANCHOR_STAY_CRITERIA)
+        self.assertEqual(qs['u4']['criteria'], jev_select.ANCHOR_RETURN_CRITERIA)
+        self.assertIn("[u1 assistant; in the agent's context at the previous step]\ncat foo.py", qs['u1']['instructions'])  # the excerpt is tagged too
+        # the budget wording keeps its preamble, the anchor questions replace its templates
+        transport = FakeTransport()
+        with patch.dict(os.environ, {'MSWEA_JEV_ANCHOR_TAGS': '1', 'MSWEA_JEV_QUESTION': 'budget'}):
+            self.run_window(transport, prev={'u1'})
+        state = transport.bodies[0]['state']
+        self.assertTrue(state.startswith(jev_select.BUDGET_PREAMBLE + jev_select.ANCHOR_PREAMBLE_NOTE))
+        self.assertNotIn('belongs on the kept side', transport.bodies[0]['questions']['u1']['instructions'])
+        # a turn unit is "in context" when any member was
+        turn = [{'role': 'turn', 'extra': {'uid': 'u3'}, 'members': [self.window[2], self.window[3]]}]
+        tq = jev_select.message_questions(turn, 'needed', lines=0, prev_uids={'u4'}, anchor_tags=True)['u3']
+        self.assertEqual(tq['instructions'], jev_select.ANCHOR_STAY_TURN_INSTRUCTIONS.format(uid='u3', members='u3, u4'))
+        # unanchored (anchor=False) or setting off: no tags, the plain form byte for byte
+        transport = FakeTransport()
+        with patch.dict(os.environ, {'MSWEA_JEV_ANCHOR_TAGS': '1'}):
+            _, rec2, *_ = self.run_window(transport, prev={'u1'}, anchor=False)
+        self.assertFalse(rec2['anchor_tags'])
+        self.assertNotIn('previous step', transport.bodies[0]['state'])
+        transport = FakeTransport()
+        _, rec3, *_ = self.run_window(transport, prev={'u1'})
+        self.assertFalse(rec3['anchor_tags'])
+        self.assertNotIn('previous step', transport.bodies[0]['state'])
+        self.assertTrue(transport.bodies[0]['questions']['u1']['instructions'].startswith(jev_select.NEEDED_INSTRUCTIONS.format(uid='u1')))
+
+    def test_stuck_gate_keeps_the_newest_turns_whole_when_jev_says_the_agent_is_stuck(self):
+        # MSWEA_JEV_STUCK_GATE=1: one extra question keyed "stuck" in the same request; the
+        # FakeTransport answers it 0.5 (no header match) = at the threshold -> the newest window
+        # turn (u3 + u4) is kept whatever its p, ranked first under the cap, never line-trimmed.
+        transport = FakeTransport(probs={'[u1 ': 0.9, '[u2 ': 0.8, '[u3 ': 0.1, '[u4 ': 0.1})
+        with patch.dict(os.environ, {'MSWEA_JEV_STUCK_GATE': '1'}):
+            selection, rec, *_ = self.run_window(transport)
+        body = transport.bodies[0]
+        self.assertEqual(list(body['questions']), ['u1', 'u2', 'u3', 'u4', 'stuck'])
+        self.assertEqual(body['questions']['stuck'], {'type': 'noul', 'instructions': jev_select.STUCK_INSTRUCTIONS,
+                                                      'criteria': jev_select.STUCK_CRITERIA})
+        self.assertEqual(list(selection), ['u1', 'u2', 'u3', 'u4'])
+        self.assertEqual((rec['stuck'], rec['stuck_gate'], rec['stuck_threshold']), (0.5, 1, 0.5))
+        self.assertEqual(rec['stuck_forced'], ['u3', 'u4'])
+        self.assertEqual(rec['scores']['u3'], 0.1)                          # scores recorded unchanged (no prev: no bonus)
+        self.assertEqual(rec['questions'], 4)                                # the stuck question is not a judgement
+        self.assertEqual(rec['probs'], {'u1': 0.9, 'u2': 0.8, 'u3': 0.1, 'u4': 0.1})
+        # under a cap the forced turn comes first: u4 (large) fits, u1 / u2 are capped out
+        transport = FakeTransport(probs={'[u1 ': 0.9, '[u2 ': 0.8, '[u3 ': 0.1, '[u4 ': 0.1})
+        room = memory.count_tokens([self.window[3]]) + memory.count_tokens([self.window[2]])   # exactly the forced turn
+        with patch.dict(os.environ, {'MSWEA_JEV_STUCK_GATE': '1'}):
+            selection, rec, *_ = self.run_window(transport, budget=room)
+        self.assertEqual(list(selection), ['u3', 'u4'])
+        self.assertEqual(sorted(rec['capped_out']), ['u1', 'u2'])
+        # below the threshold the gate does nothing (threshold raised above the 0.5 answer)
+        transport = FakeTransport(probs={'[u1 ': 0.9, '[u2 ': 0.8, '[u3 ': 0.1, '[u4 ': 0.1})
+        with patch.dict(os.environ, {'MSWEA_JEV_STUCK_GATE': '1', 'MSWEA_JEV_STUCK_THRESHOLD': '0.6'}):
+            selection, rec, *_ = self.run_window(transport)
+        self.assertEqual(list(selection), ['u1', 'u2'])
+        self.assertEqual((rec['stuck'], rec['stuck_forced']), (0.5, []))
+        # off by default: no extra question, no field
+        transport = FakeTransport()
+        _, rec, *_ = self.run_window(transport)
+        self.assertNotIn('stuck', transport.bodies[0]['questions'])
+        self.assertEqual((rec['stuck'], rec['stuck_gate'], rec['stuck_forced']), (None, 0, []))
+        # a forced long observation is not line-trimmed
+        transport = FakeTransport(probs={'[u1 ': 0.9, '[u2 ': 0.8, '[u3 ': 0.1, '[u4 ': 0.1})
+        with patch.dict(os.environ, {'MSWEA_JEV_STUCK_GATE': '1', 'MSWEA_JEV_SELECT_LINES': '20',
+                                     'MSWEA_JEV_LINE_THRESHOLD': '0.5'}):
+            selection, rec, *_ = self.run_window(transport)
+        self.assertIsNone(selection['u4'])
+        self.assertEqual(rec['line_requests'], 0)
+
+    def test_activity_question_keeps_a_message_when_either_answer_clears_the_threshold(self):
+        # MSWEA_JEV_ACTIVITY_QUESTION=1: a second noul "<uid>#next" per message; the FakeTransport
+        # matches '[u3 ' in the excerpt of both questions, so give u3 0.2 on both, then answer the
+        # activity question of u4 high through a script-free trick: probs keyed by header match the
+        # SAME value for both questions, so test the max() rule with omit/None and the record fields.
+        transport = FakeTransport(probs={'[u1 ': 0.9, '[u2 ': 0.3, '[u3 ': 0.2, '[u4 ': 0.6})
+        with patch.dict(os.environ, {'MSWEA_JEV_ACTIVITY_QUESTION': '1'}):
+            selection, rec, *_ = self.run_window(transport)
+        body = transport.bodies[0]
+        self.assertEqual(list(body['questions']), ['u1', 'u1#next', 'u2', 'u2#next', 'u3', 'u3#next', 'u4', 'u4#next'])
+        self.assertTrue(body['questions']['u1#next']['instructions'].startswith(jev_select.NEXT_INSTRUCTIONS.format(uid='u1')))
+        self.assertIn('\n[u1 ', body['questions']['u1#next']['instructions'])           # quotes the message too
+        self.assertEqual(body['questions']['u1#next']['criteria'], jev_select.NEXT_CRITERIA)
+        self.assertTrue(body['questions']['u1']['instructions'].startswith(jev_select.NEEDED_INSTRUCTIONS.format(uid='u1')))
+        self.assertEqual(list(selection), ['u1', 'u4'])
+        self.assertTrue(rec['activity_question'])
+        self.assertEqual(rec['probs'], {'u1': 0.9, 'u2': 0.3, 'u3': 0.2, 'u4': 0.6})
+        self.assertEqual(rec['probs_value'], rec['probs_activity'])
+        self.assertEqual(rec['questions'], 4)                                 # judgements count units, not questions
+        # a missing activity answer leaves the value answer; a missing value answer uses the activity one
+        transport = FakeTransport(probs={'[u1 ': 0.9, '[u2 ': 0.3, '[u3 ': 0.2, '[u4 ': 0.6}, omit=('u2#next', 'u4'))
+        with patch.dict(os.environ, {'MSWEA_JEV_ACTIVITY_QUESTION': '1'}):
+            selection, rec, *_ = self.run_window(transport)
+        self.assertEqual(list(selection), ['u1', 'u4'])
+        self.assertEqual((rec['probs_value']['u2'], rec['probs_activity']['u2'], rec['probs']['u2']), (0.3, None, 0.3))
+        self.assertEqual((rec['probs_value']['u4'], rec['probs_activity']['u4'], rec['probs']['u4']), (None, 0.6, 0.6))
+        self.assertEqual(rec['errors'], 1)                                    # the missing value answer still counts as an error
+        # the max rule itself
+        qs = jev_select.message_questions(self.window, 'budget', lines=0, activity=True)
+        self.assertEqual(qs['u3#next'], {'type': 'noul', 'instructions': jev_select.NEXT_INSTRUCTIONS.format(uid='u3'),
+                                         'criteria': jev_select.NEXT_CRITERIA})
+        turn = [{'role': 'turn', 'extra': {'uid': 'u3'}, 'members': [self.window[2], self.window[3]]}]
+        tq = jev_select.message_questions(turn, 'budget', lines=0, activity=True)
+        self.assertEqual(tq['u3#next']['instructions'], jev_select.NEXT_TURN_INSTRUCTIONS.format(uid='u3', members='u3, u4'))
+        # off by default
+        transport = FakeTransport()
+        _, rec, *_ = self.run_window(transport)
+        self.assertNotIn('u1#next', transport.bodies[0]['questions'])
+        self.assertFalse(rec['activity_question']); self.assertNotIn('probs_value', rec)
+
+    def test_many_questions_are_chunked_each_request_carrying_the_state(self):
+        self.window = [msg('assistant', f'cmd {i}', f'u{i}') for i in range(1, 151)]
+        transport = FakeTransport(probs={'[u1': 0.9})                         # u1, u10.., u100..: 0.9; the rest 0.5
+        with patch.dict(os.environ, {'MSWEA_JEV_SELECT_QUESTIONS': '64'}):
+            selection, rec, pt, ct, lat, ids = self.run_window(transport)
+        self.assertEqual([len(b['questions']) for b in transport.bodies], [64, 64, 22])
+        self.assertEqual(len({b['state'] for b in transport.bodies}), 1)      # the same state in every request
+        self.assertEqual((rec['requests'], rec['questions'], pt), (3, 150, 300))
+        self.assertEqual(len(selection), 150)                                 # 0.5 clears the threshold
+        self.assertEqual(sorted(ids), ['req_1', 'req_2', 'req_3'])
 
     def test_anchor_bonus_cap_and_context_turns(self):
         transport = FakeTransport(probs={'[u1 ': 0.4, '[u2 ': 0.4, '[u3 ': 0.9, '[u4 ': 0.9})
@@ -189,31 +379,32 @@ class WindowTests(unittest.TestCase):
             self.run_window(transport)
         self.assertNotIn("The agent's newest turn", transport.bodies[0]['state'])
 
-    def test_long_context_header_or_truncation(self):
+    def test_long_context_header(self):
         big = [msg('user', 'x' * 40000, 'big')]
         self.window = big
         transport = FakeTransport()
-        self.run_window(transport)
-        self.assertEqual(transport.headers[0], {jev_select.LONG_CONTEXT_HEADER: 'true'})
+        _, rec, *_ = self.run_window(transport)
+        self.assertEqual(transport.headers, [{jev_select.LONG_CONTEXT_HEADER: 'true'}])
         self.assertGreater(len(transport.bodies[0]['state']), 40000)
-        with patch.dict(os.environ, {'MSWEA_JEV_LONG_CONTEXT': 'truncate'}):
-            transport = FakeTransport()
-            _, rec, *_ = self.run_window(transport)
-        self.assertEqual(transport.headers[0], {})
-        self.assertLess(len(transport.bodies[0]['state'].encode()), jev_select.LONG_CONTEXT_BYTES + 100)
-        self.assertEqual(rec['truncated'], 1)
+        self.assertEqual(rec['long_context'], 1)
+        self.assertNotIn('truncated', rec)
 
     def test_errors_keep_the_message_and_total_failure_raises(self):
-        calls = {'n': 0}
-        def flaky(body, headers):
-            calls['n'] += 1
-            if '[u3 ' in body['state']:
-                return 400, {'detail': 'bad'}, None            # not retried, not fatal
-            return 200, {'answers': {'needed': {'noul': 0.1}}, 'usage': {'input_tokens': 1}}, None
-        selection, rec, *_ = self.run_window(flaky)
-        self.assertEqual(list(selection), ['u3'])                             # errored -> kept; the rest drop
-        self.assertEqual(rec['errors'], 1)
+        # A missing answer keeps its message (p None) and errors the judgement, not the request.
+        transport = FakeTransport(probs={'[u': 0.1}, omit={'u3'})
+        selection, rec, *_ = self.run_window(transport)
+        self.assertEqual(list(selection), ['u3'])                             # unanswered -> kept; the rest drop
+        self.assertEqual((rec['errors'], rec['request_errors']), (1, 0))
         self.assertEqual(rec['probs']['u3'], None)
+        # A failed request (one of several chunks) keeps every message it carried.
+        def flaky(body, headers):
+            if 'u3' in body['questions']:
+                return 400, {'detail': 'bad'}, None            # not retried, not fatal
+            return 200, {'answers': {k: {'noul': 0.1} for k in body['questions']}, 'usage': {'input_tokens': 1}}, None
+        with patch.dict(os.environ, {'MSWEA_JEV_SELECT_QUESTIONS': '2'}):
+            selection, rec, *_ = self.run_window(flaky)
+        self.assertEqual(list(selection), ['u3', 'u4'])
+        self.assertEqual((rec['errors'], rec['request_errors'], rec['requests']), (2, 1, 2))
         with patch.object(jev_select.time, 'sleep'):
             with self.assertRaises(jev_select.JevAPIError) as ctx:
                 self.run_window(lambda b, h: (401, {'detail': 'no'}, None))
@@ -221,7 +412,7 @@ class WindowTests(unittest.TestCase):
         with patch.object(jev_select.time, 'sleep'):
             with self.assertRaises(jev_select.JevAPIError) as ctx:
                 self.run_window(lambda b, h: (400, {'detail': 'no'}, None))
-        self.assertIn('every Jev judgement failed', str(ctx.exception))
+        self.assertIn('every Jev selection request failed', str(ctx.exception))
 
 
 class Environment:
@@ -293,7 +484,7 @@ class AgentJevSelectTests(unittest.TestCase):
         agent = self.agent()
         self.run_steps(agent, transport, 4)
         full = [m['extra']['uid'] for m in agent._full_messages]
-        self.assertEqual(len(transport.bodies), 2 + 4)
+        self.assertEqual(len(transport.bodies), 1 + 1)                      # one request per selection
         # Context after the second selection (before call 4), then a4/obs4 appended by step 4:
         # [system, task, a1, obs2, a3, obs3, a4, obs4]; whole original objects, no line ranges.
         uids = [m['extra']['uid'] for m in agent.messages]
@@ -309,13 +500,13 @@ class AgentJevSelectTests(unittest.TestCase):
         recs = log['online_claude_select_events']
         self.assertEqual([r['step'] for r in recs], [2, 3])
         self.assertTrue(all(r['accepted'] for r in recs))
-        self.assertEqual((recs[0]['prompt_tokens'], recs[0]['completion_tokens']), (200, 2))
+        self.assertEqual((recs[0]['prompt_tokens'], recs[0]['completion_tokens']), (100, 1))
         sel = recs[1]['selection']
         self.assertEqual(sel['backend'], 'jev')
         self.assertEqual((sel['kept_whole'], sel['kept_partial'], sel['dropped']), (2, 0, 2))
         self.assertEqual(sel['keep'], {'m00003': None, 'm00006': None})
         self.assertEqual(sel['jev']['probs'], {'m00003': 0.9, 'm00004': 0.2, 'm00005': 0.3, 'm00006': 0.7})
-        self.assertEqual(sel['jev']['requests'], 4)
+        self.assertEqual((sel['jev']['requests'], sel['jev']['questions']), (1, 4))
         self.assertEqual(sel['jev']['threshold'], 0.5)
         self.assertEqual(sel['jev']['anchor_bonus'], 0.0)                 # not anchored here
         self.assertNotIn('anchor', sel)
@@ -323,12 +514,14 @@ class AgentJevSelectTests(unittest.TestCase):
         self.assertEqual(log['jev_model']['model'], 'jev-latest')
         outcomes = log['summary_outcomes']
         self.assertEqual([o['primitive'] for o in outcomes], ['online_claude_select'] * 2)
-        self.assertEqual([o['attempts'] for o in outcomes], [2, 4])
+        self.assertEqual([o['attempts'] for o in outcomes], [1, 1])
         self.assertEqual(outcomes[0]['rejections'], [])
-        self.assertEqual(len(outcomes[1]['response_ids']), 4)
+        self.assertEqual(len(outcomes[1]['response_ids']), 1)
         judgements = [json.loads(l) for l in (self.directory / 'jev_judgements.jsonl').read_text().splitlines()]
-        self.assertEqual(len(judgements), 6)
-        self.assertEqual({j['uid'] for j in judgements[2:]}, {'m00003', 'm00004', 'm00005', 'm00006'})
+        self.assertEqual(len(judgements), 2)                                  # one log record per request
+        self.assertEqual([j['kind'] for j in judgements], ['select', 'select'])
+        self.assertEqual(judgements[1]['uids'], ['m00003', 'm00004', 'm00005', 'm00006'])
+        self.assertEqual(judgements[1]['probs'], {'m00003': 0.9, 'm00004': 0.2, 'm00005': 0.3, 'm00006': 0.7})
         self.assertTrue(all(j['error'] is None for j in judgements))
         self.assertFalse((self.directory / 'summary_attempts.jsonl').exists())   # no generative reply to log
 
@@ -352,6 +545,46 @@ class AgentJevSelectTests(unittest.TestCase):
         self.assertEqual(sel1['cap'], 100000)
         self.assertEqual((sel1['carried'], sel1['added'], sel1['removed']), (3, 0, 0))
         self.assertIsNotNone(sel1['budget_window'])
+
+    def test_budget_cell_condition_puts_the_budget_wording_on_every_question(self):
+        # The ojfsb condition (online-jev-full-select-budget): the ojfs env plus
+        # MSWEA_JEV_QUESTION=budget, applied through the condition's env like the agent sees it.
+        from agentctx.experiments import conditions, iclr
+        cond = next(c for c in conditions.CONDITIONS if c['condition'] == 'online-jev-full-select-budget')
+        self.assertEqual(cond['primitive'], 'online_claude_select')
+        self.assertEqual(cond['env'], {'MSWEA_SELECT_BACKEND': 'jev', 'MSWEA_SELECT_ANCHOR': '1',
+                                       'MSWEA_SELECT_CAP': '30000', 'MSWEA_JEV_QUESTION': 'budget'})
+        self.assertEqual(iclr.CONDITION_TO_PRIMITIVE['online-jev-full-select-budget'], 'ojfsb')
+        self.assertIn('online-jev-full-select-budget', iclr.INFINITE_BUDGET_CONDITIONS)
+        lines = next(c for c in conditions.CONDITIONS if c['condition'] == 'online-jev-full-select-budget-lines')
+        self.assertEqual(lines['env'], {**cond['env'], 'MSWEA_JEV_SELECT_LINES': '1000', 'MSWEA_JEV_LINE_THRESHOLD': '0',
+                                        'MSWEA_JEV_LINE_MAX_FRACTION': '0.15', 'MSWEA_JEV_LINE_PAD': '1'})
+        self.assertEqual(iclr.CONDITION_TO_PRIMITIVE['online-jev-full-select-budget-lines'], 'ojfsbl')
+        self.assertIn('online-jev-full-select-budget-lines', iclr.INFINITE_BUDGET_CONDITIONS)
+        gate = next(c for c in conditions.CONDITIONS if c['condition'] == 'online-jev-full-select-budget-lines-stuck')
+        self.assertEqual(gate['env'], {**lines['env'], 'MSWEA_JEV_STUCK_GATE': '4'})
+        self.assertEqual(iclr.CONDITION_TO_PRIMITIVE['online-jev-full-select-budget-lines-stuck'], 'ojfsblg')
+        self.assertIn('online-jev-full-select-budget-lines-stuck', iclr.INFINITE_BUDGET_CONDITIONS)
+        thr = next(c for c in conditions.CONDITIONS if c['condition'] == 'online-jev-full-select-threshold-budget-lines-stuck')
+        self.assertEqual(thr['env'], {**gate['env'], 'MSWEA_SELECT_CAP': '20000', 'MSWEA_EXTRACT_FIRE_ABOVE': '30000',
+                                      'MSWEA_JEV_UNIT': 'turn'})
+        self.assertEqual(iclr.CONDITION_TO_PRIMITIVE['online-jev-full-select-threshold-budget-lines-stuck'], 'ojfstblg')
+        self.assertIn('online-jev-full-select-threshold-budget-lines-stuck', iclr.INFINITE_BUDGET_CONDITIONS)
+        thr15 = next(c for c in conditions.CONDITIONS if c['condition'] == 'online-jev-full-select-threshold-15k-budget-lines-stuck')
+        self.assertEqual(thr15['env'], {**thr['env'], 'MSWEA_SELECT_CAP': '10000', 'MSWEA_EXTRACT_FIRE_ABOVE': '15000'})
+        self.assertEqual(iclr.CONDITION_TO_PRIMITIVE['online-jev-full-select-threshold-15k-budget-lines-stuck'], 'ojfstblg15')
+        os.environ.update(cond['env'])
+        transport = FakeTransport(probs={'[m00003 ': 0.9, '[m00004 ': 0.3, '[m00005 ': 0.4, '[m00006 ': 0.7})
+        agent = self.agent()
+        self.run_steps(agent, transport, 3)
+        rec = self.log()['online_claude_select_events'][0]['selection']
+        self.assertEqual(rec['jev']['question'], 'budget')
+        self.assertEqual(rec['keep'], {'m00003': None})
+        body = transport.bodies[0]
+        self.assertTrue(body['state'].startswith(jev_select.BUDGET_PREAMBLE))
+        for q in body['questions'].values():
+            self.assertIn('belongs on the kept side', q['instructions'])
+            self.assertEqual(q['criteria'], jev_select.BUDGET_CRITERIA)
 
     def test_errors_are_logged_then_raised_after_the_cap(self):
         os.environ['MSWEA_EXTRACT_MAX_CONSECUTIVE_ERRORS'] = '2'
@@ -399,9 +632,9 @@ class AgentJevSelectTests(unittest.TestCase):
         self.assertEqual(sel['jev']['line_requests'], 1)
         self.assertEqual(sel['jev']['lines']['m00004']['ranges'], kept['kept_lines'])
         outcomes = self.log()['summary_outcomes']
-        self.assertEqual(outcomes[1]['attempts'], 4 + 1)                 # message judgements + line request
+        self.assertEqual(outcomes[1]['attempts'], 1 + 1)                 # selection request + line request
         judgements = [json.loads(l) for l in (self.directory / 'jev_judgements.jsonl').read_text().splitlines()]
-        self.assertEqual([j['kind'] for j in judgements if 'kind' in j], ['select_lines', 'select_lines'])
+        self.assertEqual([j['kind'] for j in judgements], ['select', 'select_lines', 'select', 'select_lines'])
 
     def test_backend_setting_is_validated(self):
         os.environ['MSWEA_SELECT_BACKEND'] = 'coinflip'
@@ -455,7 +688,7 @@ class SelectLineTransport:
 
     def __call__(self, body, headers):
         self.bodies.append(body); self.headers.append(headers)
-        if jev_select.QUESTION_NAME in body['questions']:
+        if body['state'].startswith(jev_select.JUDGE_PREAMBLE):           # a selection request
             return self.messages(body, headers)
         if self.line_status:
             return self.line_status, {'detail': 'line judge down'}, None
@@ -463,7 +696,7 @@ class SelectLineTransport:
 
     @property
     def line_bodies(self):
-        return [b for b in self.bodies if jev_select.QUESTION_NAME not in b['questions']]
+        return [b for b in self.bodies if not b['state'].startswith(jev_select.JUDGE_PREAMBLE)]
 
 
 class SelectLinesTests(unittest.TestCase):
@@ -494,8 +727,8 @@ class SelectLinesTests(unittest.TestCase):
                                  line_probs={'FAILED': 0.9, 'assert': 0.8})
         selection, rec, pt, ct, lat, ids = self.run_window(tr)
         self.assertEqual(selection, {'u1': None, 'u2': None, 'u3': None, 'u4': [(4, 5)]})
-        # Six message judgements, one line request for u4 only: u2 is short, u6 was dropped.
-        self.assertEqual(len(tr.bodies), 7)
+        # One selection request, one line request for u4 only: u2 is short, u6 was dropped.
+        self.assertEqual(len(tr.bodies), 2)
         self.assertEqual(len(tr.line_bodies), 1)
         state = tr.line_bodies[0]['state']
         self.assertIn('context window is being rebuilt', state)          # LINE_PREAMBLE_SELECT
@@ -505,7 +738,7 @@ class SelectLinesTests(unittest.TestCase):
         self.assertIn('L0004| FAILED', state)
         self.assertEqual(len(tr.line_bodies[0]['questions']), 65)
         self.assertEqual(rec['select_lines'], 40)
-        self.assertEqual(rec['requests'], 6)
+        self.assertEqual((rec['requests'], rec['questions']), (1, 6))
         self.assertEqual(rec['line_requests'], 1)
         self.assertEqual((rec['line_trimmed'], rec['line_errors']), (1, 0))
         self.assertEqual(list(rec['lines']), ['u4'])
@@ -513,8 +746,8 @@ class SelectLinesTests(unittest.TestCase):
         self.assertEqual((u4['ranges'], u4['lines'], u4['kept_lines']), ([[4, 5]], 65, 2))
         self.assertLess(u4['tokens_after'], u4['tokens_before'])
         self.assertIsNone(u4['error'])
-        self.assertEqual(pt, 600 + 500)                                   # message + line usage
-        self.assertEqual(len(ids), 7)
+        self.assertEqual(pt, 100 + 500)                                   # selection + line usage
+        self.assertEqual(len(ids), 2)
         rebuilt = memory.apply_selection(self.window, selection)
         self.assertEqual([m['extra']['uid'] for m in rebuilt], ['u1', 'u2', 'u3', 'u4'])
         self.assertEqual(rebuilt[3]['content'],

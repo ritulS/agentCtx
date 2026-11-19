@@ -440,7 +440,7 @@ class SweBench:
             "online_claude_extract_accepted", "online_claude_extract_errors", "extract_model",
             "online_claude_select_events", "online_claude_select_total_tokens_saved",
             "online_claude_select_accepted", "online_claude_select_errors",
-            # selector backend (MSWEA_SELECT_BACKEND; jev settings for the online-jev-select cells)
+            # selector backend (MSWEA_SELECT_BACKEND; jev settings for the online-jev-full-select cells)
             "select_backend", "jev_model",
             # per-output pre-extraction (MSWEA_OUTPUT_EXTRACT_ABOVE; the ocstx condition)
             "output_extract_events", "output_extract_threshold", "output_extract_total_tokens_saved",

@@ -201,17 +201,30 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   Smoke-test with `scripts/maintenance/probe_phase_judge.py <run_dir>
   [--steps a,b]`, which judges the uncompressed history of an existing run
   after the given steps.
-  `online-jev-select` (cell tag `ojs`, preset `ojs`, added 2026-11-17) is the
+  `online-jev-full-select` (cell tag `ojfs`, preset `ojfs`; added 2026-11-17 as
+  `online-jev-select` / `ojs`, renamed 2026-11-18, see below) is the
   same primitive with the selector backend switched to TypeSafe's Jev decision
   model (`MSWEA_SELECT_BACKEND=jev` through the condition's `env`;
   `select_backend()` in `primitives.py`, the backend in
   `src/agentctx/compression/jev_select.py`, `POST api.typesafe.ai/v1/systemone`
   over httpx, key `TYPESAFE_API_KEY` or `~/.config/agentctx/typesafe_api_key`).
-  Instead of one generative call over the complete history, every window
-  message is judged ON ITS OWN, in parallel (`MSWEA_JEV_WORKERS`, 8): Jev is
-  shown the task statement, the agent's newest turn (`MSWEA_JEV_CONTEXT_TURNS`,
-  1) and the candidate rendered as the selector renders it, and answers a
-  `noul` question ("the agent still needs this message") with a probability.
+  Instead of one generative call over the complete history, ONE Jev request
+  per selection (`judge_messages()`): its `state` is the task statement, the
+  COMPLETE history (window and kept tail, rendered as the selector renders it,
+  every message under its uid header; `judge_state()`) and the agent's newest
+  turn (`MSWEA_JEV_CONTEXT_TURNS`, 1); its `questions` are one `noul` per
+  window message keyed by uid ("the agent still needs history message m00042",
+  `NEEDED_CRITERIA` as the noul's structured `criteria`
+  (`MSWEA_JEV_QUESTION_CRITERIA`, default on) and the message's first 12 lines
+  quoted (`MSWEA_JEV_QUESTION_LINES`; 0 = uid only); `message_questions()`,
+  the criteria also stand in the preamble). Jev reads the
+  state once and answers every question with a probability; when the
+  questions are many the request is chunked (`MSWEA_JEV_SELECT_QUESTIONS`,
+  default by size: 64 per request once the state alone is long-context), each
+  chunk re-sending the whole state in parallel (`MSWEA_JEV_WORKERS`, 8). The
+  history in the state is the "full" of the name: Jev can tell a superseded or
+  repeated message, the request is long-context as soon as the history is, and
+  a selection costs one state's input (linear in the history).
   A message is kept WHOLE when probability + anchor bonus clears
   `MSWEA_JEV_KEEP_THRESHOLD` (0.5; the bonus `MSWEA_JEV_ANCHOR_BONUS`, 0.15,
   applies to messages in the previous context when `MSWEA_SELECT_ANCHOR` is on:
@@ -219,46 +232,240 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `MSWEA_SELECT_CAP` (30000) the kept messages are ranked by score (ties:
   newer first) and taken while they fit, so no reply is ever rejected or
   re-queried. Jev returns typed values only: no line ranges, and it never
-  writes a word the agent reads. Each judgement is LOCAL (Jev cannot see that a
-  message is redundant with or superseded by another), which is the question
-  the cell asks. Requests above ~30000 bytes get TypeSafe's long-context
-  header (`MSWEA_JEV_LONG_CONTEXT=header`; `truncate` cuts the candidate to
-  fit instead). A judgement that fails after `MSWEA_JEV_MAX_RETRIES` keeps its
+  writes a word the agent reads. Requests above ~30000 bytes get TypeSafe's
+  long-context header (always, with the history in the request). A judgement
+  that fails after `MSWEA_JEV_MAX_RETRIES` keeps its
   message and is recorded with `error`; a 401/403 or a selection where every
   judgement failed raises, counted by `MSWEA_EXTRACT_MAX_CONSECUTIVE_ERRORS`.
   Window, kept tail, rebuild, record and event-log kind are those of
   `online_claude_select`; the selection record adds `backend: jev` and `jev`
-  (per-uid `probs` / `scores`, threshold, `requests`, `errors`,
-  `long_context`, `capped_out`, usage), the summary outcome counts one attempt
-  per Jev request with its request ids, every judgement goes to
+  (per-uid `probs` / `scores`, threshold, `requests` / `questions` /
+  `request_errors` / `state_bytes`, `errors` (uids whose request failed or
+  whose answer was missing: kept), `long_context`, `capped_out`, usage), the
+  summary outcome counts one attempt per Jev request with its request ids,
+  every request goes as one `kind: select` record (uids, probs, usage) to
   `jev_judgements.jsonl` beside `summary_attempts.jsonl`
   (`MSWEA_JEV_JUDGEMENT_LOG`), and token_log.json / the result rows carry
-  `select_backend` and `jev_model`. `online-jev-select-threshold` (`ojst`) is
+  `select_backend` and `jev_model`. `online-jev-full-select-threshold` (`ojfst`) is
   the backend fired like ocst (above 30000, cap 20000);
-  `online-jev-select-threshold-output-extract` (`ojstx`) adds the ocstx
+  `online-jev-full-select-threshold-output-extract` (`ojfstx`) adds the ocstx
   per-output pre-extraction, which still uses the generative extractor model
   (both keys needed). Smoke-test and compare with a run's own selections with
   `scripts/maintenance/probe_jev_select.py <run_dir> --steps a,b [--cap N]
   [--dry-run]`. Tests: `tests/test_jev_select.py` (no API).
-  Jev selector settings added 2026-11-17 after the sympy-14531 probes
-  (`scripts/maintenance/probe_jev_select.py`, all read per selection, recorded
-  in the selection record): `MSWEA_JEV_HISTORY=full` puts the COMPLETE history
-  into every per-message request (the judgement is then no longer local; DeepSeek
-  agreement AUC 0.62 → 0.85 / 0.76 on the two ocst firings, cost ~20× the local
-  form and growing with the square of the history, every request long-context);
-  `MSWEA_JEV_QUESTION=needed|budget|score|aligned` is the wording (`needed`
-  "still needs it to finish the task from here": every p fell ~0.1 once the
-  newest turn was a passing verification, so a fixed threshold measured task
-  progress; `budget` asks for the kept side of a budget trim relative to the
-  rest of the history and holds its level across the run; `score` is the
-  five-level score primitive, p = score / 4, each judgement records `score` /
-  `level_probs` / `confidence`; `aligned` is `needed` with DeepSeek's kept-side
-  definition and a "dropping is costly" preamble, which changed nothing);
-  `MSWEA_JEV_UNIT=turn` judges each assistant message together with its
-  observations (half the requests, same accuracy; a bare command judged alone
-  gets the same p whether DeepSeek kept or dropped it). Under every local
-  wording the DeepSeek-kept messages are spread through Jev's ranking, so a
-  Jev selection that covers 80% of them needs ~85% of the history tokens.
+  History of the form (2026-11-17/18, sympy-14531 probes with
+  `scripts/maintenance/probe_jev_select.py`): the cells were born LOCAL
+  (`online-jev-select` / `ojs`, `ojst`, `ojst15`, `ojstx`, `ojstl`, `ojstl15`,
+  `ojstxj`: the candidate alone in the request, `MSWEA_JEV_HISTORY=none`), the
+  question being whether per-message relevance alone curates a usable context.
+  Under every local wording the DeepSeek-kept messages were spread through
+  Jev's ranking (agreement AUC 0.62; a Jev selection covering 80% of them
+  needed ~85% of the history tokens), while `MSWEA_JEV_HISTORY=full` (the
+  complete history in every per-message request) reached AUC 0.85 / 0.76 on
+  the two ocst firings at ~20× the cost. On 2026-11-18 the local form, its
+  short preamble and `MSWEA_JEV_HISTORY` were REMOVED from `jev_select.py`
+  (the full form is the only one; `history: full` stays in the selection
+  record) and the seven cells were renamed `online-jev-full-select...` /
+  `ojfs`, `ojfst`, `ojfst15`, `ojfstx`, `ojfstl`, `ojfstl15`, `ojfstxj`, so the
+  d3 pilot data `di__binf__ojst` / `ojst15` under `devstral24b-iso-fc20-d3/`
+  (local form, branch `tmp-decision-models-d3-nimble`) keeps its name. Also
+  removed: `MSWEA_JEV_LONG_CONTEXT=truncate` (cutting the candidate to fit
+  under the long-context size is meaningless when the history is in the
+  request). Retired to comments in `jev_select.py` the same day: the probe
+  wordings `MSWEA_JEV_QUESTION=budget|score|aligned` (`needed`, the only one
+  left, "still needs it to finish the task from here": every p fell ~0.1 once
+  the newest turn was a passing verification, so a fixed threshold measured
+  task progress; `budget` asked for the kept side of a budget trim relative
+  to the rest of the history and held its level across the run; `score` was
+  the five-level score primitive, p = score / 4; `aligned` was `needed` with
+  DeepSeek's kept-side definition and a "dropping is costly" preamble, which
+  changed nothing). Still live: `MSWEA_JEV_UNIT=turn` judges each assistant
+  message together with its observations (half the requests, same accuracy; a
+  bare command judged alone got the same p whether DeepSeek kept or dropped
+  it). The same day the full form was rewritten from "the complete history
+  in every per-message request" (N states per selection, quadratic) to ONE
+  request per selection with the history as the state and one noul per uid
+  (the shape of the line extraction; `_chunk_questions()` / `_ask()` are
+  shared by both), which keeps the full-history judgement at one state's
+  cost; the per-message `needed` criteria moved into the preamble
+  (`JUDGE_PREAMBLE` = `JUDGE_PREAMBLE_HEAD` + `NEEDED_CRITERIA`). Probed the
+  same day on the two ocst firings (steps 68 / 93; the per-message form
+  re-run that day: AUC 0.83 / 0.76): with the criteria in the preamble only
+  the one-request form fell to 0.75 / 0.63, unchanged by the questions per
+  request (64, 16 or 1) and by quoting each message's text in its question
+  (`MSWEA_JEV_QUESTION_LINES`, 0.00 / +0.02); putting `NEEDED_CRITERIA` back
+  on every noul as its structured `criteria` (`MSWEA_JEV_QUESTION_CRITERIA`,
+  now the default) brought it to 0.79 / 0.73-0.75, one question per request
+  0.81. Absolute probabilities are low in every form (median p 0.2-0.3,
+  1-8 of 136-187 messages above 0.5), so the 0.5 keep threshold would keep
+  almost nothing. Relative rules on the `needed` p (above the median or
+  quartile, mean + k sd, Otsu split) fix the fraction instead of reading it
+  from Jev. The `budget` wording (`MSWEA_JEV_QUESTION=budget`, revived the
+  same evening in the one-request form with its criteria on every noul) is
+  the answer so far: on 12 firings of 6 runs (the two ocst runs of
+  sympy-14531 and ocsa runs of django-12325 / 15278, scikit-learn-13779,
+  sympy-12419) its ranking is a little weaker (AUC 0.62-0.84 vs 0.72-0.90
+  for `needed`) but the share of tokens with p >= 0.5 tracks DeepSeek's kept
+  share across firings (correlation 0.81; 19-65% against 12-66%; precision
+  0.3-0.75), so the amount can come from Jev at threshold 0.5. That wording
+  is the cell `online-jev-full-select-budget` (cell tag `ojfsb`, preset
+  `ojfsb`, added 2026-11-18): the ojfs env (per-step firing like ocsa,
+  hysteresis +0.15, cap 30000) plus `MSWEA_JEV_QUESTION=budget` through the
+  condition's `env`; `ojfs` itself keeps the `needed` wording.
+  `online-jev-full-select-budget-lines` (`ojfsbl`, preset `ojfsbl`, same day)
+  adds the ojfstl line rule (`MSWEA_JEV_SELECT_LINES=1000`, top 15% of lines
+  + 1-line pad), the Jev counterpart of ocsa's `keep <uid> L<a>-<b>`. Pilot
+  planned with `ojfsbl` on the ocst4 tasks, 1 run per task, on Albus (the
+  first per-step Jev cell; the ojfst d3 pilots were threshold-fired; the
+  user's choice: the ocsa comparison includes line keeps). Per-step cost: every step
+  re-sends the whole history once per chunk of ~25 questions (probes:
+  140k input tokens per firing at a 20k history, 300-350k at 31k, 540-600k at
+  44k), so a 100-step run is ~10M Jev input tokens and a run that loops to the
+  300-step limit ~250M; `MSWEA_EXTRACT_EVERY` thins the firings if that
+  matters. Pilot result (2026-11-18, `ojfsbl` × ocst4 × 1 run, Albus):
+  2/4 (sklearn-10297 and django-15278 resolved with contexts of 7-13k mean,
+  kept share ~0.5; sympy-14531 and sympy-12419 hit the 300-step limit),
+  543M Jev input tokens ≈ $22.8 (both sympy runs looped; 12419's history
+  reached 98k). sympy-14531 is a context COLLAPSE specific to the per-step
+  relative form: after step ~45 no new message scored 0.5, the context froze
+  at 21 early messages (~4.5k) and the agent repeated `python test_issue.py`
+  / `pip install mpmath` / `pip install future` 250 times because it never
+  saw it had already done so (every 14531 run of every cell hits the missing
+  `mpmath`; the others install it and move on). Jev rated each repeated
+  message p 0.06-0.14: correct as information, wrong as the agent's record of
+  its own actions. `MSWEA_JEV_ANCHOR_TAGS=1` (added the same evening) passes
+  the previous selection to Jev as ocsa passes it to the generative selector
+  (previous-context tag in every header, `ANCHOR_PREAMBLE_NOTE`, asymmetric
+  STAY / RETURN questions and criteria) and did NOT help: on the collapsed
+  14531 history the just-left-tail test / pip messages scored 0.29-0.40 under
+  the STAY question (kept 14-16 of 47-237 vs 20-21 in the run; 5-7 without
+  the bonus), and on the healthy ocsa 14531 history it lowered the kept share
+  (0.58 / 0.22 / 0.36 vs 0.66 / 0.50 / 0.54 untagged; agreement 0.66-0.67 vs
+  0.75-0.76), so it stays off. The recent record needs a structural
+  guarantee (a wider `MSWEA_EXTRACT_KEEP_RECENT`) or threshold firing
+  (ojfstl: the context is append-only between firings), which is the
+  recommended operating point for Jev; the per-step form is also not cheap
+  ($8-12 per looping run vs $1-4 for the DeepSeek ocsa).
+  Probing alternative questions on that history (same evening) showed what
+  Jev can and cannot be asked: a per-message "hiding this would make the
+  agent repeat a step" question never cleared 0.46 and a "record of what the
+  agent tried" question was high for any recent action on a healthy history
+  too, while detection questions separate cleanly: "this message is a
+  repeated attempt" 0.8-0.99 on the repeats vs 0.1-0.4 on fresh commands, and
+  one question about the agent, "the agent is stuck: its newest steps repeat
+  steps it has already taken" (`STUCK_INSTRUCTIONS`), 0.93-0.97 in the loop
+  vs 0.18-0.38 on the healthy ocsa history of the same task. Hence
+  `MSWEA_JEV_STUCK_GATE=<k>`: that one question rides in the same request
+  (one question's bytes) and at >= `MSWEA_JEV_STUCK_THRESHOLD` (0.5) the
+  newest k turns of the window are kept whole whatever their p, ranked first
+  under the cap and never line-trimmed (record: `stuck`, `stuck_forced`).
+  Offline on the collapsed 14531 history with k=4 the gate adds the 4-turn
+  test / pip cycle (~550 tokens; 28 messages kept instead of 20; off at the
+  loop onset step 22 where stuck read 0.13) and leaves the healthy history
+  unchanged. Cell `online-jev-full-select-budget-lines-stuck` (`ojfsblg`,
+  preset `ojfsblg`) = ojfsbl + `MSWEA_JEV_STUCK_GATE=4`. Run on sympy-14531
+  alone (2026-11-18/19): the gate fired at the test / pip cycle (stuck 0.79-
+  0.86, steps 17-20) and the agent left it for the import fixes the FC runs
+  made, so the ojfsbl failure mode is fixed; the run then failed anyway
+  (`LimitsExceeded`, 300 steps, Jev $16.66 as the history reached 120k):
+  from #58 the agent rewrote an identical `fix_str.py` with broken quoting
+  242 times while seeing its SyntaxError every time, stuck 0.96-0.97 and the
+  gate on continuously from step 63, the `str.py` content and its earlier
+  edits all in context (peak 13.1k). A model loop, not a context loss (the
+  12419 shape); the gate cannot cure it. The other three ocst4 tasks were
+  not run under ojfsblg.
+  Why per-step Jev loses to per-step DeepSeek on the same task (2026-11-19,
+  offline on the sympy-14531 ocsa r1 / r2 and ojfsbl / ojfsblg runs): (1) the
+  Jev context is FROZEN (consecutive-context Jaccard 1.00, p sd per uid 0.01,
+  1-32 re-admissions per run) while DeepSeek's moves (Jaccard 0.67-0.80, ~8
+  messages re-admitted per firing, ~950-1080 per run); (2) Jev breaks turns
+  (45% of kept observations without their command vs 6%; `MSWEA_JEV_UNIT=turn`
+  would fix it, the line judge still applies per observation); (3) Jev's
+  partial keeps are 22 ranges per output (top-15% + pad) vs DeepSeek's 1-2
+  blocks at the same kept fraction (0.2-0.3). A probe on whether (1) can be
+  prompted (5 ocsa r1 firings, every out-of-context message asked RETURN,
+  "concerns the same file / function / error as the newest turn" and "the
+  next step will need it", with 1 or 3 turns of activity, ground truth =
+  what DeepSeek re-admitted): AUC 0.50-0.56 pooled, none separates; the plain
+  budget value question does best (0.69). That ground truth turned out to be
+  the problem, not Jev: DeepSeek's re-admission is largely churn (55-136 of
+  91-198 out-of-context messages re-admitted per firing). On a HAND-LABELLED
+  case (ojfsblg 14531 step 56, the agent editing `_print_Limit` /
+  `_print_Relational` in str.py; 27 window messages labelled needed for that
+  activity, 71 not, 16 unsure, by Claude reading each) the activity questions
+  separate cleanly: "concerns the same file / function / error as the newest
+  turn" AUC 0.97 (27/27 needed >= 0.5 but 19/71 not-needed too), "the next
+  step is likely to need it" 0.96 (12/27 vs 0/71), `needed` 0.96 (6/27 vs
+  0/71), `budget` 0.83 (16/27 vs 14/71: it also keeps the finished
+  collections.abc edits and old tracebacks); 1 vs 3 turns of activity makes
+  no difference. So Jev CAN judge a message's relevance to the current
+  activity when asked; the `budget` wording is stage-independent by
+  construction, which is why the per-step `budget` p never moved with the
+  agent's activity (str.py messages 0.5-0.6 before and during the str.py
+  edits). Tried offline the same day as `MSWEA_JEV_ACTIVITY_QUESTION=1`
+  (a second noul "<uid>#next" per unit, p = max of value and activity, kept
+  when either clears 0.5): on the 12 DeepSeek-compared firings the
+  selections are the same within ±3 messages (AUC 0.62-0.83 both ways, kept
+  shares identical) and on the 14531 collapse steps it adds 0 messages (the
+  repeated test / pip 0.1-0.3 under it too); on the hand-labelled step it
+  adds 2. The activity p is low (median 0.16-0.20 against 0.35-0.47 for
+  value), so at 0.5 it is a near-subset of the value keeps; lowering its
+  threshold to 0.35 adds 0-7 messages per firing at precision 0.5-0.7
+  against DeepSeek, no better than the value question's own. Its ranking
+  carries signal (AUC 0.83-0.86 vs DeepSeek on 2 of 4 firings) but as a keep
+  rule it changes nothing, at 1.7× the Jev input (questions double and the
+  state is re-sent per extra chunk). Kept as an option, default off; not a
+  cell. ~$1.3 of probes in all.
+  Claude-labelled GOLD (2026-11-19): five more firings labelled by Claude
+  reading every window message (needed for the agent's current activity /
+  not / unsure-excluded): sympy-12419 ocsa step 74, django-12325 ocsa 45,
+  scikit-learn-13779 ocsa 80, sympy-14531 ocst 68, django-15278 ocsa 48
+  (40 / 17 / 8 / 28 / 9 needed of 129 / 77 / 148 / 108 / 84 judged). Against
+  it, Jev `budget` ranks at AUC 0.75-0.95 (pooled 0.87) and the activity
+  question 0.81-0.96 (pooled 0.88, but 0-10 messages above 0.5). At the 0.5
+  threshold Jev keeps 14-53 messages at precision 0.29-0.76 / recall
+  0.50-0.89; DeepSeek's own selections at those steps: precision 0.44-0.89 /
+  recall 0.44-0.88; at DeepSeek's kept count, Jev's top-n precision is lower
+  on three firings (0.75 vs 0.89, 0.36 vs 0.55, 0.48 vs 0.55), equal on one
+  (0.54) and higher on one (0.78 vs 0.44). Reading: against a gold both
+  selectors are mediocre (precision ~0.5), DeepSeek somewhat better at
+  choosing, Jev's ranking sound; the per-step gap between them is mostly not
+  in which messages they rate highly. Labels and per-message probabilities:
+  scratchpad `gold_labels.py`, `gold_<case>.json` / `.txt` (session
+  2026-11-19; copy out if wanted).
+  Amount probes against the gold (2026-11-19): the `budget` p >= 0.5 share is
+  0.8-1.9x the gold share in the right direction on all 5 firings (26 / 34 /
+  9 / 49 / 20% of messages vs 31 / 22 / 5 / 26 / 11%); Otsu, largest-gap and
+  median rules are worse; asking Jev the amount directly (nouls "at least
+  3/4, 1/2, 1/4, 1/10 of the messages are still needed", and a 5-level
+  `score` question, which needs its levels under `criteria`) gives two
+  coarse buckets with jitter at the 0.5 boundary and the score over-estimates
+  1.5-5x, so the amount stays a by-product of the per-message judgement.
+  Hence the next cell, `online-jev-full-select-threshold-budget-lines-stuck`
+  (`ojfstblg`, preset `ojfstblg`, added 2026-11-19): the threshold form
+  (fire above 30000, cap 20000 as an upper bound only) with `budget`,
+  `MSWEA_JEV_UNIT=turn`, the ojfstl line rule and the stuck gate k=4; the
+  user's decision to keep the amount adaptive rather than fixed by the cap.
+  Pre-launch probe on the ocst 14531 firings: kept shares 0.85 / 0.54
+  (DeepSeek 0.67 / 0.53), 0 errors, ~$0.015 per firing. Run on the ocst4
+  tasks × 1 run 2026-11-19 (Albus): **4/4 resolved** (63 / 87 / 116 / 252
+  steps) for $0.23 of Jev; 10297 and 15278 never crossed 30k cl100k tokens
+  (ran as FC), 14531 fired once (30.0k → 19.8k) and did not loop, 12419
+  fired 6 times (histories 30k → 82k, rebuilt to 20k each time, the cap
+  binding at every firing, stuck gate on at 3 of them) and resolved at 252
+  steps where every other cell but FC 1/3 had hit the step limit. One run
+  per task: a pilot, not a result. Open: the first-firing amount (hysteresis
+  +0.15 on everything), line fragmentation, 2 of 4 tasks never engaging Jev.
+  `online-jev-full-select-threshold-15k-budget-lines-stuck` (`ojfstblg15`,
+  preset `ojfstblg15`, added 2026-11-19) is ojfstblg at threshold 15000 /
+  cap 10000 (the ocstx15 proportion), so every ocst4 task engages Jev. Run
+  on the ocst4 tasks × 1 run 2026-11-19 (Albus): **2/4** (10297 ✓ 68 steps /
+  4 firings, 14531 ✓ 126 / 5; 15278 and 12419 hit the step limit in model
+  loops, `grep -r AddField` ×186 and `sed -n 900,950p` ×141, with the stuck
+  gate on at 0.93-0.95), Jev $1.10, 0 errors, firings at 15.0-15.6k rebuilt
+  to 8.5-10k with the cap binding at most of them. Worse than ojfstblg's 4/4
+  the same afternoon on the same runs' paths (15278 resolved at 30k without
+  a firing); one run per task, but the 30k / 20k point is the one to seed.
   `MSWEA_OUTPUT_EXTRACT_BACKEND=jev` (added 2026-11-17) is the Jev form of the
   ocstx per-output pre-extraction: ONE request per long output whose state is
   the task statement, the command and the output with `L0042| ` line tags and
@@ -278,15 +485,15 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   fraction + pad rule is the usable operating point. Smoke-test and compare
   with `scripts/maintenance/probe_jev_line_extract.py <run_dir> [--uids ...]
   [--dry-run]`.
-  `online-jev-select-threshold-15k` (cell tag `ojst15`, preset `ojst15`,
-  added 2026-11-18) is ojst with the firing threshold halved
+  `online-jev-full-select-threshold-15k` (cell tag `ojfst15`, preset `ojfst15`,
+  added 2026-11-18) is ojfst with the firing threshold halved
   (`MSWEA_EXTRACT_FIRE_ABOVE=15000`) and the cap lowered in the same 2:3
   proportion (`MSWEA_SELECT_CAP=10000`), as ocstx15 is to ocstx.
   (The non-Jev decision-model backends tried on 2026-11-17/18, Bespoke Nimble
   and a local vLLM-SR d3, with their serving scripts and pilots, live on the
   branch `tmp-decision-models-d3-nimble`.)
-  `online-jev-select-threshold-lines` (cell tag `ojstl`, preset `ojstl`, added
-  2026-11-18) is ojst with LINE-LEVEL selection by the decision model itself
+  `online-jev-full-select-threshold-lines` (cell tag `ojfstl`, preset `ojfstl`, added
+  2026-11-18) is ojfst with LINE-LEVEL selection by the decision model itself
   (`MSWEA_JEV_SELECT_LINES=1000` through the condition's `env`;
   `trim_observations()` in `jev_select.py`, called from `jev_select_window()`):
   at a firing, every observation that passes the keep threshold and exceeds
@@ -307,10 +514,10 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `requests`, `errors`, `error`), `line_requests`, `line_input_tokens`,
   `line_trimmed`, `line_errors`; the judgement log gets a `kind: select_lines`
   record per judged output; the summary outcome counts message and line
-  requests as attempts. `online-jev-select-threshold-15k-lines` (`ojstl15`,
-  preset `ojstl15`) is the same at the ojst15 threshold / cap (15000 / 10000).
-  `online-jev-select-threshold-jev-output-extract` (`ojstxj`, preset `ojstxj`)
-  is ojstx with the per-output pre-extraction answered by Jev
+  requests as attempts. `online-jev-full-select-threshold-15k-lines` (`ojfstl15`,
+  preset `ojfstl15`) is the same at the ojfst15 threshold / cap (15000 / 10000).
+  `online-jev-full-select-threshold-jev-output-extract` (`ojfstxj`, preset `ojfstxj`)
+  is ojfstx with the per-output pre-extraction answered by Jev
   (`MSWEA_OUTPUT_EXTRACT_BACKEND=jev`, same line rule), so the cell needs the
   Jev key alone; there the omitted lines are deleted from the history (ocstx
   semantics) and the threshold selection stays whole-message. On Jev's billing

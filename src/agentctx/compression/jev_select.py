@@ -4,11 +4,17 @@
 The default selector backend hands the COMPLETE history to one generative model
 call (DeepSeek / Nemotron / Claude through ``claude_extract.py``) and parses its
 keep/drop directives. This backend asks TypeSafe's Jev decision model
-(https://docs.typesafe.ai, ``POST /v1/systemone``) ONE QUESTION PER HISTORY
-MESSAGE, in parallel: shown the task statement, the agent's newest turn (its
-current activity) and the candidate message alone, Jev answers a ``noul``
-question ("the agent still needs this message to finish the task") with a
-probability in [0, 1]. The primitive keeps the messages whose probability
+(https://docs.typesafe.ai, ``POST /v1/systemone``) ONE REQUEST PER SELECTION
+whose ``state`` is the task statement, the COMPLETE history (window and kept
+tail, rendered as the generative selector sees it, every message under its uid
+header) and the agent's newest turn (its current activity), and whose
+``questions`` are one ``noul`` per history message, keyed by uid ("the agent
+still needs history message m00042 to finish the task", with NEEDED_CRITERIA as
+the noul's structured criteria and followed by the message's own text, its
+first MSWEA_JEV_QUESTION_LINES lines); Jev reads the state
+once and answers every question with a probability in [0, 1] (the request is
+chunked into several, each carrying the whole state, when the questions are
+many: MSWEA_JEV_SELECT_QUESTIONS). The primitive keeps the messages whose probability
 clears ``MSWEA_JEV_KEEP_THRESHOLD`` and, under a cap (``MSWEA_SELECT_CAP``),
 ranks them by probability and keeps the top ones that fit, so a cap never
 needs a re-query. Jev returns typed values only, never text, so the context
@@ -19,10 +25,19 @@ as line ranges (see below), and the per-output pre-extraction
 ``MSWEA_OUTPUT_EXTRACT_ABOVE`` (``MSWEA_OUTPUT_EXTRACT_BACKEND=jev``) trims a
 new output once, as it enters the history.
 
-Each judgement is LOCAL: Jev sees one candidate at a time and cannot know that
-a message is redundant with another one or superseded by a later one. That is
-the point of the comparison (does per-message relevance alone curate a usable
-context?), not an oversight.
+The state carries the complete history, so Jev can tell that a message is
+superseded by a later one or repeats an earlier one (the judgement is not
+local), and the state exceeds TypeSafe's long-context size as soon as the
+history does; a selection costs one state (plus one per extra chunk), so its
+input grows linearly with the history. Until 2026-11-18 the default was the
+LOCAL form (one request per message, the candidate alone;
+``MSWEA_JEV_HISTORY=none``; cells ojs / ojst / ...), removed when the
+sympy-14531 probes showed its agreement with the generative selector at AUC
+0.62 against 0.76-0.85 with the history shown (the probes' ``full`` form put
+the complete history into every per-message request: the same information at
+N times the cost, growing with the square of the history); the cells were
+renamed ojfs / ojfst / ... (``online-jev-full-select...``) and the same day
+the full form became this one-request form.
 
 Settings (environment variables, read on every selection):
 
@@ -43,34 +58,23 @@ Settings (environment variables, read on every selection):
   MSWEA_JEV_CONTEXT_TURNS         how many of the newest (kept-verbatim) turns are
                                   shown to Jev as the agent's current activity
                                   (default 1; 0 = none)
-  MSWEA_JEV_HISTORY               none (default) | full: with full, every request also
-                                  carries the COMPLETE history (window and kept tail,
-                                  rendered as the generative selector sees it) so Jev
-                                  can tell a superseded or repeated message; the
-                                  judgement is then no longer local (what DeepSeek sees,
-                                  one question per message). Every request exceeds the
-                                  long-context size, and the input grows with the
-                                  square of the history (added 2026-11-17 for the probe
-                                  comparison with the ocst selector).
   MSWEA_JEV_QUESTION              needed (default) | budget: the wording of the noul
-                                  question. ``needed`` asks whether the agent still needs
-                                  the message to finish the task from here; ``budget``
-                                  asks whether the message belongs on the kept side when
-                                  the history is trimmed to a budget, relative to the rest
-                                  of the history and explicitly independent of how far
-                                  along the task is (added 2026-11-17: under ``needed``
-                                  every probability fell once the newest turn was a
-                                  passing verification); ``score`` puts TypeSafe's score
-                                  primitive instead (five levels described as situations,
-                                  from dispensable to indispensable; p = score / 4, so the
-                                  threshold and the cap ranking apply unchanged, and each
-                                  judgement records ``score``, ``level_probs``,
-                                  ``confidence``); ``aligned`` is the needed noul with the
-                                  kept side defined as the generative selector's prompt
-                                  defines it (dead-end records and commands to remember are
-                                  kept) and a preamble that says dropping is costly (added
-                                  2026-11-17). The question key is ``needed`` in every
-                                  variant; the record carries ``question``.
+                                  question. ``needed``: "the agent still needs the
+                                  message to finish the task from here" (NEEDED_*): the
+                                  better ranking (AUC 0.72-0.90 against the generative
+                                  selector on 12 firings, 2026-11-18) but its level falls
+                                  with task progress (median p 0.1-0.2, almost nothing
+                                  above 0.5), so it needs a cap or a relative rule.
+                                  ``budget``: "on the kept side of a budget trim, relative
+                                  to the rest of the history, whatever the task's progress"
+                                  (BUDGET_*; retired 2026-11-18 morning with the local
+                                  form, revived the same evening): a slightly weaker
+                                  ranking (AUC 0.62-0.84) whose level is usable: the
+                                  share of tokens with p >= 0.5 tracked the generative
+                                  selector's kept share across those 12 firings
+                                  (correlation 0.81; 19-65% vs 12-66%), i.e. the AMOUNT
+                                  comes from Jev. score / aligned (2026-11-17) stay in
+                                  comments in this module. The record carries ``question``.
   MSWEA_JEV_UNIT                  message (default) | turn: with turn, each assistant
                                   message and the observations that follow it are judged
                                   as ONE unit (rendered together) and kept or dropped
@@ -78,8 +82,9 @@ Settings (environment variables, read on every selection):
                                   the anchor bonus applies when any member was in the
                                   previous context (added 2026-11-17: judged alone, a
                                   bare command gets the same probability whether the
-                                  generative selector kept or dropped it). The judgement
-                                  log carries the unit's ``members``.
+                                  generative selector kept or dropped it). The question
+                                  names the turn's members; the selection record expands
+                                  the unit's p to every member uid.
   MSWEA_JEV_SELECT_LINES          0 (default) = whole messages only. A token count > 0
                                   (the cells use 1000) turns on LINE-LEVEL SELECTION at
                                   firing time (added 2026-11-18): every observation of the
@@ -107,23 +112,97 @@ Settings (environment variables, read on every selection):
                                   the judgement log gets one ``kind: select_lines`` record
                                   per judged output. The agent's newest turn (kept tail)
                                   is never trimmed.
-  MSWEA_JEV_WORKERS               parallel requests per selection (default 8)
+  MSWEA_JEV_QUESTION_CRITERIA     1 (default): every noul carries NEEDED_CRITERIA as its
+                                  structured ``criteria`` (true / false definitions), as the
+                                  per-message form did, besides the prose in the preamble;
+                                  0 = instructions only. Added 2026-11-18 when the first
+                                  one-request probes (criteria in the preamble only) fell to
+                                  AUC 0.75 / 0.63 against the generative selector
+                                  (sympy-14531, steps 68 / 93) from the per-message form's
+                                  0.83 / 0.76; with the criteria on every question they
+                                  came back to 0.79 / 0.73-0.75 (one question per request:
+                                  0.81). The record carries ``question_criteria``.
+  MSWEA_JEV_ANCHOR_TAGS           1: when MSWEA_SELECT_ANCHOR is on, the previous selection is
+                                  passed to Jev as ocsa passes it to the generative selector:
+                                  every header in the state says whether the message was in
+                                  the agent's context at the previous step (the newest turn:
+                                  "new this step"), the preamble gets ANCHOR_PREAMBLE_NOTE
+                                  (continuity has value; the record of a recent action stays
+                                  even when it repeats an earlier one) and the question is
+                                  asymmetric: a message in the context is asked whether it
+                                  STAYS, one outside whether it RETURNS, each with its own
+                                  criteria (ANCHOR_STAY_* / ANCHOR_RETURN_*; the variant's
+                                  templates and criteria are not used, its preamble is).
+                                  Default 0 (the previous selection acts only through the
+                                  +0.15 bonus, which still applies with 1). Added 2026-11-18
+                                  after the ojfsbl pilot, where sympy-14531's context froze
+                                  at 21 early messages and the agent repeated test / pip
+                                  install 250 times (see ANCHOR_PREAMBLE_NOTE's comment). The
+                                  record carries ``anchor_tags``.
+  MSWEA_JEV_STUCK_GATE            k > 0: one extra noul per selection, about the agent ("the
+                                  agent is stuck: its most recent steps repeat steps it has
+                                  already taken", STUCK_*), in the same request as the
+                                  per-message questions; when its p clears
+                                  MSWEA_JEV_STUCK_THRESHOLD (0.5) the newest k turns of the
+                                  window are kept whole whatever their own p, ranked first
+                                  under the cap and never line-trimmed (the agent's record
+                                  of what it has just tried, on top of the verbatim kept
+                                  tail). Default 0 (off). Added 2026-11-18 after the ojfsbl
+                                  sympy-14531 collapse (see STUCK_INSTRUCTIONS' comment):
+                                  the question read 0.94-0.96 in the loop and 0.18-0.38 on
+                                  a healthy history of the same task. The record carries
+                                  ``stuck``, ``stuck_gate``, ``stuck_threshold`` and
+                                  ``stuck_forced`` (uids kept by the gate).
+  MSWEA_JEV_ACTIVITY_QUESTION     1: a second noul per unit ("<uid>#next": the agent's next step
+                                  is likely to need it, NEXT_*) rides in the same request, and
+                                  the unit's p is the larger of the value and activity answers,
+                                  so a message is kept when either clears the threshold (the
+                                  record carries ``probs_value`` / ``probs_activity`` beside
+                                  ``probs``; the judgement log has both keys). Default 0. Added
+                                  2026-11-19 so the per-step form follows the agent's current
+                                  work (the `budget` wording is stage-independent by design and
+                                  never moved; on a hand-labelled step this question read AUC
+                                  0.96, 0 false positives at 0.5). Costs the second question's
+                                  bytes.
+  MSWEA_JEV_QUESTION_LINES        each question quotes the message it asks about (the unit's
+                                  members rendered as in the state, every one cut to its
+                                  first N lines with a note of the total; default 12;
+                                  0 = the question names the uid only). Added 2026-11-18 on
+                                  the guess that Jev had to find the message in a 100+ KB
+                                  state; the probes above moved by 0.00 / +0.02 with it
+                                  (the whole text, or none, no better), so it is kept as a
+                                  cheap option. The quoted text is charged as question
+                                  input on top of the state; the record carries
+                                  ``question_lines`` and ``question_bytes``.
+  MSWEA_JEV_SELECT_QUESTIONS      questions per selection request (default 0 = by size:
+                                  while the state alone is under the long-context size a
+                                  request stays under it; once it is not, which the
+                                  complete history makes the rule, every request carries
+                                  the header and takes up to 64 questions or ~30 KB of
+                                  question text, each request re-sending the whole state)
+  MSWEA_JEV_WORKERS               parallel requests (selection chunks, line requests;
+                                  default 8)
   MSWEA_JEV_TIMEOUT_S             per-request timeout (default 60)
   MSWEA_JEV_MAX_RETRIES           retries per request on 408/429/5xx and transport
                                   errors, exponential backoff (default 3)
-  MSWEA_JEV_LONG_CONTEXT          header (default) sends TypeSafe-Danger-Zone-Long-Context
-                                  when a request exceeds ~30000 bytes of text (TypeSafe's
-                                  long-context mode: slower, less accurate, recorded as
-                                  ``long_context`` on the judgement); truncate cuts the
-                                  candidate's text to fit instead (head and tail, a note
-                                  in between) and records ``truncated``.
-  MSWEA_JEV_JUDGEMENT_LOG         where every judgement is appended as one JSON line
-                                  (default MSWEA_EVENT_LOG_DIR/jev_judgements.jsonl, the
-                                  sibling of summary_attempts.jsonl; 0 disables)
+  (long context)                  a request above ~30000 bytes of text is sent with
+                                  TypeSafe-Danger-Zone-Long-Context: true (TypeSafe's
+                                  long-context mode: slower, less accurate; recorded as
+                                  ``long_context`` on the judgement). With the complete
+                                  history in every request this is every selection
+                                  request; the former MSWEA_JEV_LONG_CONTEXT=truncate
+                                  (cut the candidate to fit) was removed with the local
+                                  form on 2026-11-18.
+  MSWEA_JEV_JUDGEMENT_LOG         where every request is appended as one JSON line
+                                  (``kind: select`` with its uids and probs, ``select_lines``
+                                  / ``lines`` for the line judges; default
+                                  MSWEA_EVENT_LOG_DIR/jev_judgements.jsonl, the sibling of
+                                  summary_attempts.jsonl; 0 disables)
 
-A judgement that still fails after the retries KEEPS its message (conservative)
-and is recorded with ``error``; an authentication failure (401 / 403) or a
-selection in which every judgement failed raises, so the agent's consecutive-
+A request that still fails after the retries KEEPS every message it carried
+(conservative) and is recorded with ``error`` (so is a message whose answer is
+missing from a reply); an authentication failure (401 / 403) or a selection in
+which every request failed raises, so the agent's consecutive-
 error cap (MSWEA_EXTRACT_MAX_CONSECUTIVE_ERRORS) ends a misconfigured run
 instead of silently turning the condition into full context.
 """
@@ -148,32 +227,42 @@ DEFAULT_CONTEXT_TURNS = 1
 DEFAULT_MAX_RETRIES = 3
 LONG_CONTEXT_BYTES = 30000       # TypeSafe switches to long-context mode above ~32000 bytes of text
 LONG_CONTEXT_HEADER = "TypeSafe-Danger-Zone-Long-Context"
-TRUNCATED_NOTE = "[... {n} characters of this message are not shown to the judge ...]"
 _RETRY_STATUSES = (408, 429, 500, 502, 503, 504, 529)
 _AUTH_STATUSES = (401, 403)
 
-QUESTION_NAME = "needed"
-JUDGE_PREAMBLE = (
+# Until 2026-11-18 the state held ONE candidate (alone, or repeated after the complete
+# history) and the request one ``needed`` noul with NEEDED_CRITERIA as its criteria; since
+# 2026-11-18 (the "batched" form) the state holds the complete history once and the request
+# one noul PER MESSAGE, named by uid, so the criteria moved into the preamble.
+JUDGE_PREAMBLE_HEAD = (
     "An autonomous software-engineering agent fixes a bug in a repository by running one "
     "shell command per step. Its context window is being curated: before the next step, "
-    "each message of its history is judged ON ITS OWN for whether the agent still needs it. "
-    "The agent will see the kept messages unchanged, in the original order, together with "
-    "the task statement and its newest turn; the dropped ones are hidden from it for this "
-    "step."
+    "the messages of its history are judged, IN VIEW OF THE COMPLETE HISTORY, for whether "
+    "the agent still needs each of them. The agent will see the kept messages unchanged, in "
+    "the original order, together with the task statement and its newest turn; the dropped "
+    "ones are hidden from it for this step. The complete history is shown once, every "
+    "message under a header with its uid (for example [m00042 user, 12 lines]); each question "
+    "names one message by that uid and quotes it (its first lines when it is long), so that "
+    "you can tell whether a later message supersedes or repeats it."
 )
-JUDGE_PREAMBLE_FULL = (
-    "An autonomous software-engineering agent fixes a bug in a repository by running one "
-    "shell command per step. Its context window is being curated: before the next step, "
-    "each message of its history is judged, IN VIEW OF THE COMPLETE HISTORY, for whether the "
-    "agent still needs it. The agent will see the kept messages unchanged, in the original "
-    "order, together with the task statement and its newest turn; the dropped ones are hidden "
-    "from it for this step. Judge the one candidate named at the end; the complete history is "
-    "shown so that you can tell whether a later message supersedes it or repeats it."
+NEEDED_INSTRUCTIONS = (   # the proposition of every per-message noul; {uid} names the message
+    "The agent still needs history message {uid} in its context window to finish the task "
+    "from here."
 )
-NEEDED_INSTRUCTIONS = (
-    "The agent still needs the candidate history message in its context window to finish "
-    "the task from here."
+TURN_INSTRUCTIONS = (     # MSWEA_JEV_UNIT=turn: one noul per assistant message and its observations
+    "The agent still needs turn {uid} of its history (assistant message {uid} together with "
+    "the observations that follow it: {members}) in its context window to finish the task "
+    "from here."
 )
+QUESTION_EXCERPT_FMT = (   # appended to the question when MSWEA_JEV_QUESTION_LINES > 0 (added 2026-11-18):
+    # the unit's own text, so Jev need not find the uid in the state. On the sympy-14531 probes
+    # it changed the agreement with the generative selector by 0.00 (step 68) / +0.02 (step 93);
+    # the structured ``criteria`` on every question (MSWEA_JEV_QUESTION_CRITERIA) was what the
+    # one-request form had lost against the per-message form (+0.04 / +0.10).
+    "\n\nThe message as it stands in the history{cut}:\n{excerpt}"
+)
+QUESTION_EXCERPT_CUT_FMT = " (its first {shown} of {total} lines; the rest is in the history)"
+DEFAULT_QUESTION_LINES = 12
 NEEDED_CRITERIA = {
     "true": (
         "The message holds information the agent still needs: the location of the code to "
@@ -187,6 +276,11 @@ NEEDED_CRITERIA = {
         "agent has already acted on; or it is unrelated to the task."
     ),
 }
+JUDGE_PREAMBLE = (
+    JUDGE_PREAMBLE_HEAD
+    + " A message the agent still needs: " + NEEDED_CRITERIA["true"]
+    + " A message it no longer needs: " + NEEDED_CRITERIA["false"]
+)
 # ── 2026-11-18: the three probe wordings below (budget / score / aligned, 2026-11-17) are
 # COMMENTED OUT, not deleted: the full-history ``needed`` form (MSWEA_JEV_HISTORY=full) is the
 # one pursued for now. Their dispatch branches in needed_question / _preamble /
@@ -196,31 +290,170 @@ NEEDED_CRITERIA = {
 # here") every probability fell by ~0.1 as soon as the agent's newest turn was a passing
 # verification, whatever the message (sympy-14531 probe: 93/98 uids lower from step 68 to
 # 93), so a fixed threshold measured task progress as much as message value.
-# BUDGET_PREAMBLE_NOTE = (
-#     " The history is trimmed to a fixed token budget, so the question about each message is "
-#     "whether it belongs on the KEPT side or the DROPPED side of that trim, relative to the "
-#     "rest of a typical debugging history. How far along the task is must not change the "
-#     "judgement: a nearly finished task keeps the same share of its history as one that has "
-#     "just started."
-# )
-# BUDGET_INSTRUCTIONS = (
-#     "When the agent's history is trimmed to a fixed token budget, the candidate message "
-#     "belongs on the kept side rather than the dropped side, judged by its value relative to "
-#     "the rest of the history and not by how far along the task is."
-# )
-# BUDGET_CRITERIA = {
-#     "true": (
-#         "Among the more valuable messages of the history: it locates the code to change, "
-#         "shows code the agent edits or depends on, records an edit the agent made, or holds "
-#         "an error message or test result whose content later work builds on."
-#     ),
-#     "false": (
-#         "Among the more dispensable messages of the history: routine navigation, bulk output "
-#         "(installation logs, file listings, repeated reads) whose useful part has been acted "
-#         "on, exploration that led nowhere, a result that a later message repeats, or "
-#         "something unrelated to the task."
-#     ),
-# }
+# 2026-11-18 (evening): ``budget`` REVIVED in the one-request form (per-uid questions, the
+# criteria as the noul's structured field) to see whether the fraction of messages above 0.5
+# tracks the generative selector's kept fraction across firings, which ``needed`` cannot (its
+# level falls with task progress). The ``{uid}`` templates replace the "candidate" wording.
+BUDGET_PREAMBLE_NOTE = (
+    " The history is trimmed to a fixed token budget, so the question about each message is "
+    "whether it belongs on the KEPT side or the DROPPED side of that trim, relative to the "
+    "rest of a typical debugging history. How far along the task is must not change the "
+    "judgement: a nearly finished task keeps the same share of its history as one that has "
+    "just started."
+)
+BUDGET_INSTRUCTIONS = (
+    "When the agent's history is trimmed to a fixed token budget, history message {uid} "
+    "belongs on the kept side rather than the dropped side, judged by its value relative to "
+    "the rest of the history and not by how far along the task is."
+)
+BUDGET_TURN_INSTRUCTIONS = (
+    "When the agent's history is trimmed to a fixed token budget, turn {uid} of its history "
+    "(assistant message {uid} together with the observations that follow it: {members}) "
+    "belongs on the kept side rather than the dropped side, judged by its value relative to "
+    "the rest of the history and not by how far along the task is."
+)
+BUDGET_CRITERIA = {
+    "true": (
+        "Among the more valuable messages of the history: it locates the code to change, "
+        "shows code the agent edits or depends on, records an edit the agent made, or holds "
+        "an error message or test result whose content later work builds on."
+    ),
+    "false": (
+        "Among the more dispensable messages of the history: routine navigation, bulk output "
+        "(installation logs, file listings, repeated reads) whose useful part has been acted "
+        "on, exploration that led nowhere, a result that a later message repeats, or "
+        "something unrelated to the task."
+    ),
+}
+BUDGET_PREAMBLE = (
+    JUDGE_PREAMBLE_HEAD + BUDGET_PREAMBLE_NOTE
+    + " A message on the kept side: " + BUDGET_CRITERIA["true"]
+    + " A message on the dropped side: " + BUDGET_CRITERIA["false"]
+)
+# MSWEA_JEV_ANCHOR_TAGS=1 (added 2026-11-18 evening, after the ojfsbl pilot): the previous
+# selection is PASSED TO JEV, as ocsa passes it to the generative selector, instead of acting
+# only as the +0.15 hysteresis of decide(). Every header in the state says whether the
+# message was in the agent's context at the previous step (ANCHOR_TAG_IN / _OUT; the newest
+# turn: _NEW), the preamble gets ANCHOR_PREAMBLE_NOTE, and the question is asymmetric: a
+# message in the context is asked whether it STAYS (ANCHOR_STAY_*), one outside whether it
+# RETURNS (ANCHOR_RETURN_*), each with its own criteria; the variant's own templates and
+# criteria are not used then (its preamble is). Why: in the ojfsbl pilot (per-step firing,
+# budget wording, +0.15 only) sympy-14531 collapsed: from step ~45 no new message scored
+# 0.5, the context froze at 21 early messages, and the agent repeated test / pip install
+# 250 times because it never saw that it had already done so; Jev, seeing only the history,
+# rated every repeated message as dispensable (p 0.06-0.14), which is correct as information
+# but wrong as the agent's record of its own actions. The +0.15 bonus still applies
+# (MSWEA_JEV_ANCHOR_BONUS; set 0 to rely on the wording alone).
+ANCHOR_TAG_IN = "in the agent's context at the previous step"
+ANCHOR_TAG_OUT = "not in the agent's context at the previous step"
+ANCHOR_TAG_NEW = "new this step; kept regardless"
+ANCHOR_PREAMBLE_NOTE = (
+    " Every header also says whether the message was in the agent's context at the previous "
+    "step. Continuity has value: the context should change only as much as the agent's "
+    "progress requires. A message that is in the context stays unless it has been superseded "
+    "or will not be needed again; a message outside it returns only when the agent's current "
+    "activity calls for it. The record of what the agent did most recently, and of what came "
+    "of it, stays even when it repeats an earlier attempt: the agent must be able to see what "
+    "it has already tried."
+)
+ANCHOR_STAY_INSTRUCTIONS = (
+    "History message {uid}, which is in the agent's context now, stays in it for the next step "
+    "rather than being dropped."
+)
+ANCHOR_STAY_TURN_INSTRUCTIONS = (
+    "Turn {uid} of the history (assistant message {uid} together with the observations that "
+    "follow it: {members}), which is in the agent's context now, stays in it for the next step "
+    "rather than being dropped."
+)
+ANCHOR_RETURN_INSTRUCTIONS = (
+    "History message {uid}, which is not in the agent's context now, is brought back into it "
+    "for the next step."
+)
+ANCHOR_RETURN_TURN_INSTRUCTIONS = (
+    "Turn {uid} of the history (assistant message {uid} together with the observations that "
+    "follow it: {members}), which is not in the agent's context now, is brought back into it "
+    "for the next step."
+)
+ANCHOR_STAY_CRITERIA = {
+    "true": (
+        "It still earns its place: it locates or shows code the agent works on, records an "
+        "edit the agent made, holds an error message or test result its next step builds on, "
+        "or is the record of a recent command and its outcome that the agent must remember "
+        "having run, even when it repeats an earlier attempt."
+    ),
+    "false": (
+        "It has been superseded by a later message, its useful content has been acted on and "
+        "will not be consulted again, or it is bulk output whose relevant part the context "
+        "holds elsewhere."
+    ),
+}
+ANCHOR_RETURN_CRITERIA = {
+    "true": (
+        "The agent's current activity has turned back to it: it holds code, a result or an "
+        "error message the agent needs now and that nothing in the context provides."
+    ),
+    "false": (
+        "Nothing in the agent's newest turn calls for it; the context already holds what it "
+        "would add; or it remains superseded, exploration that led nowhere, or bulk output."
+    ),
+}
+# MSWEA_JEV_STUCK_GATE=<k turns> (added 2026-11-18 evening): ONE extra noul per selection, about
+# the agent rather than a message ("the agent is stuck: its most recent steps repeat steps it
+# has already taken"), in the same request as the per-message questions (the state is shared,
+# so it costs one question's bytes). When its probability clears MSWEA_JEV_STUCK_THRESHOLD
+# (0.5) the newest k turns of the window (assistant message + its observations, counted back
+# from the kept tail) are kept WHOLE regardless of their own p, ranked first under the cap and
+# exempt from line trimming. Why: in the ojfsbl sympy-14531 run every repeated test / pip
+# message scored 0.06-0.14 under the value question, so the context lost the agent's record
+# of its own recent attempts and the agent repeated them 250 times; probes on that history
+# showed Jev cannot be talked into keeping such a message by any wording (consequence /
+# record framings 0.2-0.5) but detects the situation reliably (this question: 0.94 / 0.96
+# in the loop, 0.18-0.38 on a healthy history of the same task; the per-message "this is a
+# repeated attempt" question: 0.8-0.99 vs 0.1-0.4), so the detection is asked of Jev and
+# the keep rule is ours. k turns from the window come on top of the verbatim kept tail.
+STUCK_KEY = "stuck"
+STUCK_INSTRUCTIONS = (
+    "The agent is stuck: its most recent steps repeat steps it has already taken, without new "
+    "information."
+)
+STUCK_CRITERIA = {
+    "true": (
+        "The newest turns re-run commands, re-install packages or redo edits that earlier turns "
+        "already did, with the same outcomes."
+    ),
+    "false": (
+        "The newest turns do something the agent has not done before, or act on new information."
+    ),
+}
+DEFAULT_STUCK_THRESHOLD = 0.5
+# MSWEA_JEV_ACTIVITY_QUESTION=1 (added 2026-11-19): a SECOND noul per unit, keyed "<uid>#next",
+# about the unit's relevance to the agent's CURRENT activity ("the agent's next step is likely to
+# need it"), in the same request as the value question; the unit's p is the larger of the two
+# (keep when either clears the threshold). Why: the per-step `budget` form froze (its wording is
+# stage-independent by construction, so a message's p never moved when the agent's work turned
+# to it: str.py messages 0.5-0.6 before and during the str.py edits of the ojfsblg 14531 run),
+# while on a hand-labelled step (step 56 of that run, 27 messages needed for the current edit vs
+# 71 not) this question separated them at AUC 0.96 with no false positive at 0.5 (12/27 vs
+# 0/71; `budget` 0.83 with 14/71). The activity shown is the newest MSWEA_JEV_CONTEXT_TURNS
+# turns (1 or 3 made no difference in the probe). Costs the second question's bytes only.
+ACTIVITY_SUFFIX = "#next"
+NEXT_INSTRUCTIONS = (
+    "The agent's next step is likely to need history message {uid} in its context window."
+)
+NEXT_TURN_INSTRUCTIONS = (
+    "The agent's next step is likely to need turn {uid} of its history (assistant message {uid} "
+    "together with the observations that follow it: {members}) in its context window."
+)
+NEXT_CRITERIA = {
+    "true": (
+        "Given what the agent's newest turn is doing, it will refer back to this message next: "
+        "the code it is editing, the error it is fixing, the result it is checking."
+    ),
+    "false": (
+        "The newest turn has moved on to something this message does not bear on, or the "
+        "context already holds what it would add."
+    ),
+}
 # MSWEA_JEV_QUESTION=score (added 2026-11-17): TypeSafe's ``score`` primitive instead of a
 # noul: ordered levels described as situations (the docs: "describe situations, not degrees";
 # each level is matched on its own), from dispensable to indispensable. Jev returns the
@@ -282,10 +515,9 @@ NEEDED_CRITERIA = {
 #         "the agent has already acted on; or it is unrelated to the task."
 #     ),
 # }
-QUESTION_VARIANTS = ("needed",)   # 2026-11-18: the probe wordings budget / score / aligned are
-                                  # commented out above (and in needed_question / _preamble /
-                                  # answer_probability) while the full-history form is pursued;
-                                  # the original tuple: ("needed", "budget", "score", "aligned")
+QUESTION_VARIANTS = ("needed", "budget")   # 2026-11-18: score / aligned are commented out above
+                                           # (and in _preamble / answer_probability); budget was
+                                           # revived the same evening (see above)
 UNIT_VARIANTS = ("message", "turn")
 
 
@@ -347,12 +579,6 @@ def _env_int(name: str, default: int, lo: int = 0) -> int:
 
 def jev_settings() -> dict:
     """The effective Jev settings (also written to the token log; never the key)."""
-    long_context = os.environ.get("MSWEA_JEV_LONG_CONTEXT", "header").strip().lower() or "header"
-    if long_context not in ("header", "truncate"):
-        raise ValueError(f"MSWEA_JEV_LONG_CONTEXT must be header | truncate, got {long_context!r}")
-    history = os.environ.get("MSWEA_JEV_HISTORY", "none").strip().lower() or "none"
-    if history not in ("none", "full"):
-        raise ValueError(f"MSWEA_JEV_HISTORY must be none | full, got {history!r}")
     question = question_variant()
     provider, base_url = resolve_provider()
     unit = os.environ.get("MSWEA_JEV_UNIT", "message").strip().lower() or "message"
@@ -365,14 +591,19 @@ def jev_settings() -> dict:
         "threshold":      _env_float("MSWEA_JEV_KEEP_THRESHOLD", DEFAULT_THRESHOLD, 0.0, 1.0),
         "anchor_bonus":   _env_float("MSWEA_JEV_ANCHOR_BONUS", DEFAULT_ANCHOR_BONUS, 0.0, 1.0),
         "context_turns":  _env_int("MSWEA_JEV_CONTEXT_TURNS", DEFAULT_CONTEXT_TURNS),
-        "history":        history,
         "question":       question,
         "unit":           unit,
         "select_lines":   _env_int("MSWEA_JEV_SELECT_LINES", 0, 0),
+        "select_questions": _env_int("MSWEA_JEV_SELECT_QUESTIONS", 0, 0),
+        "question_lines": _env_int("MSWEA_JEV_QUESTION_LINES", DEFAULT_QUESTION_LINES, 0),
+        "question_criteria": _env_int("MSWEA_JEV_QUESTION_CRITERIA", 1, 0) > 0,
+        "anchor_tags":    _env_int("MSWEA_JEV_ANCHOR_TAGS", 0, 0) > 0,
+        "stuck_gate":     _env_int("MSWEA_JEV_STUCK_GATE", 0, 0),
+        "stuck_threshold": _env_float("MSWEA_JEV_STUCK_THRESHOLD", DEFAULT_STUCK_THRESHOLD, 0.0, 1.0),
+        "activity_question": _env_int("MSWEA_JEV_ACTIVITY_QUESTION", 0, 0) > 0,
         "workers":        _env_int("MSWEA_JEV_WORKERS", DEFAULT_WORKERS, 1),
         "timeout_s":      _env_float("MSWEA_JEV_TIMEOUT_S", DEFAULT_TIMEOUT_S, 1.0),
         "max_retries":    _env_int("MSWEA_JEV_MAX_RETRIES", DEFAULT_MAX_RETRIES),
-        "long_context":   long_context,
     }
 
 
@@ -507,145 +738,210 @@ def question_variant() -> str:
     return variant
 
 
-def needed_question(variant: str | None = None) -> dict:
-    """The one noul question, under the ``MSWEA_JEV_QUESTION`` wording (the
-    question key stays ``needed`` for both wordings)."""
+def message_excerpt(members: list[dict], render, lines: int) -> str:
+    """The text quoted in a unit's question: every member rendered as in the
+    state (uid header, numbered lines), each cut to its first ``lines`` body
+    lines with a note of how many it has (``QUESTION_EXCERPT_CUT_FMT``)."""
+    parts = []
+    for m in members:
+        head, _, body = render(m).partition("\n")
+        body_lines = body.split("\n") if body else []
+        if len(body_lines) > lines:
+            cut = QUESTION_EXCERPT_CUT_FMT.format(shown=lines, total=len(body_lines))
+            body_lines = body_lines[:lines]
+        else:
+            cut = ""
+        parts.append(QUESTION_EXCERPT_FMT.format(cut=cut, excerpt="\n".join([head] + body_lines)))
+    return "".join(parts)
+
+
+def message_questions(units: list[dict], variant: str | None = None, render=None,
+                      lines: int | None = None, criteria: bool | None = None,
+                      prev_uids: set | None = None, anchor_tags: bool = False,
+                      activity: bool = False) -> dict:
+    """One noul question per unit, keyed by the unit's uid (the question key IS
+    the uid): ``NEEDED_INSTRUCTIONS`` for a message, ``TURN_INSTRUCTIONS`` for
+    a turn group (``members``), followed, when ``render`` is given and ``lines``
+    (default ``MSWEA_JEV_QUESTION_LINES``) is > 0, by the unit's own text cut
+    to that many lines per member (``message_excerpt``), so the question carries
+    what it asks about. ``variant`` defaults to ``MSWEA_JEV_QUESTION``.
+    With ``anchor_tags`` (MSWEA_JEV_ANCHOR_TAGS) the question is asymmetric: a
+    unit with a member in ``prev_uids`` (the agent's context at the previous
+    step) gets the STAY question and criteria, any other the RETURN ones
+    (``ANCHOR_*``), whatever the variant."""
+    from agentctx.compression.primitives import _msg_uid   # local: primitives imports this module lazily
     variant = variant or question_variant()
-    # 2026-11-18: probe wordings disabled (constants commented out above)
-    # if variant == "budget":
-    #     return {QUESTION_NAME: {"type": "noul", "instructions": BUDGET_INSTRUCTIONS,
-    #                             "criteria": dict(BUDGET_CRITERIA)}}
+    if lines is None:
+        lines = _env_int("MSWEA_JEV_QUESTION_LINES", DEFAULT_QUESTION_LINES, 0)
+    if criteria is None:
+        criteria = _env_int("MSWEA_JEV_QUESTION_CRITERIA", 1, 0) > 0
+    prev_uids = prev_uids or set()
+    qs: dict = {}
+    for u in units:
+        uid = _msg_uid(u) or "?"
+        members = u["members"] if u.get("members") else [u]
+        member_list = ", ".join(_msg_uid(m) or "?" for m in members)
+        if anchor_tags:
+            in_context = any((_msg_uid(m) or "?") in prev_uids for m in members)
+            if u.get("members"):
+                template = ANCHOR_STAY_TURN_INSTRUCTIONS if in_context else ANCHOR_RETURN_TURN_INSTRUCTIONS
+            else:
+                template = ANCHOR_STAY_INSTRUCTIONS if in_context else ANCHOR_RETURN_INSTRUCTIONS
+            crit = ANCHOR_STAY_CRITERIA if in_context else ANCHOR_RETURN_CRITERIA
+        elif u.get("members"):
+            template = BUDGET_TURN_INSTRUCTIONS if variant == "budget" else TURN_INSTRUCTIONS
+            crit = BUDGET_CRITERIA if variant == "budget" else NEEDED_CRITERIA
+        else:
+            template = BUDGET_INSTRUCTIONS if variant == "budget" else NEEDED_INSTRUCTIONS
+            crit = BUDGET_CRITERIA if variant == "budget" else NEEDED_CRITERIA
+        text = template.format(uid=uid, members=member_list)
+        if render is not None and lines > 0:
+            text += message_excerpt(members, render, lines)
+        qs[uid] = {"type": "noul", "instructions": text}
+        if criteria:   # MSWEA_JEV_QUESTION_CRITERIA (default on): the structured criteria on every noul
+            qs[uid]["criteria"] = dict(crit)
+        if activity:   # MSWEA_JEV_ACTIVITY_QUESTION: the second question, relevance to the current activity
+            tmpl = NEXT_TURN_INSTRUCTIONS if u.get("members") else NEXT_INSTRUCTIONS
+            atext = tmpl.format(uid=uid, members=member_list)
+            if render is not None and lines > 0:
+                atext += message_excerpt(members, render, lines)
+            qs[uid + ACTIVITY_SUFFIX] = {"type": "noul", "instructions": atext}
+            if criteria:
+                qs[uid + ACTIVITY_SUFFIX]["criteria"] = dict(NEXT_CRITERIA)
+    return qs
+
+
+def _preamble(variant: str, anchor_tags: bool = False) -> str:
+    # 2026-11-18: score / aligned disabled (constants commented out above)
+    # if variant == "aligned":
+    #     return ALIGNED_PREAMBLE_FULL
     # if variant == "score":
-    #     return {QUESTION_NAME: {"type": "score", "instructions": SCORE_INSTRUCTIONS,
-    #                             "criteria": list(SCORE_LEVELS)}}
-    # if variant == "aligned":
-    #     return {QUESTION_NAME: {"type": "noul", "instructions": NEEDED_INSTRUCTIONS,
-    #                             "criteria": dict(ALIGNED_CRITERIA)}}
-    return {QUESTION_NAME: {"type": "noul", "instructions": NEEDED_INSTRUCTIONS,
-                            "criteria": dict(NEEDED_CRITERIA)}}
+    #     return JUDGE_PREAMBLE + SCORE_PREAMBLE_NOTE
+    base = BUDGET_PREAMBLE if variant == "budget" else JUDGE_PREAMBLE
+    return base + ANCHOR_PREAMBLE_NOTE if anchor_tags else base
 
 
-def _preamble(variant: str, full: bool) -> str:
-    # 2026-11-18: probe wordings disabled (constants commented out above)
-    # if variant == "aligned":
-    #     return ALIGNED_PREAMBLE_FULL if full else ALIGNED_PREAMBLE
-    base = JUDGE_PREAMBLE_FULL if full else JUDGE_PREAMBLE
-    # return base + {"budget": BUDGET_PREAMBLE_NOTE, "score": SCORE_PREAMBLE_NOTE}.get(variant, "")
-    return base
-
-
-def answer_probability(answer: dict, variant: str) -> tuple[float, dict]:
-    """The message's p from Jev's answer: the noul value, or for ``score`` the
-    probability-weighted level divided by the top level number (0 .. 1).
-    Returns (p, extras) with the score's ``score`` / ``level_probs`` /
-    ``confidence`` in extras; raises JevAPIError when the answer lacks the value."""
+def answer_probability(answer: dict, variant: str, key: str = "?") -> tuple[float, dict]:
+    """A message's p from Jev's answer to its question: the noul value (or,
+    for the retired ``score`` wording, the probability-weighted level divided
+    by the top level number). Returns (p, extras); raises JevAPIError when the
+    answer lacks the value."""
     # 2026-11-18: the ``score`` wording is disabled (SCORE_LEVELS commented out above)
     # if variant == "score":
     #     s = answer.get("score")
     #     if not isinstance(s, (int, float)):
-    #         raise JevAPIError(f"no score answer for {QUESTION_NAME!r} in {str(answer)[:200]}")
+    #         raise JevAPIError(f"no score answer for {key!r} in {str(answer)[:200]}")
     #     top = len(SCORE_LEVELS) - 1
     #     return min(1.0, max(0.0, float(s) / top)), {
     #         "score": float(s), "level_probs": answer.get("probabilities"), "confidence": answer.get("confidence")}
     p = answer.get("noul")
     if not isinstance(p, (int, float)):
-        raise JevAPIError(f"no noul answer for {QUESTION_NAME!r} in {str(answer)[:200]}")
+        raise JevAPIError(f"no noul answer for {key!r} in {str(answer)[:200]}")
     return float(p), {}
 
 
-def judge_state(task_text: str, activity_text: str, candidate_text: str, history_text: str = "",
-                variant: str | None = None) -> str:
-    """The ``state`` Jev is shown for one candidate: preamble, task statement,
-    the agent's newest turn (when any), the candidate. With ``history_text``
-    (``MSWEA_JEV_HISTORY=full``) the complete history, rendered as the
-    generative selector sees it, sits between the task statement and the
-    candidate, and the candidate is repeated after it. ``variant`` (default
-    ``MSWEA_JEV_QUESTION``) ``budget`` appends the relative-judgement note
-    to the preamble."""
+def judge_state(task_text: str, activity_text: str, history_text: str, variant: str | None = None,
+                anchor_tags: bool = False) -> str:
+    """The ``state`` of a selection request: preamble, task statement, the
+    complete history (``history_text``: window and kept tail, rendered as the
+    generative selector sees it, every message under its uid header) and the
+    agent's newest turn (when any). The same state serves every question of the
+    selection; nothing is repeated. ``variant`` defaults to ``MSWEA_JEV_QUESTION``;
+    ``anchor_tags`` appends ``ANCHOR_PREAMBLE_NOTE`` (the headers of
+    ``history_text`` then carry the previous-context tags)."""
     variant = variant or question_variant()
-    if history_text:
-        parts = [_preamble(variant, True), f"Task statement:\n{task_text}",
-                 "Complete history of the agent so far (every message, in order, each under its "
-                 f"uid header; the newest turn is kept regardless):\n{history_text}"]
-        if activity_text:
-            parts.append(f"The agent's newest turn (its current activity; kept regardless, not the "
-                         f"message to judge):\n{activity_text}")
-        parts.append(f"Candidate history message to judge (repeated from the history above):\n{candidate_text}")
-        return "\n\n".join(parts)
-    parts = [_preamble(variant, False), f"Task statement:\n{task_text}"]
+    parts = [_preamble(variant, anchor_tags), f"Task statement:\n{task_text}",
+             "Complete history of the agent so far (every message, in order, each under its "
+             f"uid header; the newest turn is kept regardless):\n{history_text}"]
     if activity_text:
-        parts.append("The agent's newest turn (its current activity; kept regardless, not the "
+        parts.append(f"The agent's newest turn (its current activity; kept regardless, not a "
                      f"message to judge):\n{activity_text}")
-    parts.append(f"Candidate history message to judge:\n{candidate_text}")
     return "\n\n".join(parts)
 
 
-def _truncate_to(text: str, max_bytes: int) -> tuple[str, int]:
-    """Head and tail of ``text`` within ``max_bytes`` (UTF-8), the note in between;
-    returns (text, characters removed)."""
-    data = text.encode("utf-8")
-    if len(data) <= max_bytes:
-        return text, 0
-    room = max(0, max_bytes - len(TRUNCATED_NOTE.format(n=len(text)).encode("utf-8")) - 2)
-    head_n, tail_n = room * 2 // 3, room - room * 2 // 3
-    head = data[:head_n].decode("utf-8", errors="ignore")
-    tail = data[len(data) - tail_n:].decode("utf-8", errors="ignore") if tail_n else ""
-    removed = len(text) - len(head) - len(tail)
-    return head + "\n" + TRUNCATED_NOTE.format(n=removed) + "\n" + tail, removed
+# ── requests: one state, many noul questions, chunked ───────────────────────
+def _chunk_questions(keys: list[str], q_bytes: dict[str, int], state_bytes: int, per_request: int) -> list[list[str]]:
+    """Split the question keys into requests. ``per_request`` > 0 caps the
+    questions per request; 0 = by size: while the state alone is under the
+    long-context size, a request stays under it (so a short history avoids the
+    header); once the state alone exceeds it (every selection request does,
+    with the complete history), every request carries the header and takes up
+    to 64 questions or LONG_CONTEXT_BYTES of question text, whichever first
+    (the quoted excerpts make the questions large)."""
+    if not keys:
+        return []
+    if per_request:
+        return [keys[i:i + per_request] for i in range(0, len(keys), per_request)]
+    room = LONG_CONTEXT_BYTES - state_bytes
+    chunks: list[list[str]] = []
+    cur: list[str] = []
+    used = 0
+    for k in keys:
+        if cur and room > 0 and used + q_bytes[k] > room:
+            chunks.append(cur); cur, used = [], 0
+        cur.append(k); used += q_bytes[k]
+        if room <= 0 and (len(cur) >= 64 or used >= LONG_CONTEXT_BYTES):
+            chunks.append(cur); cur, used = [], 0
+    if cur:
+        chunks.append(cur)
+    return chunks
 
 
-# ── selection ───────────────────────────────────────────────────────────────
-def judge_messages(client: JevClient, task_text: str, activity_text: str, window: list[dict],
-                   render, settings: dict, progress: dict | None = None, history_text: str = "") -> list[dict]:
-    """One Jev judgement per message of ``window``, in parallel (``workers``).
-
-    ``render(msg) -> str`` is the selector's message renderer (uid header,
-    numbered lines). Returns one record per message, window order: uid, index,
-    p (None on error), tokens (usage), latency_s, attempts, long_context /
-    truncated, model, request_id, error. ``progress`` (optional) is updated
-    under a lock as results arrive (``attempts``, ``prompt_tokens``,
+def _ask(client: JevClient, state: str, questions: dict, chunks: list[list[str]], workers: int,
+         progress: dict | None = None, variant: str = "needed") -> tuple[dict, list[dict]]:
+    """Send the chunks in parallel (each carries the whole ``state``) and
+    collect one p per question key (None when its request failed or its
+    answer lacked the value). Returns (results {key: p | None}, requests):
+    one record per request with ``keys``, ``questions``, ``long_context``,
+    usage, ``attempts``, ``latency_s``, ``model``, ``request_id``, ``error``
+    (``status``, ``fatal`` on 401 / 403) and ``answer_errors`` (keys whose
+    answer was missing or malformed). ``progress`` (optional) is updated under
+    a lock as requests complete (``attempts``, ``prompt_tokens``,
     ``completion_tokens``, ``response_ids``) so an exception that ends the
-    selection leaves the usage of the completed judgements salvageable.
-    """
-    from agentctx.compression.primitives import _msg_uid   # local: primitives imports this module lazily
-
+    selection leaves the usage of the completed requests salvageable."""
+    state_bytes = len(state.encode("utf-8"))
+    q_bytes = {k: len(json.dumps(v).encode("utf-8")) + len(k) + 8 for k, v in questions.items()}
     lock = threading.Lock()
-    variant = settings.get("question", "needed")
-    question = needed_question(variant)
-    fixed = judge_state(task_text, activity_text, "", history_text, variant)
-    fixed_bytes = len(fixed.encode("utf-8"))
+    results: dict[str, float | None] = {}
+    reqs: list[dict] = []
 
-    def one(index: int, msg: dict) -> dict:
-        uid = _msg_uid(msg) or "?"
-        text = render(msg)
-        rec = {"uid": uid, "index": index, "p": None, "input_tokens": 0, "output_tokens": 0,
-               "latency_s": 0.0, "attempts": 0, "long_context": False, "truncated": 0,
-               "model": None, "request_id": None, "error": None}
-        if msg.get("members"):   # a turn group (MSWEA_JEV_UNIT=turn): one judgement for all of them
-            rec["members"] = [_msg_uid(m) or "?" for m in msg["members"]]
-        long_context = fixed_bytes + len(text.encode("utf-8")) > LONG_CONTEXT_BYTES
-        if long_context and settings["long_context"] == "truncate":
-            text, rec["truncated"] = _truncate_to(text, max(1000, LONG_CONTEXT_BYTES - fixed_bytes))
-            long_context = False
-        rec["long_context"] = long_context
-        state = judge_state(task_text, activity_text, text, history_text, variant)
+    def one(chunk: list[str]) -> dict:
+        qs = {k: questions[k] for k in chunk}
+        long_context = state_bytes + sum(q_bytes[k] for k in chunk) > LONG_CONTEXT_BYTES
+        rec = {"keys": list(chunk), "questions": len(chunk), "question_bytes": sum(q_bytes[k] for k in chunk),
+               "long_context": long_context, "input_tokens": 0,
+               "output_tokens": 0, "latency_s": 0.0, "attempts": 0, "model": None, "request_id": None,
+               "error": None, "answer_errors": []}
         t0 = time.time()
         try:
-            reply = client.system_one(state, question, long_context=long_context)
-            answer = (reply["answers"] or {}).get(QUESTION_NAME) or {}
-            p, extras = answer_probability(answer, variant)
+            reply = client.system_one(state, qs, long_context=long_context)
+            answers = reply["answers"] or {}
+            got: dict[str, float | None] = {}
+            for k in chunk:
+                try:
+                    got[k] = answer_probability(answers.get(k) or {}, variant, k)[0]
+                except JevAPIError:
+                    got[k] = None
+                    rec["answer_errors"].append(k)
+            if all(v is None for v in got.values()):
+                raise JevAPIError(f"no noul answers in {str(answers)[:200]}")
             usage = reply["usage"] or {}
-            rec.update(extras)
-            rec.update({"p": p, "input_tokens": int(usage.get("input_tokens") or 0),
+            rec.update({"input_tokens": int(usage.get("input_tokens") or 0),
                         "output_tokens": int(usage.get("output_tokens") or 0), "attempts": reply["attempts"],
                         "model": reply["model"], "request_id": reply["request_id"]})
+            with lock:
+                results.update(got)
         except JevAPIError as exc:
             rec["error"] = f"{type(exc).__name__}: {exc}"
             rec["status"] = exc.status
             if exc.status in _AUTH_STATUSES:
                 rec["fatal"] = True
-        except Exception as exc:   # noqa: BLE001 - recorded per message
+            with lock:
+                results.update({k: None for k in chunk})
+        except Exception as exc:   # noqa: BLE001 - recorded per request
             rec["error"] = f"{type(exc).__name__}: {exc}"
+            with lock:
+                results.update({k: None for k in chunk})
         rec["latency_s"] = round(time.time() - t0, 3)
         if progress is not None:
             with lock:
@@ -653,15 +949,86 @@ def judge_messages(client: JevClient, task_text: str, activity_text: str, window
                 progress["prompt_tokens"] = progress.get("prompt_tokens", 0) + rec["input_tokens"]
                 progress["completion_tokens"] = progress.get("completion_tokens", 0) + rec["output_tokens"]
                 progress.setdefault("response_ids", []).append(rec["request_id"])
-        _log_judgement({"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **rec, "state_bytes": len(state.encode("utf-8"))})
+        with lock:
+            reqs.append(rec)
         return rec
 
-    with ThreadPoolExecutor(max_workers=min(settings["workers"], max(1, len(window)))) as pool:
-        return list(pool.map(lambda im: one(*im), enumerate(window)))
+    if chunks:
+        with ThreadPoolExecutor(max_workers=max(1, min(workers, len(chunks)))) as pool:
+            list(pool.map(one, chunks))
+    return results, reqs
+
+
+def _raise_if_failed(reqs: list[dict], what: str) -> None:
+    """JevAPIError on an authentication failure in any request, or when every request failed."""
+    bad = next((r for r in reqs if r.get("fatal")), None)
+    if bad is not None:
+        raise JevAPIError(f"TypeSafe authentication failed: {bad['error']}", status=bad.get("status"))
+    if reqs and all(r["error"] for r in reqs):
+        raise JevAPIError(f"every Jev {what} request failed ({len(reqs)}); first: {reqs[0]['error']}")
+
+
+# ── selection ───────────────────────────────────────────────────────────────
+def judge_messages(client: JevClient, task_text: str, activity_text: str, units: list[dict],
+                   settings: dict, history_text: str, progress: dict | None = None, render=None,
+                   prev_uids: set | None = None) -> tuple[list[dict], list[dict], str]:
+    """Judge every unit of the window in ONE request (or a few, when the
+    questions are chunked): the state holds the complete history once and the
+    request one noul per unit, keyed by uid and quoting the unit's first
+    ``question_lines`` lines when ``render`` is given (``message_questions``).
+
+    Returns (judgements, requests, state, extras): one judgement per unit, window
+    order, with uid, index, p (None when its request failed or its answer was
+    missing), error (the request's error, or ``answer missing`` for a lone
+    bad answer), request_id, long_context, ``members`` for a turn group; the
+    request records of ``_ask``; the state sent; and extras with ``stuck`` (the
+    p of the MSWEA_JEV_STUCK_GATE question, None when not asked or failed).
+    The judgement log gets one ``kind: select`` record per request (uids,
+    probs, usage).
+    """
+    from agentctx.compression.primitives import _msg_uid   # local: primitives imports this module lazily
+    variant = settings.get("question", "needed")
+    anchor_tags = bool(settings.get("anchor_tags")) and prev_uids is not None   # MSWEA_JEV_ANCHOR_TAGS, anchored only
+    state = judge_state(task_text, activity_text, history_text, variant, anchor_tags=anchor_tags)
+    questions = message_questions(units, variant, render=render, lines=settings.get("question_lines"),
+                                  criteria=settings.get("question_criteria"),
+                                  prev_uids=prev_uids, anchor_tags=anchor_tags,
+                                  activity=bool(settings.get("activity_question")))
+    if settings.get("stuck_gate"):   # MSWEA_JEV_STUCK_GATE: one question about the agent, same state
+        questions[STUCK_KEY] = {"type": "noul", "instructions": STUCK_INSTRUCTIONS, "criteria": dict(STUCK_CRITERIA)}
+    keys = list(questions)
+    q_bytes = {k: len(json.dumps(v).encode("utf-8")) + len(k) + 8 for k, v in questions.items()}
+    chunks = _chunk_questions(keys, q_bytes, len(state.encode("utf-8")), settings.get("select_questions", 0))
+    results, reqs = _ask(client, state, questions, chunks, settings["workers"], progress=progress, variant=variant)
+    req_of = {k: r for r in reqs for k in r["keys"]}
+    judgements: list[dict] = []
+    for index, u in enumerate(units):
+        uid = _msg_uid(u) or "?"
+        r = req_of.get(uid) or {}
+        error = r.get("error")
+        if error is None and uid in r.get("answer_errors", ()):
+            error = f"answer missing for {uid!r}"
+        rec = {"uid": uid, "index": index, "p": results.get(uid), "error": error,
+               "request_id": r.get("request_id"), "long_context": bool(r.get("long_context"))}
+        if settings.get("activity_question"):   # p = max(value, activity): kept when either clears the threshold
+            pa = results.get(uid + ACTIVITY_SUFFIX)
+            rec["p_value"], rec["p_activity"] = rec["p"], pa
+            if pa is not None:
+                rec["p"] = pa if rec["p"] is None else max(rec["p"], pa)
+        if u.get("members"):
+            rec["members"] = [_msg_uid(m) or "?" for m in u["members"]]
+        judgements.append(rec)
+    probs = {k: (None if results.get(k) is None else round(results[k], 4)) for k in keys}
+    for r in reqs:
+        _log_judgement({"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "kind": "select", "uids": r["keys"],
+                        **{k: v for k, v in r.items() if k != "keys"},
+                        "probs": {k: probs[k] for k in r["keys"]}, "state_bytes": len(state.encode("utf-8"))})
+    extras = {"stuck": results.get(STUCK_KEY) if STUCK_KEY in questions else None}
+    return judgements, reqs, state, extras
 
 
 def decide(judgements: list[dict], prev_uids: set, threshold: float, anchor_bonus: float,
-           budget_tokens: int | None, token_of) -> tuple[dict, dict]:
+           budget_tokens: int | None, token_of, forced: set | None = None) -> tuple[dict, dict]:
     """Keep / drop from the judgements.
 
     score = p + anchor_bonus (for a message in the agent's context at the
@@ -671,8 +1038,11 @@ def decide(judgements: list[dict], prev_uids: set, threshold: float, anchor_bonu
     gives a message's tokens; a message that does not fit is skipped and the
     smaller ones after it are still tried). Returns ({uid: None}, extras):
     extras has scores, kept_by_threshold, capped_out (uids ranked out by the
-    cap), errors.
+    cap), errors. ``forced`` uids (the stuck gate's newest turns) are kept
+    whatever their score and ranked first under the cap, like an errored
+    judgement; their scores are recorded unchanged.
     """
+    forced = forced or set()
     scores: dict[str, float | None] = {}
     above: list[dict] = []
     for rec in judgements:
@@ -683,13 +1053,16 @@ def decide(judgements: list[dict], prev_uids: set, threshold: float, anchor_bonu
             continue
         score = rec["p"] + (anchor_bonus if uid in prev_uids else 0.0)
         scores[uid] = round(score, 4)
-        if score >= threshold:
+        if score >= threshold or uid in forced:
             above.append(rec)
     capped_out: list[str] = []
     if budget_tokens is None:
         chosen = {rec["uid"] for rec in above}
     else:
-        ranked = sorted(above, key=lambda r: (-(2.0 if scores[r["uid"]] is None else scores[r["uid"]]), -r["index"]))
+        def rank(r):
+            sc = scores[r["uid"]]
+            return (-(2.0 if (sc is None or r["uid"] in forced) else sc), -r["index"])
+        ranked = sorted(above, key=rank)
         chosen, room = set(), budget_tokens
         for rec in ranked:
             need = token_of(rec)
@@ -712,17 +1085,27 @@ def jev_select_window(task_text: str, window: list[dict], kept: list[dict], prev
                       progress: dict | None = None, client: JevClient | None = None,
                       ) -> tuple[dict, dict, int, int, float, list]:
     """The Jev backend of online_claude_select(): judge every message of
-    ``window``, decide, and return (selection {uid: None}, record, input_tokens,
-    output_tokens, wall latency_s, request_ids).
+    ``window`` (one request per selection, one noul per message; chunked when
+    the questions are many), decide, and return (selection {uid: None},
+    record, input_tokens, output_tokens, wall latency_s, request_ids).
 
     ``kept`` is the tail kept verbatim (the newest turn[s]); its newest
     ``context_turns`` turns are shown to Jev as the agent's current activity.
     ``prev_uids`` are the uids in the agent's context at the previous step
     (the anchor bonus applies to them only when ``anchor``). Raises JevAPIError
-    when any judgement hit an authentication failure or every judgement failed.
+    when any request hit an authentication failure or every request failed.
     """
     settings = jev_settings()
     client = client or get_jev_client()
+    plain_render = render
+    anchor_tags = bool(settings["anchor_tags"]) and anchor
+    if anchor_tags:   # MSWEA_JEV_ANCHOR_TAGS: the previous context marked in every header
+        kept_ids = {id(m) for m in kept}
+
+        def render(m, _r=plain_render):   # noqa: E306  (shadows the parameter on purpose)
+            from agentctx.compression.primitives import _msg_uid as _uid
+            tag = ANCHOR_TAG_NEW if id(m) in kept_ids else (ANCHOR_TAG_IN if (_uid(m) or "?") in prev_uids else ANCHOR_TAG_OUT)
+            return _r(m, tag=tag)
     activity_text = ""
     if settings["context_turns"] and kept:
         turns = 0
@@ -734,9 +1117,9 @@ def jev_select_window(task_text: str, window: list[dict], kept: list[dict], prev
                 if turns >= settings["context_turns"]:
                     break
         activity_text = "\n\n".join(render(m) for m in kept[start:]) if turns else "\n\n".join(render(m) for m in kept)
-    history_text = ""
-    if settings["history"] == "full":
-        history_text = "\n\n".join(render(m) for m in list(window) + list(kept))
+    # The state carries the complete history (window and kept tail), rendered as the
+    # generative selector sees it, so the judgement is not local.
+    history_text = "\n\n".join(render(m) for m in list(window) + list(kept))
     # The judged units: every message on its own, or (MSWEA_JEV_UNIT=turn) each assistant
     # message together with the observations that follow it, kept or dropped together.
     from agentctx.compression.primitives import _msg_uid   # local: primitives imports this module lazily
@@ -748,20 +1131,30 @@ def jev_select_window(task_text: str, window: list[dict], kept: list[dict], prev
             else:
                 groups[-1].append(m)
         units = [{"role": "turn", "extra": {"uid": _msg_uid(g[0]) or "?"}, "members": g} for g in groups]
-        unit_render = lambda u: "\n\n".join(render(m) for m in u["members"])   # noqa: E731
     else:
         units = list(window)
-        unit_render = render
     members_of = {(_msg_uid(u) or "?"): (u["members"] if u.get("members") else [u]) for u in units}
     t0 = time.time()
-    judgements = judge_messages(client, task_text, activity_text, units, unit_render, settings,
-                                progress=progress, history_text=history_text)
+    judgements, reqs, state, jm_extras = judge_messages(client, task_text, activity_text, units, settings,
+                                                        history_text, progress=progress, render=render,
+                                                        prev_uids=set(prev_uids) if anchor_tags else None)
     latency_s = time.time() - t0
-    fatal = [r for r in judgements if r.get("fatal")]
-    if fatal:
-        raise JevAPIError(f"TypeSafe authentication failed: {fatal[0]['error']}", status=fatal[0].get("status"))
-    if judgements and all(r["error"] for r in judgements):
-        raise JevAPIError(f"every Jev judgement failed ({len(judgements)}); first: {judgements[0]['error']}")
+    _raise_if_failed(reqs, "selection")
+    # Stuck gate (MSWEA_JEV_STUCK_GATE=k): when Jev's "the agent is stuck" probability clears
+    # MSWEA_JEV_STUCK_THRESHOLD, the newest k turns of the window are kept whole regardless
+    # of their own p (the agent's record of what it has just tried), on top of the kept tail.
+    stuck_p = jm_extras.get("stuck")
+    stuck_forced_msgs: set[str] = set()
+    if settings["stuck_gate"] and stuck_p is not None and stuck_p >= settings["stuck_threshold"]:
+        turns_seen = 0
+        for m in reversed(window):
+            stuck_forced_msgs.add(_msg_uid(m) or "?")
+            if m.get("role") == "assistant":
+                turns_seen += 1
+                if turns_seen >= settings["stuck_gate"]:
+                    break
+    forced_units = {r["uid"] for r in judgements
+                    if any((_msg_uid(m) or "?") in stuck_forced_msgs for m in members_of[r["uid"]])}
     # The anchor bonus applies to a unit when any of its messages was in the previous context.
     unit_prev = {r["uid"] for r in judgements
                  if any((_msg_uid(m) or "?") in prev_uids for m in members_of[r["uid"]])} if anchor else set()
@@ -773,10 +1166,12 @@ def jev_select_window(task_text: str, window: list[dict], kept: list[dict], prev
         bonus = settings["anchor_bonus"] if anchor else 0.0
         candidates = []
         for r in judgements:
+            if r["uid"] in forced_units:   # the stuck gate's turns stay whole
+                continue
             if r["p"] is None or r["p"] + (bonus if r["uid"] in unit_prev else 0.0) >= settings["threshold"]:
                 candidates.extend(m for m in members_of[r["uid"]]
                                   if m.get("role") != "assistant" and token_of(m) > settings["select_lines"])
-        trims = trim_observations(client, task_text, window, candidates, settings, render, token_of,
+        trims = trim_observations(client, task_text, window, candidates, settings, plain_render, token_of,
                                   progress=progress)
     def unit_tokens(uid: str) -> int:
         total = 0
@@ -787,7 +1182,7 @@ def jev_select_window(task_text: str, window: list[dict], kept: list[dict], prev
     tok = {r["uid"]: unit_tokens(r["uid"]) for r in judgements}
     unit_selection, extras = decide(judgements, unit_prev, settings["threshold"],
                                     settings["anchor_bonus"] if anchor else 0.0, budget_tokens,
-                                    token_of=lambda r: tok[r["uid"]])
+                                    token_of=lambda r: tok[r["uid"]], forced=forced_units)
     # Expand unit-level results to message uids (identity when the unit is the message);
     # a trimmed observation is kept as its line ranges.
     chosen_uids = {(_msg_uid(m) or "?") for uid in unit_selection for m in members_of[uid]}
@@ -801,26 +1196,36 @@ def jev_select_window(task_text: str, window: list[dict], kept: list[dict], prev
     by_uid = {(_msg_uid(m) or "?"): r for r in judgements for m in members_of[r["uid"]]}
     scores = {(_msg_uid(m) or "?"): extras["scores"][r["uid"]] for r in judgements for m in members_of[r["uid"]]}
     capped_out = [(_msg_uid(m) or "?") for uid in extras["capped_out"] for m in members_of[uid]]
-    input_tokens = sum(r["input_tokens"] for r in judgements) + sum(t["input_tokens"] for t in trims.values())
-    output_tokens = sum(r["output_tokens"] for r in judgements) + sum(t["output_tokens"] for t in trims.values())
+    input_tokens = sum(r["input_tokens"] for r in reqs) + sum(t["input_tokens"] for t in trims.values())
+    output_tokens = sum(r["output_tokens"] for r in reqs) + sum(t["output_tokens"] for t in trims.values())
     record = {
         "backend": "jev", "model": settings["model"],
-        "resolved_model": next((r["model"] for r in judgements if r["model"]), None),
+        "resolved_model": next((r["model"] for r in reqs if r["model"]), None),
         "threshold": settings["threshold"],
         "anchor_bonus": settings["anchor_bonus"] if anchor else 0.0,
-        "context_turns": settings["context_turns"], "history": settings["history"],
-        "question": settings["question"], "unit": settings["unit"], "units": len(units),
-        "requests": len(judgements), "request_attempts": sum(r["attempts"] for r in judgements),
-        "errors": extras["errors"], "long_context": sum(1 for r in judgements if r["long_context"]),
-        "truncated": sum(1 for r in judgements if r["truncated"]),
+        "context_turns": settings["context_turns"], "history": "full",
+        "question": settings["question"], "question_lines": settings["question_lines"],
+        "question_criteria": settings["question_criteria"], "anchor_tags": anchor_tags,
+        "stuck_gate": settings["stuck_gate"], "stuck_threshold": settings["stuck_threshold"],
+        "stuck": stuck_p, "stuck_forced": sorted(stuck_forced_msgs),
+        "activity_question": bool(settings["activity_question"]),
+        "unit": settings["unit"], "units": len(units),
+        "requests": len(reqs), "request_attempts": sum(r["attempts"] for r in reqs),
+        "request_errors": sum(1 for r in reqs if r["error"]), "questions": len(judgements),
+        "state_bytes": len(state.encode("utf-8")),
+        "question_bytes": sum(r.get("question_bytes", 0) for r in reqs),
+        "errors": extras["errors"], "long_context": sum(1 for r in reqs if r["long_context"]),
         "input_tokens": input_tokens, "output_tokens": output_tokens,
-        "latency_s": round(latency_s, 3), "latency_sum_s": round(sum(r["latency_s"] for r in judgements), 3),
+        "latency_s": round(latency_s, 3), "latency_sum_s": round(sum(r["latency_s"] for r in reqs), 3),
         "probs": {uid: (None if r["p"] is None else round(r["p"], 4)) for uid, r in by_uid.items()},
+        **({"probs_value": {uid: (None if r.get("p_value") is None else round(r["p_value"], 4)) for uid, r in by_uid.items()},
+            "probs_activity": {uid: (None if r.get("p_activity") is None else round(r["p_activity"], 4)) for uid, r in by_uid.items()}}
+           if settings["activity_question"] else {}),
         "scores": scores,
         "kept_by_threshold": extras["kept_by_threshold"], "capped_out": capped_out,
         "select_lines": settings["select_lines"],
     }
-    request_ids = [r["request_id"] for r in judgements]
+    request_ids = [r["request_id"] for r in reqs]
     if settings["select_lines"] > 0:
         record.update({
             "lines": {uid: {k: v for k, v in t.items() if k != "request_ids"} for uid, t in trims.items()},
@@ -1049,79 +1454,11 @@ def jev_extract_output(task_text: str, command_text: str, output_text: str, uid:
     state_bytes = len(state.encode("utf-8"))
     questions = line_questions(blocks)
     q_bytes = {k: len(json.dumps(v).encode("utf-8")) + len(k) + 8 for k, v in questions.items()}
-    # Chunk the questions so a request stays under the long-context size when the
-    # state alone does; otherwise every request carries the header.
-    keys = list(questions)
-    per_request = ls["questions"]
-    if per_request:
-        chunks = [keys[i:i + per_request] for i in range(0, len(keys), per_request)]
-    else:
-        room = LONG_CONTEXT_BYTES - state_bytes
-        chunks, cur, used = [], [], 0
-        for k in keys:
-            if cur and room > 0 and used + q_bytes[k] > room:
-                chunks.append(cur); cur, used = [], 0
-            cur.append(k); used += q_bytes[k]
-            if room <= 0 and len(cur) >= 64:
-                chunks.append(cur); cur, used = [], 0
-        if cur:
-            chunks.append(cur)
-    lock = threading.Lock()
-    results: dict[str, float | None] = {}
-    reqs: list[dict] = []
-
-    def one(chunk: list[str]) -> dict:
-        qs = {k: questions[k] for k in chunk}
-        long_context = state_bytes + sum(q_bytes[k] for k in chunk) > LONG_CONTEXT_BYTES
-        rec = {"questions": len(chunk), "long_context": long_context, "input_tokens": 0, "output_tokens": 0,
-               "latency_s": 0.0, "attempts": 0, "model": None, "request_id": None, "error": None}
-        t0 = time.time()
-        try:
-            reply = client.system_one(state, qs, long_context=long_context)
-            answers = reply["answers"] or {}
-            got = {}
-            for k in chunk:
-                p = (answers.get(k) or {}).get("noul")
-                got[k] = float(p) if isinstance(p, (int, float)) else None
-            if all(v is None for v in got.values()):
-                raise JevAPIError(f"no noul answers in {str(answers)[:200]}")
-            usage = reply["usage"] or {}
-            rec.update({"input_tokens": int(usage.get("input_tokens") or 0),
-                        "output_tokens": int(usage.get("output_tokens") or 0), "attempts": reply["attempts"],
-                        "model": reply["model"], "request_id": reply["request_id"]})
-            with lock:
-                results.update(got)
-        except JevAPIError as exc:
-            rec["error"] = f"{type(exc).__name__}: {exc}"
-            rec["status"] = exc.status
-            if exc.status in _AUTH_STATUSES:
-                rec["fatal"] = True
-            with lock:
-                results.update({k: None for k in chunk})
-        except Exception as exc:   # noqa: BLE001
-            rec["error"] = f"{type(exc).__name__}: {exc}"
-            with lock:
-                results.update({k: None for k in chunk})
-        rec["latency_s"] = round(time.time() - t0, 3)
-        if progress is not None:
-            with lock:
-                progress["attempts"] = progress.get("attempts", 0) + max(1, rec["attempts"])
-                progress["prompt_tokens"] = progress.get("prompt_tokens", 0) + rec["input_tokens"]
-                progress["completion_tokens"] = progress.get("completion_tokens", 0) + rec["output_tokens"]
-                progress.setdefault("response_ids", []).append(rec["request_id"])
-        with lock:
-            reqs.append(rec)
-        return rec
-
+    chunks = _chunk_questions(list(questions), q_bytes, state_bytes, ls["questions"])
     t0 = time.time()
-    with ThreadPoolExecutor(max_workers=min(settings["workers"], max(1, len(chunks)))) as pool:
-        list(pool.map(one, chunks))
+    results, reqs = _ask(client, state, questions, chunks, settings["workers"], progress=progress)
     latency_s = time.time() - t0
-    if any(r.get("fatal") for r in reqs):
-        bad = next(r for r in reqs if r.get("fatal"))
-        raise JevAPIError(f"TypeSafe authentication failed: {bad['error']}", status=bad.get("status"))
-    if reqs and all(r["error"] for r in reqs):
-        raise JevAPIError(f"every Jev line request failed ({len(reqs)}); first: {reqs[0]['error']}")
+    _raise_if_failed(reqs, "line")
     block_probs = [(a, b, results.get(line_id(a))) for a, b in blocks]
     ranges = decide_lines(block_probs, n, ls["threshold"], ls["pad"], ls["max_fraction"])
     kept_lines = sum(b - a + 1 for a, b in ranges)
