@@ -140,11 +140,12 @@ class ParseAndApplyTests(unittest.TestCase):
                                  selection('keep m00004 L1-2')])
         selector.settings['provider'] = 'openrouter'
         cap = memory.count_tokens(full[:2]) + memory.count_tokens(full[-2:]) + 30
-        env = {'MSWEA_SELECT_ANCHOR': '1', 'MSWEA_SELECT_CAP': str(cap), 'MSWEA_EXTRACT_PREFILL': '1'}
+        env = {'MSWEA_EXTRACT_PREFILL': '1'}
         with patch.object(claude_extract, 'get_extract_model', return_value=selector), \
              patch.dict(os.environ, env), tempfile.TemporaryDirectory() as d, \
              patch.dict(os.environ, {'MSWEA_SUMMARY_ATTEMPT_LOG': str(Path(d) / 'a.jsonl')}):
-            new, saved, pt, ct, lat = memory.online_claude_select(full, context, selector, keep_recent=1)
+            new, saved, pt, ct, lat = memory.online_claude_select_anchored(full, context, selector,
+                                                                           keep_recent=1, cap=cap)
             attempts = [json.loads(l) for l in (Path(d) / 'a.jsonl').read_text().splitlines()]
         # prompt 1: tags on every history block, anchor paragraph, budget line, prefill last
         p1 = selector.prompts[0]
@@ -172,7 +173,7 @@ class ParseAndApplyTests(unittest.TestCase):
         selector = FakeSelector([selection('keep m00003')])
         full = [msg('system', 'system', 'm00001'), msg('user', 'fix', 'm00002')] + self.window
         with patch.object(claude_extract, 'get_extract_model', return_value=selector), \
-             patch.dict(os.environ, {'MSWEA_SELECT_ANCHOR': '', 'MSWEA_SELECT_CAP': '', 'MSWEA_EXTRACT_PREFILL': ''}):
+             patch.dict(os.environ, {'MSWEA_EXTRACT_PREFILL': ''}):
             memory.online_claude_select(full, list(full), selector, keep_recent=1)
         p = selector.prompts[0]
         self.assertNotIn('in context last step', p[0]['content'])
@@ -180,12 +181,19 @@ class ParseAndApplyTests(unittest.TestCase):
         self.assertTrue(all('; ' not in b['text'].split('\n')[0] for b in p[1]['content'][1:-1]))
         rec = memory.pop_summary_outcome()['flags']['selection']
         self.assertNotIn('anchor', rec)
-        # 'trailing' was the threshold cells' anchor form, removed 2026-11-19 with them
-        for bad in ({'MSWEA_SELECT_ANCHOR': 'maybe'}, {'MSWEA_SELECT_ANCHOR': 'trailing'},
-                    {'MSWEA_SELECT_CAP': '-5'}):
-            with patch.dict(os.environ, bad):
+        # the anchored primitive validates its cap; MSWEA_SELECT_CAP is the agent hook's override
+        self.assertEqual(memory.SELECT_CAP_DEFAULT, 30000)
+        for bad in (-5, 2.5, '30000'):
+            with self.assertRaises(ValueError):
+                memory.online_claude_select_anchored(full, list(full), selector, cap=bad)
+        with patch.dict(os.environ, {'MSWEA_SELECT_CAP': ''}):
+            self.assertIsNone(memory.select_cap_override())
+        with patch.dict(os.environ, {'MSWEA_SELECT_CAP': '20000'}):
+            self.assertEqual(memory.select_cap_override(), 20000)
+        for bad in ('-5', 'many'):
+            with patch.dict(os.environ, {'MSWEA_SELECT_CAP': bad}):
                 with self.assertRaises(ValueError):
-                    memory._select_settings()
+                    memory.select_cap_override()
 
     def test_prefill_setting(self):
         anthropic = FakeSelector([]); anthropic.settings['provider'] = 'anthropic'
@@ -324,6 +332,36 @@ class OnlineClaudeSelectTests(unittest.TestCase):
         self.assertEqual([o['primitive'] for o in log['summary_outcomes']], ['online_claude_select'] * 2)
         self.assertEqual(log['summary_outcomes'][1]['flags']['selection']['keep'],
                          {'m00004': [[7, 7]], 'm00006': None})
+
+    def test_anchored_primitive_logs_under_the_select_kind(self):
+        # MSWEA_PRIMITIVE=online_claude_select_anchored (the ocsa cell): anchor tags in the
+        # prompt, the cap from MSWEA_SELECT_CAP (default memory.SELECT_CAP_DEFAULT), and the
+        # event kind / log fields of online_claude_select, so ocs and ocsa data read alike.
+        os.environ['MSWEA_PRIMITIVE'] = 'online_claude_select_anchored'
+        selector = FakeSelector([selection('keep m00003'), selection('keep m00003\nkeep m00006')])
+        agent = self.agent()
+        with patch.dict(os.environ, {'MSWEA_SELECT_CAP': '5000'}):
+            self.run_steps(agent, selector, 4)
+        self.assertIn('in context last step', selector.prompts[0][0]['content'])
+        self.assertIn('Your selection must total at most', selector.prompts[0][0]['content'])
+        heads = [b['text'].split('\n')[0] for b in selector.prompts[1][1]['content'][1:-1]]
+        self.assertTrue(heads[0].endswith('tokens, in context last step]'), heads[0])      # a1 kept at step 2
+        self.assertTrue(heads[1].endswith('tokens, not in context last step]'), heads[1])  # obs1 dropped at step 2
+        events = [json.loads(l) for l in (self.directory / 'compression_events.jsonl').read_text().splitlines()]
+        self.assertEqual([e['kind'] for e in events], ['online_claude_select'] * 2)
+        log = self.log()
+        recs = log['online_claude_select_events']
+        self.assertEqual([r['step'] for r in recs], [2, 3])
+        self.assertEqual((recs[0]['selection']['anchor'], recs[0]['selection']['cap']), (True, 5000))
+        self.assertEqual((recs[1]['selection']['carried'], recs[1]['selection']['added'],
+                          recs[1]['selection']['removed']), (2, 0, 1))   # a1, obs2 kept; a2 dropped
+        self.assertEqual([o['primitive'] for o in log['summary_outcomes']], ['online_claude_select'] * 2)
+        self.assertEqual(log['online_claude_select_accepted'], 2)
+        # without the override the primitive's default cap applies
+        os.environ.pop('MSWEA_SELECT_CAP', None)
+        agent2 = self.agent()
+        self.run_steps(agent2, FakeSelector([selection('keep m00003')]), 3)
+        self.assertEqual(self.log()['online_claude_select_events'][0]['selection']['cap'], memory.SELECT_CAP_DEFAULT)
 
     def test_invalid_replies_are_retried_then_leave_the_context_unchanged(self):
         selector = FakeSelector([

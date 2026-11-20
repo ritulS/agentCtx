@@ -115,7 +115,8 @@ and invalid callback return values fail explicitly. Exceptions propagate before
 inference; completed compression and policy-error records are retained.
 
 Primitive names match `MSWEA_PRIMITIVE`; `adaptive.PRIMITIVES` lists all supported
-names (`truncation`, `summarization_free`, `online_claude_select`; the ICLR-era
+names (`truncation`, `summarization_free`, `online_claude_select`,
+`online_claude_select_anchored`; the ICLR-era
 primitives, CLM, `online_claude_extract` and the staggered policies
 were removed on 2026-11-19 and schedules naming them are rejected). Stateful policy objects must be separate per agent. Pure functions and
 `CompressionSchedule` may be shared; schedule position comes from each agent's

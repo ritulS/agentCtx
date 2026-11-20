@@ -23,7 +23,7 @@ Truncation (TR)
   drop oldest assistant/result turns to token_budget * r, protecting system,
   task, and the latest turn.
   If those alone exceed the target, retain them and continue over target.
-  online_claude_select keeps the legacy truncate() as its budget-time
+  online_claude_select / _anchored keep the legacy truncate() as their budget-time
   fallback: drop messages until the total estimated token count of
   (protected + remaining) ≤ target_tokens. Always keeps at least the last
   message in the compressible window.
@@ -870,12 +870,11 @@ def _select_prompt(extract_model, task_text: str, window: list[dict],
     the last history block, so the growing history prefix is served from the
     prompt cache on the next step.
 
-    ``tags`` (anchored selection, MSWEA_SELECT_ANCHOR=1; the condition
-    online-claude-select-anchored) maps uid -> header tag (token count and
-    whether the message was in the agent's context at the previous step) and
-    adds the "start from the previous selection" paragraph; ``budget_tokens``
-    (MSWEA_SELECT_CAP) states the cap on the selected history. Both None = the
-    plain online_claude_select prompt, byte for byte. (The ``source`` /
+    ``tags`` (online_claude_select_anchored) maps uid -> header tag (token
+    count and whether the message was in the agent's context at the previous
+    step) and adds the "start from the previous selection" paragraph;
+    ``budget_tokens`` (its cap) states the cap on the selected history. Both
+    None = the plain online_claude_select prompt, byte for byte. (The ``source`` /
     ``anchor_style`` variants of the incremental and threshold cells were
     removed 2026-11-19; the 2026-10-27 header form is kept byte for byte.)"""
     anchor_text = "" if tags is None else (
@@ -1045,23 +1044,25 @@ def apply_selection(window: list[dict], selection: dict) -> list[dict]:
     return out
 
 
-def _select_settings() -> tuple[bool, int]:
-    """(anchor, cap) of online_claude_select from the environment: the condition
-    online-claude-select-anchored sets MSWEA_SELECT_ANCHOR=1 (each history
-    message is tagged with whether it was in the agent's context at the
-    previous step, and the selector is told to start from that selection) and
-    MSWEA_SELECT_CAP=<tokens> (the selected history must fit; an over-budget
-    reply is rejected with a correction message and re-queried). Unset / 0 =
-    the plain selection (2026-10-25 behaviour)."""
-    raw = os.environ.get("MSWEA_SELECT_ANCHOR", "0").strip().lower()
-    if raw not in ("", "0", "off", "false", "no", "1", "on", "true", "yes"):
-        raise ValueError(f"MSWEA_SELECT_ANCHOR must be 0 | 1, got {raw!r}")
-    anchor = raw in ("1", "on", "true", "yes")
-    cap_raw = os.environ.get("MSWEA_SELECT_CAP", "").strip()
-    cap = int(cap_raw) if cap_raw else 0
+# The cap of online_claude_select_anchored (the condition online-claude-select-anchored,
+# cell tag ocsa, 2026-10-27): the selected history must fit this many tokens.
+SELECT_CAP_DEFAULT = 30000
+
+
+def select_cap_override() -> int | None:
+    """MSWEA_SELECT_CAP, when set: another cap for online_claude_select_anchored
+    (0 = no cap). Unset = the primitive's default (SELECT_CAP_DEFAULT). Read by
+    DefaultAgent's online hook; the primitive itself takes ``cap`` as an argument."""
+    raw = os.environ.get("MSWEA_SELECT_CAP", "").strip()
+    if not raw:
+        return None
+    try:
+        cap = int(raw)
+    except ValueError:
+        raise ValueError(f"MSWEA_SELECT_CAP must be a non-negative token count, got {raw!r}") from None
     if cap < 0:
-        raise ValueError(f"MSWEA_SELECT_CAP must be a non-negative token count, got {cap_raw!r}")
-    return anchor, cap
+        raise ValueError(f"MSWEA_SELECT_CAP must be a non-negative token count, got {raw!r}")
+    return cap
 
 
 def _select_prefill(extract_model) -> str:
@@ -1138,17 +1139,19 @@ def online_claude_select(
     model,
     keep_recent: int = 1,
 ) -> tuple[list[dict], int, int, int, float]:
-    """Rebuild the context as a Claude-chosen subset of the COMPLETE history.
+    """Rebuild the context as a Claude-chosen subset of the COMPLETE history
+    (the condition online-claude-select, cell tag ocs; added 2026-10-25).
 
-    Extractive: nothing is rewritten. Before every agent model call the selector is shown the task statement and
-    every message the agent ever added (``full_messages``, the agent's
-    uncompressed record, not the current context) with ids and numbered
-    output lines, and replies with keep/drop directives; the new context is
-    the protected head, the selected messages (whole, or the kept lines with
-    omission markers) in original order, then the newest ``keep_recent``
-    messages verbatim (widened to the assistant message that opened the turn).
-    Because the selection is recomputed from the complete history each step,
-    a message dropped earlier can be brought back later.
+    Extractive: nothing is rewritten. Before every agent model call the
+    selector is shown the task statement and every message the agent ever
+    added (``full_messages``, the agent's uncompressed record, not the
+    current context) with ids and numbered output lines, and replies with
+    keep/drop directives; the new context is the protected head, the selected
+    messages (whole, or the kept lines with omission markers) in original
+    order, then the newest ``keep_recent`` messages verbatim (widened to the
+    assistant message that opened the turn). Because the selection is
+    recomputed from the complete history each step, a message dropped earlier
+    can be brought back later.
 
     The reply goes through request_summary() with parse_selection() as the
     validator, so an unparseable or out-of-range reply is re-queried like a
@@ -1162,6 +1165,51 @@ def online_claude_select(
     ``full_messages`` (the complete history, i.e. what full context would
     send), not to ``messages``.
     """
+    return _online_claude_select(full_messages, messages, model, keep_recent, anchor=False, cap=0)
+
+
+def online_claude_select_anchored(
+    full_messages: list[dict],
+    messages: list[dict],
+    model,
+    keep_recent: int = 1,
+    cap: int = SELECT_CAP_DEFAULT,
+) -> tuple[list[dict], int, int, int, float]:
+    """online_claude_select with an anchor and a cap (the condition
+    online-claude-select-anchored, cell tag ocsa; added 2026-10-27, its own
+    primitive since 2026-11-19).
+
+    Same selector, grammar, logs and return value as online_claude_select(),
+    with two additions: every history message is tagged with its token count
+    and whether it was in the agent's context at the previous step
+    (``messages``), and the selector is told to start from that selection and
+    change as little as possible from step to step; and the selected history
+    must fit ``cap`` tokens (SELECT_CAP_DEFAULT; 0 = no cap): an over-budget
+    reply is rejected as ``over_budget``, a correction message is appended
+    and the selector is re-queried. The selection record then carries
+    ``anchor``, ``cap``, ``budget_window``, ``selected_tokens`` and the
+    stability counts ``carried`` / ``added`` / ``removed``.
+
+    Motivation (2026-10-27): on the plain cell consecutive selections
+    overlapped only ~50% (Jaccard) and twice exceeded the agent model's 65k
+    context. Event kinds in the logs stay ``online_claude_select``.
+    """
+    if type(cap) is not int or cap < 0:
+        raise ValueError(f"cap must be a non-negative token count, got {cap!r}")
+    return _online_claude_select(full_messages, messages, model, keep_recent, anchor=True, cap=cap)
+
+
+def _online_claude_select(
+    full_messages: list[dict],
+    messages: list[dict],
+    model,
+    keep_recent: int,
+    *,
+    anchor: bool,
+    cap: int,
+) -> tuple[list[dict], int, int, int, float]:
+    """Shared body of online_claude_select() (anchor False, cap 0) and
+    online_claude_select_anchored() (anchor True, cap > 0 or 0 for none)."""
     if len(full_messages) <= N_PROTECTED:
         return messages, 0, 0, 0, 0.0
     keep_recent  = max(0, int(keep_recent))
@@ -1172,7 +1220,6 @@ def online_claude_select(
     if not window:
         return messages, 0, 0, 0, 0.0
     tokens_full = count_tokens(full_messages)
-    anchor, cap = _select_settings()
     prev_uids = {u for u in (_msg_uid(m) for m in messages) if u}   # the agent's context at the previous step
     tags = None
     if anchor:

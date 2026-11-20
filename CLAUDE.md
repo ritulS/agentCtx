@@ -98,16 +98,20 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   assistant message holding the open-marker line, so the reply cannot start as
   anything but a selection (the free Nemotron 3 Ultra otherwise answered as the
   agent from the second call on).
-  `online-claude-select-anchored` (cell tag `ocsa`, added 2026-10-27) is the same
-  primitive with two additions set through the condition's `env`
-  (`MSWEA_SELECT_ANCHOR=1`, `MSWEA_SELECT_CAP=30000`; `conditions.py`): every
+  `online_claude_select_anchored` (condition `online-claude-select-anchored`,
+  cell tag `ocsa`, added 2026-10-27; its own primitive since 2026-11-19, before
+  that the same primitive with `MSWEA_SELECT_ANCHOR=1` / `MSWEA_SELECT_CAP=30000`
+  in the condition's `env`) is the same selector with two additions: every
   history message is tagged with its token count and whether it was in the
   agent's context at the previous step, the selector is told to start from that
   selection and change as little as possible, and the selected history must fit
-  the cap (an over-budget reply is rejected as `over_budget`, a correction
-  message is appended and it is re-queried; `request_summary(on_reject=...)`).
-  Selection records then carry `anchor`, `cap`, `budget_window`,
-  `selected_tokens` and the stability counts `carried` / `added` / `removed`.
+  the cap (`SELECT_CAP_DEFAULT` = 30000; `MSWEA_SELECT_CAP` overrides it; an
+  over-budget reply is rejected as `over_budget`, a correction message is
+  appended and it is re-queried; `request_summary(on_reject=...)`). Both
+  primitives share `_online_claude_select` in `primitives.py` and are logged
+  under the event kind `online_claude_select`; the ocsa selection records carry
+  `anchor`, `cap`, `budget_window`, `selected_tokens` and the stability counts
+  `carried` / `added` / `removed`.
   Motivation: on the free Nemotron selector the plain cell's consecutive
   selections overlapped only ~50% (Jaccard) and twice exceeded Devstral's 65k
   context.
@@ -124,7 +128,7 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   mini-swe-agent commit (b54c485) still does `import memory` from its
   compression hook and event log. Remove the alias once the submodule is
   bumped to a commit that imports `agentctx.compression.primitives` directly.
-- `mini-swe-agent/` — submodule. Pinned to 72e5140 on branch `event-log` of
+- `mini-swe-agent/` — submodule. Pinned to f145d59 on branch `event-log` of
   `github.com/takeshiho0531/mini-swe-agent` (per-run event log, the online
   hooks and the compression dispatch) until that branch is merged upstream as
   ritulS/mini-swe-agent PR #1; the upstream branch is
@@ -286,7 +290,7 @@ Use these terms when discussing experimental coverage and depth runs.
   truncate fallback. Studied at canonical depth only. (TRC, TRC+SU, TRC+SS,
   OTRC+TR, OTRC+SU-partial, OTRC+SS-partial and SS-free were the other
   depth-invariant primitives; removed 2026-11-19.)
-- **online** — the `online-claude-select` cells (`ocs`, `ocsa`): no budget,
+- **online** — `online_claude_select` / `online_claude_select_anchored` (`ocs`, `ocsa`): no budget,
   fire before every agent model call, `di__binf__` cells. (`oce`, `ocsi`,
   `ocst`, `ocstx`, `ocstx15`, `ocstx15p` were the other online cells; removed
   2026-11-19.)

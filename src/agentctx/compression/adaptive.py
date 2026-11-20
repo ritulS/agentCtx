@@ -13,17 +13,20 @@ from pathlib import Path
 from typing import Callable
 
 
-PRIMITIVES = frozenset({"truncation", "summarization_free", "online_claude_select"})
+PRIMITIVES = frozenset({
+    "truncation", "summarization_free",
+    "online_claude_select", "online_claude_select_anchored",
+})
 # The ICLR-era primitives (SU-full, SS, the partial forms, TRC and its stacks,
 # OTRC, staggered) and online_claude_extract were removed 2026-11-19; schedules
 # naming them are rejected.
 
 
 ONLINE_PRIMITIVES = frozenset({
-    # online_claude_select fires before every model call from DefaultAgent.query
-    # and needs no budget; under a policy its cadence is step_interval (else
-    # MSWEA_EXTRACT_EVERY).
-    "online_claude_select",
+    # online_claude_select (and its anchored, capped form) fires before every
+    # model call from DefaultAgent.query and needs no budget; under a policy its
+    # cadence is step_interval (else MSWEA_EXTRACT_EVERY).
+    "online_claude_select", "online_claude_select_anchored",
 })
 
 
@@ -62,7 +65,7 @@ class CompressionConfig:
 class CompressionEvent:
     index: int  # 1-based policy decisions; at most one per query
     step: int  # attempted agent model calls (same convention as compression_events.jsonl)
-    kind: str  # "budget" or "online_claude_select"
+    kind: str  # "budget", "online_claude_select" or "online_claude_select_anchored"
     config: CompressionConfig
     tokens_before: int
     tokens_after: int

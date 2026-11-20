@@ -14,7 +14,7 @@ the SAME history:
     full  the uncompressed history (== own for FC and pre-compression SU-free)
     sel   an OCSA selection of that history: the real one for OCSA runs; for
           FC / SU-free runs simulated by `select`, which calls the same selector
-          (online_claude_select, anchored, cap 30000, keep-recent 3, DeepSeek
+          (online_claude_select_anchored, cap 30000, keep-recent 3, DeepSeek
           V4.1 Flash via OpenRouter, effort low, temperature 0) before every call
           from the first one, exactly as the agent hook does
 
@@ -80,10 +80,8 @@ SELECTOR_ENV = {
     "MSWEA_EXTRACT_EFFORT": "low",
     "MSWEA_EXTRACT_MAX_TOKENS": "12000",
     "MSWEA_EXTRACT_PREFILL": "0",
-    "MSWEA_SELECT_ANCHOR": "1",
-    "MSWEA_SELECT_CAP": "30000",
 }
-KEEP_RECENT = 3
+KEEP_RECENT = 3   # anchor + cap 30000 are the primitive's (online_claude_select_anchored)
 
 # Agent model as in configs/config-devstral-vllm-temp0.yaml.
 AGENT_MODEL = "mistralai/Devstral-Small-2-24B-Instruct-2512"
@@ -278,7 +276,7 @@ def simulate_selection(run_dir: Path, upto: int, log) -> dict[int, list[dict]]:
         messages = list(full) if messages is None else messages + full[len(prev_full):]
         if call > 1 and len(full) > mem.N_PROTECTED + KEEP_RECENT:
             try:
-                messages, *_ = mem.online_claude_select(full, messages, None, keep_recent=KEEP_RECENT)
+                messages, *_ = mem.online_claude_select_anchored(full, messages, None, keep_recent=KEEP_RECENT)
             except Exception as exc:   # noqa: BLE001 - the agent also keeps its context on errors
                 log(f"  call {call}: selector error {type(exc).__name__}: {exc}")
         contexts[call] = messages

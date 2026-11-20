@@ -24,7 +24,7 @@ start call K:
 Modes (`--mode`):
   fc       full context throughout (the control: the same start, no selector)
   window   calls a..b (`--window a-b`, default K..K+2*(T-K) around the turning
-           point T) go through online_claude_select exactly as in the OCSA cell
+           point T) go through online_claude_select_anchored exactly as in the OCSA cell
            (anchored, cap 30000, keep-recent 3, DeepSeek V4.1 Flash via
            OpenRouter); the selector's first anchor is the selection an OCSA
            agent would have had at call K-1 (`--selections`, simulated by
@@ -86,9 +86,7 @@ SELECTOR_ENV = {
     "MSWEA_EXTRACT_EFFORT": "low",
     "MSWEA_EXTRACT_MAX_TOKENS": "12000",
     "MSWEA_EXTRACT_PREFILL": "0",
-    "MSWEA_SELECT_ANCHOR": "1",
-    "MSWEA_SELECT_CAP": "30000",
-    "MSWEA_EXTRACT_KEEP_RECENT": "3",
+    "MSWEA_EXTRACT_KEEP_RECENT": "3",   # anchor + cap 30000 are the primitive's
 }
 
 # Turning points of the failed FC runs (call numbers = model calls, as in
@@ -191,7 +189,7 @@ def build_agent(args, out_dir: Path, mode: str, seed: list[dict], context: list[
 
     os.environ.update({
         "MSWEA_COST_TRACKING": "ignore_errors",
-        "MSWEA_PRIMITIVE": "online_claude_select" if mode == "window" else "truncation",  # as conditions.py
+        "MSWEA_PRIMITIVE": "online_claude_select_anchored" if mode == "window" else "truncation",  # as conditions.py
         "MSWEA_TOKEN_BUDGET": INFINITE_BUDGET,
         "MSWEA_COMPRESSION_RATIO": "0.5",
         "MSWEA_TOKEN_LOG_PATH": str(out_dir / "token_log.json"),

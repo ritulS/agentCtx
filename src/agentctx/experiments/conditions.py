@@ -20,16 +20,18 @@ CONDITIONS = [
     # delta (the agent prompt is the benchmark default). Needs ANTHROPIC_API_KEY (or the key
     # file), or MSWEA_EXTRACT_PROVIDER=openrouter with OPENROUTER_API_KEY.
     {"condition": "online-claude-select", "primitive": "online_claude_select", "budget": INFINITE_BUDGET},
-    # online-claude-select-anchored (2026-10-27): the same primitive and prompt with two
-    # additions through the run environment ("env" is applied on top of the run's
-    # variables): every history message is tagged with whether it was in the agent's
-    # context at the previous step and the selector is told to start from that selection
-    # (MSWEA_SELECT_ANCHOR), and the selected history must fit MSWEA_SELECT_CAP tokens
-    # (an over-budget reply is rejected with a correction and re-queried). Answer to the
-    # plain cell's step-to-step volatility (Jaccard ~0.5 between consecutive selections)
-    # and its context overflows (selections of 60k+ tokens on a 65k server).
-    {"condition": "online-claude-select-anchored", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
-     "env": {"MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "30000"}},
+    # online-claude-select-anchored (2026-10-27): the same selector and prompt with two
+    # additions, its own primitive since 2026-11-19 (memory.online_claude_select_anchored;
+    # before that the same primitive with MSWEA_SELECT_ANCHOR=1 / MSWEA_SELECT_CAP=30000 in
+    # "env"): every history message is tagged with whether it was in the agent's context at
+    # the previous step and the selector is told to start from that selection, and the
+    # selected history must fit the primitive's cap (SELECT_CAP_DEFAULT = 30000 tokens;
+    # MSWEA_SELECT_CAP overrides it; an over-budget reply is rejected with a correction and
+    # re-queried). Answer to the plain cell's step-to-step volatility (Jaccard ~0.5 between
+    # consecutive selections) and its context overflows (selections of 60k+ tokens on a 65k
+    # server). Log kinds stay online_claude_select.
+    {"condition": "online-claude-select-anchored", "primitive": "online_claude_select_anchored",
+     "budget": INFINITE_BUDGET},
 ]
 # Removed 2026-11-19 (the user's decision; git history before that commit has the
 # definitions and the primitives): online-claude-extract (oce), online-claude-select-

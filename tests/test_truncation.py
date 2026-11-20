@@ -204,7 +204,8 @@ class TruncationTests(unittest.TestCase):
             self.assertEqual([e['step'] for e in log['tr_events']], [0, 1])
 
     def test_no_tr_invocation_has_empty_diagnostics(self):
-        for primitive, budget in (('truncation', 100000), ('online_claude_select', 1)):
+        for primitive, budget in (('truncation', 100000), ('online_claude_select', 1),
+                                  ('online_claude_select_anchored', 1)):
             with self.subTest(primitive=primitive):
                 os.environ['MSWEA_PRIMITIVE'] = primitive
                 agent, _ = self.agent(history(), budget)
@@ -285,7 +286,7 @@ class TruncationTests(unittest.TestCase):
         # The online primitive's budget-time fallback is the legacy truncate()
         # at current_tokens * depth (the first call: n_calls == 0, the online
         # hook itself does not fire yet).
-        for primitive, budget in [('online_claude_select', 300)]:
+        for primitive, budget in [('online_claude_select', 300), ('online_claude_select_anchored', 300)]:
             with self.subTest(primitive=primitive):
                 os.environ['MSWEA_PRIMITIVE'] = primitive
                 messages = history(3)
