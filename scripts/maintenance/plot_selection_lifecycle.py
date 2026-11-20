@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lifecycle raster of one online-claude-select run (ocs / ocsa / ocsi ...):
+"""Lifecycle raster of one online-claude-select run (ocs / ocsa):
 which history messages the selector kept, trimmed, dropped and brought back,
 step by step.
 

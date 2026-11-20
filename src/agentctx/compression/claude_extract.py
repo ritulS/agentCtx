@@ -1,12 +1,12 @@
-"""Claude-backed context extractor for the ``online_claude_extract`` and
-``online_claude_select`` primitives.
+"""Claude-backed selector model for the ``online_claude_select`` primitive.
 
-``online_claude_extract`` (``primitives.online_claude_extract``) fires once after every agent
-model call. It hands the compressible window of the history (everything
-after the protected system prompt and task statement) to Claude and replaces
-that window with the task-relevant information Claude extracts. Everything
-about *talking to Claude* lives here; the primitive itself only builds the
-prompt and splices the reply into the history.
+The module keeps its 2026-10 name: it was written for ``online_claude_extract``
+(the abstractive cell ``oce``, removed 2026-11-19 together with the ocsi / ocst /
+ocstx cells), whose ``MSWEA_EXTRACT_*`` settings the surviving selector shares.
+``online_claude_select`` (``primitives.online_claude_select``) fires before every
+agent model call and hands the agent's complete history to the model named here;
+everything about *talking to the model* lives in this module, the primitive
+itself only builds the prompt and rebuilds the context from the reply.
 
 ``ClaudeExtractModel`` is a small adapter with the two methods the summary
 machinery in ``primitives.py`` relies on, ``query(messages)`` and
@@ -16,13 +16,12 @@ dict shape mini-swe-agent's litellm models return
 primitive reuse ``request_summary()`` unchanged: marker validation, retries,
 the per-thread outcome record and ``summary_attempts.jsonl``.
 
-``online_claude_select`` (``primitives.online_claude_select``) is the
-extractive variant: Claude is shown the agent's complete history with message
-ids and numbered output lines and replies with keep/drop directives; the
-primitive rebuilds the context from the original text, so Claude never writes
-a word the agent reads. Its prompt is a list of text blocks with a cache
-breakpoint on the last history block (``_request`` passes block lists
-through), so the growing history is served from the prompt cache.
+The selector is shown the agent's complete history with message ids and
+numbered output lines and replies with keep/drop directives; the primitive
+rebuilds the context from the original text, so Claude never writes a word
+the agent reads. Its prompt is a list of text blocks with a cache breakpoint
+on the last history block (``_request`` passes block lists through), so the
+growing history is served from the prompt cache.
 
 Settings (all environment variables, read once per process):
 
@@ -223,7 +222,7 @@ class ClaudeExtractModel:
                         key = resolve_api_key()
                         if not key:
                             raise RuntimeError(
-                                "online_claude_extract needs an Anthropic API key: export ANTHROPIC_API_KEY "
+                                "online_claude_select needs an Anthropic API key: export ANTHROPIC_API_KEY "
                                 f"or write it to {DEFAULT_KEY_FILE} (AGENTCTX_ANTHROPIC_API_KEY_FILE)."
                             )
                         self._client = anthropic.Anthropic(

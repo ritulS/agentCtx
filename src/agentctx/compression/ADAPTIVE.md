@@ -115,8 +115,8 @@ and invalid callback return values fail explicitly. Exceptions propagate before
 inference; completed compression and policy-error records are retained.
 
 Primitive names match `MSWEA_PRIMITIVE`; `adaptive.PRIMITIVES` lists all supported
-names (`truncation`, `summarization_free`, `online_claude_extract`,
-`online_claude_select`; the ICLR-era primitives, CLM and the staggered policies
+names (`truncation`, `summarization_free`, `online_claude_select`; the ICLR-era
+primitives, CLM, `online_claude_extract` and the staggered policies
 were removed on 2026-11-19 and schedules naming them are rejected). Stateful policy objects must be separate per agent. Pure functions and
 `CompressionSchedule` may be shared; schedule position comes from each agent's
 policy decision index.
@@ -145,7 +145,7 @@ use `memory_policy=CompressionSchedule([config1, config2, ...])`.
 ## Trigger and decision timing
 
 1. Capture the active configuration at query start.
-2. Run any due online primitive (extract / select), then any required budget
+2. Run any due online primitive (select), then any required budget
    fallback, using that same configuration.
 3. If at least one trigger fired, invoke the policy **once**, after both
    operations. Zero savings still count as a trigger.
@@ -166,7 +166,7 @@ SU-free summary has no length target, and depth sizes only its TR fallback. This
 
 `step_interval=N` of an online primitive is independent of token budget. At
 agent initialization its clock starts at 0. At step 3 the check occurs before
-query 4. Model-query steps include failed agent queries and exclude extractor /
+query 4. Model-query steps include failed agent queries and exclude selector /
 summarizer calls. With interval 3, online triggers occur at steps 3, 6, 9, etc.
 A due trigger whose reply was rejected or errored still invokes the policy
 (`skipped_reason` on the operation record).

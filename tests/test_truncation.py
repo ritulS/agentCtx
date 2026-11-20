@@ -282,10 +282,10 @@ class TruncationTests(unittest.TestCase):
                         self.assertEqual(log['summary_outcomes'][0]['fallback'], 'truncate')
 
     def test_online_budget_fallback_keeps_legacy_deletion_and_current_relative_target(self):
-        # The online primitives' budget-time fallback is the legacy truncate()
+        # The online primitive's budget-time fallback is the legacy truncate()
         # at current_tokens * depth (the first call: n_calls == 0, the online
         # hook itself does not fire yet).
-        for primitive, budget in [('online_claude_extract', 300), ('online_claude_select', 300)]:
+        for primitive, budget in [('online_claude_select', 300)]:
             with self.subTest(primitive=primitive):
                 os.environ['MSWEA_PRIMITIVE'] = primitive
                 messages = history(3)

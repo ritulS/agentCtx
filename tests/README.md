@@ -27,7 +27,7 @@ that need a capability the reference predates (Terminal-Bench, verdict
 handling, `--summary-config`, the ICLR sections, the SU-free condition)
 are skipped for that branch, so older branches compare only the shared core.
 Since 2026-11-19 the working tree keeps only full-context, truncation,
-summarization-free and the online-claude-select cells, so the scenarios cover
+summarization-free, online-claude-select and its anchored cell, so the scenarios cover
 those; the reference's other conditions are not compared.
 
 Any interpreter with `pytest` and `pyyaml` works (`python -m pytest`). The
@@ -120,7 +120,7 @@ fakes: SWE-bench ids ending in `-crash` / `-nopatch` / `-applyfail` /
 | `test_summary_query.py` | litellm, mini-swe-agent (`venv`) | prose summaries through mini-swe-agent v2 models |
 | `test_call_accounting.py` | litellm, tiktoken, mini-swe-agent (`venv`) | Rejected-response usage/cost/latency, step alignment, final and pre-call log persistence, atomic writes; runnable with `venv/bin/python -m unittest discover -s tests -p test_call_accounting.py`. |
 | `test_adaptive_runner.py` | pyyaml | Explicit adaptive CLI for SWE/TB, baseline isolation, immutable configuration/source snapshots, result provenance and resume mismatch rejection. |
-| `test_adaptive_compression.py` | tiktoken, mini-swe-agent (`venv`) | Per-trigger primitive/budget/depth switching, Python/JSON policy loading, the online step-interval clock (with a stand-in extractor), per-agent isolation and failure log persistence. |
+| `test_adaptive_compression.py` | tiktoken, mini-swe-agent (`venv`) | Per-trigger primitive/budget/depth switching, Python/JSON policy loading, the online step-interval clock (with a stand-in selector), per-agent isolation and failure log persistence. |
 | `test_summary_free.py` | tiktoken | SU-free carries no word target and falls back to complete turns |
 | `test_harbor_cancellation.py` | Harbor, mini-swe-agent (`venv-harbor`) | worker cancellation in the Harbor adapter |
 | `test_replay.py` | Harbor (`venv-harbor`) | trajectory replay re-verification |

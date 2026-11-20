@@ -14,15 +14,11 @@ CONDITIONS = [
     # Length-free summary: the SU-full summarizer call with no word target in the
     # prompt, so compression_ratio does not engage (depth-invariant).
     {"condition": "summarization-free",        "primitive": "summarization_free",        "budget": 15_000},
-    # online-claude-extract: after every model call, Claude (claude_extract.py) rewrites the
-    # history after system prompt + task statement into the task-relevant extract; no
-    # budget gate, no length target. Needs ANTHROPIC_API_KEY (or the key file).
-    {"condition": "online-claude-extract", "primitive": "online_claude_extract", "budget": INFINITE_BUDGET,
-     "config": WORKSPACE_ROOT / "configs/config-online-claude-extract.yaml"},
     # online-claude-select: before every model call, Claude picks which messages / output
     # lines of the COMPLETE history the agent still needs (ids + line ranges, no prose) and
     # the context is rebuilt from the original text; no budget, no length target, no prompt
-    # delta (the agent prompt is the benchmark default). Needs the same key as the extract.
+    # delta (the agent prompt is the benchmark default). Needs ANTHROPIC_API_KEY (or the key
+    # file), or MSWEA_EXTRACT_PROVIDER=openrouter with OPENROUTER_API_KEY.
     {"condition": "online-claude-select", "primitive": "online_claude_select", "budget": INFINITE_BUDGET},
     # online-claude-select-anchored (2026-10-27): the same primitive and prompt with two
     # additions through the run environment ("env" is applied on top of the run's
@@ -34,77 +30,11 @@ CONDITIONS = [
     # and its context overflows (selections of 60k+ tokens on a 65k server).
     {"condition": "online-claude-select-anchored", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
      "env": {"MSWEA_SELECT_ANCHOR": "1", "MSWEA_SELECT_CAP": "30000"}},
-    # online-claude-select-incremental (2026-11-07): the same primitive and directive grammar,
-    # but the selector is handed the agent's CURRENT context (what the previous selection
-    # kept, trimmed outputs included, plus the newest turn) instead of the complete history
-    # (MSWEA_SELECT_SOURCE=context): the context can only shrink, a dropped message or line
-    # never returns, and the selector prompt is context-sized rather than history-sized
-    # (the extractive counterpart of online-claude-extract's input window). A line range on
-    # an already-trimmed output counts the lines of the trimmed text. No anchor tags (every
-    # message shown was in context last step) and no cap; MSWEA_SELECT_CAP can be added.
-    {"condition": "online-claude-select-incremental", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
-     "env": {"MSWEA_SELECT_SOURCE": "context"}},
-    # online-claude-select-threshold (2026-11-12): the anchored, capped selector, but it
-    # fires only while the context exceeds MSWEA_EXTRACT_FIRE_ABOVE tokens (DefaultAgent's
-    # online hook) instead of before every call. Between firings the context is append-only
-    # (every agent prompt extends the previous one, so Devstral's prefix cache serves it; the
-    # per-step ocsa cell left ~57% of its prompt tokens uncached because in-place drops,
-    # line-range changes and revivals moved text every step), and at a firing the selector
-    # sees the complete history and rebuilds the context under the cap, which is set below
-    # the firing threshold so the context has room to grow before the next firing
-    # (30000 -> <= 20000: ~3 firings per run on the fc25 ocsa trajectories). Same prompt,
-    # grammar and logs as ocsa, except that the anchoring uses the prompt-cache-friendly
-    # "trailing" form (MSWEA_SELECT_ANCHOR=trailing: the previous-context uids and the budget
-    # figure sit in the trailing block, so the history blocks are byte-identical from call to
-    # call and the selector's own prompt cache serves them; ocsa's per-header tags hit only
-    # ~6%); the selector call count drops from one per step to a few per run.
-    {"condition": "online-claude-select-threshold", "primitive": "online_claude_select", "budget": INFINITE_BUDGET,
-     "env": {"MSWEA_SELECT_ANCHOR": "trailing", "MSWEA_SELECT_CAP": "20000", "MSWEA_EXTRACT_FIRE_ABOVE": "30000"}},
-    # online-claude-select-threshold-output-extract (2026-11-12, cell tag ocstx): ocst plus a
-    # per-output pre-extraction. Every NEW tool output above MSWEA_OUTPUT_EXTRACT_ABOVE tokens
-    # (1000) is handed, right after it is added to the history, to the same extractor model
-    # with the task statement and the agent message that issued the command, and the lines it
-    # keeps replace the output IN PLACE (memory.extract_tool_output, DefaultAgent._output_extract;
-    # same directive grammar as the selector, a fixed one-line "pre-extracted" note above the
-    # kept lines, "[... N lines omitted ...]" where it cut). The omitted lines leave the context,
-    # the complete history the threshold selector later re-selects from, and the trajectory at
-    # once: unlike every other online-claude-select cell, dropped output text can never return.
-    # The threshold selector itself is unchanged (fires above 30000, cap 20000, trailing anchor).
-    {"condition": "online-claude-select-threshold-output-extract", "primitive": "online_claude_select",
-     "budget": INFINITE_BUDGET,
-     "env": {"MSWEA_SELECT_ANCHOR": "trailing", "MSWEA_SELECT_CAP": "20000", "MSWEA_EXTRACT_FIRE_ABOVE": "30000",
-             "MSWEA_OUTPUT_EXTRACT_ABOVE": "1000"}},
-    # online-claude-select-threshold-output-extract-15k (2026-11-12, cell tag ocstx15): the
-    # ocstx cell with the firing threshold halved (MSWEA_EXTRACT_FIRE_ABOVE 30000 -> 15000)
-    # and the cap lowered in the same 2:3 proportion (20000 -> 10000) so the rebuilt context
-    # still has room to grow before the next firing; the per-output pre-extraction (1000) is
-    # unchanged. On the ocst4 pilot the 30k cell fired the selector 0-2 times per run with
-    # contexts peaking at 24-33k; this cell asks what halving that envelope does.
-    {"condition": "online-claude-select-threshold-output-extract-15k", "primitive": "online_claude_select",
-     "budget": INFINITE_BUDGET,
-     "env": {"MSWEA_SELECT_ANCHOR": "trailing", "MSWEA_SELECT_CAP": "10000", "MSWEA_EXTRACT_FIRE_ABOVE": "15000",
-             "MSWEA_OUTPUT_EXTRACT_ABOVE": "1000"}},
-    # online-claude-select-threshold-output-extract-15k-phase (2026-11-12, cell tag ocstx15p):
-    # ocstx15 with a phase-boundary gate on the threshold firing (MSWEA_PHASE_GATE=1;
-    # memory.judge_phase_boundary, DefaultAgent._phase_gate). Once the context exceeds the
-    # 15000-token threshold, a due firing is first put to the same extractor model as a
-    # question: shown the task statement and the agent's current context, is the newest turn
-    # a natural break in the work (a phase completed: cause identified, edit applied and
-    # confirmed, test result read and acted on) or is the agent mid-operation? The selector
-    # fires only on "boundary"; on "continue" the step runs with the context untouched and
-    # the question is asked again before the next step. Above MSWEA_PHASE_GATE_FORCE_ABOVE
-    # (30000, the ocst threshold) the selector fires without asking, so a judge that never
-    # sees a boundary cannot let the context grow past Devstral's window. The judge never
-    # writes a word the agent reads: verdicts and reasons go to the token log
-    # (phase_judge_events). Cap, pre-extraction and anchoring as in ocstx15.
-    {"condition": "online-claude-select-threshold-output-extract-15k-phase", "primitive": "online_claude_select",
-     "budget": INFINITE_BUDGET,
-     "env": {"MSWEA_SELECT_ANCHOR": "trailing", "MSWEA_SELECT_CAP": "10000", "MSWEA_EXTRACT_FIRE_ABOVE": "15000",
-             "MSWEA_OUTPUT_EXTRACT_ABOVE": "1000",
-             "MSWEA_PHASE_GATE": "1", "MSWEA_PHASE_GATE_FORCE_ABOVE": "30000"}},
 ]
 # Removed 2026-11-19 (the user's decision; git history before that commit has the
-# definitions and the primitives): summarization (su-full), summarization-partial,
+# definitions and the primitives): online-claude-extract (oce), online-claude-select-
+# incremental (ocsi), -threshold (ocst), -threshold-output-extract (ocstx), -15k
+# (ocstx15), -15k-phase (ocstx15p); summarization (su-full), summarization-partial,
 # structured-summarize (ss), structured-summarize-partial, structured-summarize-free
 # (ss-free), tool-result-clear (trc), trc-su, trc-ss, online-trc (otrc), otrc-tr,
 # otrc-su-partial, otrc-ss-partial, the twelve online-jev-full-select* cells

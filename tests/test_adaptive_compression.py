@@ -24,12 +24,12 @@ except ImportError as exc:
     raise unittest.SkipTest(str(exc)) from exc
 
 
-def fake_extract(messages, model, keep_recent=0):
-    """Stand-in for memory.online_claude_extract: drops the oldest compressible
-    message, no model call, and publishes the summary outcome the agent's hook
-    reads (as request_summary does). (The online primitives left after
-    2026-11-19 need an extractor model; the adaptive clock is what these tests
-    exercise.)"""
+def fake_select(full_messages, messages, model, keep_recent=1):
+    """Stand-in for memory.online_claude_select: drops the oldest compressible
+    message of the current context, no model call, and publishes the summary
+    outcome the agent's hook reads (as request_summary does). (The one online
+    primitive left after 2026-11-19 needs a selector model; the adaptive clock
+    is what these tests exercise.)"""
     if len(messages) <= memory.N_PROTECTED + keep_recent + 1:
         return messages, 0, 0, 0, 0.0
     memory._set_summary_outcome({'attempts': 1, 'accepted': True, 'rejections': [], 'flags': {},
@@ -194,38 +194,38 @@ class AdaptiveCompressionTests(unittest.TestCase):
             self.assertEqual(agent._memory_config, Config('truncation', 12345, .7))
 
     def test_online_does_not_require_a_token_budget(self):
-        agent, _ = self.agent(Config('online_claude_extract'), messages=history(3))
-        with patch.object(memory, 'online_claude_extract', side_effect=fake_extract):
+        agent, _ = self.agent(Config('online_claude_select'), messages=history(3))
+        with patch.object(memory, 'online_claude_select', side_effect=fake_select):
             agent.query()      # n_calls == 0: the online hook waits for the first observation
             self.assertEqual(agent._mem_adaptive_events, [])
             agent.query()
-        self.assertEqual([e['kind'] for e in agent._mem_adaptive_events], ['online_claude_extract'])
+        self.assertEqual([e['kind'] for e in agent._mem_adaptive_events], ['online_claude_select'])
         self.assertEqual(agent._mem_compression_events, 0)
         with self.assertRaisesRegex(ValueError, 'budget is required'):
             Config('truncation')
 
     def test_online_step_interval_changes_after_each_trigger(self):
         agent, _ = self.agent(policy=CompressionSchedule([
-            Config('online_claude_extract', step_interval=3),
-            Config('online_claude_extract', step_interval=2),
+            Config('online_claude_select', step_interval=3),
+            Config('online_claude_select', step_interval=2),
             Config('truncation', 100000),
         ]), messages=history(3))
-        with patch.object(memory, 'online_claude_extract', side_effect=fake_extract) as extract:
+        with patch.object(memory, 'online_claude_select', side_effect=fake_select) as select:
             for _ in range(8):
                 agent.query()
                 agent.add_messages(*history(1)[2:])
         events = agent._mem_adaptive_events
         self.assertEqual([e['step'] for e in events], [3, 5])
         self.assertEqual([e['config']['step_interval'] for e in events], [3, 2])
-        self.assertEqual(extract.call_count, 2)
+        self.assertEqual(select.call_count, 2)
         self.assertEqual(agent._memory_config.primitive, 'truncation')
 
     def test_switch_to_online_counts_steps_from_previous_trigger(self):
         agent, _ = self.agent(policy=CompressionSchedule([
-            Config('truncation', 1), Config('online_claude_extract', step_interval=3),
+            Config('truncation', 1), Config('online_claude_select', step_interval=3),
         ]), messages=history(6))
         agent.n_calls = 7
-        with patch.object(memory, 'online_claude_extract', side_effect=fake_extract):
+        with patch.object(memory, 'online_claude_select', side_effect=fake_select):
             agent.query()  # budget trigger at 7; online scheduled for 10
             agent.query()
             agent.query()
@@ -236,16 +236,16 @@ class AdaptiveCompressionTests(unittest.TestCase):
     def test_step_interval_json_and_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory, 'schedule.json')
-            path.write_text('[{"primitive": "online_claude_extract", "step_interval": 2}]')
+            path.write_text('[{"primitive": "online_claude_select", "step_interval": 2}]')
             os.environ['MSWEA_ADAPTIVE_SCHEDULE'] = str(path)
             agent, _ = self.agent(messages=history(3))
-            with patch.object(memory, 'online_claude_extract', side_effect=fake_extract):
+            with patch.object(memory, 'online_claude_select', side_effect=fake_select):
                 for _ in range(3):
                     agent.query()
             self.assertEqual([e['step'] for e in agent._mem_adaptive_events], [2])
         for interval in (0, -1, True, 1.5):
             with self.subTest(interval=interval), self.assertRaises(ValueError):
-                Config('online_claude_extract', step_interval=interval)
+                Config('online_claude_select', step_interval=interval)
         with self.assertRaisesRegex(ValueError, 'only supported by online'):
             Config('truncation', 1000, step_interval=2)
 
@@ -254,14 +254,14 @@ class AdaptiveCompressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             schedule = root / 'schedule.json'
-            schedule.write_text('[{"primitive":"online_claude_extract","step_interval":1}]')
+            schedule.write_text('[{"primitive":"online_claude_select","step_interval":1}]')
             selection = build_selection(schedule=schedule)
             manifest = snapshot_selection(selection, root)
             os.environ['MSWEA_ADAPTIVE_MANIFEST'] = str(manifest)
             os.environ['MSWEA_TOKEN_LOG_PATH'] = str(root / 'token_log.json')
             os.environ['MSWEA_PRIMITIVE'] = 'adaptive'
             agent, _ = self.agent(messages=history(3))
-            with patch.object(memory, 'online_claude_extract', side_effect=fake_extract):
+            with patch.object(memory, 'online_claude_select', side_effect=fake_select):
                 agent.query()
                 agent.query()
             data = json.loads((root / 'token_log.json').read_text())

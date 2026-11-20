@@ -5,11 +5,11 @@
 Empirical study of context-compression strategies for LLM agents on SWE-bench
 Verified. The agent (`mini-swe-agent`) runs a tool-use loop, accumulating
 trajectory tokens; a compression primitive fires when the token budget is
-exceeded (TR, SU-free) or before every agent call / above a context threshold
-(the online-claude-select family and online-claude-extract). The ICLR study's
-wider primitive set (SU-full, SS, partial forms, TRC and its stacks, OTRC,
-staggered) was removed from the code on 2026-11-19; its data stays under
-`ICLR_experiments/` and `data/`.
+exceeded (TR, SU-free) or before every agent call (online-claude-select and
+its anchored cell). The ICLR study's wider primitive set (SU-full, SS, partial
+forms, TRC and its stacks, OTRC, staggered), the Jev selector cells and the
+online-claude-extract / -incremental / -threshold family were removed from the
+code on 2026-11-19; their data stays under `ICLR_experiments/` and `data/`.
 
 Data flows: `results/ablations/<exp>/<task>/<condition>/run_<n>/trajectory.json`
 → `Review1/build_review1.py` → `Review1/Review1.csv` → analysis scripts in
@@ -47,20 +47,27 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `truncate_oldest_turns` (TR, condition `truncation`, cell tag `tr`),
   `summarize_free` (SU-free, condition `summarization-free`, cell tag `su-free`;
   one summarizer call with no word target, TR as the fallback when every
-  attempt is rejected), the legacy `truncate` (budget-time fallback of the
-  online primitives) and the two online primitives below. The ICLR-era
+  attempt is rejected), the legacy `truncate` (budget-time fallback of
+  `online_claude_select`) and the online primitive below. The ICLR-era
   primitives (SU-full, SS, SU-/SS-partial, SS-free, TRC, TRC+SU, TRC+SS, OTRC
-  and its stacks, staggered-alternate / -random), CLM self-editing and the
-  twelve Jev selector cells (`ojfs*`) were REMOVED on 2026-11-19 (the user's
-  decision; the conditions, primitives, submodule hooks, launcher presets,
-  tests and docs); git history before that commit has them, and their cells
-  under `data/` keep their names. `full-context` (cell tag `fc`) is
-  `truncation` at `INFINITE_BUDGET`.
-  Two Claude-backed online primitives share `src/agentctx/compression/claude_extract.py`
-  (Anthropic SDK, default `claude-opus-5-5`; `MSWEA_EXTRACT_MODEL` / `_EFFORT` /
-  `_EVERY` / `_KEEP_RECENT`, default keep-recent 1 since 2026-10-25 = the newest
-  turn stays verbatim) and fire before every agent model call once the
-  previous observation is in the history; neither has a budget.
+  and its stacks, staggered-alternate / -random), CLM self-editing, the
+  twelve Jev selector cells (`ojfs*`), and then `online_claude_extract`
+  (`oce`) and the `online-claude-select-incremental` / `-threshold` /
+  `-threshold-output-extract` / `-15k` / `-15k-phase` cells (`ocsi`, `ocst`,
+  `ocstx`, `ocstx15`, `ocstx15p`; `MSWEA_SELECT_SOURCE`, `MSWEA_EXTRACT_FIRE_ABOVE`,
+  `MSWEA_SELECT_ANCHOR=trailing`, the per-output pre-extraction and the phase
+  judge) were REMOVED on 2026-11-19 in two commits (the user's decision; the
+  conditions, primitives, submodule hooks, launcher presets, tests and docs);
+  git history before those commits has them, and their cells under `data/`
+  keep their names. `full-context` (cell tag `fc`) is `truncation` at
+  `INFINITE_BUDGET`.
+  The Claude-backed online primitive calls its selector model through
+  `src/agentctx/compression/claude_extract.py` (the module keeps the name of
+  the removed extract primitive; Anthropic SDK, default `claude-opus-5-5`;
+  `MSWEA_EXTRACT_MODEL` / `_EFFORT` / `_EVERY` / `_KEEP_RECENT`, default
+  keep-recent 1 since 2026-10-25 = the newest turn stays verbatim) and fires
+  before every agent model call once the previous observation is in the
+  history; it has no budget.
   `MSWEA_EXTRACT_PROVIDER=openrouter` (added 2026-10-26, for cheaper selector
   models) sends the identical prompts through OpenRouter's OpenAI-compatible
   endpoint via the `openai` SDK instead: `MSWEA_EXTRACT_MODEL=<vendor/model>` is
@@ -73,13 +80,9 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   `reasoning_tokens`. Only the API call differs (client, request body, response
   mapping); prompts, validation, retries, event logs, condition names and cell
   tags are unchanged, so tag the model dir to tell OpenRouter runs apart; the
-  token log's `extract_model` records `provider` + `model`:
-  `online_claude_extract` (condition `online-claude-extract`, cell tag `oce`)
-  sends the compressible window of the CURRENT context to Claude and replaces it
-  with Claude's rewritten `[CONTEXT EXTRACT]` block (abstractive; Claude's own
-  words, and in practice its plans, reach the agent).
+  token log's `extract_model` records `provider` + `model`.
   `online_claude_select` (condition `online-claude-select`, cell tag `ocs`,
-  added 2026-10-25) is the extractive one for the "does the agent solve the task
+  added 2026-10-25) is extractive, for the "does the agent solve the task
   on the task-relevant information alone?" question: Claude is shown the COMPLETE
   history (`DefaultAgent._full_messages`, never compressed) with message uids and
   numbered output lines and replies with directives only (`keep <uid>`,
@@ -108,126 +111,20 @@ and [exp_plans/ALBUS_PLAN.md](exp_plans/ALBUS_PLAN.md).
   Motivation: on the free Nemotron selector the plain cell's consecutive
   selections overlapped only ~50% (Jaccard) and twice exceeded Devstral's 65k
   context.
-  `online-claude-select-incremental` (cell tag `ocsi`, added 2026-11-07) is the
-  same primitive and grammar with `MSWEA_SELECT_SOURCE=context`
-  (`select_source()` in `primitives.py`; default `full`): the selector is shown
-  the agent's CURRENT context (what the previous selection kept, trimmed
-  outputs included, plus the newest turn) instead of the complete history, so
-  the context can only shrink, a dropped message or line never returns, and the
-  selector prompt is context-sized (the extractive counterpart of OCE's input
-  window). A line range on an already-trimmed output counts the lines of the
-  trimmed text (the omission marker is one line). No anchor tags, no cap by
-  default (`MSWEA_SELECT_CAP` can be added through the condition's `env`).
-  Select events and selection records then carry `source: context`;
-  `tokens_full` still counts the untouched complete history and `tokens_saved`
-  is relative to the current context. Preset `ocsi` of the Devstral fc20
-  launcher runs the cell `di__binf__ocsi`.
-  `online-claude-select-threshold` (cell tag `ocst`, preset `ocst`, added
-  2026-11-12) is the ocsa selector (anchor tags, cap) fired only while the
-  context exceeds `MSWEA_EXTRACT_FIRE_ABOVE` tokens (30000; the gate lives in
-  `DefaultAgent`'s online hook and also applies to `online_claude_extract`),
-  with the cap lowered to 20000 so the rebuilt context has room to grow before
-  the next firing. Between firings the context is append-only, so the agent
-  model's prefix cache serves every step (the per-step ocsa cell re-prefilled
-  ~57% of its prompt tokens: in-place drops, line-range changes and revivals
-  moved text every step); a few selector calls per run instead of one per step.
-  Its anchoring is the `MSWEA_SELECT_ANCHOR=trailing` form (added 2026-11-12):
-  the header tag carries the token count only, and the previous-context uids
-  and the budget figure sit in the trailing instruction block, so the system
-  prompt and every history block are byte-identical from call to call and the
-  selector's own prompt cache serves them (ocsa's per-header "in / not in
-  context last step" tags and the budget figure in the system prompt changed
-  every step: 6% cache hit on OpenRouter vs 92% for plain ocs). `1` keeps the
-  2026-10-27 header form byte for byte (ocsa, replay tools). Selection records
-  carry `anchor_style`.
-  `online-claude-select-threshold-output-extract` (cell tag `ocstx`, preset
-  `ocstx`, added 2026-11-12) is ocst plus a per-output pre-extraction
-  (`MSWEA_OUTPUT_EXTRACT_ABOVE=1000` through the condition's `env`;
-  `output_extract_threshold()` / `extract_tool_output()` in `primitives.py`,
-  `DefaultAgent._output_extract` in the submodule, called from
-  `execute_actions` of both agents right after the observations are added):
-  every NEW tool output above the threshold is handed to the same extractor
-  model with the task statement (cache breakpoint) and the agent message that
-  issued the command, in the selector's directive grammar on that one message
-  (`keep <uid>`, `keep <uid> L<a>-<b>`, `none`; `keep all` tolerated), and the
-  kept lines replace the output's `content` IN PLACE under a fixed one-line
-  note (`OUTPUT_EXTRACT_NOTE_FMT`: "tool output pre-extracted: K of N lines
-  kept; the omitted lines were deleted from the history and cannot be
-  recovered"), `[... N lines omitted ...]` where it cut; `none` leaves the note
-  and one marker. The observation object is shared by `self.messages` and
-  `_full_messages`, and its `extra.raw_output` copy is removed, so the
-  omitted lines leave the context, the complete history the threshold
-  selector re-selects from, and the trajectory at once: the only
-  online-claude-select cell where dropped output text can never return
-  (events.jsonl still holds the raw observation, logged before the
-  extraction; `replay_agent.py` then skips its output-match check for that
-  turn). A rejected reply is re-queried like a selector reply; when no attempt
-  is accepted the output stays whole (fallback `unchanged`); errors count
-  toward `MSWEA_EXTRACT_MAX_CONSECUTIVE_ERRORS` like a selector error. Logs:
-  `output_extract_events` (+ `_threshold`, `_accepted`, `_trimmed`,
-  `_removed`, `_errors`, `_total_tokens_saved`) in token_log.json and the
-  result rows, primitive `output_extract` in `summary_outcomes`
-  (flags `output_extract`), `extra.output_extract` on the message, and a
-  `kind: output_extract` record in `compression_events.jsonl` (the uid in
-  `replaced`, `before_uids == after_uids`), which `reconstruct_context.py`
-  replays; a compression event consumes a uid seq, so uids skip after one.
-  On the ocst4 ocst runs only 2-4 outputs per run exceed 1000 tokens
-  (6-11k of the 19-32k observation tokens). Smoke-test with
-  `scripts/maintenance/probe_output_extract.py <run_dir> --uid <uid>`.
-  `online-claude-select-threshold-output-extract-15k` (cell tag `ocstx15`,
-  preset `ocstx15`, added 2026-11-12) is ocstx with the firing threshold
-  halved (`MSWEA_EXTRACT_FIRE_ABOVE=15000`) and the cap lowered in the same
-  2:3 proportion (`MSWEA_SELECT_CAP=10000`); the pre-extraction threshold is
-  unchanged.
-  `online-claude-select-threshold-output-extract-15k-phase` (cell tag
-  `ocstx15p`, preset `ocstx15p`, added 2026-11-12) is ocstx15 with a
-  phase-boundary gate on the threshold firing (`MSWEA_PHASE_GATE=1` through
-  the condition's `env`; `phase_gate_config()` / `judge_phase_boundary()` in
-  `primitives.py`, `DefaultAgent._phase_gate` in the submodule, called from
-  the online hook in `query()` once the context exceeds
-  `MSWEA_EXTRACT_FIRE_ABOVE`): a due firing is first put to the same
-  extractor model as a question. The judge is shown the task statement and
-  the agent's CURRENT context (every message rendered as the selector renders
-  it, cache breakpoint on the last history block; the system prompt and the
-  trailing question carry no per-step figures, so only the new history blocks
-  are uncached) and replies between `[PHASE VERDICT]` / `[END PHASE VERDICT]`
-  with `boundary` or `continue` on the first line and an optional one-line
-  reason (`parse_phase_verdict()`; anything else is answered with a
-  correction and re-queried through `request_summary(validate=...,
-  on_reject=...)`). The selector fires only on `boundary`; on `continue` the
-  step runs with the context untouched and the question is asked again before
-  the next step. Above `MSWEA_PHASE_GATE_FORCE_ABOVE` tokens (30000 in the
-  condition; default twice the firing threshold, `0` = no ceiling, a value at
-  or below the threshold is rejected) the selector fires without asking, so a
-  judge that never sees a boundary cannot let the context grow past the agent
-  model's window; when no reply is accepted (fallback `fire`) or the judge
-  errors below `MSWEA_EXTRACT_MAX_CONSECUTIVE_ERRORS`, it fires as it would
-  without the gate. The judge never writes a word the agent reads and changes
-  no message, so nothing goes to `compression_events.jsonl`; its records go to
-  `phase_judge_events` (+ `_config`, `_calls`, `_boundary`, `_continue`,
-  `_forced`, `_errors`) in token_log.json and the result rows, each event
-  carrying `step`, `tokens`, `verdict`, `reason`, `outcome`
-  (accepted | fallback | forced | error), `forced`, `fired` and usage, and to
-  `summary_outcomes` as primitive `phase_judge` (flags `phase_judge`).
-  `MSWEA_EXTRACT_PREFILL=1` prefills the phase marker for the judge.
-  Smoke-test with `scripts/maintenance/probe_phase_judge.py <run_dir>
-  [--steps a,b]`, which judges the uncompressed history of an existing run
-  after the given steps.
   The selector prompt is a block list with a cache breakpoint on the last history
-  block, so the growing history is served from the prompt cache. Both conditions
-  use the benchmark default agent prompt (the OCE prompt delta is empty since
-  2026-10-25; the agent system prompt is identical in every condition).
+  block, so the growing history is served from the prompt cache. Both cells
+  use the benchmark default agent prompt (the agent system prompt is identical
+  in every condition).
   Needs `ANTHROPIC_API_KEY` or `~/.config/agentctx/anthropic_api_key`; smoke-test
-  with `scripts/maintenance/probe_claude_extract.py` /
-  `probe_claude_select.py`. Per-step records go to
-  `online_claude_{extract,select}_events` in token_log.json (select events carry
-  `tokens_full` and the `selection` counts) and `kind: online_claude_{extract,select}`
-  in `compression_events.jsonl` (partial keeps appear as `replaced`, same uid).
+  with `scripts/maintenance/probe_claude_select.py`. Per-step records go to
+  `online_claude_select_events` in token_log.json (each carries `tokens_full`
+  and the `selection` counts) and `kind: online_claude_select` in
+  `compression_events.jsonl` (partial keeps appear as `replaced`, same uid).
   The root-level `memory.py` is only an alias to this module: the pinned
   mini-swe-agent commit (b54c485) still does `import memory` from its
   compression hook and event log. Remove the alias once the submodule is
   bumped to a commit that imports `agentctx.compression.primitives` directly.
-- `mini-swe-agent/` — submodule. Pinned to 72870fc on branch `event-log` of
+- `mini-swe-agent/` — submodule. Pinned to 72e5140 on branch `event-log` of
   `github.com/takeshiho0531/mini-swe-agent` (per-run event log, the online
   hooks and the compression dispatch) until that branch is merged upstream as
   ritulS/mini-swe-agent PR #1; the upstream branch is
@@ -389,9 +286,10 @@ Use these terms when discussing experimental coverage and depth runs.
   truncate fallback. Studied at canonical depth only. (TRC, TRC+SU, TRC+SS,
   OTRC+TR, OTRC+SU-partial, OTRC+SS-partial and SS-free were the other
   depth-invariant primitives; removed 2026-11-19.)
-- **online** — the `online-claude-*` cells (`oce`, `ocs`, `ocsa`, `ocsi`,
-  `ocst`, `ocstx`, `ocstx15`, `ocstx15p`): no budget, fire before the agent
-  model call (every step, or above a threshold), `di__binf__` cells.
+- **online** — the `online-claude-select` cells (`ocs`, `ocsa`): no budget,
+  fire before every agent model call, `di__binf__` cells. (`oce`, `ocsi`,
+  `ocst`, `ocstx`, `ocstx15`, `ocstx15p` were the other online cells; removed
+  2026-11-19.)
 
 **Depths:**
 

@@ -4,22 +4,18 @@
 # (task_lists/swe_verified/p30s_qwen35b_fc_majority_su-free_minority.json:
 # django-12304, sklearn-25232, sympy-14531, sympy-18211; see task_lists/README.md).
 #
-# Three cells, 2 runs per task, one request at a time: a fresh vLLM server and
+# Two cells, 2 runs per task, one request at a time: a fresh vLLM server and
 # container generation per run (scripts/expansions/run_r2_swe_sandbox_isolated.sh,
 # INNER=p30s, SERVER_LIFECYCLE=per-run, MAX_WORKERS=1), prefix caching ON with a
 # float32 SSM cache (--mamba-ssm-cache-dtype float32), temperature 0:
 #   di__binf__fc       full-context           (no compression, unlimited budget)
-#   di__binf__oce      online-claude-extract  (Claude rewrites the history after
-#                      system + task before every agent call; no budget; needs
-#                      ANTHROPIC_API_KEY or ~/.config/agentctx/anthropic_api_key;
-#                      MSWEA_EXTRACT_MODEL / _EFFORT / _EVERY / _KEEP_RECENT pass
-#                      through, defaults claude-opus-5-5 / medium)
 #   di__b15k__su-free  summarization-free at 15k (summarizer = the agent model)
 #   di__binf__ocs      online-claude-select   (optional, add to CELLS: Claude picks
 #                      which original messages / output lines of the complete
 #                      history to keep, ids + line ranges only; same key)
-# Plan order: run-major inside each cell, cells in CELLS order -> 3 x (4 tasks x
-# 2 runs) = 24 cycles. Keys are <task>__<condition>__r<n>; recorded keys are
+# Plan order: run-major inside each cell, cells in CELLS order -> 2 x (4 tasks x
+# 2 runs) = 16 cycles (the di__binf__oce online-claude-extract cell of 2026-10-25
+# was removed 2026-11-19; its rows stay in the dest dir). Keys are <task>__<condition>__r<n>; recorded keys are
 # skipped, so rerunning with the same settings resumes.
 #
 # Server: scripts/serving/start_vllm_qwen35_ssm_probe.sh with PREFIX_CACHE=on
@@ -55,12 +51,12 @@
 #   SLACK_WEBHOOK_URL="$(cat ~/.config/agentctx/slack_webhook)" bash scripts/notify_run.sh \
 #       --unit r2/swebench/sandbox_isolated/p30s-qwen35b-iso-fcmaj4 \
 #       -- bash scripts/expansions/run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh
-#   One cell only:  CELLS="di__binf__oce:online-claude-extract:0.5" bash scripts/expansions/run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh
+#   One cell only:  CELLS="di__binf__fc:full-context:0.5" bash scripts/expansions/run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh
 #   bf16 SSM cache: SSM_DTYPE=auto bash scripts/expansions/run_r2_swe_sandbox_isolated_qwen35b_fcmaj4.sh   (dest qwen35b-iso-fcmaj4)
 #   Albus:          AGENTCTX_PROFILE=albus-swe QWEN_CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 QWEN_TENSOR_PARALLEL_SIZE=8 bash scripts/notify_run.sh --unit ... -- bash ...
-# Cost: 24 cycles x (server start ~3-5 min + agent run, r2 reference mean ~5 min
+# Cost: 16 cycles x (server start ~3-5 min + agent run, r2 reference mean ~5 min
 # per run on these tasks at 16 workers, less alone + eval and purge ~1-2 min)
-# -> roughly 4-5 h; the OCE cell adds one Claude call per agent step.
+# -> roughly 3 h; an OCS cell adds one selector call per agent step.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -71,7 +67,7 @@ export INNER=p30s
 export SECTIONS=p30s
 export SERVER_LIFECYCLE="${SERVER_LIFECYCLE:-per-run}"
 export CYCLE_ORDER="${CYCLE_ORDER:-run-major}"
-export CELLS="${CELLS:-di__binf__fc:full-context:0.5 di__binf__oce:online-claude-extract:0.5 di__b15k__su-free:summarization-free:0.5}"
+export CELLS="${CELLS:-di__binf__fc:full-context:0.5 di__b15k__su-free:summarization-free:0.5}"
 export TASKS_FILE="${TASKS_FILE:-$WS/task_lists/swe_verified/p30s_qwen35b_fc_majority_su-free_minority.json}"
 export RUNS_PER_TASK="${RUNS_PER_TASK:-2}"
 export SSM_DTYPE="${SSM_DTYPE:-float32}"
@@ -107,11 +103,11 @@ fi
 [[ -f "$TASKS_FILE" ]] || { echo "[ERROR] task list not found: $TASKS_FILE" >&2; exit 1; }
 [[ -f "$QWEN_AGENT_CONFIG" ]] || { echo "[ERROR] agent config not found: $QWEN_AGENT_CONFIG" >&2; exit 1; }
 
-# The online-claude-extract cell calls Claude from inside every agent run; fail
-# here rather than 24 cycles in. Same lookup as claude_extract.resolve_api_key.
+# An online-claude-select cell calls the selector from inside every agent run; fail
+# here rather than 16 cycles in. Same lookup as claude_extract.resolve_api_key.
 # MSWEA_EXTRACT_PROVIDER=openrouter (needs MSWEA_EXTRACT_MODEL=<vendor/model>)
 # calls the same prompts through OpenRouter instead; only the key differs here.
-if [[ " $CELLS " == *":online-claude-extract:"* || " $CELLS " == *":online-claude-select:"* ]]; then
+if [[ " $CELLS " == *":online-claude-select"*":"* ]]; then
     if [[ "${MSWEA_EXTRACT_PROVIDER:-anthropic}" == "openrouter" ]]; then
         key_file="${AGENTCTX_OPENROUTER_API_KEY_FILE:-$HOME/.config/agentctx/openrouter_api_key}"
         if [[ -z "${OPENROUTER_API_KEY:-}" && ! -s "$key_file" ]]; then
@@ -125,9 +121,9 @@ if [[ " $CELLS " == *":online-claude-extract:"* || " $CELLS " == *":online-claud
     else
         key_file="${AGENTCTX_ANTHROPIC_API_KEY_FILE:-$HOME/.config/agentctx/anthropic_api_key}"
         if [[ -z "${ANTHROPIC_API_KEY:-}" && ! -s "$key_file" ]]; then
-            echo "[ERROR] CELLS includes online-claude-extract/-select but ANTHROPIC_API_KEY is unset and $key_file is missing/empty." >&2
+            echo "[ERROR] CELLS includes an online-claude-select cell but ANTHROPIC_API_KEY is unset and $key_file is missing/empty." >&2
             echo "        Put the key in that file (chmod 600) or export ANTHROPIC_API_KEY; check with:" >&2
-            echo "        venv/bin/python scripts/maintenance/probe_claude_extract.py" >&2
+            echo "        venv/bin/python scripts/maintenance/probe_claude_select.py" >&2
             exit 1
         fi
     fi

@@ -22,8 +22,8 @@
 # Set QWEN_AGENT_CONFIG to configs/config-qwen-vllm-cap4k.yaml (temperature
 # 0.2, cap 4096) if the cap matters more than the match.
 # The agent model is also the summarizer (no summary config), so SU-free
-# summaries are greedy too; the online-claude-extract cell's extractor is
-# Claude (src/agentctx/compression/claude_extract.py), not this model.
+# summaries are greedy too; the online-claude-select cells' selector is a
+# separate model (src/agentctx/compression/claude_extract.py), not this one.
 agent:
   step_limit: 300
   cost_limit: 0.0

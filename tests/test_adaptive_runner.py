@@ -76,7 +76,7 @@ class AdaptiveRunnerTests(unittest.TestCase):
             module = root / 'adaptive_runner_test_policy.py'
             module.write_text('def choose(event):\n    return None\n')
             initial = root / 'initial.json'
-            initial.write_text('{"primitive":"online_claude_extract", "step_interval":2}')
+            initial.write_text('{"primitive":"online_claude_select", "step_interval":2}')
             sys.path.insert(0, directory)
             self.addCleanup(sys.path.remove, directory)
             self.addCleanup(sys.modules.pop, 'adaptive_runner_test_policy', None)
@@ -135,7 +135,7 @@ class AdaptiveRunnerTests(unittest.TestCase):
             with self.subTest(benchmark=benchmark), tempfile.TemporaryDirectory() as directory:
                 sandbox = build_sandbox(Path(directory), current_tree())
                 schedule = sandbox.root / 'schedule.json'
-                schedule.write_text('[{"primitive":"online_claude_extract", "step_interval":2}]')
+                schedule.write_text('[{"primitive":"online_claude_select", "step_interval":2}]')
                 result = sandbox.run([
                     'run_experiment.py', '--benchmark', benchmark, '--model-tag', 'online-only',
                     '--adaptive-schedule', str(schedule), '--conditions', 'adaptive', 'full-context',
@@ -165,7 +165,7 @@ class AdaptiveRunnerTests(unittest.TestCase):
             module = sandbox.root / 'src/runner_test_policy.py'
             module.write_text('def choose(event):\n    return None\n')
             initial = sandbox.root / 'initial.json'
-            initial.write_text('{"primitive":"online_claude_extract", "step_interval":2}')
+            initial.write_text('{"primitive":"online_claude_select", "step_interval":2}')
             argv = ['run_experiment.py', '--model-tag', 'policy-test',
                     '--adaptive-policy', 'runner_test_policy:choose',
                     '--adaptive-initial-config', str(initial), '--n-tasks', '1',

@@ -22,55 +22,6 @@
 #                                           Answer to the plain cell's step-to-step volatility
 #                                           and its 65k-context overflows. Not part of `all`;
 #                                           run it with the preset or add it to CELLS.
-#   ocsi                di__binf__ocsi      online-claude-select-incremental (added 2026-11-07):
-#                                           the same selector, but shown the agent's CURRENT
-#                                           context (the previous selection, trimmed outputs
-#                                           included, plus the newest turn) instead of the
-#                                           complete history (MSWEA_SELECT_SOURCE=context):
-#                                           the context only shrinks, dropped text never
-#                                           returns, no anchor tags and no cap. Not part of
-#                                           `all`; run it with the preset or add it to CELLS.
-#   ocst                di__binf__ocst      online-claude-select-threshold (added 2026-11-12):
-#                                           the ocsa selector (anchor tags, cap), but it fires
-#                                           only while the context exceeds 30000 tokens
-#                                           (MSWEA_EXTRACT_FIRE_ABOVE) and then rebuilds it
-#                                           under a 20000-token cap: between firings the
-#                                           context is append-only, so Devstral's prefix cache
-#                                           serves every step (ocsa re-prefilled ~57%). A few
-#                                           selector calls per run instead of one per step.
-#                                           Anchoring in the cache-friendly `trailing` form
-#                                           (MSWEA_SELECT_ANCHOR=trailing: previous-context
-#                                           uids and budget in the trailing block, so the
-#                                           selector's prompt cache hits like plain ocs).
-#                                           Not part of `all`; run it with the preset or add
-#                                           it to CELLS.
-#   ocstx               di__binf__ocstx     online-claude-select-threshold-output-extract
-#                                           (added 2026-11-12): ocst plus a per-output
-#                                           pre-extraction: every new tool output above
-#                                           1000 tokens (MSWEA_OUTPUT_EXTRACT_ABOVE) is handed
-#                                           to the same extractor model right after it is
-#                                           added to the history, and the lines it keeps
-#                                           replace the output in place, in the context, the
-#                                           complete history and the trajectory at once, so
-#                                           omitted output text can never return (not even
-#                                           through the threshold selector, which otherwise
-#                                           works as under ocst). Not part of `all`.
-#   ocstx15             di__binf__ocstx15   online-claude-select-threshold-output-extract-15k
-#                                           (added 2026-11-12): ocstx with the selector
-#                                           firing threshold halved to 15000 tokens and the
-#                                           cap lowered to 10000 (same 2:3 proportion); the
-#                                           per-output pre-extraction is unchanged. Not part
-#                                           of `all`.
-#   ocstx15p            di__binf__ocstx15p  online-claude-select-threshold-output-extract-15k-phase
-#                                           (added 2026-11-12): ocstx15 with a phase-boundary
-#                                           gate on the firing (MSWEA_PHASE_GATE=1): above
-#                                           15000 tokens the extractor model is first asked
-#                                           whether the newest turn is a natural break in the
-#                                           agent's work; the selector fires only on
-#                                           "boundary" (asked again before the next step on
-#                                           "continue"), and fires without asking above
-#                                           30000 tokens (MSWEA_PHASE_GATE_FORCE_ABOVE). Not
-#                                           part of `all`.
 #   su-free             di__b21k__su-free   length-free summarization at Devstral's
 #                                           primary ICLR budget 21k, summarizer = the
 #                                           agent model
@@ -83,27 +34,9 @@
 # resumes, and the smoke run is reused by the full campaign (same cell dir).
 #
 # Task set (TASK_SET, added 2026-11-07): `fc20` (default) = the 25-task list
-# above; `ocsi10` = task_lists/swe_verified/p100_devstral24b_fc20_ocsi10.json,
-# the 10-task subset chosen for the ocsi-vs-fc comparison from the fc25
-# campaign's FC x3 / OCSA x2 results (4 tasks OCSA lost against FC 3/3, 3 it
-# won against FC 1/3, 2 stable but FC-expensive, the list's only `1-4 hours`
-# task; difficulty 4 / 5 / 1 and django 3 / sklearn 3 / sympy 4, P100 order;
-# each entry carries `tier`). The dest dir and keys are unchanged, so the
-# existing FC runs of those 10 tasks are reused and only the missing keys run:
-#   N_TASKS=all RUNS_PER_TASK=3 TASK_SET=ocsi10 bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral24b_fc20.sh ocsi
-# `ocst4` = task_lists/swe_verified/p100_devstral24b_fc20_ocst4.json (added
-# 2026-11-12): the 4-task pilot set for the ocst cell, chosen from the fc25
-# campaign for two properties at once: OCSA resolved 2/2 (so a drop under ocst
-# would be ocst's) AND the uncompressed FC context exceeds the 30000-token firing
-# threshold in all 3 FC runs (cl100k count of the FC trajectories; in 12 of the
-# 25 tasks FC never reaches 30k, so ocst would never fire and equal FC there):
-# sklearn-10297, django-15278, sympy-14531 (FC 3/3, SU-free 3/3; max context
-# 34-40k, 1-2 firings expected) and sympy-12419 (FC 1/3, OCSA 2/2; max context
-# 45-55k, 2-3 firings: the multi-firing case). Same dest dir and keys as above:
-#   N_TASKS=all RUNS_PER_TASK=2 TASK_SET=ocst4 bash scripts/expansions/run_r2_swe_sandbox_isolated_devstral24b_fc20.sh ocst
-# The ocstx, ocstx15 and ocstx15p cells run on the same 4 tasks (presets ocstx / ocstx15 /
-# ocstx15p, same TASK_SET).
-# TASKS_FILE still overrides any set.
+# above. The `ocsi10` / `ocst4` presets went with the ocsi / ocst cells (removed
+# 2026-11-19); their lists stay in task_lists/swe_verified/ and can be run via
+# TASKS_FILE, which overrides any set.
 #
 # Selector (ocs): MSWEA_EXTRACT_PROVIDER=openrouter with the free Nemotron 3 Ultra
 # (MSWEA_EXTRACT_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free; effort medium,
@@ -178,25 +111,15 @@ source "$SCRIPT_DIR/../lib/logpaths.sh"
 PRESET="${1:-ocs}"
 CELL_OCS="di__binf__ocs:online-claude-select:0.5"
 CELL_OCSA="di__binf__ocsa:online-claude-select-anchored:0.5"
-CELL_OCSI="di__binf__ocsi:online-claude-select-incremental:0.5"
-CELL_OCST="di__binf__ocst:online-claude-select-threshold:0.5"
-CELL_OCSTX="di__binf__ocstx:online-claude-select-threshold-output-extract:0.5"
-CELL_OCSTX15="di__binf__ocstx15:online-claude-select-threshold-output-extract-15k:0.5"
-CELL_OCSTX15P="di__binf__ocstx15p:online-claude-select-threshold-output-extract-15k-phase:0.5"
 CELL_SUFREE="di__b21k__su-free:summarization-free:0.5"
 CELL_FC="di__binf__fc:full-context:0.5"
 case "$PRESET" in
     ocs)     default_cells="$CELL_OCS" ;;
     ocsa)    default_cells="$CELL_OCSA" ;;
-    ocsi)    default_cells="$CELL_OCSI" ;;
-    ocst)    default_cells="$CELL_OCST" ;;
-    ocstx)   default_cells="$CELL_OCSTX" ;;
-    ocstx15) default_cells="$CELL_OCSTX15" ;;
-    ocstx15p) default_cells="$CELL_OCSTX15P" ;;
     su-free) default_cells="$CELL_SUFREE" ;;
     fc)      default_cells="$CELL_FC" ;;
     all)     default_cells="$CELL_OCS $CELL_SUFREE $CELL_FC" ;;
-    *) echo "[ERROR] preset must be ocs | ocsa | ocsi | ocst | ocstx | ocstx15 | ocstx15p | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
+    *) echo "[ERROR] preset must be ocs | ocsa | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
 esac
 export CELLS="${CELLS:-$default_cells}"
 export N_TASKS="${N_TASKS:-1}"
@@ -209,9 +132,7 @@ export CYCLE_ORDER="${CYCLE_ORDER:-run-major}"      # run 1 of every task, then 
 TASK_SET="${TASK_SET:-fc20}"
 case "$TASK_SET" in
     fc20)   default_tasks="$WS/task_lists/swe_verified/p100_devstral24b_fc_3of3_10_2of3_10.json" ;;
-    ocsi10) default_tasks="$WS/task_lists/swe_verified/p100_devstral24b_fc20_ocsi10.json" ;;
-    ocst4)  default_tasks="$WS/task_lists/swe_verified/p100_devstral24b_fc20_ocst4.json" ;;
-    *) echo "[ERROR] TASK_SET must be fc20 | ocsi10 | ocst4 (got '$TASK_SET'); or set TASKS_FILE" >&2; exit 1 ;;
+    *) echo "[ERROR] TASK_SET must be fc20 (got '$TASK_SET'); or set TASKS_FILE" >&2; exit 1 ;;
 esac
 export TASKS_FILE="${TASKS_FILE:-$default_tasks}"
 export R2_MODEL="${R2_MODEL:-devstral24b-iso-fc20}"
@@ -292,13 +213,11 @@ fi
 # The OCS cell calls the selector from inside every agent run: check the key
 # before the first server start rather than minutes in. Skipped for DRY_RUN=1
 # (the plan can be printed on a machine without the key).
-# The extractor model's key is needed by every online-claude cell and by the output
-# pre-extraction.
+# The selector model's key is needed by every online-claude-select cell.
 needs_extractor=0
 for cell in $CELLS; do
     case "$cell" in
         *:online-claude-*)      needs_extractor=1 ;;
-        *-output-extract*)      needs_extractor=1 ;;
     esac
 done
 if [[ "$needs_extractor" == 1 && "${DRY_RUN:-0}" != 1 ]]; then

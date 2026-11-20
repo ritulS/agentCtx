@@ -49,10 +49,6 @@ def compression_cache_comparisons(log: dict) -> list[dict]:
     boundaries: dict[int, list[str]] = {}
     for step in log.get("compression_event_steps", []):
         boundaries.setdefault(step, []).append("budget")
-    for event in log.get("online_claude_extract_events", []):
-        # step = the call just completed; the extract changes the context of call step+1
-        if isinstance(event, dict) and type(event.get("step")) is int and event.get("accepted"):
-            boundaries.setdefault(event["step"], []).append("online_claude_extract")
     calls = {r["step"]: r for r in log.get("model_call_records", [])}
     rows = []
     for step, kinds in sorted(boundaries.items()):

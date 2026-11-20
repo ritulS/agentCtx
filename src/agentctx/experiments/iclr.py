@@ -26,25 +26,16 @@ MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 CONDITION_TO_PRIMITIVE = {
     "truncation": "tr",
     "full-context": "fc",
-    "online-claude-extract": "oce",
     "online-claude-select": "ocs",
     "online-claude-select-anchored": "ocsa",
-    "online-claude-select-incremental": "ocsi",
-    "online-claude-select-threshold": "ocst",
-    "online-claude-select-threshold-output-extract": "ocstx",
-    "online-claude-select-threshold-output-extract-15k": "ocstx15",
-    "online-claude-select-threshold-output-extract-15k-phase": "ocstx15p",
     # Length-free summary (depth-invariant: no word target, so a ``di__`` cell).
     "summarization-free": "su-free",
 }
 # Cells of the conditions removed 2026-11-19 (su-full, su-partial, ss, ss-partial,
-# ss-free, trc, trc-su, trc-ss, otrc, otrc-*, clm, the ojf* Jev cells) stay valid
-# directory names in the data trees; they can no longer be launched.
-INFINITE_BUDGET_CONDITIONS = {"full-context", "online-claude-extract", "online-claude-select",
-                              "online-claude-select-anchored", "online-claude-select-incremental",
-                              "online-claude-select-threshold", "online-claude-select-threshold-output-extract",
-                              "online-claude-select-threshold-output-extract-15k",
-                              "online-claude-select-threshold-output-extract-15k-phase"}
+# ss-free, trc, trc-su, trc-ss, otrc, otrc-*, clm, the ojf* Jev cells, oce, ocsi,
+# ocst, ocstx, ocstx15, ocstx15p) stay valid directory names in the data trees;
+# they can no longer be launched.
+INFINITE_BUDGET_CONDITIONS = {"full-context", "online-claude-select", "online-claude-select-anchored"}
 
 
 def canonical_cell(

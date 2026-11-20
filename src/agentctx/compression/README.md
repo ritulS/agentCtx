@@ -5,10 +5,12 @@ budget / step interval and depth once after all compression operations in a
 query. See [ADAPTIVE.md](ADAPTIVE.md) for the API, examples, timing, and event logs.
 
 The primitives in this package are truncation (TR), the length-free summary
-(SU-free) and the online Claude extract / select family (`primitives.py`,
-`claude_extract.py`). The ICLR-era primitives (SU-full, SS, the partial forms,
-TRC and its stacks, OTRC, staggered), CLM (`clm/`) and the Jev selector backend
-(`jev_select.py`) were removed on 2026-11-19; git history before that commit has
+(SU-free) and the online Claude select family, ocs / ocsa (`primitives.py`,
+`claude_extract.py` for the selector model). The ICLR-era primitives (SU-full,
+SS, the partial forms, TRC and its stacks, OTRC, staggered), CLM (`clm/`), the
+Jev selector backend (`jev_select.py`), the online Claude extract (oce) and the
+incremental / threshold / output-extract / phase-gate select variants (ocsi,
+ocst, ocstx, ocstx15, ocstx15p) were removed on 2026-11-19; git history before that commit has
 their code, contracts and measurements.
 
 # TR contract (standalone and SU-free fallback)

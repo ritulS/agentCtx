@@ -429,20 +429,12 @@ class SweBench:
             "summarization_latency_s": token_log.get("summarization_latency_s", 0.0),
             "summarization_model": token_log.get("summarization_model"),
         }
-        # online_claude_extract / online_claude_select runs (Claude-written
-        # extracts, or Claude-selected original messages, before every call).
+        # online_claude_select runs (Claude-selected original messages before
+        # every call; the selector model in extract_model).
         for key in (
-            "online_claude_extract_events", "online_claude_extract_total_tokens_saved",
-            "online_claude_extract_accepted", "online_claude_extract_errors", "extract_model",
+            "extract_model",
             "online_claude_select_events", "online_claude_select_total_tokens_saved",
             "online_claude_select_accepted", "online_claude_select_errors",
-            # per-output pre-extraction (MSWEA_OUTPUT_EXTRACT_ABOVE; the ocstx condition)
-            "output_extract_events", "output_extract_threshold", "output_extract_total_tokens_saved",
-            "output_extract_accepted", "output_extract_trimmed", "output_extract_removed",
-            "output_extract_errors",
-            # phase-boundary gate on the threshold firing (MSWEA_PHASE_GATE; the ocstx15p condition)
-            "phase_judge_config", "phase_judge_events", "phase_judge_calls", "phase_judge_boundary",
-            "phase_judge_continue", "phase_judge_forced", "phase_judge_errors",
         ):
             if key in token_log:
                 result[key] = token_log[key]

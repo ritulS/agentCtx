@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Export the per-step selections of an online-claude-select cell (ocs / ocsa /
-ocsi) in human-readable form: one folder per run with
+"""Export the per-step selections of an online-claude-select cell (ocs / ocsa)
+in human-readable form: one folder per run with
 
   view.html        self-contained page: a grid of history messages (rows) x
                    selection steps (columns) coloured kept / partial / dropped /
