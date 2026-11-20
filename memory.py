@@ -8,8 +8,8 @@ state such as the cached summary model, is shared with
 ``agentctx.compression.primitives``.
 
 Drop this file once the submodule imports ``agentctx.compression.primitives``
-directly (the three ``import memory`` lines in agents/default.py: the event
-log, the online-TRC hook and the budget-triggered compression hook).
+directly (the ``import memory`` lines in agents/default.py: the event log,
+the token log and the budget-triggered compression hook).
 """
 
 import sys

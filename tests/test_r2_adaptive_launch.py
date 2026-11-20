@@ -49,7 +49,7 @@ def _sandbox(tmp: Path) -> tuple[Path, dict]:
                  "task_lists/swe_verified/p100_qwen35b_fc_not_tr_su-free.json",
                  "task_lists/swe_verified/p100_qwen35b_su-free_majority_resolved.json",
                  "task_lists/swe_verified/p100_qwen35b_tr_majority_resolved.json",
-                 "configs/config-qwen-vllm.yaml", "configs/config-online-trc.yaml"]:
+                 "configs/config-qwen-vllm.yaml"]:
         p = tmp / name
         p.parent.mkdir(parents=True, exist_ok=True)
         p.touch()

@@ -24,8 +24,11 @@ uvx --with pyyaml pytest --reference-branch akiho-clean-20260903-2   # any branc
 
 `--reference-branch` is repeatable and replaces the default list. Scenarios
 that need a capability the reference predates (Terminal-Bench, verdict
-handling, `--summary-config`, the ICLR sections)
+handling, `--summary-config`, the ICLR sections, the SU-free condition)
 are skipped for that branch, so older branches compare only the shared core.
+Since 2026-11-19 the working tree keeps only full-context, truncation,
+summarization-free and the online-claude-select cells, so the scenarios cover
+those; the reference's other conditions are not compared.
 
 Any interpreter with `pytest` and `pyyaml` works (`python -m pytest`). The
 whole suite takes about 30 s. Python 3.10 and 3.12 are both fine.
@@ -99,7 +102,7 @@ but asserted explicitly in their own tests:
 Append a `scenario(...)` to `SCENARIOS` in `test_runner_equivalence.py`. Use
 `failing([...])` for a command that must exit non-zero, and `requires=...`
 for capabilities the reference must have (`TB`, `TB_VERDICTS`, `SUMMARY`,
-`SECTIONS`, `TB_CALIBRATION`, `SB_CALIBRATION`). Fixture task ids drive the
+`SECTIONS`, `SU_FREE`). Fixture task ids drive the
 fakes: SWE-bench ids ending in `-crash` / `-nopatch` / `-applyfail` /
 `-evalerr`, Terminal-Bench names ending in `-fail` / `-timeout` / `-envfail` /
 `-vtimeout` (see `harness.py`).
@@ -117,9 +120,8 @@ fakes: SWE-bench ids ending in `-crash` / `-nopatch` / `-applyfail` /
 | `test_summary_query.py` | litellm, mini-swe-agent (`venv`) | prose summaries through mini-swe-agent v2 models |
 | `test_call_accounting.py` | litellm, tiktoken, mini-swe-agent (`venv`) | Rejected-response usage/cost/latency, step alignment, final and pre-call log persistence, atomic writes; runnable with `venv/bin/python -m unittest discover -s tests -p test_call_accounting.py`. |
 | `test_adaptive_runner.py` | pyyaml | Explicit adaptive CLI for SWE/TB, baseline isolation, immutable configuration/source snapshots, result provenance and resume mismatch rejection. |
-| `test_adaptive_compression.py` | tiktoken, mini-swe-agent (`venv`) | Per-trigger primitive/budget/depth switching, Python/JSON policy loading, OTRC step intervals and no-op triggers, per-agent isolation and failure log persistence. |
-| `test_trc.py` | tiktoken, mini-swe-agent (`venv`) | K=3 clear-all policy, complete-turn fallback, signed token savings, budget overflow continuation and logging, real agent dispatch and logs. Also runnable with `venv/bin/python -m unittest discover -s tests -p test_trc.py`. |
-| `test_summary_free.py` | tiktoken | SU-free / SS-free carry no word target; SU/SS prompts unchanged by the helper refactor |
+| `test_adaptive_compression.py` | tiktoken, mini-swe-agent (`venv`) | Per-trigger primitive/budget/depth switching, Python/JSON policy loading, the online step-interval clock (with a stand-in extractor), per-agent isolation and failure log persistence. |
+| `test_summary_free.py` | tiktoken | SU-free carries no word target and falls back to complete turns |
 | `test_harbor_cancellation.py` | Harbor, mini-swe-agent (`venv-harbor`) | worker cancellation in the Harbor adapter |
 | `test_replay.py` | Harbor (`venv-harbor`) | trajectory replay re-verification |
 

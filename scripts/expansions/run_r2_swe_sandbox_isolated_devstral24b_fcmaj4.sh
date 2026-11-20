@@ -9,15 +9,16 @@
 # SERVER_LIFECYCLE=per-run: a fresh vLLM server and container generation per
 # run, MAX_WORKERS=1), run-major inside each cell, cells in CELLS order:
 #   phase A  RUNS_PER_TASK=2   di__binf__fc        full-context (no compression)
-#                              d05__b21k__su-full  summarization at Devstral's primary
-#                                                  budget 21k (ICLR calibration),
-#                                                  summarizer = the agent model
+#                              (d05__b21k__su-full, summarization at Devstral's
+#                              primary ICLR budget 21k, ran here 2026-10-25; the
+#                              su-full condition was removed 2026-11-19, so the
+#                              cell is no longer in CELLS_A and its data stays)
 #   phase B  RUNS_PER_TASK=1   di__binf__ocs       online-claude-select (Claude picks
 #                                                  which original messages / output
 #                                                  lines of the complete history to
 #                                                  keep; needs ANTHROPIC_API_KEY or
 #                                                  ~/.config/agentctx/anthropic_api_key)
-# = 8 + 8 + 4 = 20 cycles. Keys are <task>__<condition>__r<n>; recorded keys are
+# = 8 + 4 = 12 cycles (20 with the retired su-full cell). Keys are <task>__<condition>__r<n>; recorded keys are
 # skipped, so rerunning resumes (phase A is skipped entirely once complete).
 #
 # Server: scripts/serving/start_vllm_devstral.sh (the ICLR serving command:
@@ -56,7 +57,7 @@ WS="${AGENTCTX_WS:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 source "$SCRIPT_DIR/../lib/logpaths.sh"
 
 PHASES="${PHASES:-A B}"
-CELLS_A="${CELLS_A:-di__binf__fc:full-context:0.5 d05__b21k__su-full:summarization:0.5}"
+CELLS_A="${CELLS_A:-di__binf__fc:full-context:0.5}"
 RUNS_A="${RUNS_A:-2}"
 CELLS_B="${CELLS_B:-di__binf__ocs:online-claude-select:0.5}"
 RUNS_B="${RUNS_B:-1}"

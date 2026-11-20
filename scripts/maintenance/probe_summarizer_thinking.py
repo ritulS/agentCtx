@@ -57,7 +57,7 @@ from reconstruct_context import Replay  # noqa: E402
 DEFAULT_CELL = WS / "data/r2/swebench/p100_su_free_majority/qwen35b-cap4k/d05__b15k__adaptive-prefix3-sss"
 DEFAULT_OUT = WS / "data/r2/probes/summarizer_thinking"
 MODEL = "Qwen/Qwen3.5-35B-A3B"
-SUMMARY_PRIMITIVES = {"summarization_free", "summarization", "summarization_partial"}
+SUMMARY_PRIMITIVES = {"summarization_free"}   # the SU-full / SU-partial events of old runs are skipped
 
 
 class _PlainModel:

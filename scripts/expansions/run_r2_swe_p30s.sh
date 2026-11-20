@@ -8,15 +8,14 @@
 #   Agent      : Qwen3.5-35B-A3B, configs/config-qwen-vllm.yaml, :8000
 #   Summarizer : the agent model itself (no --summary-config, no second server)
 #   Cells      : chosen by the first argument (a preset), default "free":
-#                  free       di__b15k__{su-free,ss-free}  (length-free summaries)
+#                  free       di__b15k__su-free  (length-free summary; = su-free
+#                             since the ss-free cell was removed 2026-11-19)
 #                  su-free    di__b15k__su-free
-#                  ss-free    di__b15k__ss-free
 #                  fc         di__binf__fc    (full context, unlimited budget)
-#                  otrc       di__binf__otrc  (online TRC, unlimited budget)
-#                  baselines  di__binf__{fc,otrc}
+#                  baselines  di__binf__fc    (= fc since the otrc cell was removed 2026-11-19)
 #                CELLS="cell:condition:depth ..." overrides the preset for any
-#                other cell of the ICLR grid.
-#   Tasks      : P30S x RUNS_PER_TASK runs (default 3) -> "free": 2 cells x 30 x 3 = 180 runs
+#                other cell of the surviving grid (fc, tr, su-free).
+#   Tasks      : P30S x RUNS_PER_TASK runs (default 3) -> "free": 1 cell x 30 x 3 = 90 runs
 # Results go to data/r2/swebench/p30s/<R2_MODEL>/<cell>/ (gitignored; see DATA.md).
 # The p30s section keeps these runs apart from the ICLR tree and from any other
 # r2 cohort, so completed keys of one cohort are never skipped-as-complete for
@@ -30,7 +29,7 @@
 # Other runs/task count (default 3):
 #   RUNS_PER_TASK=5 bash scripts/expansions/run_r2_swe_p30s.sh
 # Other cells ("cell:condition:depth" triples, space-separated):
-#   CELLS="d05__b15k__tr:truncation:0.5 di__b15k__trc:tool-result-clear:0.5 di__binf__fc:full-context:0.5" \
+#   CELLS="d05__b15k__tr:truncation:0.5 di__binf__fc:full-context:0.5" \
 #     bash scripts/expansions/run_r2_swe_p30s.sh
 # Smoke test (1 task x 1 cell x 1 run into a throwaway model dir; delete it afterwards —
 # "-smoke" model dirs are ignored by build_coverage.py and aggregate_benchmark_results.py):
@@ -41,7 +40,7 @@
 #   R2_SECTION=p100_minus_p30s bash scripts/expansions/run_r2_swe_p30s.sh
 # Overrides: R2_SECTION (p30s | p100_minus_p30s; also picks the default TASKS_FILE),
 #   R2_MODEL, RUNS_PER_TASK, MAX_WORKERS, N_TASKS (first N tasks of
-#   TASKS_FILE), TASKS_FILE, QWEN_AGENT_CONFIG, QWEN_OTRC_CONFIG, QWEN_TAG,
+#   TASKS_FILE), TASKS_FILE, QWEN_AGENT_CONFIG, QWEN_TAG,
 #   RUN_EVAL, QWEN_HEALTH_URL, CELLS, AGENT_TIMEOUT / STEP_LIMIT (runner defaults
 #   5400 s / 300 when unset).
 # Completed task/condition/run keys are skipped on rerun.
@@ -56,7 +55,6 @@ agentctx_profile    # AGENTCTX_PROFILE=albus-swe -> 8 workers unless MAX_WORKERS
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_r2.py"
 AGENT_CONFIG="${QWEN_AGENT_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
-OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 MODEL_TAG="${QWEN_TAG:-qwen35-a3b}"                 # same tag as the ICLR Qwen runs
 AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 R2_SECTION="${R2_SECTION:-p30s}"                    # data/r2/swebench/<section>/
@@ -76,20 +74,18 @@ N_TASKS="${N_TASKS:-}"          # empty = every task in TASKS_FILE
 # The budget comes from the cell name: b<N>k -> N000, binf -> unlimited.
 PRESET="${1:-free}"
 case "$PRESET" in
-    free)      PRESET_CELLS="di__b15k__su-free:summarization-free:0.5 di__b15k__ss-free:structured-summarize-free:0.5" ;;
+    free)      PRESET_CELLS="di__b15k__su-free:summarization-free:0.5" ;;
     su-free)   PRESET_CELLS="di__b15k__su-free:summarization-free:0.5" ;;
-    ss-free)   PRESET_CELLS="di__b15k__ss-free:structured-summarize-free:0.5" ;;
     fc)        PRESET_CELLS="di__binf__fc:full-context:0.5" ;;
-    otrc)      PRESET_CELLS="di__binf__otrc:online-trc:0.5" ;;
-    baselines) PRESET_CELLS="di__binf__fc:full-context:0.5 di__binf__otrc:online-trc:0.5" ;;
-    *) echo "[ERROR] unknown preset '$PRESET'; use free | su-free | ss-free | fc | otrc | baselines (or set CELLS)" >&2; exit 1 ;;
+    baselines) PRESET_CELLS="di__binf__fc:full-context:0.5" ;;
+    *) echo "[ERROR] unknown preset '$PRESET'; use free | su-free | fc | baselines (or set CELLS)" >&2; exit 1 ;;
 esac
 CELLS="${CELLS:-$PRESET_CELLS}"
 LOG_FILE="${R2_P30S_LOG_FILE:-$(experiment_log "r2_sb_${R2_SECTION}_${R2_MODEL}")}"
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
-require_file "$OTRC_CONFIG"; require_file "$TASKS_FILE"
+require_file "$TASKS_FILE"
 EXTRA_ARGS=()
 if [[ -n "$N_TASKS" ]]; then
     [[ "$N_TASKS" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] N_TASKS must be a positive integer: $N_TASKS" >&2; exit 1; }
@@ -148,7 +144,7 @@ run_runner() {
         --r2-section "$R2_SECTION" --r2-model "$R2_MODEL" --r2-cell "$1" \
         --ablation "r2-${R2_MODEL}-${R2_SECTION}-$1" \
         --model-tag "$MODEL_TAG" \
-        --agent-config "$AGENT_CONFIG" --otrc-config "$OTRC_CONFIG" \
+        --agent-config "$AGENT_CONFIG" \
         --budget "$4" --depth "$3" --tasks-file "$TASKS_FILE" \
         --conditions "$2" --runs-per-task "$RUNS_PER_TASK" \
         --max-workers "$MAX_WORKERS" "${EXTRA_ARGS[@]}" "${@:5}" 2>&1 | emit

@@ -43,7 +43,7 @@ This writes `kv_cache_steps.json` in the run directory, with each agent step's:
 - completion/partial/missing/ambiguous measurement status.
 
 `steps` has one row per agent model call. `summary_calls` has one row per
-summarizer query made by a compression event (SU/SS families; one row per
+summarizer query made by a compression event (SU-free; one row per
 attempt, rejected attempts included), joined through
 `summary_outcomes[].response_ids` in `token_log.json`. Each row carries
 `attempt_accepted` (this query produced the summary; only the last query of

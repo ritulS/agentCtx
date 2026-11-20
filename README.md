@@ -61,9 +61,9 @@ Per-model serving configs live in [configs/](configs/).
 
 | Path | What |
 |------|------|
-| `src/agentctx/compression/primitives.py` | The compression primitives (truncate, summarize, structured_summarize, tool_result_clear, online variants, …). This is the scientific core. `memory.py` at the repo root is an alias kept for the pinned mini-swe-agent commit, which still does `import memory`. |
+| `src/agentctx/compression/primitives.py` | The compression primitives (truncation, the length-free summary, and the online Claude extract / select family). This is the scientific core. The ICLR-era primitives (SU-full, SS, the partial forms, TRC and its stacks, OTRC, staggered), CLM and the Jev selector backend were removed on 2026-11-19 and live in git history before that commit. `memory.py` at the repo root is an alias kept for the pinned mini-swe-agent commit, which still does `import memory`. |
 | `mini-swe-agent/` | Submodule — agent loop; primitives dispatched in `src/minisweagent/agents/default.py` via the `MSWEA_PRIMITIVE` env var. |
-| `scripts/run_experiment.py` | CLI entry point for `src/agentctx/experiments/runner.py`. Conditions in `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--otrc-config`, `--summary-config`, `--max-workers`. |
+| `scripts/run_experiment.py` | CLI entry point for `src/agentctx/experiments/runner.py`. Conditions in `src/agentctx/experiments/conditions.py`; `--ablation`, `--budget`, `--tasks-file`, `--conditions`, `--summary-config`, `--max-workers`. |
 | `scripts/run_experiment_iclr.py` | Wraps the runner to write into the canonical `ICLR_experiments/` tree (`src/agentctx/experiments/iclr.py`). |
 | `scripts/run_experiment_r2.py` | Same wrapper for the r2 extension campaign; writes into `data/r2/` with the ICLR `<benchmark>/<section>/<model>/<cell>` layout (`src/agentctx/experiments/r2.py`). |
 | `src/agentctx/benchmarks/` | Per-benchmark adapters (SWE-bench, Terminal-Bench through Harbor), verdict handling and shared result conversion. |
@@ -75,15 +75,15 @@ Per-model serving configs live in [configs/](configs/).
 | `task_lists/` | Pinned task cohorts. Manifest, subset relations and the ABL-25 filter rule are in `task_lists/README.md`. |
 | `ICLR_experiments/` | Canonical ICLR run data, the experiment plan/grid and logs (`FOLLOWUP_EXPERIMENTS.md`, `EXPERIMENT_LOG*.md`), per-run outcome aggregation (`analysis/`) and figure code (`plotting/`). |
 
-The current TRC contract (K=3, clear all older results, then truncate complete
-turns only to the budget) and its measurements are documented in
+The TR contract (complete-turn truncation to budget × depth, also the SU-free
+fallback) and the summary-acceptance rules are documented in
 [src/agentctx/compression/README.md](src/agentctx/compression/README.md).
 
 Per-step exclusive/shared KV cache memory can be collected with the opt-in
 vLLM scheduler tracer; see [setup and export instructions](src/agentctx/KV_CACHE_TRACE.md).
 
-Adaptive runs can change primitive, trigger (token budget or OTRC step interval),
-and depth using a Python callback or JSON schedule. The generic runner accepts
+Adaptive runs can change primitive, budget and depth (and the step interval of
+the online primitives) using a Python callback or JSON schedule. The generic runner accepts
 `--adaptive-schedule` or `--adaptive-policy` for a dedicated `adaptive` condition;
 fixed conditions and baselines ignore ambient adaptive options. See the [adaptive API and examples](src/agentctx/compression/ADAPTIVE.md).
 

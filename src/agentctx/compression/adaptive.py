@@ -14,19 +14,14 @@ from typing import Callable
 
 
 PRIMITIVES = frozenset({
-    "truncation", "summarization", "structured_summarize",
-    "summarization_free", "structured_summarize_free",
-    "summarization_partial", "structured_summarize_partial",
-    "tool_result_clear", "scored_tool_result_clear",
-    "trc_summarize", "trc_structured_summarize", "online_trc",
-    "online_trc_summarize_partial", "online_trc_structured_summarize_partial",
-    "staggered_alternate", "staggered_random",
+    "truncation", "summarization_free",
     "online_claude_extract", "online_claude_select",
 })
+# The ICLR-era primitives (SU-full, SS, the partial forms, TRC and its stacks,
+# OTRC, staggered) were removed 2026-11-19; schedules naming them are rejected.
 
 
 ONLINE_PRIMITIVES = frozenset({
-    "online_trc", "online_trc_summarize_partial", "online_trc_structured_summarize_partial",
     # online_claude_extract fires before every model call from DefaultAgent.query
     # and needs no budget; under a policy its cadence is step_interval (else
     # MSWEA_EXTRACT_EVERY). online_claude_select is its extractive sibling.
@@ -60,8 +55,6 @@ class CompressionConfig:
                 raise ValueError("step_interval is only supported by online primitives")
             if type(self.step_interval) is not int or self.step_interval <= 0:
                 raise ValueError("step_interval must be a positive integer")
-        if self.primitive.startswith("staggered_") and self.budget not in (10000, 15000, 20000):
-            raise ValueError("staggered primitives require budget 10000, 15000, or 20000")
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -71,12 +64,12 @@ class CompressionConfig:
 class CompressionEvent:
     index: int  # 1-based policy decisions; at most one per query
     step: int  # attempted agent model calls (same convention as compression_events.jsonl)
-    kind: str  # "budget", "online_trc", "online_claude_extract" or "online_claude_select"
+    kind: str  # "budget", "online_claude_extract" or "online_claude_select"
     config: CompressionConfig
     tokens_before: int
     tokens_after: int
     messages: tuple[dict, ...]  # deep copy after ALL compression in this query
-    kinds: tuple[str, ...] = ()  # ordered operation kinds; may contain both online_trc and budget
+    kinds: tuple[str, ...] = ()  # ordered operation kinds; may contain both an online kind and budget
 
     @property
     def tokens_saved(self) -> int:

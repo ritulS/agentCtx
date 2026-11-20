@@ -80,6 +80,9 @@ class Tree:
         iclr = ("run_experiment_iclr.py", "agentctx/experiments/iclr.py")
         if self._mentions("prefix_cache_ablation", *iclr):
             features.add("iclr-sections")
+        if self._mentions('"summarization-free"', "experiments/conditions.py", "agentctx/experiments/conditions.py",
+                          "run_experiment.py"):
+            features.add("su-free")
         return frozenset(features)
 
 
@@ -169,10 +172,10 @@ _AGENT = """agent:
 """
 CONFIGS = {
     "config-qwen-vllm.yaml": _AGENT + _MODEL_A,
+    # Named by the reference tree's online-trc conditions (removed from the working tree 2026-11-19).
     "config-online-trc.yaml": _AGENT + "  system_template: online-trc prompts\n" + _MODEL_A,
     "config-tbench.yaml": _AGENT + "  instance_template: terminal-bench prompt\n",
     "config-alt-agent.yaml": _AGENT + _MODEL_B,
-    "config-alt-otrc.yaml": _AGENT + "  system_template: alt online-trc prompts\n" + _MODEL_B,
     # Summarizer overrides: only their `model:` section is read.
     "config-summary-b.yaml": _MODEL_B,
     "config-summary-c.yaml": _MODEL_C,

@@ -9,8 +9,10 @@ same files under ``results/``, ``ICLR_experiments/`` and ``logs/``, including th
 exact agent/Harbor invocation captured by the fakes.
 
 Scenarios that need a capability a reference branch predates (Terminal-Bench,
-``--summary-config``, verdict handling) are skipped
-for that branch.
+``--summary-config``, verdict handling, the SU-free condition) are skipped
+for that branch. The working tree keeps only the conditions full-context,
+truncation, summarization-free and the online-claude-* cells (2026-11-19), so
+the scenarios cover those; the reference's other conditions are not compared.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ TB = frozenset({"terminal-bench"})
 TB_VERDICTS = TB | {"tb-verdicts"}
 SUMMARY = frozenset({"summary-config"})
 SECTIONS = frozenset({"iclr-sections"})
+SU_FREE = frozenset({"su-free"})   # the only summarizer condition left in the working tree
 INF = "999999999"
 
 
@@ -58,35 +61,30 @@ SCENARIOS = [
     scenario(
         "swe-ablation-custom-tasks",
         [RUN, "--ablation", "eq-custom", "--tasks-file", "task_lists/custom_tasks.json",
-         "--conditions", "truncation", "full-context", "online-trc",
+         "--conditions", "truncation", "full-context",
          "--budget", "10000", "--depth", "0.3", "--runs-per-task", "1",
          "--max-workers", "1", "--model-tag", "eqmodel"],
     ),
     scenario(
         "swe-ablation-default-tasks-resume",
-        [RUN, "--ablation", "eq-resume", "--conditions", "summarization-partial",
+        [RUN, "--ablation", "eq-resume", "--conditions", "summarization-free",
          "--runs-per-task", "1", "--max-workers", "1"],
         # Second launch adds only run 2 for the first three tasks.
-        [RUN, "--ablation", "eq-resume", "--conditions", "summarization-partial",
+        [RUN, "--ablation", "eq-resume", "--conditions", "summarization-free",
          "--runs-per-task", "2", "--n-tasks", "3", "--max-workers", "2"],
+        requires=SU_FREE,
     ),
     scenario(
         "swe-model-tag-balanced-sampling",
-        [RUN, "--n-tasks", "4", "--conditions", "tool-result-clear", "trc-ss",
+        [RUN, "--n-tasks", "4", "--conditions", "truncation", "full-context",
          "--runs-per-task", "1", "--max-workers", "1"],
     ),
     scenario(
-        "swe-otrc-and-agent-config-overrides",
-        [RUN, "--ablation", "eq-otrc", "--n-tasks", "2",
-         "--conditions", "otrc-tr", "otrc-su-partial", "online-trc", "truncation",
-         "--otrc-config", "configs/config-alt-otrc.yaml",
+        "swe-agent-config-override",
+        [RUN, "--ablation", "eq-agentcfg", "--n-tasks", "2",
+         "--conditions", "full-context", "truncation",
          "--agent-config", "configs/config-alt-agent.yaml",
          "--runs-per-task", "1", "--max-workers", "1"],
-    ),
-    scenario(
-        "swe-all-conditions",
-        [RUN, "--ablation", "eq-all", "--n-tasks", "2", "--runs-per-task", "1",
-         "--max-workers", "4"],
     ),
     scenario(
         "swe-with-eval-then-eval-only",
@@ -113,16 +111,16 @@ SCENARIOS = [
     scenario(
         "swe-summary-config",
         [RUN, "--ablation", "eq-sum", "--tasks-file", "task_lists/custom_tasks.json",
-         "--conditions", "summarization", "trc-su", "otrc-su-partial",
+         "--conditions", "summarization-free",
          "--summary-config", "configs/config-summary-b.yaml",
          "--runs-per-task", "1", "--max-workers", "1"],
-        requires=SUMMARY,
+        requires=SUMMARY | SU_FREE,
     ),
     scenario(
         "swe-summary-config-missing",
-        failing([RUN, "--ablation", "eq-sum-missing", "--conditions", "summarization",
+        failing([RUN, "--ablation", "eq-sum-missing", "--conditions", "summarization-free",
                  "--summary-config", "configs/does-not-exist.yaml"]),
-        requires=SUMMARY,
+        requires=SUMMARY | SU_FREE,
     ),
     scenario(
         "swe-eval-only-without-results",
@@ -143,8 +141,8 @@ SCENARIOS = [
     scenario(
         "iclr-swe-option-equals-form",
         [ICLR, "--iclr-section", "main", "--iclr-model", "eqmodel",
-         "--iclr-cell", "d07__b20k__ss", "--n-tasks", "2",
-         "--conditions", "structured-summarize", "--budget=20000", "--depth=0.7",
+         "--iclr-cell", "d07__b20k__tr", "--n-tasks", "2",
+         "--conditions", "truncation", "--budget=20000", "--depth=0.7",
          "--runs-per-task", "1", "--max-workers", "1"],
         requires=SECTIONS,
     ),
@@ -158,65 +156,68 @@ SCENARIOS = [
     scenario(
         "iclr-swe-explicit-ablation-passthrough",
         [ICLR, "--iclr-section", "main", "--iclr-model", "eqmodel",
-         "--iclr-cell", "di__b15k__trc-su", "--ablation", "my-abl", "--n-tasks", "2",
-         "--conditions", "trc-su", "--budget", "15000", "--depth", "0.5",
+         "--iclr-cell", "di__b15k__su-free", "--ablation", "my-abl", "--n-tasks", "2",
+         "--conditions", "summarization-free", "--budget", "15000", "--depth", "0.5",
          "--runs-per-task", "1", "--max-workers", "1"],
+        requires=SU_FREE,
     ),
     scenario(
         "iclr-swe-symbolic-budget-conflict",
         [ICLR, "--iclr-section", "main", "--iclr-model", "glm",
-         "--iclr-cell", "di__bA__trc", "--n-tasks", "2",
-         "--conditions", "tool-result-clear", "--budget", "12000", "--depth", "0.5",
+         "--iclr-cell", "di__bA__su-free", "--n-tasks", "2",
+         "--conditions", "summarization-free", "--budget", "12000", "--depth", "0.5",
          "--runs-per-task", "1", "--max-workers", "1"],
         failing([ICLR, "--iclr-section", "main", "--iclr-model", "glm",
-                 "--iclr-cell", "di__bA__trc", "--n-tasks", "2",
-                 "--conditions", "tool-result-clear", "--budget", "13000", "--depth", "0.5",
+                 "--iclr-cell", "di__bA__su-free", "--n-tasks", "2",
+                 "--conditions", "summarization-free", "--budget", "13000", "--depth", "0.5",
                  "--runs-per-task", "1", "--max-workers", "1"]),
+        requires=SU_FREE,
     ),
     scenario(
         "iclr-swe-model-ablation-summary-config",
         [ICLR, "--iclr-section", "model_ablation", "--iclr-model", "eqmodel-sum-b",
-         "--iclr-cell", "d05__b15k__su-full", "--tasks-file", "task_lists/custom_tasks.json",
-         "--conditions", "summarization", "--budget", "15000", "--depth", "0.5",
+         "--iclr-cell", "di__b15k__su-free", "--tasks-file", "task_lists/custom_tasks.json",
+         "--conditions", "summarization-free", "--budget", "15000", "--depth", "0.5",
          "--summary-config", "configs/config-summary-b.yaml",
          "--runs-per-task", "1", "--max-workers", "1"],
         # Same cell, different summarizer: refused because the existing rows
         # recorded model-b.
         failing([ICLR, "--iclr-section", "model_ablation", "--iclr-model", "eqmodel-sum-b",
-                 "--iclr-cell", "d05__b15k__su-full", "--tasks-file", "task_lists/custom_tasks.json",
-                 "--conditions", "summarization", "--budget", "15000", "--depth", "0.5",
+                 "--iclr-cell", "di__b15k__su-free", "--tasks-file", "task_lists/custom_tasks.json",
+                 "--conditions", "summarization-free", "--budget", "15000", "--depth", "0.5",
                  "--summary-config=configs/config-summary-c.yaml",
                  "--runs-per-task", "1", "--max-workers", "1"]),
-        requires=SECTIONS | SUMMARY,
+        requires=SECTIONS | SUMMARY | SU_FREE,
     ),
     scenario(
         "iclr-swe-main-rejects-summary-config",
         failing([ICLR, "--iclr-section", "main", "--iclr-model", "eqmodel",
-                 "--iclr-cell", "d05__b15k__su-full", "--conditions", "summarization",
+                 "--iclr-cell", "di__b15k__su-free", "--conditions", "summarization-free",
                  "--budget", "15000", "--depth", "0.5",
                  "--summary-config", "configs/config-summary-b.yaml"]),
-        requires=SECTIONS | SUMMARY,
+        requires=SECTIONS | SUMMARY | SU_FREE,
     ),
     scenario(
         "iclr-swe-model-ablation-requires-summary-config",
         failing([ICLR, "--iclr-section", "model_ablation", "--iclr-model", "eqmodel-sum-b",
-                 "--iclr-cell", "d05__b15k__su-full", "--conditions", "summarization",
+                 "--iclr-cell", "di__b15k__su-free", "--conditions", "summarization-free",
                  "--budget", "15000", "--depth", "0.5"]),
-        requires=SECTIONS | SUMMARY,
+        requires=SECTIONS | SUMMARY | SU_FREE,
     ),
     scenario(
         "iclr-swe-prefix-cache-ablation-section",
         [ICLR, "--iclr-section", "prefix_cache_ablation", "--iclr-model", "eqmodel-prefixcache",
-         "--iclr-cell", "di__b15k__trc", "--n-tasks", "2",
-         "--conditions", "tool-result-clear", "--budget", "15000", "--depth", "0.5",
+         "--iclr-cell", "di__b15k__su-free", "--n-tasks", "2",
+         "--conditions", "summarization-free", "--budget", "15000", "--depth", "0.5",
          "--runs-per-task", "1", "--max-workers", "1"],
-        requires=SECTIONS,
+        requires=SECTIONS | SU_FREE,
     ),
     scenario(
         "iclr-swe-primitive-mismatch",
         failing([ICLR, "--iclr-section", "main", "--iclr-model", "eqmodel",
-                 "--iclr-cell", "d05__b10k__tr", "--conditions", "summarization",
+                 "--iclr-cell", "d05__b10k__tr", "--conditions", "summarization-free",
                  "--budget", "10000", "--depth", "0.5"]),
+        requires=SU_FREE,
     ),
     scenario(
         "iclr-swe-depth-mismatch",
@@ -247,29 +248,28 @@ SCENARIOS = [
         # TB_MAX_BATCH_ATTEMPTS times with the earlier attempts kept aside.
         "tb-all-dataset-tasks",
         [RUN, "--benchmark", "terminal-bench", "--model-tag", "tbmodel",
-         "--conditions", "truncation", "full-context", "online-trc",
+         "--conditions", "truncation", "full-context",
          "--runs-per-task", "1", "--max-workers", "2"],
         requires=TB_VERDICTS,
     ),
     scenario(
         "tb-tasks-file-resume",
         [RUN, "--benchmark", "terminal-bench", "--model-tag", "tbmodel2",
-         "--tasks-file", "task_lists/tb_tasks.json", "--conditions", "tool-result-clear",
+         "--tasks-file", "task_lists/tb_tasks.json", "--conditions", "truncation",
          "--budget", "20000", "--depth", "0.7", "--runs-per-task", "1", "--max-workers", "1"],
         [RUN, "--benchmark", "terminal-bench", "--model-tag", "tbmodel2",
-         "--tasks-file", "task_lists/tb_tasks.json", "--conditions", "tool-result-clear",
+         "--tasks-file", "task_lists/tb_tasks.json", "--conditions", "truncation",
          "--budget", "20000", "--depth", "0.7", "--runs-per-task", "2", "--max-workers", "1"],
         # --eval-only only reports rows without a verdict.
         [RUN, "--benchmark", "terminal-bench", "--model-tag", "tbmodel2",
-         "--tasks-file", "task_lists/tb_tasks.json", "--conditions", "tool-result-clear",
+         "--tasks-file", "task_lists/tb_tasks.json", "--conditions", "truncation",
          "--budget", "20000", "--depth", "0.7", "--runs-per-task", "2", "--eval-only"],
         requires=TB_VERDICTS,
     ),
     scenario(
-        "tb-n-tasks-with-config-overrides",
+        "tb-n-tasks-with-agent-config-override",
         [RUN, "--benchmark", "terminal-bench", "--model-tag", "tbmodel3", "--n-tasks", "2",
-         "--conditions", "otrc-ss-partial", "summarization",
-         "--otrc-config", "configs/config-alt-otrc.yaml",
+         "--conditions", "truncation", "full-context",
          "--agent-config", "configs/config-alt-agent.yaml",
          "--runs-per-task", "1", "--max-workers", "1"],
         requires=TB,
@@ -277,10 +277,10 @@ SCENARIOS = [
     scenario(
         "tb-summary-config",
         [RUN, "--benchmark", "terminal-bench", "--model-tag", "tbmodel-sum", "--n-tasks", "2",
-         "--conditions", "summarization-partial",
+         "--conditions", "summarization-free",
          "--summary-config", "configs/config-summary-b.yaml",
          "--runs-per-task", "1", "--max-workers", "1"],
-        requires=TB | SUMMARY,
+        requires=TB | SUMMARY | SU_FREE,
     ),
     scenario(
         "tb-ablation-rejected",
@@ -296,19 +296,19 @@ SCENARIOS = [
     ),
     # ── run_experiment_iclr.py, Terminal-Bench ────────────────────────────────
     scenario(
-        "iclr-tb-di-b15k-trc",
+        "iclr-tb-di-b15k-su-free",
         [ICLR, "--iclr-benchmark", "terminal-bench", "--benchmark", "terminal-bench",
          "--iclr-section", "main", "--iclr-model", "tbmodel",
-         "--iclr-cell", "di__b15k__trc", "--conditions", "tool-result-clear",
+         "--iclr-cell", "di__b15k__su-free", "--conditions", "summarization-free",
          "--budget", "15000", "--depth", "0.5", "--n-tasks", "2",
          "--runs-per-task", "1", "--max-workers", "1"],
-        requires=TB,
+        requires=TB | SU_FREE,
     ),
     scenario(
         "iclr-tb-benchmark-mismatch",
         failing([ICLR, "--iclr-benchmark", "terminal-bench",
                  "--iclr-section", "main", "--iclr-model", "tbmodel",
-                 "--iclr-cell", "di__b15k__trc", "--conditions", "tool-result-clear",
+                 "--iclr-cell", "di__b15k__tr", "--conditions", "truncation",
                  "--budget", "15000", "--depth", "0.5"]),
         requires=TB,
     ),
@@ -401,7 +401,7 @@ def test_swe_summary_config_reaches_agents_and_metadata(working_tree: Tree, tmp_
     submitted = [row for row in rows if row["returncode"] == 0]
     assert submitted and all(row["summarization_model"]["config_path"] == config for row in submitted)
     invocation = json.loads(
-        (sandbox.root / "results/ablations/eq-sum/django__django-10003/summarization/run_1/invocation.json").read_text()
+        (sandbox.root / "results/ablations/eq-sum/django__django-10003/summarization-free/run_1/invocation.json").read_text()
     )
     assert invocation["env"]["MSWEA_SUMMARY_MODEL_CONFIG"] == config
     info = json.loads((sandbox.root / "results/ablations/eq-sum/run_info.json").read_text())
@@ -419,7 +419,7 @@ def test_tb_scenario_exercises_harbor_outcomes(working_tree: Tree, tmp_path):
         assert result.returncode == command.returncode, result.stderr
     rows = _rows(sandbox.root, "results/tbmodel/experiment_results.json")
 
-    assert len(rows) == 6 * 3
+    assert len(rows) == 6 * 2   # 6 dataset tasks x (truncation, full-context)
     info = json.loads((sandbox.root / "results/tbmodel/run_info.json").read_text())
     for saved in [info, *rows]:
         assert saved["resource_monitoring_supported"] is False
@@ -449,7 +449,7 @@ def test_tb_scenario_exercises_harbor_outcomes(working_tree: Tree, tmp_path):
         "trajectory.json", "token_log.json", "exit_info.json", "agent.log", "harbor_result.json",
     }
     jobs = sorted(p.name for p in (sandbox.root / "logs/harbor_jobs/terminalbench/tbmodel").iterdir())
-    assert sum(name.endswith("-a2") for name in jobs) == 3 and sum(name.endswith("-a3") for name in jobs) == 3
+    assert sum(name.endswith("-a2") for name in jobs) == 2 and sum(name.endswith("-a3") for name in jobs) == 2
 
 
 # ── The intentional differences, asserted rather than ignored ──────────────────
@@ -553,7 +553,7 @@ def test_current_harbor_invocation_targets_agentctx_package(working_tree: Tree, 
     if "terminal-bench" not in working_tree.features:
         pytest.skip("working tree has no Terminal-Bench adapter")
     sandbox = build_sandbox(tmp_path, working_tree)
-    execute(sandbox, _scenario("tb-n-tasks-with-config-overrides"))
+    execute(sandbox, _scenario("tb-n-tasks-with-agent-config-override"))
     invocations = sorted((sandbox.root / "logs").rglob("invocation.json"))
     assert invocations, "no Harbor invocation was recorded"
     for path in invocations:

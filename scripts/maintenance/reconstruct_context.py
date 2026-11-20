@@ -7,7 +7,7 @@ adapter sets it to the run directory):
                                         message is added — i.e. BEFORE any primitive
                                         touches it. Fields: seq, uid, step, message.
     <run_dir>/compression_events.jsonl  one record per compression event (budget
-                                        triggered or online TRC): dropped / replaced /
+                                        triggered or online): dropped / replaced /
                                         added uids, summary text (in `added`),
                                         before_uids / after_uids, token counts.
 
@@ -203,7 +203,7 @@ def main() -> int:
         c = r.event(args.event)
         print(f"\nevent {args.event}: kind={c['kind']} primitive={c.get('primitive')} picked={c.get('picked')} "
               f"step={c['step']} {c['tokens_before']}→{c['tokens_after']} tok "
-              f"(target {c.get('target_tokens')}, fallback={c.get('trc_fallback')})")
+              f"(target {c.get('target_tokens')})")
         if c.get("summary_outcome"):
             o = c["summary_outcome"]
             print(f"  summary: attempts={o.get('attempts')} accepted={o.get('accepted')} "

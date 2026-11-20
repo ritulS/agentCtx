@@ -57,7 +57,7 @@
 #   (LLM calls per run), AGENT_TIMEOUT (seconds), R2_MODEL, RUNS_PER_TASK,
 #   MAX_WORKERS, N_TASKS (first N tasks of TASKS_FILE; N_TASKS=all for every
 #   task in the majority sections), TASKS_FILE, SCHEDULE_DIR, PATTERNS, QWEN_AGENT_CONFIG,
-#   QWEN_OTRC_CONFIG, QWEN_TAG, RUN_EVAL, QWEN_HEALTH_URL, AGENTCTX_PROFILE
+#   QWEN_TAG, RUN_EVAL, QWEN_HEALTH_URL, AGENTCTX_PROFILE
 #   (albus-swe: MAX_WORKERS defaults to 8; scripts/lib/profiles.sh).
 # Completed task/run keys are skipped on rerun; a different schedule in an
 # existing cell is refused by the runner (use a new cell or model dir).
@@ -72,7 +72,6 @@ agentctx_profile    # AGENTCTX_PROFILE=albus-swe -> 8 workers unless MAX_WORKERS
 PY="${PYTHON:-$WS/venv/bin/python3}"
 RUNNER="$WS/scripts/run_experiment_r2.py"
 AGENT_CONFIG="${QWEN_AGENT_CONFIG:-$WS/configs/config-qwen-vllm.yaml}"
-OTRC_CONFIG="${QWEN_OTRC_CONFIG:-$WS/configs/config-online-trc.yaml}"
 MODEL_TAG="${QWEN_TAG:-qwen35-a3b}"                 # same tag as the ICLR Qwen runs
 AGENT_HEALTH_URL="${QWEN_HEALTH_URL:-http://localhost:8000/v1/models}"
 R2_SECTION="${R2_SECTION:-p30s_never7}"            # data/r2/swebench/<section>/
@@ -115,7 +114,7 @@ LOG_FILE="${R2_NEVER7_LOG_FILE:-$(experiment_log "r2_sb_${R2_SECTION}_${R2_MODEL
 
 require_file() { [[ -f "$1" ]] || { echo "[ERROR] Required file not found: $1" >&2; exit 1; }; }
 require_file "$PY"; require_file "$RUNNER"; require_file "$AGENT_CONFIG"
-require_file "$OTRC_CONFIG"; require_file "$TASKS_FILE"
+require_file "$TASKS_FILE"
 [[ -z "$SUMMARY_CONFIG" ]] || require_file "$SUMMARY_CONFIG"
 EXTRA_ARGS=()
 if [[ -n "$SUMMARY_CONFIG" ]]; then
@@ -165,7 +164,7 @@ run_runner() {
         --r2-section "$R2_SECTION" --r2-model "$R2_MODEL" --r2-cell "$1" \
         --ablation "r2-${R2_MODEL}-${R2_SECTION}-$1" \
         --model-tag "$MODEL_TAG" \
-        --agent-config "$AGENT_CONFIG" --otrc-config "$OTRC_CONFIG" \
+        --agent-config "$AGENT_CONFIG" \
         --tasks-file "$TASKS_FILE" \
         --conditions adaptive --adaptive-schedule "$2" \
         --runs-per-task "$RUNS_PER_TASK" \

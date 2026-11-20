@@ -114,10 +114,6 @@ def run_agent(argv: list[str]) -> int:
         "summarization_prompt_tokens": 0,
         "summarization_latency_s": 0.0,
         "summarization_model": summarization_model(),
-        "trc_truncation_fallback_events": 0,
-        "online_trc_total_tokens_saved": 0,
-        "online_trc_clears": 0,
-        "online_trc_flags": [],
     }
     token_log_path = env.get("MSWEA_TOKEN_LOG_PATH")
     if token_log_path:

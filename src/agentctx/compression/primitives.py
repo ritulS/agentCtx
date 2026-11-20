@@ -10,9 +10,7 @@ token_budget  : int   — MSWEA_TOKEN_BUDGET env var
                         When estimated current context tokens exceed this value,
                         the selected budget-triggered primitive fires.
 compression_r : float — MSWEA_COMPRESSION_RATIO, default 0.5
-                        Standalone TR and SU-free/SS-free fallbacks target token_budget * r.
-                        Other proportional policies target current context tokens * r.
-                        TRC clearing and its turn-truncation fallback ignore r.
+                        Standalone TR and the SU-free fallback target token_budget * r.
 
 Protected messages (never compressed)
   index 0 — system prompt
@@ -20,42 +18,32 @@ Protected messages (never compressed)
 
 Compressible: messages[2:]
 
-Truncation
-  Standalone TR and SU-free/SS-free fallbacks use truncate_oldest_turns():
+Truncation (TR)
+  Standalone TR and the SU-free fallback use truncate_oldest_turns():
   drop oldest assistant/result turns to token_budget * r, protecting system,
   task, and the latest turn.
   If those alone exceed the target, retain them and continue over target.
-  Other policies keep the legacy truncate() fallback: drop messages until the total
-  estimated token count of (protected + remaining) ≤ target_tokens.
-  Always keeps at least the last message in the compressible window.
+  The online primitives keep the legacy truncate() as their budget-time
+  fallback: drop messages until the total estimated token count of
+  (protected + remaining) ≤ target_tokens. Always keeps at least the last
+  message in the compressible window.
 
-Tool-result clearing (TRC)
-  On budget overflow, replace all but the latest three tool results with stubs.
-  If still over budget, drop oldest complete assistant/result turns until the
-  budget is met, preserving system, task, and the latest turn. If these alone
-  cannot fit, the agent records the overflow and continues with the model call.
-  See compression/README.md for the full contract and measurements.
-
-Summarization
-  Make a single LLM call asking for a summary of the compressible window
-  targeting (target_tokens - protected_tokens) compressible tokens worth of text.
-  Replaces the entire compressible window with one summary message.
+Summarization, length-free (SU-free)
+  summarize_free(): one LLM call asking for a *concise* summary of the
+  compressible window, with no word target, so compression_ratio does not
+  engage in the prompt (depth-invariant); the summary replaces the entire
+  compressible window with one summary message. target_tokens only sizes the
+  complete-turn TR fallback to B*r when all summary attempts fail.
   The call goes to the agent's model unless MSWEA_SUMMARY_MODEL_CONFIG (or
   MSWEA_SUMMARY_MODEL_NAME / MSWEA_SUMMARY_API_BASE) selects a different
   summarization model — see "Summarization model" below.
   The response is cleaned before it enters the history (reasoning preamble
   dropped, the marked block extracted or the text wrapped in the markers),
   rejected when the body is empty or the reasoning never closed (re-queried
-  up to SUMMARY_MAX_ATTEMPTS times, then truncate() is the fallback), and the
-  message is tagged extra["kind"] = "summary" so TRC never clears it — see
-  "Summary message handling" below.
-
-Summarization, length-free (SU-free / SS-free)
-  summarize_free() / structured_summarize_free(): same LLM call and cleaning
-  as summarize() / structured_summarize(), but the prompt asks for a
-  *concise* summary with no word target, so compression_ratio does not engage
-  in the prompt (depth-invariant). target_tokens only sizes the complete-turn
-  TR fallback to B*r when all summary attempts fail.
+  up to SUMMARY_MAX_ATTEMPTS times, then the TR fallback), and the message is
+  tagged extra["kind"] = "summary" — see "Summary message handling" below.
+  (The ICLR-era SU-full / SS / partial / TRC / staggered primitives were
+  removed 2026-11-19; git history before that commit has them.)
 
 Summary attempt log (MSWEA_EVENT_LOG_DIR/summary_attempts.jsonl)
   Every summarizer reply, accepted or rejected, is appended verbatim as one
@@ -87,7 +75,6 @@ from agentctx.summary_config import summary_model_config, summary_model_info
 
 COMPRESSION_RATIO = float(os.environ.get("MSWEA_COMPRESSION_RATIO", "0.5"))
 N_PROTECTED       = 2   # system + first-user (task) messages are never compressed
-KEEP_RECENT       = 3   # TRC: preserve the last N tool-result turns (mirrors Anthropic's default)
 
 # cl100k_base is accurate to ~5% for code+English across all major models (GPT-4,
 # Claude, Qwen, Llama, etc.).  Loading the exact Qwen tokenizer would require
@@ -114,7 +101,7 @@ def count_tokens(messages: list[dict]) -> int:
 # ── Summarization model ────────────────────────────────────────────────────────
 #
 # By default the agent's own model writes the summaries. To route the
-# summarize() / structured_summarize() LLM call to a different model, set:
+# summarize_free() LLM call to a different model, set:
 #
 #   MSWEA_SUMMARY_MODEL_CONFIG  path to a config YAML in the configs/*.yaml
 #                               format; only its `model:` section is read
@@ -170,18 +157,17 @@ def query_summary(model, messages: list[dict]) -> dict:
 # SUMMARY_KIND on the message (survives the agent's uid tagging, is stripped
 # before the API call, and is saved in trajectory.json / events.jsonl). And by
 # content, via the SU / SS marker lines, kept for trajectories written before
-# the tag existed. Only messages that pass neither test are tool output that
-# TRC may clear.
+# the tag existed.
 #
 # The summarizer's raw response is normalised by clean_summary_text() before
 # it enters the history. Qwen-style chat templates open a <think> block in the
 # generation prompt, and the vLLM servers here run without a reasoning parser
 # (mini-swe-agent parses raw text), so the reasoning arrives inline in
 # `content` and ends with `</think>`. Passing that through verbatim (a) hid the
-# marker line from the prefix checks, so TRC treated the summary as tool output,
-# and (b) put "Let me create a structured summary ..." prose in front of the
-# agent. The 2026-09-08 audit found the preamble on 219/220 saved SS summaries
-# and, in 33 runs, the agent re-summarising after a summary; whether (b) caused
+# marker line from the prefix checks (the tool-result clearing of the ICLR
+# primitives then treated the summary as tool output), and (b) put "Let me
+# create a structured summary ..." prose in front of the agent. The 2026-09-08
+# audit found the preamble on 219/220 saved SS summaries and, in 33 runs, the agent re-summarising after a summary; whether (b) caused
 # the re-summarising is a hypothesis the audit could not confirm. The flags
 # returned alongside the text are stored in extra["summary_format"] so later
 # audits can count these cases without re-reading the model output.
@@ -236,8 +222,6 @@ def query_summary(model, messages: list[dict]) -> dict:
 # several agents in one process; the record is consumed synchronously.
 
 SUMMARY_KIND       = "summary"
-SS_OPEN_MARKER     = "[CONTEXT SUMMARY]"
-SS_CLOSE_MARKER    = "[END CONTEXT SUMMARY]"
 SU_OPEN_MARKER     = "[COMPRESSED HISTORY SUMMARY]"
 SU_CLOSE_MARKER    = "[END SUMMARY]"
 # online_claude_extract (Claude-written digest, see claude_extract.py / online_claude_extract())
@@ -734,53 +718,6 @@ def _su_prompt(summary_model, history_text: str, target_words: int | None) -> li
     ]
 
 
-def _ss_prompt(summary_model, history_text: str, target_words: int | None) -> list[dict]:
-    """Structured-summary (SS) prompt; target_words=None as in _su_prompt()."""
-    opening = (
-        f"Produce a structured summary of the agent conversation below in approximately "
-        f"{target_words} words total."
-        if target_words is not None
-        else "Produce a concise structured summary of the agent conversation below."
-    )
-    return [
-        summary_model.format_message(
-            role="system",
-            content=(
-                "You are compressing an agent's working memory to free up context window space. "
-                "Your output will REPLACE the entire conversation history — the agent will only "
-                "see your summary. It must contain everything needed to continue the task without "
-                "any other context."
-            ),
-        ),
-        summary_model.format_message(
-            role="user",
-            content=(
-                f"{opening} Use EXACTLY this format and section order:\n\n"
-                f"{SS_OPEN_MARKER}\n"
-                f"## Task\n"
-                f"<One sentence: what the task is asking for.>\n\n"
-                f"## Files Modified\n"
-                f"<Each file the agent has written or edited. Format: path — what changed and why. "
-                f"If none yet, write 'None'.>\n\n"
-                f"## Files Examined\n"
-                f"<Each file the agent has read. Format: path — key observation. "
-                f"If none yet, write 'None'.>\n\n"
-                f"## Execution Anchors\n"
-                f"<Exact commands run, test results, error messages, or shell output that the agent "
-                f"will need to reference going forward. Quote verbatim where possible.>\n\n"
-                f"## Current State\n"
-                f"<What has been done, what has NOT been done, and the immediate next step.>\n"
-                f"{SS_CLOSE_MARKER}\n\n"
-                f"Rules:\n"
-                f"- Preserve exact file paths, line numbers, error strings, and symbol names.\n"
-                f"- Do not speculate or add information not present in the history.\n"
-                f"- Do not add any text outside the {SS_OPEN_MARKER} block.\n\n"
-                f"Conversation history:\n{history_text}"
-            ),
-        ),
-    ]
-
-
 # ── Primitives ─────────────────────────────────────────────────────────────────
 
 def truncate(messages: list[dict], target_tokens: int) -> tuple[list[dict], int]:
@@ -807,113 +744,6 @@ def truncate(messages: list[dict], target_tokens: int) -> tuple[list[dict], int]
     return new_messages, max(0, tokens_before - tokens_after)
 
 
-def summarize(
-    messages: list[dict],
-    model,
-    target_tokens: int,
-) -> tuple[list[dict], int, int, int, float]:
-    """Summarize the compressible window with one LLM call.
-
-    The summary targets (target_tokens - count_tokens(protected)) tokens worth
-    of compressible content, approximated as target_words.
-
-    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
-    """
-    if len(messages) <= N_PROTECTED:
-        return messages, 0, 0, 0, 0.0
-
-    protected    = messages[:N_PROTECTED]
-    compressible = messages[N_PROTECTED:]
-    tokens_before = count_tokens(messages)
-
-    history_text = _history_text(compressible)
-
-    # Target compressible tokens = target_tokens minus what the protected msgs use
-    protected_tokens  = count_tokens(protected)
-    compress_target   = max(50, target_tokens - protected_tokens)
-    # 1 token ≈ 4 chars ≈ 0.75 words (rough heuristic)
-    target_words      = max(30, int(compress_target * 0.75))
-
-    # The summary is produced by the summarization model (agent model unless
-    # MSWEA_SUMMARY_MODEL_* overrides it); the resulting message is formatted
-    # by the agent's model since it goes back into the agent's history.
-    summary_model = get_summary_model(model)
-
-    summary_prompt = _su_prompt(summary_model, history_text, target_words)
-
-    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
-        summary_model, summary_prompt, SU_OPEN_MARKER, SU_CLOSE_MARKER
-    )
-
-    # Explicit fallback: no attempt produced a usable summary, so enforce the
-    # target by truncation instead of replacing the history with a non-summary.
-    if summary_text is None:
-        _mark_summary_fallback("truncate")
-        new_messages, _ = truncate(messages, target_tokens)
-        tokens_after    = count_tokens(new_messages)
-        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
-
-    summary_msg   = make_summary_message(model, summary_text, summary_flags)
-    new_messages  = protected + [summary_msg]
-    tokens_after  = count_tokens(new_messages)
-
-    return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
-
-
-def structured_summarize(
-    messages: list[dict],
-    model,
-    target_tokens: int,
-) -> tuple[list[dict], int, int, int, float]:
-    """Summarize the compressible window using a structured schema.
-
-    Produces a section-headed summary (Task / Files Modified / Files Examined /
-    Execution Anchors / Current State) that preserves the information most
-    critical for a coding agent to continue its work.
-
-    Falls through to truncate() if the LLM output still exceeds target.
-
-    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
-    """
-    if len(messages) <= N_PROTECTED:
-        return messages, 0, 0, 0, 0.0
-
-    protected     = messages[:N_PROTECTED]
-    compressible  = messages[N_PROTECTED:]
-    tokens_before = count_tokens(messages)
-
-    history_text = _history_text(compressible)
-
-    protected_tokens = count_tokens(protected)
-    compress_target  = max(50, target_tokens - protected_tokens)
-    target_words     = max(30, int(compress_target * 0.75))
-
-    summary_model = get_summary_model(model)  # see "Summarization model" above
-
-    summary_prompt = _ss_prompt(summary_model, history_text, target_words)
-
-    summary_text, summary_flags, prompt_toks, completion_toks, latency_s = request_summary(
-        summary_model, summary_prompt, SS_OPEN_MARKER, SS_CLOSE_MARKER
-    )
-
-    # Explicit fallback: no attempt produced a usable summary (see summarize()).
-    if summary_text is None:
-        _mark_summary_fallback("truncate")
-        new_messages, _ = truncate(messages, target_tokens)
-        tokens_after    = count_tokens(new_messages)
-        return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
-
-    summary_msg  = make_summary_message(model, summary_text, summary_flags)
-    new_messages = protected + [summary_msg]
-
-    # Fallback: if model over-generated past target, truncate the summary itself
-    if count_tokens(new_messages) > target_tokens:
-        new_messages, _ = truncate(new_messages, target_tokens)
-
-    tokens_after = count_tokens(new_messages)
-    return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
-
-
 def _summarize_free(
     messages: list[dict],
     model,
@@ -922,7 +752,7 @@ def _summarize_free(
     open_marker: str,
     close_marker: str,
 ) -> tuple[list[dict], int, int, int, float]:
-    """Shared body of summarize_free() / structured_summarize_free()."""
+    """Body of summarize_free() (one summarizer call, no word target)."""
     if len(messages) <= N_PROTECTED:
         return messages, 0, 0, 0, 0.0
 
@@ -966,148 +796,13 @@ def summarize_free(
     the truncate_oldest_turns() fallback when every attempt is rejected.
     This retains system, task, and the latest complete assistant/result turn.
     No post-hoc length enforcement: if the summary alone were still above the
-    budget the trigger would fire again on the next step, as for SS today.
+    budget the trigger would fire again on the next step.
 
     Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
     """
     return _summarize_free(
         messages, model, target_tokens, _su_prompt, SU_OPEN_MARKER, SU_CLOSE_MARKER
     )
-
-
-def structured_summarize_free(
-    messages: list[dict],
-    model,
-    target_tokens: int,
-) -> tuple[list[dict], int, int, int, float]:
-    """SS-free: structured_summarize() with no length target (depth-invariant).
-
-    See summarize_free(); the schema-guided SS prompt is used instead.
-    """
-    return _summarize_free(
-        messages, model, target_tokens, _ss_prompt, SS_OPEN_MARKER, SS_CLOSE_MARKER
-    )
-
-
-def _fit_tail(messages: list[dict], tail_budget: int) -> int:
-    """Find the largest k such that count_tokens(messages[k:]) <= tail_budget.
-
-    Walks backward from the end accumulating message tokens until adding the
-    next-oldest would exceed tail_budget. Always returns k <= len(messages),
-    and never goes below N_PROTECTED.
-
-    Returns k — messages[N_PROTECTED:k] is the head (to compress);
-                messages[k:] is the budget-fitting tail (kept verbatim).
-    """
-    if tail_budget <= 0:
-        return len(messages)
-    k = len(messages)
-    tail_tokens = 0
-    while k > N_PROTECTED:
-        msg_tokens = count_tokens([messages[k - 1]])
-        if tail_tokens + msg_tokens > tail_budget:
-            break
-        tail_tokens += msg_tokens
-        k -= 1
-    return k
-
-
-def summarize_partial(
-    messages: list[dict],
-    model,
-    target_tokens: int,
-) -> tuple[list[dict], int, int, int, float]:
-    """SU-partial: summarize only the older head, keep the budget-fitting tail verbatim.
-
-    Splits the available compression budget 50/50 between the summary and the tail:
-      tail_budget    = (target_tokens - protected_tokens) // 2
-      summary_target = (target_tokens - protected_tokens) - tail_budget
-
-    1. Find largest k such that messages[k:] fits in tail_budget (tail kept).
-    2. Summarize messages[N_PROTECTED:k] via the existing summarize() LLM call.
-    3. Combine: protected + [summary_msg] + messages[k:].
-
-    If the head ends up empty (k <= N_PROTECTED) — i.e. the tail alone already
-    exceeds the budget — fall back to truncate to enforce target_tokens.
-
-    Returns (new_message_list, tokens_saved, prompt_tokens_used, completion_tokens_used, latency_s).
-    """
-    if len(messages) <= N_PROTECTED:
-        return messages, 0, 0, 0, 0.0
-
-    tokens_before = count_tokens(messages)
-    if tokens_before <= target_tokens:
-        return messages, 0, 0, 0, 0.0
-
-    protected        = messages[:N_PROTECTED]
-    protected_tokens = count_tokens(protected)
-    available        = max(0, target_tokens - protected_tokens)
-    tail_budget      = available // 2
-    summary_target   = available - tail_budget
-
-    k = _fit_tail(messages, tail_budget)
-
-    # No room for any head to summarize → fall back to truncate
-    if k <= N_PROTECTED:
-        new_messages, _ = truncate(messages, target_tokens)
-        return new_messages, max(0, tokens_before - count_tokens(new_messages)), 0, 0, 0.0
-
-    # Summarize the head: build (protected + head_window) then call summarize()
-    head_window = list(messages[N_PROTECTED:k])
-    head_input  = protected + head_window
-    head_summarized, _, pt, ct, lat = summarize(
-        head_input, model, protected_tokens + summary_target
-    )
-    # head_summarized = protected + [summary_msg]; append the tail
-    new_messages = list(head_summarized) + list(messages[k:])
-
-    # Safety net: if summary over-generated and we're still over target, truncate
-    if count_tokens(new_messages) > target_tokens:
-        new_messages, _ = truncate(new_messages, target_tokens)
-
-    tokens_after = count_tokens(new_messages)
-    return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
-
-
-def structured_summarize_partial(
-    messages: list[dict],
-    model,
-    target_tokens: int,
-) -> tuple[list[dict], int, int, int, float]:
-    """SS-partial: structured-summarize the older head, keep the budget-fitting tail verbatim.
-
-    Same algorithm as summarize_partial(), but uses structured_summarize() for the head.
-    """
-    if len(messages) <= N_PROTECTED:
-        return messages, 0, 0, 0, 0.0
-
-    tokens_before = count_tokens(messages)
-    if tokens_before <= target_tokens:
-        return messages, 0, 0, 0, 0.0
-
-    protected        = messages[:N_PROTECTED]
-    protected_tokens = count_tokens(protected)
-    available        = max(0, target_tokens - protected_tokens)
-    tail_budget      = available // 2
-    summary_target   = available - tail_budget
-
-    k = _fit_tail(messages, tail_budget)
-
-    if k <= N_PROTECTED:
-        new_messages, _ = truncate(messages, target_tokens)
-        return new_messages, max(0, tokens_before - count_tokens(new_messages)), 0, 0, 0.0
-
-    head_input = protected + list(messages[N_PROTECTED:k])
-    head_summarized, _, pt, ct, lat = structured_summarize(
-        head_input, model, protected_tokens + summary_target
-    )
-    new_messages = list(head_summarized) + list(messages[k:])
-
-    if count_tokens(new_messages) > target_tokens:
-        new_messages, _ = truncate(new_messages, target_tokens)
-
-    tokens_after = count_tokens(new_messages)
-    return new_messages, max(0, tokens_before - tokens_after), pt, ct, lat
 
 
 def _extract_history_text(window: list[dict]) -> str:
@@ -1252,7 +947,6 @@ def online_claude_extract(
     new_messages = protected + [extract_msg] + kept
     tokens_after = count_tokens(new_messages)
     return new_messages, max(0, tokens_before - tokens_after), prompt_toks, completion_toks, latency_s
-
 
 
 # ── online_claude_select: keep the original text, drop what the task no longer needs ──
@@ -1568,21 +1262,6 @@ def select_source() -> str:
     return raw
 
 
-def select_backend() -> str:
-    """Which selector answers online_claude_select(), MSWEA_SELECT_BACKEND:
-    ``model`` (default) is the generative selector of claude_extract.py (one
-    call over the complete history, keep/drop directives, line ranges);
-    ``jev`` (added 2026-11-17; the online-jev-full-select conditions) asks TypeSafe's
-    Jev decision model one noul question PER HISTORY MESSAGE, in parallel, and
-    keeps the messages whose probability clears MSWEA_JEV_KEEP_THRESHOLD, ranked
-    by probability under MSWEA_SELECT_CAP (agentctx.compression.jev_select).
-    Whole messages only: Jev returns no text, so there are no line ranges."""
-    raw = os.environ.get("MSWEA_SELECT_BACKEND", "model").strip().lower() or "model"
-    if raw not in ("model", "jev"):
-        raise ValueError(f"MSWEA_SELECT_BACKEND must be model | jev, got {raw!r}")
-    return raw
-
-
 def _select_prefill(extract_model, open_marker: str = SEL_OPEN_MARKER) -> str:
     """The assistant prefill for the selector reply (MSWEA_EXTRACT_PREFILL=1):
     the prompt then ends with an assistant message holding the open marker line,
@@ -1688,24 +1367,6 @@ def online_claude_select(
     says so, and what is dropped cannot return. The selection record then
     carries ``source``.
 
-    ``MSWEA_SELECT_BACKEND=jev`` (select_backend(); added 2026-11-17) replaces
-    the single generative selector call by one Jev decision-model question per
-    window message, in parallel (agentctx.compression.jev_select): a message is
-    kept whole when its "still needed" probability clears the threshold (plus
-    the anchor bonus for messages in the previous context when anchoring is
-    on), and under a cap the kept messages are ranked by probability and taken
-    while they fit, so no reply is ever rejected or re-queried. With
-    ``MSWEA_JEV_SELECT_LINES=<tokens>`` (added 2026-11-18) a kept observation
-    above that size is judged line by line as well (jev_select.trim_observations,
-    the line judge of the per-output pre-extraction) and kept as line ranges,
-    rendered by apply_selection() like a generative ``keep <uid> L<a>-<b>``;
-    the cap admits it by its trimmed size. The window, kept tail, rebuild,
-    selection record and logs are those of the default backend; the record
-    additionally carries ``backend`` and ``jev`` (the per-uid probabilities,
-    threshold, request counts, usage, and the per-uid ``lines`` records when
-    line selection is on). The outcome published for the agent counts one
-    attempt per Jev request, line requests included.
-
     Returns (new_message_list, tokens_saved, prompt_tokens_used,
     completion_tokens_used, latency_s); tokens_saved is relative to
     ``full_messages`` (the complete history, i.e. what full context would
@@ -1744,40 +1405,11 @@ def online_claude_select(
     if cap:
         budget_window = max(0, cap - count_tokens(protected) - count_tokens(kept))
 
-    backend = select_backend()
-    jev_record: dict | None = None
-    if backend == "jev":
-        from agentctx.compression.jev_select import jev_select_window
-        # The outcome slot is published before the requests so an exception
-        # leaves the usage of the completed judgements salvageable (the agent
-        # reads it like an interrupted request_summary()).
-        outcome = {
-            "attempts": 0, "accepted": False, "rejections": [], "flags": {}, "fallback": None,
-            "response_ids": [], "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0,
-            "interrupted": None, "interrupted_attempt": None, "backend": "jev",
-        }
-        _set_summary_outcome(outcome)
-        try:
-            selection, jev_record, prompt_toks, completion_toks, latency_s, _ids = jev_select_window(
-                _history_text(full_messages[1:N_PROTECTED]), window, kept, prev_uids,
-                budget_tokens=budget_window, render=_select_render_message, anchor=anchor,
-                token_of=lambda m: count_tokens([m]), progress=outcome,
-            )
-        except BaseException as exc:
-            outcome["interrupted"] = type(exc).__name__
-            outcome["interrupted_attempt"] = outcome.get("attempts") or None
-            raise
-        outcome.update({"accepted": True, "latency_s": latency_s,
-                        "attempts": jev_record["requests"] + jev_record.get("line_requests", 0),
-                        "prompt_tokens": prompt_toks, "completion_tokens": completion_toks,
-                        "response_ids": list(_ids)})
-        flags = outcome["flags"]
-    else:
-        selection, flags, prompt_toks, completion_toks, latency_s = _select_with_model(
-            full_messages, window, tags, budget_window, source, anchor_style, prev_in_window)
-        if selection is None:
-            _mark_summary_fallback("unchanged")
-            return messages, 0, prompt_toks, completion_toks, latency_s
+    selection, flags, prompt_toks, completion_toks, latency_s = _select_with_model(
+        full_messages, window, tags, budget_window, source, anchor_style, prev_in_window)
+    if selection is None:
+        _mark_summary_fallback("unchanged")
+        return messages, 0, prompt_toks, completion_toks, latency_s
 
     chosen = apply_selection(window, selection)
     new_messages = protected + chosen + kept
@@ -1798,9 +1430,6 @@ def online_claude_select(
     }
     if source != "full":
         record["source"] = source
-    if jev_record is not None:
-        record["backend"] = "jev"
-        record["jev"] = jev_record
     if anchor or cap:
         # Stability against the previous context and the cap actually applied.
         in_prev = {u for u in (_msg_uid(m) for m in window) if u and u in prev_uids}
@@ -1842,56 +1471,6 @@ def output_extract_threshold() -> int:
     if above < 0:
         raise ValueError(f"MSWEA_OUTPUT_EXTRACT_ABOVE must be a non-negative token count, got {raw!r}")
     return above
-
-
-def output_extract_backend() -> str:
-    """Which extractor answers extract_tool_output(), MSWEA_OUTPUT_EXTRACT_BACKEND:
-    ``model`` (default) is the generative extractor of claude_extract.py (one call
-    per output, keep/drop directives with line ranges); ``jev`` (added
-    2026-11-17) asks TypeSafe's Jev one noul question PER LINE (or per block of
-    MSWEA_JEV_LINE_BLOCK lines) of the output in one request, and keeps the lines
-    whose probability clears MSWEA_JEV_LINE_THRESHOLD
-    (agentctx.compression.jev_select.jev_extract_output). Independent of
-    MSWEA_SELECT_BACKEND: a Jev selector may run with the generative line
-    extractor (ojfstx) and the other way round."""
-    raw = os.environ.get("MSWEA_OUTPUT_EXTRACT_BACKEND", "model").strip().lower() or "model"
-    if raw not in ("model", "jev"):
-        raise ValueError(f"MSWEA_OUTPUT_EXTRACT_BACKEND must be model | jev, got {raw!r}")
-    return raw
-
-
-def _output_extract_with_jev(observation: dict, command_msg: dict | None, task_text: str,
-                             uid: str) -> tuple[dict, dict, dict, int, int, float]:
-    """The Jev branch of extract_tool_output(): returns (selection, flags,
-    jev_record, prompt_tokens, completion_tokens, latency_s) with ``selection``
-    in parse_selection()'s shape ({uid: None} whole, {uid: ranges} trimmed, {}
-    every line omitted). The summary outcome is published before the requests
-    like the Jev selector's, so an exception leaves the usage salvageable."""
-    from agentctx.compression.jev_select import jev_extract_output
-    outcome = {
-        "attempts": 0, "accepted": False, "rejections": [], "flags": {}, "fallback": None,
-        "response_ids": [], "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0,
-        "interrupted": None, "interrupted_attempt": None, "backend": "jev",
-    }
-    _set_summary_outcome(outcome)
-    command_text = _select_render_message(command_msg) if command_msg else ""
-    try:
-        ranges, jev_record, prompt_toks, completion_toks, latency_s, ids = jev_extract_output(
-            task_text, command_text, _msg_text(observation), uid, progress=outcome)
-    except BaseException as exc:
-        outcome["interrupted"] = type(exc).__name__
-        outcome["interrupted_attempt"] = outcome.get("attempts") or None
-        raise
-    outcome.update({"accepted": True, "attempts": jev_record["requests"], "latency_s": latency_s,
-                    "prompt_tokens": prompt_toks, "completion_tokens": completion_toks,
-                    "response_ids": list(ids)})
-    if ranges is None:
-        selection: dict = {uid: None}
-    elif not ranges:
-        selection = {}
-    else:
-        selection = {uid: [tuple(r) for r in ranges]}
-    return selection, outcome["flags"], jev_record, prompt_toks, completion_toks, latency_s
 
 
 def _output_extract_prompt(extract_model, task_text: str, command_msg: dict | None,
@@ -1981,39 +1560,32 @@ def extract_tool_output(
     total_lines   = len(_msg_text(observation).split("\n"))
     tokens_before = count_tokens([observation])
     record = {"uid": uid, "lines_total": total_lines, "tokens_before": tokens_before}
-    jev_record: dict | None = None
-    if output_extract_backend() == "jev":
-        selection, flags, jev_record, prompt_toks, completion_toks, latency_s = _output_extract_with_jev(
-            observation, command_msg, task_text, uid)
-        record["backend"] = "jev"
-        record["jev"] = jev_record
-    else:
-        from agentctx.compression.claude_extract import get_extract_model
-        extract_model = get_extract_model()
-        prompt  = _output_extract_prompt(extract_model, task_text, command_msg, observation)
-        prefill = _select_prefill(extract_model)
-        if prefill:
-            prompt.append({"role": "assistant", "content": prefill})
-        parsed: dict = {}
+    from agentctx.compression.claude_extract import get_extract_model
+    extract_model = get_extract_model()
+    prompt  = _output_extract_prompt(extract_model, task_text, command_msg, observation)
+    prefill = _select_prefill(extract_model)
+    if prefill:
+        prompt.append({"role": "assistant", "content": prefill})
+    parsed: dict = {}
 
-        def _validate(body: str) -> str | None:
-            body = "\n".join(f"keep {uid}" if _OE_KEEP_ALL_RE.match(line.strip()) else line
-                             for line in body.split("\n"))
-            sel, why = parse_selection(body, [observation], {uid})
-            if why:
-                return why
-            parsed["selection"] = sel
-            return None
+    def _validate(body: str) -> str | None:
+        body = "\n".join(f"keep {uid}" if _OE_KEEP_ALL_RE.match(line.strip()) else line
+                         for line in body.split("\n"))
+        sel, why = parse_selection(body, [observation], {uid})
+        if why:
+            return why
+        parsed["selection"] = sel
+        return None
 
-        text, flags, prompt_toks, completion_toks, latency_s = request_summary(
-            extract_model, prompt, SEL_OPEN_MARKER, SEL_CLOSE_MARKER, validate=_validate,
-        )
-        if text is None or "selection" not in parsed:
-            _mark_summary_fallback("unchanged")
-            record.update({"outcome": "unchanged", "lines_kept": total_lines,
-                           "tokens_after": tokens_before, "keep": None})
-            return None, record, prompt_toks, completion_toks, latency_s
-        selection = parsed["selection"]
+    text, flags, prompt_toks, completion_toks, latency_s = request_summary(
+        extract_model, prompt, SEL_OPEN_MARKER, SEL_CLOSE_MARKER, validate=_validate,
+    )
+    if text is None or "selection" not in parsed:
+        _mark_summary_fallback("unchanged")
+        record.update({"outcome": "unchanged", "lines_kept": total_lines,
+                       "tokens_after": tokens_before, "keep": None})
+        return None, record, prompt_toks, completion_toks, latency_s
+    selection = parsed["selection"]
     spans = selection.get(uid, "drop")
     new_content = None
     if spans is None:
@@ -2225,31 +1797,6 @@ def judge_phase_boundary(messages: list[dict], task_text: str | None = None) -> 
     return record, prompt_toks, completion_toks, latency_s
 
 
-def _trc_result_indices(messages: list[dict]) -> list[int]:
-    """Find tool observations, including tagged results and legacy text histories.
-
-    Text-based models store results as user turns with raw_output/returncode.
-    Legacy histories lack those fields; accept a user turn immediately following
-    an assistant in that case. Parser feedback and summaries are not results.
-    Already-cleared results still count towards the retention window.
-    """
-    indices = []
-    for i in range(N_PROTECTED, len(messages)):
-        msg = messages[i]
-        extra = msg.get("extra") or {}
-        if is_summary_message(msg) or extra.get("interrupt_type"):
-            continue
-        if msg.get("role") == "tool" or (
-            msg.get("role") == "user"
-            and (
-                "raw_output" in extra or "returncode" in extra
-                or messages[i - 1].get("role") == "assistant"
-            )
-        ):
-            indices.append(i)
-    return indices
-
-
 def truncate_oldest_turns(messages: list[dict], budget_tokens: int) -> tuple[list[dict], int]:
     """Drop oldest complete turns, preserving the protected head and latest turn.
 
@@ -2257,8 +1804,8 @@ def truncate_oldest_turns(messages: list[dict], budget_tokens: int) -> tuple[lis
     next assistant. This keeps parallel tool results together with their call.
     A leading summary or feedback block is a separate removable unit. If the
     protected head plus latest turn cannot fit, return them over the supplied
-    limit. Standalone TR supplies B*r; TRC supplies B. The agent continues
-    with the model request; TRC additionally records an explicit overflow flag.
+    limit. Standalone TR supplies B*r. The agent continues with the model
+    request.
     """
     tokens_before = count_tokens(messages)
     protected = messages[:N_PROTECTED]
@@ -2275,247 +1822,6 @@ def truncate_oldest_turns(messages: list[dict], budget_tokens: int) -> tuple[lis
     result = protected + [msg for turn in turns[first:] for msg in turn]
     return result, tokens_before - count_tokens(result)
 
-
-def _trc_cleared_stub(msg: dict, n_tokens: int) -> str:
-    """Placeholder text for a cleared tool result.
-
-    The step label comes from the result's original ``extra.uid_step``
-    (assigned once when the message was added), so it survives truncation and
-    parser-feedback insertions that shift history positions. Legacy histories
-    without that field show ``step unknown``.
-    """
-    step_k = (msg.get("extra") or {}).get("uid_step")
-    if step_k is None:
-        step_k = "unknown"
-    return f"[TOOL OUTPUT CLEARED — {n_tokens} tokens — step {step_k}]"
-
-
-def tool_result_clear(
-    messages: list[dict],
-    budget_tokens: int,
-    fallback_truncate: bool = True,
-    *,
-    stats: dict | None = None,
-) -> tuple[list[dict], int, bool]:
-    """On budget overflow, clear ALL results older than the latest KEEP_RECENT.
-
-    Clearing does not stop early and never uses COMPRESSION_RATIO. If enabled,
-    fallback drops oldest complete turns only until the budget is met. KEEP_RECENT
-    applies to clearing; fallback may retain fewer results. The protected head
-    and latest turn always survive, even if they alone exceed the budget.
-
-    Returns (new_messages, net_tokens_saved, used_fallback). Savings are signed:
-    replacing very short outputs can grow the context. Optional stats separate
-    clearing from truncation and report an unattainable budget for the caller.
-    """
-    tokens_before = count_tokens(messages)
-    new_messages = list(messages)
-    cleared = 0
-    if tokens_before > budget_tokens:
-        result_indices = _trc_result_indices(messages)
-        for idx in result_indices[:-KEEP_RECENT]:
-            msg = new_messages[idx]
-            content = msg.get("content") or ""
-            if isinstance(content, str) and content.startswith(
-                ("[TOOL OUTPUT CLEARED", "[tool-result cleared")
-            ):
-                continue
-            n_tokens = count_tokens([msg])
-            new_messages[idx] = {**msg, "content": _trc_cleared_stub(msg, n_tokens)}
-            cleared += 1
-
-    after_clear = count_tokens(new_messages)
-    used_fallback = False
-    truncation_saved = 0
-    if fallback_truncate and after_clear > budget_tokens:
-        new_messages, truncation_saved = truncate_oldest_turns(new_messages, budget_tokens)
-        used_fallback = True
-    tokens_after = count_tokens(new_messages)
-    if stats is not None:
-        stats.update(
-            policy="clear_all_keep3_budget_turns_v1",
-            budget_tokens=budget_tokens,
-            keep_recent=KEEP_RECENT,
-            cleared_results=cleared,
-            tokens_before=tokens_before,
-            tokens_after_clear=after_clear,
-            tokens_after_trc=tokens_after,
-            clearing_tokens_saved=tokens_before - after_clear,
-            truncation_tokens_saved=truncation_saved,
-            used_truncation_fallback=used_fallback,
-            budget_exceeded_after_trc=tokens_after > budget_tokens,
-        )
-    return new_messages, tokens_before - tokens_after, used_fallback
-
-
-# ── Scored TRC helpers ─────────────────────────────────────────────────────────
-
-STRC_SCORE_FLOOR  = 0.6    # hard floor — never clear a result with score ≥ this
-_STRC_SIZE_NORM   = 2000   # chars at which size contribution saturates to 1.0
-_STRC_CITE_BOOST  = 0.10   # score increment per citing assistant message
-_STRC_MAX_BOOST   = 0.30   # cap on total citation contribution
-
-# Type weights calibrated from Qwen 15K reference-rate analysis
-# (git 46.7 %, file_read 14.0 %, search 15.4 %, test 11.6 %, install 4.2 %)
-_STRC_TYPE_WEIGHTS: dict[str, float] = {
-    "git":     0.80,
-    "file":    0.70,
-    "search":  0.40,
-    "test":    0.30,
-    "install": 0.10,
-    "other":   0.25,
-}
-
-_STRC_BASH_RE   = re.compile(r"```mswea_bash_command\s*(.*?)\s*```", re.DOTALL)
-_STRC_ENTITY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_./\-]{7,}")
-
-
-def _strc_get_cmd(msg: dict) -> str:
-    """Extract the bash command text from an assistant message."""
-    content = msg.get("content") or ""
-    if isinstance(content, list):
-        for block in content:
-            if isinstance(block, dict):
-                content = block.get("text", "")
-                break
-    m = _STRC_BASH_RE.search(str(content))
-    return m.group(1).strip() if m else str(content)[:100]
-
-
-def _strc_classify_cmd(cmd: str) -> str:
-    c = cmd.lower()
-    if "git " in c:
-        return "git"
-    if any(k in c for k in ("cat ", " head ", " tail ", "less ", "open(", "read(")):
-        return "file"
-    if any(k in c for k in ("grep ", "find ", " rg ", " ag ", "glob ")):
-        return "search"
-    if any(k in c for k in ("pytest", "python -m ", "unittest")):
-        return "test"
-    if any(k in c for k in ("pip ", "pip3 ", "apt-get ", "echo ", "which ")):
-        return "install"
-    return "other"
-
-
-def _strc_citation_strings(content: str) -> frozenset:
-    """Return identifiers/paths ≥8 chars from tool-result text.
-
-    These are used to detect whether the agent later referenced this result
-    by checking for substring matches in subsequent assistant messages.
-    """
-    return frozenset(_STRC_ENTITY_RE.findall(content))
-
-
-def _strc_count_citations(cstrings: frozenset, later_messages: list) -> int:
-    """Count assistant messages (after this result) that contain ≥1 citation string."""
-    if not cstrings:
-        return 0
-    n = 0
-    for msg in later_messages:
-        if msg.get("role") != "assistant":
-            continue
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            content = " ".join(
-                block.get("text", "") for block in content if isinstance(block, dict)
-            )
-        if any(s in str(content) for s in cstrings):
-            n += 1
-    return n
-
-
-def scored_tool_result_clear(
-    messages: list[dict],
-    target_tokens: int,
-) -> tuple[list[dict], int, bool]:
-    """Clear tool output bodies ranked by value score (lowest first).
-
-    Each clearable user turn is scored:
-        score = type_weight × min(1, len(output) / 2000) + citation_boost
-    where:
-        type_weight   — calibrated from observed reference rates per command type
-        citation_boost = min(0.30, 0.10 × n_citations)
-        n_citations   — number of later assistant messages containing ≥1 entity
-                        from this output (ACT-R base-level activation proxy)
-
-    Hard constraints:
-        KEEP_RECENT (3)        — never clear the last N tool-result turns
-        STRC_SCORE_FLOOR (0.6) — never clear a result above this score
-
-    Falls back to truncate() if scored clearing alone is insufficient.
-
-    Returns (new_message_list, tokens_saved, used_fallback).
-    """
-    if len(messages) <= N_PROTECTED:
-        return messages, 0, False
-    if count_tokens(messages) <= target_tokens:
-        return messages, 0, False
-
-    _STUB_PREFIX = "[TOOL OUTPUT CLEARED"
-
-    def _is_clearable(msg: dict) -> bool:
-        if msg.get("role") != "user" or is_summary_message(msg):
-            return False
-        content = msg.get("content") or ""
-        if isinstance(content, list):
-            return False
-        return not content.startswith(_STUB_PREFIX)
-
-    compressible_user_indices = [
-        i for i in range(N_PROTECTED, len(messages))
-        if _is_clearable(messages[i])
-    ]
-
-    # Respect KEEP_RECENT — never touch the last N result turns
-    eligible = (
-        compressible_user_indices[:-KEEP_RECENT]
-        if len(compressible_user_indices) > KEEP_RECENT
-        else []
-    )
-
-    if not eligible:
-        new_messages, extra = truncate(messages, target_tokens)
-        return new_messages, extra, True
-
-    # Score every eligible result
-    scored: list[tuple[float, int]] = []
-    for idx in eligible:
-        content  = messages[idx].get("content", "") or ""
-        cmd      = _strc_get_cmd(messages[idx - 1]) if idx > N_PROTECTED else ""
-        cstrings = _strc_citation_strings(content)
-        citations = _strc_count_citations(cstrings, messages[idx + 1:])
-        type_w   = _STRC_TYPE_WEIGHTS[_strc_classify_cmd(cmd)]
-        size_s   = min(1.0, len(content) / _STRC_SIZE_NORM)
-        cite_b   = min(_STRC_MAX_BOOST, _STRC_CITE_BOOST * citations)
-        score    = min(1.0, type_w * size_s + cite_b)
-        scored.append((score, idx))
-
-    scored.sort(key=lambda x: x[0])  # lowest value first
-
-    new_messages = list(messages)
-    tokens_saved = 0
-
-    for score, idx in scored:
-        if count_tokens(new_messages) <= target_tokens:
-            break
-        if score >= STRC_SCORE_FLOOR:
-            break  # remaining results are too valuable to clear
-        original_content = new_messages[idx].get("content", "")
-        n_tokens = len(_ENCODER.encode(str(original_content)))
-        new_messages[idx] = {
-            **new_messages[idx],
-            "content": _trc_cleared_stub(new_messages[idx], n_tokens),
-        }
-        tokens_saved += n_tokens
-
-    # Fallback if scored clearing was insufficient
-    used_fallback = False
-    if count_tokens(new_messages) > target_tokens:
-        new_messages, extra_saved = truncate(new_messages, target_tokens)
-        tokens_saved  += extra_saved
-        used_fallback  = True
-
-    return new_messages, tokens_saved, used_fallback
 
 
 # ── Token log ──────────────────────────────────────────────────────────────────
@@ -2612,23 +1918,6 @@ def token_log_dict(agent) -> dict:
         "tr_zero_reduction_events": sum(
             e["zero_reduction"] for e in getattr(agent, "_mem_tr_events", [])
         ),
-        # ── TRC-specific ─────────────────────────────────────────────────────
-        "trc_events": getattr(agent, "_mem_trc_events", []),
-        "trc_clear_only_events": sum(
-            not e["used_truncation_fallback"] and not e["budget_exceeded_after_trc"]
-            for e in getattr(agent, "_mem_trc_events", [])
-        ),
-        "trc_clearing_tokens_saved": sum(
-            e["clearing_tokens_saved"] for e in getattr(agent, "_mem_trc_events", [])
-        ),
-        "trc_truncation_tokens_saved": sum(
-            e["truncation_tokens_saved"] for e in getattr(agent, "_mem_trc_events", [])
-        ),
-        "trc_truncation_fallback_events": agent._mem_trc_fallback_events,
-        # ── Online TRC ───────────────────────────────────────────────────────
-        "online_trc_flags":              agent._mem_online_trc_flags,
-        "online_trc_total_tokens_saved": agent._mem_online_trc_tokens_saved,
-        "online_trc_clears":             len(agent._mem_online_trc_flags),
         # ── Online Claude extract ──────────────────────────────────────────────
         # one entry per extraction attempt after a model call: {"step",
         # "tokens_before", "tokens_after", "accepted", "prompt_tokens",
@@ -2707,16 +1996,6 @@ def token_log_dict(agent) -> dict:
             or getattr(agent, "_mem_phase_judge_events", None)):
         from agentctx.compression.claude_extract import extract_model_info
         data["extract_model"] = extract_model_info()
-    if getattr(agent, "_mem_online_claude_select_events", None):
-        data["select_backend"] = select_backend()
-        if data["select_backend"] == "jev":
-            from agentctx.compression.jev_select import jev_model_info
-            data["jev_model"] = jev_model_info()
-    if getattr(agent, "_clm", None) is not None:
-        # ── CLM self-editing (agentctx.compression.clm): the agent's own edits of
-        #    the context mirror, nudges and rollbacks. These are not budget
-        #    compression events, so the arrays above stay empty for a clm run. ──
-        data.update(agent._clm.token_log())
     if getattr(agent, "_memory_config", None) is not None:
         data["adaptive_config"] = agent._memory_config.to_dict()
         data["adaptive_events"] = agent._mem_adaptive_events

@@ -204,36 +204,18 @@ class TruncationTests(unittest.TestCase):
             self.assertEqual([e['step'] for e in log['tr_events']], [0, 1])
 
     def test_no_tr_invocation_has_empty_diagnostics(self):
-        for primitive in ('truncation', 'tool_result_clear'):
+        for primitive, budget in (('truncation', 100000), ('online_claude_select', 1)):
             with self.subTest(primitive=primitive):
                 os.environ['MSWEA_PRIMITIVE'] = primitive
-                agent, _ = self.agent(history(), 100000 if primitive == 'truncation' else 1)
-                agent.query()
+                agent, _ = self.agent(history(), budget)
+                agent.query()   # n_calls == 0: the online hook has nothing to select yet
                 log = memory.token_log_dict(agent)
                 self.assertEqual(log['tr_events'], [])
                 for key in ('target_not_met', 'budget_exceeded', 'zero_reduction'):
                     self.assertEqual(log[f'tr_{key}_events'], 0)
 
-    def test_other_summary_targets_remain_current_relative(self):
-        for primitive, function in [
-            ('summarization', 'summarize'),
-            ('structured_summarize', 'structured_summarize'),
-            ('summarization_partial', 'summarize_partial'),
-            ('structured_summarize_partial', 'structured_summarize_partial'),
-        ]:
-            with self.subTest(primitive=primitive):
-                os.environ['MSWEA_PRIMITIVE'] = primitive
-                agent, _ = self.agent(history(), 300)
-                current = memory.count_tokens(agent.messages)
-                result = agent.messages[:2] + [{'role': 'user', 'content': 'summary'}]
-                with patch.object(memory, 'COMPRESSION_RATIO', 0.5), patch.object(
-                    memory, function, return_value=(result, current - memory.count_tokens(result), 0, 0, 0.0)
-                ) as summarize:
-                    agent.query()
-                self.assertEqual(summarize.call_args.args[2], int(current * 0.5))
-
     def test_free_summary_fallback_uses_tr_contract_and_diagnostics(self):
-        for primitive in ('summarization_free', 'structured_summarize_free'):
+        for primitive in ('summarization_free',):
             for turns, budget in ((16, 600), (3, 100), (1, 100)):
                 for accepted in (False, True):
                     with self.subTest(primitive=primitive, turns=turns, accepted=accepted), tempfile.TemporaryDirectory() as directory:
@@ -299,11 +281,14 @@ class TruncationTests(unittest.TestCase):
                         self.assertEqual(compression['tr_stats'], event)
                         self.assertEqual(log['summary_outcomes'][0]['fallback'], 'truncate')
 
-    def test_online_and_staggered_tr_keep_legacy_deletion_and_targets(self):
-        for primitive, budget in [('online_trc', 300), ('staggered_alternate', 10000)]:
+    def test_online_budget_fallback_keeps_legacy_deletion_and_current_relative_target(self):
+        # The online primitives' budget-time fallback is the legacy truncate()
+        # at current_tokens * depth (the first call: n_calls == 0, the online
+        # hook itself does not fire yet).
+        for primitive, budget in [('online_claude_extract', 300), ('online_claude_select', 300)]:
             with self.subTest(primitive=primitive):
                 os.environ['MSWEA_PRIMITIVE'] = primitive
-                messages = history(3)  # Inside online clearing's freeze window.
+                messages = history(3)
                 messages[2]['content'] = 'large old command ' * 12000
                 agent, model = self.agent(messages, budget)
                 target = memory.count_tokens(agent.messages) // 2

@@ -5,7 +5,7 @@
 # limit 300, max_tokens 4096, litellm default timeout) with ONE change:
 #   temperature 0.2 -> 0.0   the user's choice for the isolated sandbox cells
 #                            (2026-10-25), as for the Qwen and Devstral-2507 ones.
-# The agent model is also the summarizer (SU-full cells), so summaries are
+# The agent model is also the summarizer (the summary cells), so summaries are
 # greedy too; the online-claude-select cell's selector is Claude.
 agent:
   step_limit: 300

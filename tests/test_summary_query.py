@@ -53,16 +53,11 @@ class SummaryQueryTests(unittest.TestCase):
             usage={"prompt_tokens": 321, "completion_tokens": 27, "total_tokens": 348},
         )
 
-    def test_all_summary_variants_accept_prose_and_preserve_usage(self):
-        # Since 2026-09-27 a reply is accepted only as a marked block (SU or
-        # SS markers, depending on the variant); the prose goes inside it.
+    def test_summary_accepts_prose_and_preserves_usage(self):
+        # Since 2026-09-27 a reply is accepted only as a marked block (the SU
+        # markers); the prose goes inside it.
         variants = (
-            (memory.summarize, memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER),
-            (memory.structured_summarize, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER),
-            (memory.summarize_partial, memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER),
-            (memory.structured_summarize_partial, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER),
             (memory.summarize_free, memory.SU_OPEN_MARKER, memory.SU_CLOSE_MARKER),
-            (memory.structured_summarize_free, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER),
         )
         for override in (False, True):
             for primitive, open_marker, close_marker in variants:

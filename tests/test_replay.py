@@ -56,7 +56,7 @@ class ExtractActionsTest(unittest.TestCase):
         actions = replay_agent.extract_actions(trajectory(["ls", "pwd", "echo done"], cleared={1}))
         self.assertEqual([a["command"] for a in actions], ["ls", "pwd", "echo done"])
         self.assertEqual(actions[0]["original"], {"raw_output": "out 0\n", "returncode": 0})
-        self.assertIsNone(actions[1]["original"])       # cleared by TRC: nothing to compare
+        self.assertIsNone(actions[1]["original"])       # cleared observation: nothing to compare
 
     def test_compare(self):
         self.assertEqual(replay_agent.compare_with_original({"raw_output": "a \nb\n", "returncode": 0}, "a\nb", 0),

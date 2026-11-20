@@ -212,15 +212,9 @@ def main() -> None:
                              "fixed 30-task set is used automatically.")
     parser.add_argument("--agent-config", default=None,
                         help="Path to agent config YAML (default: configs/config-qwen-vllm.yaml)")
-    parser.add_argument("--otrc-config",  default=None,
-                        help="Override the agent config used by OTRC conditions "
-                             "(online-trc, otrc-tr, otrc-su-partial, otrc-ss-partial). "
-                             "Needed when --agent-config points at a non-Qwen model; "
-                             "default is configs/config-online-trc.yaml which targets Qwen port 8000.")
     parser.add_argument("--summary-config", default=None, metavar="YAML",
                         help="Config YAML whose `model:` section is used for the summarization "
-                             "LLM call (SU-full, SU-partial, SU-free, SS, SS-partial, SS-free, and their OTRC/TRC-stacked "
-                             "variants). Default: the agent model itself. Exported to the agent as "
+                             "LLM call (SU-free). Default: the agent model itself. Exported to the agent as "
                              "MSWEA_SUMMARY_MODEL_CONFIG. Use a dedicated --ablation name so runs "
                              "are not deduplicated against same-model results.")
     parser.add_argument("--n-tasks",      type=int, default=None,
@@ -232,7 +226,7 @@ def main() -> None:
     parser.add_argument("--depth",        type=float, default=None,
                         help="Compression ratio: fraction of budget retained after compression (default: 0.5)")
     parser.add_argument("--conditions",   nargs="+", default=None, metavar="COND",
-                        help="Run only these conditions (e.g. --conditions online-trc full-context)")
+                        help="Run only these conditions (e.g. --conditions truncation full-context)")
     parser.add_argument("--max-workers",  type=int, default=None,
                         help=f"Concurrent agent runs (default: {MAX_WORKERS}). On Albus DP=8 server, 32 saturates.")
     parser.add_argument("--runs-per-task", type=int, default=None,
@@ -279,12 +273,6 @@ def main() -> None:
         # Both benchmark adapters spawn agents with os.environ.copy(), so
         # setting it here reaches every agent process (primitives.get_summary_model).
         os.environ["MSWEA_SUMMARY_MODEL_CONFIG"] = str(SUMMARY_CONFIG)
-    if args.otrc_config:
-        otrc_path = Path(args.otrc_config).resolve()
-        for c in conditions:
-            cur = c.get("config")
-            if cur is not None and "config-online-trc" in str(cur):
-                c["config"] = otrc_path
     if args.n_tasks is not None:
         N_TASKS = args.n_tasks
         N_TASKS_OVERRIDE = args.n_tasks

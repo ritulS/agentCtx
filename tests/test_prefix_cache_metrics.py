@@ -36,11 +36,11 @@ def test_missing_details_and_zero_denominator():
 
 
 def test_comparison_signs_and_grouping():
-    log = {"compression_event_steps": [1], "online_trc_flags": [{"step": 1}],
+    log = {"compression_event_steps": [1, 1],
            "model_call_records": [call(1), call(2, 500, 100)]}
     row, = compression_cache_comparisons(log)
     assert (row["before_step"], row["after_step"]) == (1, 2)
-    assert row["compression_kinds"] == ["budget", "online_trc"]
+    assert row["compression_kinds"] == ["budget"]
     assert row["compression_count"] == 2
     assert row["cached_tokens_drop"] == 800
     assert row["cache_hit_rate_drop_pp"] == pytest.approx(70)
@@ -80,8 +80,7 @@ def test_reuse_ratio_may_exceed_one():
     assert row["reuse_ratio_vs_before_processed"] == pytest.approx(400 / 110)
 
 
-@pytest.mark.parametrize("primitive,kinds", [("truncation", ["budget"]),
-    ("online_trc", ["budget", "online_trc"])])
+@pytest.mark.parametrize("primitive,kinds", [("truncation", ["budget"])])
 def test_real_agent_hooks_persist_comparison(tmp_path, primitive, kinds):
     # Same DefaultAgent hook is used by both SWE-Bench and Harbor.
     sys.path.insert(0, str(ROOT))

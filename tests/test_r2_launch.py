@@ -17,7 +17,7 @@ INF = "999999999"
 def _sandbox(tmp: Path) -> tuple[Path, dict]:
     for name in ["scripts/run_experiment_r2.py", "task_lists/swe_verified/p30_stratified.json",
                  "task_lists/swe_verified/p100_minus_p30s.json",
-                 "configs/config-qwen-vllm.yaml", "configs/config-online-trc.yaml"]:
+                 "configs/config-qwen-vllm.yaml"]:
         p = tmp / name
         p.parent.mkdir(parents=True, exist_ok=True)
         p.touch()
@@ -41,13 +41,13 @@ def _opt(argv: list[str], option: str) -> str:
 
 
 class R2P30sLaunchTests(unittest.TestCase):
-    def test_default_cells_are_length_free_summaries_on_p30s(self):
+    def test_default_cell_is_the_length_free_summary_on_p30s(self):
         with tempfile.TemporaryDirectory() as tmp:
             capture, env = _sandbox(Path(tmp))
             subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
             calls = [json.loads(line) for line in capture.read_text().splitlines()]
-        self.assertEqual(len(calls), 2 * 2)
-        self.assertEqual(sum("--eval-only" in c for c in calls), 2)
+        self.assertEqual(len(calls), 2)   # one run + one --eval-only pass
+        self.assertEqual(sum("--eval-only" in c for c in calls), 1)
         for c in calls:
             self.assertEqual(_opt(c, "--r2-section"), "p30s")
             self.assertEqual(_opt(c, "--r2-model"), "qwen35b")
@@ -59,16 +59,14 @@ class R2P30sLaunchTests(unittest.TestCase):
             self.assertEqual(_opt(c, "--ablation"), f"r2-qwen35b-p30s-{cell}")
         self.assertEqual(
             [(_opt(c, "--r2-cell"), _opt(c, "--conditions")) for c in calls if "--eval-only" not in c],
-            [("di__b15k__su-free", "summarization-free"),
-             ("di__b15k__ss-free", "structured-summarize-free")],
+            [("di__b15k__su-free", "summarization-free")],
         )
 
     def test_presets(self):
         expected = {
             "fc": [("di__binf__fc", "full-context", INF)],
-            "otrc": [("di__binf__otrc", "online-trc", INF)],
             "su-free": [("di__b15k__su-free", "summarization-free", "15000")],
-            "baselines": [("di__binf__fc", "full-context", INF), ("di__binf__otrc", "online-trc", INF)],
+            "baselines": [("di__binf__fc", "full-context", INF)],
         }
         for preset, cells in expected.items():
             with self.subTest(preset=preset), tempfile.TemporaryDirectory() as tmp:
@@ -83,15 +81,15 @@ class R2P30sLaunchTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("unknown preset", result.stderr)
             # CELLS wins over the preset.
-            env.update(CELLS="di__b15k__trc:tool-result-clear:0.5", RUN_EVAL="0")
+            env.update(CELLS="d05__b15k__tr:truncation:0.5", RUN_EVAL="0")
             subprocess.run(["bash", str(LAUNCHER), "fc"], env=env, check=True, stdout=subprocess.DEVNULL)
             calls = [json.loads(line) for line in capture.read_text().splitlines()]
-            self.assertEqual([_opt(c, "--r2-cell") for c in calls], ["di__b15k__trc"])
+            self.assertEqual([_opt(c, "--r2-cell") for c in calls], ["d05__b15k__tr"])
 
     def test_overrides_and_bad_cells(self):
         with tempfile.TemporaryDirectory() as tmp:
             capture, env = _sandbox(Path(tmp))
-            env.update(CELLS="di__b20k__trc:tool-result-clear:0.5 di__binf__fc:full-context:0.5",
+            env.update(CELLS="d05__b20k__tr:truncation:0.5 di__binf__fc:full-context:0.5",
                        N_TASKS="2", RUNS_PER_TASK="5", RUN_EVAL="0", R2_MODEL="qwen35b-smoke")
             subprocess.run(["bash", str(LAUNCHER)], env=env, check=True, stdout=subprocess.DEVNULL)
             calls = [json.loads(line) for line in capture.read_text().splitlines()]

@@ -2,9 +2,11 @@
 
 Regression for the 2026-09-08 audit (ICLR_experiments/open_issues/
 resume_audit_20260908): structured summaries carried the model's inline
-``</think>`` preamble, which hid the marker line from TRC's prefix check so the
-summary was cleared as tool output, and put summarisation prose in front of
-the agent.
+``</think>`` preamble, which hid the marker line from the prefix check of the
+(since removed) tool-result clearing, so the summary was cleared as tool
+output, and put summarisation prose in front of the agent. The SS marker
+pair below is the one those summaries carried; clean_summary_text() takes
+any marker pair, and SU-free is the only summarizer primitive left.
 
 Needs tiktoken (imported by the primitives module):
     uvx --with tiktoken --with pyyaml pytest tests/test_summary_cleaning.py
@@ -30,12 +32,17 @@ PREAMBLE = (
     "/testbed/django/db/models/constraints.py\n\nLet me create the summary.\n"
     "</think>\n\n"
 )
+SS_OPEN_MARKER = "[CONTEXT SUMMARY]"       # markers of the removed SS primitives
+SS_CLOSE_MARKER = "[END CONTEXT SUMMARY]"  # (clean_summary_text is marker-agnostic)
 SS_BODY = (
     "[CONTEXT SUMMARY]\n## Task\nFix CheckConstraint SQL.\n\n## Files Modified\nNone\n\n"
     "## Files Examined\n/testbed/django/db/models/constraints.py — builds the SQL\n\n"
     "## Execution Anchors\nNone\n\n## Current State\nNext: edit constraints.py\n"
     "[END CONTEXT SUMMARY]"
 )
+
+
+SU_BODY = f"{memory.SU_OPEN_MARKER}\nExamined file0.py through file5.py.\n{memory.SU_CLOSE_MARKER}"
 
 
 class FakeModel:
@@ -76,7 +83,7 @@ def history(n_steps: int = 6) -> list[dict]:
 class CleanSummaryTextTests(unittest.TestCase):
     def test_think_preamble_is_dropped_and_block_extracted(self):
         raw = PREAMBLE + SS_BODY + "\n\nHope this helps!"
-        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(raw, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertEqual(text, SS_BODY)
         self.assertEqual(
             flags,
@@ -90,7 +97,7 @@ class CleanSummaryTextTests(unittest.TestCase):
         # character transcript copy accepted that way (history 15k -> 31k).
         body = SS_BODY.replace("\n[END CONTEXT SUMMARY]", "")
         text, flags = memory.clean_summary_text(
-            PREAMBLE + body, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER
+            PREAMBLE + body, SS_OPEN_MARKER, SS_CLOSE_MARKER
         )
         self.assertIsNone(text)
         self.assertEqual(flags["rejected"], "missing_close_marker")
@@ -102,7 +109,7 @@ class CleanSummaryTextTests(unittest.TestCase):
         # look complete when the model had started a second one.
         raw = SS_BODY + "\n\n[CONTEXT SUMMARY]\n## Task\nFix Check"
         text, flags = memory.clean_summary_text(
-            raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER, finish_reason="length"
+            raw, SS_OPEN_MARKER, SS_CLOSE_MARKER, finish_reason="length"
         )
         self.assertIsNone(text)
         self.assertEqual(flags["rejected"], "truncated")
@@ -112,7 +119,7 @@ class CleanSummaryTextTests(unittest.TestCase):
         # The same text with finish_reason=stop (or unknown) is accepted.
         for reason in ("stop", None):
             text, flags = memory.clean_summary_text(
-                raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER, finish_reason=reason
+                raw, SS_OPEN_MARKER, SS_CLOSE_MARKER, finish_reason=reason
             )
             self.assertEqual(text, SS_BODY)
             self.assertEqual(flags["finish_reason"], reason)
@@ -164,7 +171,7 @@ class CleanSummaryTextTests(unittest.TestCase):
 
     def test_clean_response_is_unchanged(self):
         text, flags = memory.clean_summary_text(
-            SS_BODY, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER
+            SS_BODY, SS_OPEN_MARKER, SS_CLOSE_MARKER
         )
         self.assertEqual(text, SS_BODY)
         self.assertFalse(flags["had_think_preamble"])
@@ -177,7 +184,7 @@ class CleanSummaryTextTests(unittest.TestCase):
             '## Execution Anchors\nHandle the literal "</think>" in logs.',
         )
         text, flags = memory.clean_summary_text(
-            PREAMBLE + body, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER
+            PREAMBLE + body, SS_OPEN_MARKER, SS_CLOSE_MARKER
         )
         self.assertEqual(text, body)
         self.assertIn("## Task", text)
@@ -219,23 +226,23 @@ class CleanSummaryTextTests(unittest.TestCase):
         # Review round 3 bug: offsets came from the line start, so indentation
         # shifted the cut and an empty block was accepted with a damaged marker.
         raw = "Preface\n  [CONTEXT SUMMARY]\n\n  [END CONTEXT SUMMARY]"
-        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(raw, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertIsNone(text)
         self.assertEqual(flags["rejected"], "empty_body")
         self.assertTrue(flags["had_open_marker"] and flags["had_close_marker"])
 
     def test_indented_markers_are_rewrapped_canonically(self):
         raw = "Preface\n    [CONTEXT SUMMARY]\n    ## Task\n    Fix the bug\n\t[END CONTEXT SUMMARY]\ntrailer"
-        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(raw, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertEqual(
-            text, f"{memory.SS_OPEN_MARKER}\n## Task\n    Fix the bug\n{memory.SS_CLOSE_MARKER}"
+            text, f"{SS_OPEN_MARKER}\n## Task\n    Fix the bug\n{SS_CLOSE_MARKER}"
         )
-        self.assertTrue(text.startswith(memory.SS_OPEN_MARKER))
-        self.assertTrue(text.endswith(memory.SS_CLOSE_MARKER))
+        self.assertTrue(text.startswith(SS_OPEN_MARKER))
+        self.assertTrue(text.endswith(SS_CLOSE_MARKER))
 
     def test_crlf_marker_lines_are_recognised(self):
         raw = PREAMBLE.replace("\n", "\r\n") + SS_BODY.replace("\n", "\r\n")
-        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(raw, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertEqual(text, SS_BODY)
         self.assertTrue(flags["had_open_marker"] and flags["had_close_marker"])
         self.assertNotIn("\r", text)
@@ -246,7 +253,7 @@ class CleanSummaryTextTests(unittest.TestCase):
             "I must use [CONTEXT SUMMARY] and include all five sections.\n"
             "Let me inspect each file.\n</think>\n" + SS_BODY
         )
-        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(raw, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertEqual(text, SS_BODY)
         self.assertTrue(flags["had_think_preamble"])
 
@@ -254,13 +261,13 @@ class CleanSummaryTextTests(unittest.TestCase):
         # Review round 2, case 1c: the reasoning reproduces the whole format on
         # its own lines before closing; the real block follows </think>.
         quoted = "The format is:\n[CONTEXT SUMMARY]\n## Task\n<one sentence>\n[END CONTEXT SUMMARY]\nNow write it.\n</think>\n"
-        text, flags = memory.clean_summary_text(quoted + SS_BODY, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(quoted + SS_BODY, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertEqual(text, SS_BODY)
 
     def test_unterminated_think_containing_marker_is_rejected(self):
         # Review round 2, case 1b.
         raw = "<think>Draft:\n[CONTEXT SUMMARY]\n## Task\nFix the bug\n[END CONTEXT SUMMARY]\nbut I should double-check"
-        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(raw, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertIsNone(text)
         self.assertEqual(flags["rejected"], "unterminated_reasoning")
 
@@ -268,7 +275,7 @@ class CleanSummaryTextTests(unittest.TestCase):
         # A marker glued to other text on the same line is not a marker line;
         # without a marker line the reply is rejected (retried) since 2026-09-27.
         raw = "[CONTEXT SUMMARY] ## Task\nFix the bug\n[END CONTEXT SUMMARY]"
-        text, flags = memory.clean_summary_text(raw, memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER)
+        text, flags = memory.clean_summary_text(raw, SS_OPEN_MARKER, SS_CLOSE_MARKER)
         self.assertFalse(flags["had_open_marker"])
         self.assertTrue(flags["had_close_marker"])
         self.assertIsNone(text)
@@ -276,7 +283,7 @@ class CleanSummaryTextTests(unittest.TestCase):
 
     def test_trailing_text_after_close_marker_is_dropped(self):
         text, _ = memory.clean_summary_text(
-            SS_BODY + "\n\nHope this helps!", memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER
+            SS_BODY + "\n\nHope this helps!", SS_OPEN_MARKER, SS_CLOSE_MARKER
         )
         self.assertEqual(text, SS_BODY)
 
@@ -285,15 +292,15 @@ class CleanSummaryTextTests(unittest.TestCase):
         # marker pair that replaces the history.
         text, flags = memory.clean_summary_text(
             "Let me think about the summary...</think>\n",
-            memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER,
+            SS_OPEN_MARKER, SS_CLOSE_MARKER,
         )
         self.assertIsNone(text)
         self.assertEqual(flags["rejected"], "empty_body")
 
     def test_empty_marked_block_is_rejected(self):
         text, flags = memory.clean_summary_text(
-            f"{memory.SS_OPEN_MARKER}\n\n{memory.SS_CLOSE_MARKER}",
-            memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER,
+            f"{SS_OPEN_MARKER}\n\n{SS_CLOSE_MARKER}",
+            SS_OPEN_MARKER, SS_CLOSE_MARKER,
         )
         self.assertIsNone(text)
         self.assertEqual(flags["rejected"], "empty_body")
@@ -302,7 +309,7 @@ class CleanSummaryTextTests(unittest.TestCase):
         # Review case 2b: an open <think> that never closes (e.g. max_tokens hit).
         text, flags = memory.clean_summary_text(
             "<think>Still working out which files were touched and",
-            memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER,
+            SS_OPEN_MARKER, SS_CLOSE_MARKER,
         )
         self.assertIsNone(text)
         self.assertEqual(flags["rejected"], "unterminated_reasoning")
@@ -323,28 +330,23 @@ class SummaryPrimitiveTests(unittest.TestCase):
         self.assertTrue(msg["extra"]["summary_format"]["had_think_preamble"])
         self.assertTrue(memory.is_summary_message(msg))
 
-    def test_structured_summarize_cleans_and_tags(self):
-        model = FakeModel(PREAMBLE + SS_BODY)
+    def test_summarize_free_cleans_and_tags(self):
+        model = FakeModel(PREAMBLE + SU_BODY)
         msgs = history()
-        result, saved, pt, ct, _ = memory.structured_summarize(msgs, model, 400)
+        result, saved, pt, ct, _ = memory.summarize_free(msgs, model, 400)
         self.assertEqual(result[:2], msgs[:2])
         self.assertEqual(len(result), 3)
-        self.assert_tagged_summary(result[2], memory.SS_OPEN_MARKER)
-        self.assertEqual(result[2]["content"], SS_BODY)
-        self.assertGreater(saved, 0)
-        self.assertEqual((pt, ct), (100, 20))
-
-    def test_summarize_cleans_and_tags(self):
-        reply = PREAMBLE + f"{memory.SU_OPEN_MARKER}\nExamined file0.py through file5.py.\n{memory.SU_CLOSE_MARKER}"
-        result, *_ = memory.summarize(history(), FakeModel(reply), 400)
         self.assert_tagged_summary(result[2], memory.SU_OPEN_MARKER)
+        self.assertEqual(result[2]["content"], SU_BODY)
         self.assertIn("Examined file0.py", result[2]["content"])
         self.assertEqual(result[2]["content"].count(memory.SU_OPEN_MARKER), 1)
+        self.assertGreater(saved, 0)
+        self.assertEqual((pt, ct), (100, 20))
 
     def test_ambiguous_reply_is_retried_then_accepted(self):
         marked = f"{memory.SU_OPEN_MARKER}\nExamined file0.py.\n{memory.SU_CLOSE_MARKER}"
         model = FakeModel([PREAMBLE + "Examined file0.py.", marked])
-        result, *_ = memory.summarize(history(), model, 400)
+        result, *_ = memory.summarize_free(history(), model, 400)
         self.assertEqual(model.calls, 2)
         self.assertEqual(result[2]["content"], marked)
         self.assertEqual(result[2]["extra"]["summary_format"]["attempts"], 2)
@@ -359,55 +361,39 @@ class SummaryPrimitiveTests(unittest.TestCase):
             return original(messages, **kw)
 
         model.query = spy
-        memory.summarize(history(), model, 400)
+        memory.summarize_free(history(), model, 400)
         self.assertIn(memory.SU_OPEN_MARKER, seen["prompt"])
         self.assertIn(memory.SU_CLOSE_MARKER, seen["prompt"])
 
-    def test_partial_variants_keep_tail_and_tag_summary(self):
-        for primitive, reply, marker in (
-            (memory.structured_summarize_partial, PREAMBLE + SS_BODY, memory.SS_OPEN_MARKER),
-            (memory.summarize_partial,
-             PREAMBLE + f"{memory.SU_OPEN_MARKER}\nExamined files.\n{memory.SU_CLOSE_MARKER}",
-             memory.SU_OPEN_MARKER),
-        ):
-            with self.subTest(primitive=primitive.__name__):
-                msgs = history(8)
-                result, saved, *_ = primitive(msgs, FakeModel(reply), 900)
-                self.assertEqual(result[:2], msgs[:2])
-                self.assert_tagged_summary(result[2], marker)
-                self.assertEqual(result[-1], msgs[-1])  # verbatim tail kept
-                self.assertGreater(saved, 0)
-
     def test_rejected_first_attempt_is_retried_once(self):
-        model = FakeModel(["Let me think...</think>", PREAMBLE + SS_BODY])
+        model = FakeModel(["Let me think...</think>", PREAMBLE + SU_BODY])
         msgs = history()
-        result, saved, pt, ct, _ = memory.structured_summarize(msgs, model, 400)
+        result, saved, pt, ct, _ = memory.summarize_free(msgs, model, 400)
         self.assertEqual(model.calls, 2)
-        self.assertEqual(result[2]["content"], SS_BODY)
+        self.assertEqual(result[2]["content"], SU_BODY)
         self.assertEqual(result[2]["extra"]["summary_format"]["attempts"], 2)
         self.assertEqual((pt, ct), (200, 40))  # usage summed over attempts
         self.assertGreater(saved, 0)
 
     def test_all_attempts_rejected_falls_back_to_truncate(self):
-        for primitive in (memory.structured_summarize, memory.summarize,
-                          memory.structured_summarize_partial, memory.summarize_partial):
-            with self.subTest(primitive=primitive.__name__):
-                model = FakeModel("<think>never finishes")
-                msgs = history()
-                result, saved, pt, ct, _ = primitive(msgs, model, 400)
-                self.assertEqual(model.calls, memory.SUMMARY_MAX_ATTEMPTS)
-                self.assertEqual(result[:2], msgs[:2])
-                # No summary was inserted; the history was truncated instead.
-                self.assertFalse(any(memory.is_summary_message(m) for m in result))
-                self.assertTrue(all(m in msgs for m in result))
-                self.assertLessEqual(memory.count_tokens(result), 400)
-                self.assertGreater(saved, 0)
-                self.assertEqual(pt, 100 * memory.SUMMARY_MAX_ATTEMPTS)
+        model = FakeModel("<think>never finishes")
+        msgs = history()
+        result, saved, pt, ct, _ = memory.summarize_free(msgs, model, 400)
+        self.assertEqual(model.calls, memory.SUMMARY_MAX_ATTEMPTS)
+        self.assertEqual(result[:2], msgs[:2])
+        # No summary was inserted; the oldest complete turns were dropped instead
+        # (truncate_oldest_turns: protected head + the latest turn always stay).
+        self.assertFalse(any(memory.is_summary_message(m) for m in result))
+        self.assertTrue(all(m in msgs for m in result))
+        self.assertEqual(result[-2:], msgs[-2:])
+        self.assertLess(len(result), len(msgs))
+        self.assertGreater(saved, 0)
+        self.assertEqual(pt, 100 * memory.SUMMARY_MAX_ATTEMPTS)
 
     def test_outcome_record_after_fallback(self):
         memory.pop_summary_outcome()  # clear
         model = FakeModel(["<think>never finishes", "...</think>"])
-        memory.structured_summarize(history(), model, 400)
+        memory.summarize_free(history(), model, 400)
         outcome = memory.pop_summary_outcome()
         self.assertEqual(outcome["attempts"], memory.SUMMARY_MAX_ATTEMPTS)
         self.assertFalse(outcome["accepted"])
@@ -419,7 +405,7 @@ class SummaryPrimitiveTests(unittest.TestCase):
 
     def test_outcome_record_after_retry_success(self):
         memory.pop_summary_outcome()
-        memory.summarize_partial(
+        memory.summarize_free(
             history(8),
             FakeModel(["...</think>", f"{memory.SU_OPEN_MARKER}\nok\n{memory.SU_CLOSE_MARKER}"]),
             900,
@@ -441,7 +427,7 @@ class SummaryPrimitiveTests(unittest.TestCase):
                 return msg
 
         memory.pop_summary_outcome()
-        memory.summarize_partial(
+        memory.summarize_free(
             history(8),
             IdModel(["...</think>", f"{memory.SU_OPEN_MARKER}\nok\n{memory.SU_CLOSE_MARKER}"]),
             900,
@@ -462,7 +448,7 @@ class SummaryPrimitiveTests(unittest.TestCase):
 
         memory.pop_summary_outcome()
         with self.assertRaisesRegex(RuntimeError, "transport failed"):
-            memory.summarize_partial(history(8), FlakyModel(["...</think>"]), 900)
+            memory.summarize_free(history(8), FlakyModel(["...</think>"]), 900)
         outcome = memory.pop_summary_outcome()
         self.assertEqual(outcome["response_ids"], ["chatcmpl-1"])
         self.assertEqual(outcome["attempts"], 1)
@@ -488,7 +474,7 @@ class SummaryPrimitiveTests(unittest.TestCase):
         open_only = SS_BODY.replace("\n[END CONTEXT SUMMARY]", "") + "\n[user]:\nline 1 of file"
         model = FinishModel([open_only, SS_BODY, SS_BODY], ["length", "stop"])
         text, flags, pt, ct, _ = memory.request_summary(
-            model, [], memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER
+            model, [], SS_OPEN_MARKER, SS_CLOSE_MARKER
         )
         self.assertEqual(text, SS_BODY)
         self.assertEqual(model.calls, 2)
@@ -501,7 +487,7 @@ class SummaryPrimitiveTests(unittest.TestCase):
 
     def test_no_outcome_without_summary_request(self):
         memory.pop_summary_outcome()
-        memory.tool_result_clear(history(), 1, fallback_truncate=False)
+        memory.truncate_oldest_turns(history(), 1)
         self.assertIsNone(memory.pop_summary_outcome())
 
     def test_token_log_dict_reports_summary_outcomes(self):
@@ -519,14 +505,11 @@ class SummaryPrimitiveTests(unittest.TestCase):
             _mem_step_completion_tokens = []
             _mem_summarization_prompt_tokens = 0
             _mem_summarization_latency_s = 0.0
-            _mem_trc_fallback_events = 0
-            _mem_online_trc_flags = []
-            _mem_online_trc_tokens_saved = 0
             _mem_summary_outcomes = [
-                {"step": 12, "primitive": "structured_summarize", "attempts": 2,
+                {"step": 12, "primitive": "summarization_free", "attempts": 2,
                  "accepted": False, "rejections": ["empty_body", "ambiguous_reasoning"],
                  "fallback": "truncate"},
-                {"step": 30, "primitive": "structured_summarize", "attempts": 1,
+                {"step": 30, "primitive": "summarization_free", "attempts": 1,
                  "accepted": True, "rejections": [], "fallback": None},
             ]
 
@@ -554,9 +537,6 @@ class SummaryPrimitiveTests(unittest.TestCase):
             _mem_step_completion_tokens = []
             _mem_summarization_prompt_tokens = 0
             _mem_summarization_latency_s = 0.0
-            _mem_trc_fallback_events = 0
-            _mem_online_trc_flags = []
-            _mem_online_trc_tokens_saved = 0
 
         data = memory.token_log_dict(Agent())
         self.assertEqual(data["total_tokens_saved"], 44004)
@@ -566,7 +546,7 @@ class SummaryPrimitiveTests(unittest.TestCase):
     def test_max_attempts_override(self):
         model = FakeModel("...</think>")
         text, flags, *_ = memory.request_summary(
-            model, [], memory.SS_OPEN_MARKER, memory.SS_CLOSE_MARKER, max_attempts=3
+            model, [], SS_OPEN_MARKER, SS_CLOSE_MARKER, max_attempts=3
         )
         self.assertIsNone(text)
         self.assertEqual(model.calls, 3)
@@ -580,63 +560,35 @@ class SummaryPrimitiveTests(unittest.TestCase):
             def format_message(self, **kwargs):
                 return {**kwargs, "extra": {"uid": "u00042"}}
 
-        result, *_ = memory.structured_summarize(history(), ExtraModel(SS_BODY), 400)
+        result, *_ = memory.summarize_free(history(), ExtraModel(SU_BODY), 400)
         self.assertEqual(result[2]["extra"]["uid"], "u00042")
         self.assertEqual(result[2]["extra"]["kind"], memory.SUMMARY_KIND)
 
 
-class TrcProtectionTests(unittest.TestCase):
-    """Reproduces the audit's local check: a summary followed by more turns,
-    then TRC with an unreachable target, must never clear the summary."""
+class IsSummaryMessageTests(unittest.TestCase):
+    """is_summary_message(): the structural tag, then the legacy marker prefixes
+    (what the removed tool-result clearing used to decide what it may clear)."""
 
-    def continued(self, summary_msg):
-        msgs = history(2)[:2] + [summary_msg]
-        for i in range(6):
-            msgs.append({"role": "assistant", "content": f"```bash\ncat more{i}.py\n```"})
-            msgs.append({"role": "user", "content": f"more{i} output\n" * 40})
-        return msgs
-
-    def check_protected(self, summary_msg):
-        msgs = self.continued(summary_msg)
-        # Unreachable target, no truncate fallback: every eligible output is cleared.
-        out, _, used_fallback = memory.tool_result_clear(list(msgs), 1, fallback_truncate=False)
-        self.assertFalse(used_fallback)
-        self.assertEqual(out[2], summary_msg)
-        cleared = [m for m in out[3:] if m["content"].startswith("[TOOL OUTPUT CLEARED")]
-        self.assertTrue(cleared, "TRC should still clear ordinary tool output")
-        # Scored TRC always falls back to truncate() when clearing is not enough,
-        # so give it a target that clearing alone can reach.
-        reachable = memory.count_tokens(out)
-        out2, _, used_fallback = memory.scored_tool_result_clear(list(msgs), reachable)
-        self.assertFalse(used_fallback)
-        self.assertEqual(out2[2], summary_msg)
-        self.assertTrue(any(m["content"].startswith("[TOOL OUTPUT CLEARED") for m in out2[3:]))
-
-    def test_tagged_summary_is_protected_even_without_marker(self):
-        # Structural tag alone protects (e.g. a future format without markers).
-        self.check_protected(
+    def test_tagged_summary_is_recognised_even_without_marker(self):
+        self.assertTrue(memory.is_summary_message(
             {"role": "user", "content": "free-form summary text", "extra": {"kind": memory.SUMMARY_KIND}}
-        )
+        ))
 
-    def test_legacy_marker_summary_is_protected(self):
-        self.check_protected({"role": "user", "content": SS_BODY})
-        self.check_protected(
+    def test_legacy_marker_summaries_are_recognised(self):
+        self.assertTrue(memory.is_summary_message({"role": "user", "content": SS_BODY}))
+        self.assertTrue(memory.is_summary_message(
             {"role": "user", "content": f"{memory.SU_OPEN_MARKER}\nold prose\n{memory.SU_CLOSE_MARKER}"}
-        )
+        ))
 
-    def test_new_pipeline_summary_is_protected(self):
-        result, *_ = memory.structured_summarize(history(), FakeModel(PREAMBLE + SS_BODY), 400)
-        self.check_protected(result[2])
+    def test_new_pipeline_summary_is_recognised(self):
+        result, *_ = memory.summarize_free(history(), FakeModel(PREAMBLE + SU_BODY), 400)
+        self.assertTrue(memory.is_summary_message(result[2]))
 
     def test_untagged_preamble_summary_is_the_old_bug(self):
         # Documents the failure mode the cleaning removes: without the tag and
-        # with the preamble, both TRC variants treat the summary as tool output.
-        msgs = self.continued({"role": "user", "content": PREAMBLE + SS_BODY})
-        # A legacy user turn is now recognized as output only after an
-        # assistant, rather than treating every user message as a result.
-        msgs.insert(2, {"role": "assistant", "content": "previous command"})
-        out, *_ = memory.tool_result_clear(list(msgs), 1, fallback_truncate=False)
-        self.assertTrue(out[3]["content"].startswith("[TOOL OUTPUT CLEARED"))
+        # with the preamble, the summary reads as ordinary tool output.
+        self.assertFalse(memory.is_summary_message({"role": "user", "content": PREAMBLE + SS_BODY}))
+        self.assertFalse(memory.is_summary_message({"role": "user", "content": "ls output"}))
 
 
 if __name__ == "__main__":

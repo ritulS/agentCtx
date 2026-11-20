@@ -1,7 +1,4 @@
-"""Length-free summaries (SU-free / SS-free) never put a word target in the prompt.
-
-Also pins the prompt refactor: summarize() / structured_summarize() build the
-same prompt text as before through the shared _su_prompt / _ss_prompt helpers.
+"""The length-free summary (SU-free) never puts a word target in the prompt.
 
 Needs tiktoken (imported by the primitives module):
     uvx --with tiktoken --with pyyaml pytest tests/test_summary_free.py
@@ -67,7 +64,6 @@ class SummaryFreeTests(unittest.TestCase):
     def test_free_variants_have_no_word_target_and_are_target_invariant(self):
         for primitive, tail in (
             (memory.summarize_free, "concisely. Your summary MUST include all of:"),
-            (memory.structured_summarize_free, "Produce a concise structured summary of the agent conversation below. Use EXACTLY"),
         ):
             with self.subTest(primitive=primitive.__name__):
                 prompts = []
@@ -87,22 +83,8 @@ class SummaryFreeTests(unittest.TestCase):
                 self.assertNotIn("approximately", prompts[0])
                 self.assertIsNone(re.search(r"\d+ words", prompts[0]))
 
-    def test_sized_variants_still_carry_the_word_target(self):
-        for primitive in (memory.summarize, memory.structured_summarize):
-            with self.subTest(primitive=primitive.__name__):
-                (_, prompt_lo), (_, prompt_hi) = (
-                    self._run(primitive, 400, "summary body"),
-                    self._run(primitive, 4000, "summary body"),
-                )
-                lo = re.search(r"approximately (\d+) words", _user_prompt(prompt_lo))
-                hi = re.search(r"approximately (\d+) words", _user_prompt(prompt_hi))
-                self.assertIsNotNone(lo)
-                self.assertIsNotNone(hi)
-                self.assertLess(int(lo.group(1)), int(hi.group(1)))
-                self.assertNotIn("length_free", str(prompt_lo))
-
     def test_free_variants_fall_back_to_complete_turns_at_target(self):
-        for primitive in (memory.summarize_free, memory.structured_summarize_free):
+        for primitive in (memory.summarize_free,):
             with self.subTest(primitive=primitive.__name__):
                 (result, saved, pt, ct, _), _ = self._run(primitive, 200, None)
                 expected = _messages()[:2] + _messages()[-2:]

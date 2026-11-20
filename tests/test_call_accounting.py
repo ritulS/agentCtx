@@ -129,7 +129,7 @@ class CallAccountingTests(unittest.TestCase):
     def test_last_compression_before_format_error_survives_step_limit_exit(self):
         from scripts.maintenance.reconstruct_context import Replay
 
-        os.environ['MSWEA_PRIMITIVE'] = 'tool_result_clear'
+        os.environ['MSWEA_PRIMITIVE'] = 'truncation'
         os.environ['MSWEA_TOKEN_BUDGET'] = '1000'
         agent = self.agent(seed_history=False, step_limit=3)
         valid = self.response('```mswea_bash_command\necho ok\n```')
@@ -156,7 +156,7 @@ class CallAccountingTests(unittest.TestCase):
         self.assertEqual(agent.n_calls, 1)
 
     def test_every_budget_compression_is_saved_before_failed_query(self):
-        for primitive in ['tool_result_clear', 'truncation', 'summarization_free', 'structured_summarize_free']:
+        for primitive in ['truncation', 'summarization_free']:
             with self.subTest(primitive=primitive):
                 os.environ['MSWEA_PRIMITIVE'] = primitive
                 os.environ['MSWEA_TOKEN_BUDGET'] = '100'
@@ -175,8 +175,8 @@ class CallAccountingTests(unittest.TestCase):
                     out = messages[:2] + [{'role': 'user', 'content': 'summary', 'extra': {'kind': 'summary'}}]
                     return out, memory.count_tokens(messages) - memory.count_tokens(out), 10, 5, 0.2
                 with patch.object(memory, 'summarize_free', side_effect=summary), patch.object(
-                    memory, 'structured_summarize_free', side_effect=summary
-                ), patch.object(self.model, 'query', side_effect=fail):
+                    self.model, 'query', side_effect=fail
+                ):
                     with self.assertRaisesRegex(RuntimeError, 'transport failed'):
                         agent.query()
                 record = self.log()['model_call_records'][-1]
@@ -185,7 +185,7 @@ class CallAccountingTests(unittest.TestCase):
                 self.assertIsNone(record['completion_tokens'])
 
     def test_interrupted_summarizer_keeps_response_ids(self):
-        os.environ['MSWEA_PRIMITIVE'] = 'summarization'
+        os.environ['MSWEA_PRIMITIVE'] = 'summarization_free'
         os.environ['MSWEA_TOKEN_BUDGET'] = '100'
         agent = self.agent()
         for i in range(6):
@@ -213,12 +213,12 @@ class CallAccountingTests(unittest.TestCase):
         self.assertEqual(outcomes[0]['interrupted'], 'RuntimeError')
         self.assertEqual(outcomes[0]['interrupted_attempt'], 2)
         self.assertFalse(outcomes[0]['accepted'])
-        self.assertEqual(outcomes[0]['primitive'], 'summarization')
+        self.assertEqual(outcomes[0]['primitive'], 'summarization_free')
         agent._write_token_log()         # idempotent: no duplicate entry
         self.assertEqual(len(self.log()['summary_outcomes']), 1)
 
     def test_completed_summary_event_records_ids_once(self):
-        os.environ['MSWEA_PRIMITIVE'] = 'summarization'
+        os.environ['MSWEA_PRIMITIVE'] = 'summarization_free'
         os.environ['MSWEA_TOKEN_BUDGET'] = '100'
         agent = self.agent()
         for i in range(6):

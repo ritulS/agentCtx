@@ -25,18 +25,7 @@ CELL_RE = re.compile(r"^(d03|d05|d07|di)__(b(?:[1-9][0-9]*k|A|P|B|inf))__[a-z0-9
 MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 CONDITION_TO_PRIMITIVE = {
     "truncation": "tr",
-    "summarization": "su-full",
-    "summarization-partial": "su-partial",
-    "structured-summarize": "ss",
-    "structured-summarize-partial": "ss-partial",
-    "tool-result-clear": "trc",
-    "trc-su": "trc-su",
-    "trc-ss": "trc-ss",
-    "otrc-tr": "otrc-tr",
-    "otrc-su-partial": "otrc-su-partial",
-    "otrc-ss-partial": "otrc-ss-partial",
     "full-context": "fc",
-    "online-trc": "otrc",
     "online-claude-extract": "oce",
     "online-claude-select": "ocs",
     "online-claude-select-anchored": "ocsa",
@@ -45,37 +34,17 @@ CONDITION_TO_PRIMITIVE = {
     "online-claude-select-threshold-output-extract": "ocstx",
     "online-claude-select-threshold-output-extract-15k": "ocstx15",
     "online-claude-select-threshold-output-extract-15k-phase": "ocstx15p",
-    "online-jev-full-select": "ojfs",
-    "online-jev-full-select-budget": "ojfsb",
-    "online-jev-full-select-budget-lines": "ojfsbl",
-    "online-jev-full-select-budget-lines-stuck": "ojfsblg",
-    "online-jev-full-select-threshold-budget-lines-stuck": "ojfstblg",
-    "online-jev-full-select-threshold-15k-budget-lines-stuck": "ojfstblg15",
-    "online-jev-full-select-threshold": "ojfst",
-    "online-jev-full-select-threshold-15k": "ojfst15",
-    "online-jev-full-select-threshold-output-extract": "ojfstx",
-    "online-jev-full-select-threshold-lines": "ojfstl",
-    "online-jev-full-select-threshold-15k-lines": "ojfstl15",
-    "online-jev-full-select-threshold-jev-output-extract": "ojfstxj",
-    "clm": "clm",
-    # Length-free summaries (depth-invariant: no word target, so ``di__`` cells).
+    # Length-free summary (depth-invariant: no word target, so a ``di__`` cell).
     "summarization-free": "su-free",
-    "structured-summarize-free": "ss-free",
 }
-INFINITE_BUDGET_CONDITIONS = {"full-context", "online-trc", "online-claude-extract", "online-claude-select",
+# Cells of the conditions removed 2026-11-19 (su-full, su-partial, ss, ss-partial,
+# ss-free, trc, trc-su, trc-ss, otrc, otrc-*, clm, the ojf* Jev cells) stay valid
+# directory names in the data trees; they can no longer be launched.
+INFINITE_BUDGET_CONDITIONS = {"full-context", "online-claude-extract", "online-claude-select",
                               "online-claude-select-anchored", "online-claude-select-incremental",
                               "online-claude-select-threshold", "online-claude-select-threshold-output-extract",
                               "online-claude-select-threshold-output-extract-15k",
-                              "online-claude-select-threshold-output-extract-15k-phase",
-                              "online-jev-full-select", "online-jev-full-select-budget", "online-jev-full-select-budget-lines",
-                              "online-jev-full-select-budget-lines-stuck",
-                              "online-jev-full-select-threshold-budget-lines-stuck",
-                              "online-jev-full-select-threshold-15k-budget-lines-stuck",
-                              "online-jev-full-select-threshold",
-                              "online-jev-full-select-threshold-15k",
-                              "online-jev-full-select-threshold-output-extract",
-                              "online-jev-full-select-threshold-lines", "online-jev-full-select-threshold-15k-lines",
-                              "online-jev-full-select-threshold-jev-output-extract"}
+                              "online-claude-select-threshold-output-extract-15k-phase"}
 
 
 def canonical_cell(
@@ -232,8 +201,7 @@ def validate_cell_semantics(cell: str, runner_args: list[str], destination: Path
             f"cell primitive {primitive!r} does not match condition {condition!r}"
         )
     depth_tunable = {
-        "truncation", "summarization", "summarization-partial",
-        "structured-summarize", "structured-summarize-partial",
+        "truncation",
     }
     if (condition in depth_tunable) != (depth_tag != "di"):
         raise SystemExit(f"cell depth tag {depth_tag} is invalid for condition {condition!r}")

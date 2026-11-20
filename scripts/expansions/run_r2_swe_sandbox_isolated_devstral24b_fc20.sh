@@ -71,82 +71,6 @@
 #                                           "continue"), and fires without asking above
 #                                           30000 tokens (MSWEA_PHASE_GATE_FORCE_ABOVE). Not
 #                                           part of `all`.
-#   ojfs                di__binf__ojfs      online-jev-full-select (added 2026-11-17 as ojs,
-#                                           renamed 2026-11-18): the selector backend switched to
-#                                           TypeSafe's Jev decision model (MSWEA_SELECT_BACKEND=jev):
-#                                           ONE request per selection whose state is the task,
-#                                           the COMPLETE history and the newest turn, and whose
-#                                           questions are one noul per history message ("the
-#                                           agent still needs message <uid>"), so Jev can tell a
-#                                           superseded or repeated message (the local form, one
-#                                           request per message with the candidate alone, was
-#                                           removed 2026-11-18). A message is kept whole when its
-#                                           probability clears 0.5 (+0.15 for messages in the
-#                                           previous context); under the 30000-token cap the kept
-#                                           messages are ranked by probability. No line ranges,
-#                                           no re-queries. Needs TYPESAFE_API_KEY (or
-#                                           ~/.config/agentctx/typesafe_api_key); the OpenRouter
-#                                           selector settings below are unused. Not part of `all`.
-#   ojfsb               di__binf__ojfsb     online-jev-full-select-budget (added 2026-11-18): ojfs
-#                                           with the question in the `budget` wording
-#                                           (MSWEA_JEV_QUESTION=budget: "on the kept side of a
-#                                           fixed-budget trim, relative to the rest of the
-#                                           history, whatever the task's progress"), because
-#                                           under the `needed` wording Jev's probabilities fall
-#                                           with progress and 0.5 keeps almost nothing; the
-#                                           budget wording's p >= 0.5 share tracked the
-#                                           generative selector's kept share on 12 probed
-#                                           firings. Per-step firing like ocsa (hysteresis
-#                                           +0.15, cap 30000). Jev key only. Not part of `all`.
-#   ojfsbl              di__binf__ojfsbl    online-jev-full-select-budget-lines (added 2026-11-18):
-#                                           ojfsb plus the ojfstl line-level selection (a kept
-#                                           observation above 1000 tokens is judged line by line
-#                                           by Jev at every firing and kept as line ranges, top
-#                                           15% of lines + 1-line pad), the Jev counterpart of
-#                                           ocsa's line keeps. Jev key only. Not part of `all`.
-#   ojfsblg             di__binf__ojfsblg   online-jev-full-select-budget-lines-stuck (added
-#                                           2026-11-18 evening): ojfsbl plus the stuck gate
-#                                           (MSWEA_JEV_STUCK_GATE=4): one extra Jev question per
-#                                           selection, "the agent is stuck (its newest steps
-#                                           repeat earlier ones)"; at >= 0.5 the newest 4 turns
-#                                           of the window are kept whole whatever their p, so
-#                                           the agent keeps the record of what it just tried
-#                                           (the ojfsbl sympy-14531 collapse). Jev key only.
-#                                           Not part of `all`.
-#   ojfstblg            di__binf__ojfstblg  online-jev-full-select-threshold-budget-lines-stuck
-#                                           (added 2026-11-19): the THRESHOLD form (fire above
-#                                           30000, cap 20000 as an upper bound only) with the
-#                                           budget wording (amount = Jev's p >= 0.5 share),
-#                                           turn units (command + observations together), the
-#                                           ojfstl line rule and the stuck gate (k=4). Jev key
-#                                           only. Not part of `all`.
-#   ojfstblg15          di__binf__ojfstblg15 online-jev-full-select-threshold-15k-budget-lines-stuck
-#                                           (added 2026-11-19): ojfstblg at threshold 15000 /
-#                                           cap 10000. Jev key only. Not part of `all`.
-#   ojfst               di__binf__ojfst     online-jev-full-select-threshold (added 2026-11-17 as
-#                                           ojst): the Jev backend fired like ocst (above 30000
-#                                           tokens, cap 20000). Not part of `all`.
-#   ojfst15             di__binf__ojfst15   online-jev-full-select-threshold-15k (added 2026-11-18
-#                                           as ojst15): ojfst at threshold 15000 / cap 10000.
-#                                           Not part of `all`.
-#   ojfstx              di__binf__ojfstx    online-jev-full-select-threshold-output-extract (added
-#                                           2026-11-17 as ojstx): ojfst plus the ocstx per-output
-#                                           pre-extraction, which still uses the OpenRouter
-#                                           extractor model (both keys needed). Not part of `all`.
-#   ojfstl              di__binf__ojfstl    online-jev-full-select-threshold-lines (added 2026-11-18
-#                                           as ojstl): ojfst plus line-level selection by Jev at
-#                                           firing time (MSWEA_JEV_SELECT_LINES=1000: a kept
-#                                           observation above 1000 tokens is judged line by line
-#                                           and kept as line ranges; top 15% of lines + 1 line
-#                                           pad). Jev key only. Not part of `all`.
-#   ojfstl15            di__binf__ojfstl15  online-jev-full-select-threshold-15k-lines (added
-#                                           2026-11-18 as ojstl15): ojfstl at the ojfst15
-#                                           threshold / cap (15000 / 10000). Not part of `all`.
-#   ojfstxj             di__binf__ojfstxj   online-jev-full-select-threshold-jev-output-extract
-#                                           (added 2026-11-18 as ojstxj): ojfstx with the
-#                                           per-output pre-extraction answered by Jev
-#                                           (MSWEA_OUTPUT_EXTRACT_BACKEND=jev), so the Jev key
-#                                           alone suffices. Not part of `all`.
 #   su-free             di__b21k__su-free   length-free summarization at Devstral's
 #                                           primary ICLR budget 21k, summarizer = the
 #                                           agent model
@@ -259,18 +183,6 @@ CELL_OCST="di__binf__ocst:online-claude-select-threshold:0.5"
 CELL_OCSTX="di__binf__ocstx:online-claude-select-threshold-output-extract:0.5"
 CELL_OCSTX15="di__binf__ocstx15:online-claude-select-threshold-output-extract-15k:0.5"
 CELL_OCSTX15P="di__binf__ocstx15p:online-claude-select-threshold-output-extract-15k-phase:0.5"
-CELL_OJFS="di__binf__ojfs:online-jev-full-select:0.5"
-CELL_OJFSB="di__binf__ojfsb:online-jev-full-select-budget:0.5"
-CELL_OJFSBL="di__binf__ojfsbl:online-jev-full-select-budget-lines:0.5"
-CELL_OJFSBLG="di__binf__ojfsblg:online-jev-full-select-budget-lines-stuck:0.5"
-CELL_OJFSTBLG="di__binf__ojfstblg:online-jev-full-select-threshold-budget-lines-stuck:0.5"
-CELL_OJFSTBLG15="di__binf__ojfstblg15:online-jev-full-select-threshold-15k-budget-lines-stuck:0.5"
-CELL_OJFST="di__binf__ojfst:online-jev-full-select-threshold:0.5"
-CELL_OJFST15="di__binf__ojfst15:online-jev-full-select-threshold-15k:0.5"
-CELL_OJFSTX="di__binf__ojfstx:online-jev-full-select-threshold-output-extract:0.5"
-CELL_OJFSTL="di__binf__ojfstl:online-jev-full-select-threshold-lines:0.5"
-CELL_OJFSTL15="di__binf__ojfstl15:online-jev-full-select-threshold-15k-lines:0.5"
-CELL_OJFSTXJ="di__binf__ojfstxj:online-jev-full-select-threshold-jev-output-extract:0.5"
 CELL_SUFREE="di__b21k__su-free:summarization-free:0.5"
 CELL_FC="di__binf__fc:full-context:0.5"
 case "$PRESET" in
@@ -281,22 +193,10 @@ case "$PRESET" in
     ocstx)   default_cells="$CELL_OCSTX" ;;
     ocstx15) default_cells="$CELL_OCSTX15" ;;
     ocstx15p) default_cells="$CELL_OCSTX15P" ;;
-    ojfs)     default_cells="$CELL_OJFS" ;;
-    ojfsb)    default_cells="$CELL_OJFSB" ;;
-    ojfsbl)   default_cells="$CELL_OJFSBL" ;;
-    ojfsblg)  default_cells="$CELL_OJFSBLG" ;;
-    ojfstblg) default_cells="$CELL_OJFSTBLG" ;;
-    ojfstblg15) default_cells="$CELL_OJFSTBLG15" ;;
-    ojfst)    default_cells="$CELL_OJFST" ;;
-    ojfst15)  default_cells="$CELL_OJFST15" ;;
-    ojfstx)   default_cells="$CELL_OJFSTX" ;;
-    ojfstl)   default_cells="$CELL_OJFSTL" ;;
-    ojfstl15) default_cells="$CELL_OJFSTL15" ;;
-    ojfstxj)  default_cells="$CELL_OJFSTXJ" ;;
     su-free) default_cells="$CELL_SUFREE" ;;
     fc)      default_cells="$CELL_FC" ;;
     all)     default_cells="$CELL_OCS $CELL_SUFREE $CELL_FC" ;;
-    *) echo "[ERROR] preset must be ocs | ocsa | ocsi | ocst | ocstx | ocstx15 | ocstx15p | ojfs | ojfsb | ojfsbl | ojfsblg | ojfstblg | ojfstblg15 | ojfst | ojfst15 | ojfstx | ojfstl | ojfstl15 | ojfstxj | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
+    *) echo "[ERROR] preset must be ocs | ocsa | ocsi | ocst | ocstx | ocstx15 | ocstx15p | su-free | fc | all (got '$PRESET'); or set CELLS" >&2; exit 1 ;;
 esac
 export CELLS="${CELLS:-$default_cells}"
 export N_TASKS="${N_TASKS:-1}"
@@ -392,21 +292,12 @@ fi
 # The OCS cell calls the selector from inside every agent run: check the key
 # before the first server start rather than minutes in. Skipped for DRY_RUN=1
 # (the plan can be printed on a machine without the key).
-if [[ " $CELLS " == *":online-jev-"* && "${DRY_RUN:-0}" != 1 ]]; then
-    key_file="${AGENTCTX_TYPESAFE_API_KEY_FILE:-$HOME/.config/agentctx/typesafe_api_key}"
-    if [[ -z "${TYPESAFE_API_KEY:-}" && ! -s "$key_file" ]]; then
-        echo "[ERROR] the Jev cells need a TypeSafe key: export TYPESAFE_API_KEY or write it to $key_file (chmod 600);" >&2
-        echo "        check with: venv/bin/python scripts/maintenance/probe_jev_select.py <run_dir> --steps 10" >&2
-        exit 1
-    fi
-fi
 # The extractor model's key is needed by every online-claude cell and by the output
-# pre-extraction, except where Jev answers it (the -jev-output-extract cells, ojfstxj).
+# pre-extraction.
 needs_extractor=0
 for cell in $CELLS; do
     case "$cell" in
         *:online-claude-*)      needs_extractor=1 ;;
-        *-jev-output-extract*)  ;;
         *-output-extract*)      needs_extractor=1 ;;
     esac
 done
